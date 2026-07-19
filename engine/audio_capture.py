@@ -182,8 +182,10 @@ class AudioCapture:
             msg = str(e).lower()
             if "denied" in msg or "permission" in msg or "not authorized" in msg:
                 return False, (
-                    "Izin mikrofon ditolak. "
-                    "macOS: System Settings → Privacy & Security → Microphone. "
+                    "Izin mikrofon ditolak untuk Trareon Transcribe. "
+                    "macOS: System Settings → Privacy & Security → Microphone → "
+                    "aktifkan «Trareon Transcribe» (bukan «Python»). "
+                    "Jalankan via ./scripts/run_mac_app.sh agar dialog izin memakai nama app. "
                     "Windows: Settings → Privacy → Microphone."
                 )
             return False, f"Mikrofon tidak bisa diakses: {e}"

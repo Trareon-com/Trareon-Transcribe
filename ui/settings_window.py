@@ -8,11 +8,13 @@ from pathlib import Path
 
 import customtkinter as ctk
 
+from config.branding import APP_NAME, set_window_icon
 from config.keyring_store import get_hf_token, set_hf_token
 from config.paths import logs_dir, models_dir
 from config.settings import Settings
 from engine.audio_capture import AudioCapture
 from engine.tone_test import run_tone_test
+from setup.model_dl import download_model, ensure_whisper_binary
 from util.threading_helpers import run_in_thread
 
 
@@ -21,8 +23,9 @@ class SettingsWindow(ctk.CTkToplevel):
         super().__init__(master)
         self.settings = settings
         self.on_saved = on_saved
-        self.title("Settings")
-        self.geometry("520x560")
+        self.title(f"Settings — {APP_NAME}")
+        self.geometry("520x600")
+        set_window_icon(self)
         self.transient(master)
 
         self.model_var = ctk.StringVar(value=settings.model)
@@ -61,13 +64,24 @@ class SettingsWindow(ctk.CTkToplevel):
         ctk.CTkLabel(form, text=f"Audio devices detected: {len(names)}").pack(anchor="w", pady=(10, 0))
 
         row = ctk.CTkFrame(form, fg_color="transparent")
-        row.pack(fill="x", pady=12)
+        row.pack(fill="x", pady=8)
         ctk.CTkButton(row, text="Test audio routing", command=self._tone).pack(side="left", padx=4)
+        ctk.CTkButton(row, text="Unduh model", command=self._download_model).pack(side="left", padx=4)
         ctk.CTkButton(row, text="Buka log", command=lambda: self._open(logs_dir())).pack(side="left", padx=4)
-        ctk.CTkButton(row, text="Buka cache model", command=lambda: self._open(models_dir())).pack(side="left", padx=4)
-        ctk.CTkButton(row, text="Buka library", command=lambda: self._open(Path(self.library_var.get()))).pack(
+
+        row2 = ctk.CTkFrame(form, fg_color="transparent")
+        row2.pack(fill="x", pady=4)
+        ctk.CTkButton(row2, text="Buka cache model", command=lambda: self._open(models_dir())).pack(
             side="left", padx=4
         )
+        ctk.CTkButton(row2, text="Buka library", command=lambda: self._open(Path(self.library_var.get()))).pack(
+            side="left", padx=4
+        )
+        ctk.CTkButton(row2, text="Ulangi Setup", command=self._rerun_setup).pack(side="left", padx=4)
+
+        self.bar = ctk.CTkProgressBar(form, width=400)
+        self.bar.set(0)
+        self.bar.pack(pady=8)
 
         ctk.CTkLabel(self, textvariable=self.status, wraplength=480).pack(pady=4)
         ctk.CTkButton(self, text="Simpan", command=self._save).pack(pady=10)
@@ -102,6 +116,32 @@ class SettingsWindow(ctk.CTkToplevel):
             self.after(0, lambda: self.status.set(res.message))
 
         run_in_thread(work)
+
+    def _download_model(self) -> None:
+        model = self.model_var.get()
+        self.status.set(f"Mengunduh {model}…")
+
+        def progress(name: str, frac: float) -> None:
+            self.after(0, lambda: (self.bar.set(frac), self.status.set(f"{name} {frac*100:.0f}%")))
+
+        def work() -> None:
+            try:
+                ensure_whisper_binary(progress=progress)
+                download_model(model, progress=progress)
+                self.settings.model = model
+                self.settings.save()
+                self.after(0, lambda: self.status.set(f"Model {model} siap."))
+                self.after(0, lambda: self.bar.set(1.0))
+            except Exception as exc:
+                err = str(exc)
+                self.after(0, lambda m=err: self.status.set(f"Gagal unduh: {m}"))
+
+        run_in_thread(work)
+
+    def _rerun_setup(self) -> None:
+        self.settings.setup_complete = False
+        self.settings.save()
+        self.status.set("Setup akan muncul saat app dibuka ulang. Tutup & jalankan lagi.")
 
     def _open(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)

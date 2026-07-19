@@ -6,11 +6,12 @@ import tkinter as tk
 import tkinter.messagebox as messagebox
 
 import customtkinter as ctk
-import psutil
 
+from config.branding import APP_NAME, set_window_icon
 from config.settings import Settings
 from engine.pipeline import Pipeline, PipelineStatus
 from engine.session_store import Session, TranscriptSegment, find_inprogress
+from engine.stt import WhisperCppStt
 from export.naming import detect_meeting_title
 from export.writer import format_caption_line
 from setup.disk import MIN_SESSION_FREE, ensure_space
@@ -28,10 +29,16 @@ class MainWindow(ctk.CTk):
         super().__init__()
         self.settings = settings
         self.colors = apply_theme(settings.theme)
-        self.title("Trareon Transcribe")
-        self.geometry(settings.window_geometry or "920x640")
+        self.title(APP_NAME)
+        set_window_icon(self)
+        geo = settings.window_geometry or "920x640"
+        if "x" in geo and "+" not in geo:
+            self.geometry(f"{geo}+120+80")
+        else:
+            self.geometry(geo)
         if settings.window_x is not None and settings.window_y is not None:
-            self.geometry(f"+{settings.window_x}+{settings.window_y}")
+            if settings.window_x >= -20 and settings.window_y >= -20:
+                self.geometry(f"{geo.split('+')[0]}+{settings.window_x}+{settings.window_y}")
         self.attributes("-topmost", settings.always_on_top)
 
         self.events = UiEventQueue()
@@ -48,6 +55,7 @@ class MainWindow(ctk.CTk):
         self.timer_var = ctk.StringVar(value="00:00:00")
         self.res_var = ctk.StringVar(value="CPU —  RAM —")
         self.banner_var = ctk.StringVar(value="")
+        self.ready_var = ctk.StringVar(value="")
         self.mic_var = ctk.StringVar(value="ON")
         self.spk_var = ctk.StringVar(value="ON")
 
@@ -55,7 +63,7 @@ class MainWindow(ctk.CTk):
         self._bind_keys()
         self._apply_mode_defaults()
         self._prefill_title()
-        self._update_tone_banner()
+        self.refresh_readiness()
 
         self.tray = TrayController(on_show=self._show_from_tray, on_quit=self._quit_app)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -66,12 +74,15 @@ class MainWindow(ctk.CTk):
     def _build(self) -> None:
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=16, pady=(12, 4))
-        ctk.CTkLabel(header, text="Trareon Transcribe", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        ctk.CTkLabel(header, text=APP_NAME, font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
         ctk.CTkButton(header, text="☀/🌙", width=48, command=self._toggle_theme).pack(side="right", padx=4)
         ctk.CTkButton(header, text="Settings", width=80, command=self._open_settings).pack(side="right", padx=4)
         ctk.CTkButton(header, text="Library", width=80, command=self._open_library).pack(side="right", padx=4)
 
         ctk.CTkLabel(self, textvariable=self.banner_var, text_color="#C0392B", wraplength=860).pack(
+            fill="x", padx=16
+        )
+        ctk.CTkLabel(self, textvariable=self.ready_var, text_color=("gray40", "gray65"), wraplength=860).pack(
             fill="x", padx=16
         )
 
@@ -130,15 +141,31 @@ class MainWindow(ctk.CTk):
         ).pack(pady=(0, 10))
 
     def _bind_keys(self) -> None:
-        self.bind("<space>", lambda e: self._toggle_record())
-        self.bind("m", lambda e: self._toggle_mic())
-        self.bind("M", lambda e: self._toggle_mic())
-        self.bind("s", lambda e: self._toggle_spk())
-        self.bind("S", lambda e: self._toggle_spk())
-        self.bind("e", lambda e: self._export())
-        self.bind("E", lambda e: self._export())
-        self.bind("t", lambda e: self._minimize_tray())
-        self.bind("<comma>", lambda e: self._open_settings())
+        self.bind("<space>", self._hotkey_record)
+        self.bind("m", lambda e: self._hotkey(self._toggle_mic))
+        self.bind("M", lambda e: self._hotkey(self._toggle_mic))
+        self.bind("s", lambda e: self._hotkey(self._toggle_spk))
+        self.bind("S", lambda e: self._hotkey(self._toggle_spk))
+        self.bind("e", lambda e: self._hotkey(self._export))
+        self.bind("E", lambda e: self._hotkey(self._export))
+        self.bind("t", lambda e: self._hotkey(self._minimize_tray))
+        self.bind("<comma>", lambda e: self._hotkey(self._open_settings))
+
+    def _focus_is_entry(self) -> bool:
+        try:
+            w = self.focus_get()
+            return w is not None and w.winfo_class() in ("Entry", "Text", "CTkEntry", "CTkTextbox")
+        except Exception:
+            return False
+
+    def _hotkey(self, fn) -> str:  # noqa: ANN001
+        if self._focus_is_entry():
+            return ""
+        fn()
+        return "break"
+
+    def _hotkey_record(self, _event=None) -> str:  # noqa: ANN001
+        return self._hotkey(self._toggle_record)
 
     def _prefill_title(self) -> None:
         if self.title_var.get().strip():
@@ -146,6 +173,16 @@ class MainWindow(ctk.CTk):
         detected = detect_meeting_title()
         if detected:
             self.title_var.set(detected)
+
+    def refresh_readiness(self) -> None:
+        self._update_tone_banner()
+        stt = WhisperCppStt(self.settings.model)
+        if stt.available():
+            self.ready_var.set(f"STT siap · model {self.settings.model}")
+        else:
+            self.ready_var.set(
+                "⚠ Model/binary Whisper belum lengkap — Settings → Unduh model, atau Setup wizard."
+            )
 
     def _update_tone_banner(self) -> None:
         if not self.settings.tone_test_ok and (
@@ -160,6 +197,7 @@ class MainWindow(ctk.CTk):
     def _apply_mode_defaults(self) -> None:
         mode = self.mode_var.get()
         self.settings.meeting_mode = mode
+        self.settings.save()
         if mode == "webinar":
             self._set_mic(False)
             self._set_spk(True)
@@ -234,6 +272,17 @@ class MainWindow(ctk.CTk):
         ok, msg = ensure_space(MIN_SESSION_FREE, self.settings.library_path())
         if not ok:
             messagebox.showerror("Disk", msg)
+            return
+        if not WhisperCppStt(self.settings.model).available():
+            if not messagebox.askyesno(
+                "STT belum siap",
+                "Model/binary Whisper belum terpasang.\n"
+                "Rekaman audio tetap jalan, tapi teks mungkin placeholder.\n\n"
+                "Lanjut rekam?",
+            ):
+                return
+        if self.mic_var.get() == "OFF" and self.spk_var.get() == "OFF":
+            messagebox.showwarning("Audio", "MIC dan SPK sama-sama OFF. Nyalakan salah satu dulu.")
             return
         title = self.title_var.get().strip() or "Rapat tanpa judul"
         self.pipeline = Pipeline(
@@ -315,8 +364,9 @@ class MainWindow(ctk.CTk):
         SettingsWindow(self, self.settings, on_saved=self._after_settings)
 
     def _after_settings(self) -> None:
+        self.settings = Settings.load()
         self.attributes("-topmost", self.settings.always_on_top)
-        self._update_tone_banner()
+        self.refresh_readiness()
 
     def _minimize_tray(self) -> None:
         self.tray.start()
@@ -336,9 +386,9 @@ class MainWindow(ctk.CTk):
         self.after(200, self._poll)
 
     def _tick_resources(self) -> None:
-        cpu = psutil.cpu_percent(interval=None)
-        ram = psutil.virtual_memory().used / (1024**3)
-        self.res_var.set(f"CPU {cpu:.0f}%  RAM {ram:.1f}G")
+        from util.resources import sample_resources
+
+        self.res_var.set(sample_resources())
         self.after(2000, self._tick_resources)
 
     def _check_resume(self) -> None:

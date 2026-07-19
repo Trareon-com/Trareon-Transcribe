@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+
 import customtkinter as ctk
 
+from config.branding import APP_NAME, set_window_icon
 from config.keyring_store import set_hf_token
 from config.settings import Settings
 from engine.audio_capture import AudioCapture
+from engine.stt import WhisperCppStt
 from engine.tone_test import run_tone_test
 from setup.deps import detect_spec, macos_dep_plan, run_plan, windows_dep_plan
 from setup.model_dl import download_model, ensure_whisper_binary, suggest_model
@@ -18,10 +22,20 @@ class SetupWizard(ctk.CTkToplevel):
         super().__init__(master)
         self.settings = settings
         self.on_done = on_done
-        self.title("Trareon Transcribe — Setup")
-        self.geometry("640x520")
+        self._busy = False
+        self._finish_btn: ctk.CTkButton | None = None
+
+        self.title(f"{APP_NAME} — Setup")
+        self.geometry("660x560+160+100")
+        set_window_icon(self)
         self.transient(master)
-        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
+        self.lift()
+        self.focus_force()
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         self.spec = detect_spec()
         suggested = suggest_model(self.spec["ram_gb"], self.spec["is_apple_silicon"])
@@ -29,64 +43,122 @@ class SetupWizard(ctk.CTkToplevel):
         self.install_deps_var = ctk.BooleanVar(value=True)
         self.diar_var = ctk.BooleanVar(value=False)
         self.hf_var = ctk.StringVar(value="")
-        self.status = ctk.StringVar(value="Siap memulai setup.")
+        self.status = ctk.StringVar(value="Siap memulai setup. Anda juga bisa lewati dan lengkapi nanti.")
 
-        ctk.CTkLabel(self, text="Trareon Transcribe — Setup", font=ctk.CTkFont(size=20, weight="bold")).pack(
-            pady=(16, 8)
+        ctk.CTkLabel(self, text=f"{APP_NAME} — Setup", font=ctk.CTkFont(size=20, weight="bold")).pack(
+            pady=(16, 4)
         )
         ctk.CTkLabel(
             self,
-            text=f"Spec: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM — saran model: {suggested}",
-            wraplength=580,
+            text=(
+                f"Spec: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM — "
+                f"saran model: {suggested}"
+            ),
+            wraplength=600,
         ).pack(pady=4)
 
         frame = ctk.CTkFrame(self)
-        frame.pack(fill="x", padx=20, pady=10)
+        frame.pack(fill="x", padx=20, pady=8)
         ctk.CTkLabel(frame, text="Pilih model Whisper:").pack(anchor="w", padx=12, pady=(8, 4))
         for key, desc in (
             ("tiny", "tiny ~75MB — cepat, akurasi rendah"),
             ("medium", "medium ~1.5GB — seimbang"),
             ("large-v3-turbo", "large-v3-turbo ~3GB — akurasi tinggi ID/EN"),
         ):
-            ctk.CTkRadioButton(frame, text=desc, variable=self.model_var, value=key).pack(anchor="w", padx=20, pady=2)
+            ctk.CTkRadioButton(frame, text=desc, variable=self.model_var, value=key).pack(
+                anchor="w", padx=20, pady=2
+            )
 
-        ctk.CTkCheckBox(self, text="Install virtual cable + ffmpeg (otomatis jika memungkinkan)", variable=self.install_deps_var).pack(
-            anchor="w", padx=24, pady=6
-        )
-        ctk.CTkCheckBox(self, text="Siapkan diarization pyannote (butuh HF token)", variable=self.diar_var).pack(
-            anchor="w", padx=24, pady=2
-        )
-        ctk.CTkEntry(self, textvariable=self.hf_var, placeholder_text="HF token (opsional)", width=400).pack(
-            padx=24, pady=6
-        )
+        ctk.CTkCheckBox(
+            self,
+            text="Install virtual cable + ffmpeg (otomatis jika memungkinkan)",
+            variable=self.install_deps_var,
+        ).pack(anchor="w", padx=24, pady=6)
+        ctk.CTkCheckBox(
+            self,
+            text="Siapkan diarization pyannote (butuh HF token)",
+            variable=self.diar_var,
+        ).pack(anchor="w", padx=24, pady=2)
+        ctk.CTkEntry(
+            self, textvariable=self.hf_var, placeholder_text="HF token (opsional)", width=420
+        ).pack(padx=24, pady=6)
 
-        self.progress = ctk.CTkProgressBar(self, width=500)
+        self.progress = ctk.CTkProgressBar(self, width=520)
         self.progress.set(0)
         self.progress.pack(pady=8)
-        ctk.CTkLabel(self, textvariable=self.status, wraplength=580).pack(pady=4)
+        ctk.CTkLabel(self, textvariable=self.status, wraplength=600).pack(pady=4)
 
-        btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        btn_row.pack(pady=12)
-        ctk.CTkButton(btn_row, text="Mulai Setup", command=self._start).pack(side="left", padx=6)
-        ctk.CTkButton(btn_row, text="Tone Test", command=self._tone).pack(side="left", padx=6)
-        ctk.CTkButton(btn_row, text="Lewati Tone Test", command=self._skip_tone).pack(side="left", padx=6)
+        self.btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        self.btn_row.pack(pady=10)
+        self.start_btn = ctk.CTkButton(self.btn_row, text="Mulai Setup", command=self._start, width=120)
+        self.start_btn.pack(side="left", padx=6)
+        ctk.CTkButton(self.btn_row, text="Tone Test", command=self._tone, width=100).pack(side="left", padx=6)
+        ctk.CTkButton(self.btn_row, text="Lewati Tone", command=self._skip_tone, width=100).pack(
+            side="left", padx=6
+        )
+        ctk.CTkButton(
+            self.btn_row,
+            text="Lewati & buka app",
+            command=self._skip_all,
+            width=140,
+            fg_color=("gray70", "gray35"),
+        ).pack(side="left", padx=6)
+
+        stt = WhisperCppStt(self.model_var.get())
+        if stt.available():
+            self.status.set("Model/binary sudah ada — Anda bisa lanjut atau unduh ulang.")
+
+    def _set_busy(self, busy: bool) -> None:
+        self._busy = busy
+        state = "disabled" if busy else "normal"
+        try:
+            self.start_btn.configure(state=state)
+        except Exception:
+            pass
 
     def _set_progress(self, name: str, frac: float) -> None:
-        self.after(0, lambda: (self.progress.set(frac), self.status.set(f"Downloading {name}… {frac*100:.0f}%")))
+        self.after(
+            0,
+            lambda: (
+                self.progress.set(frac),
+                self.status.set(f"Mengunduh {name}… {frac * 100:.0f}%"),
+            ),
+        )
 
     def _start(self) -> None:
+        if self._busy:
+            return
+        self._set_busy(True)
         self.status.set("Menjalankan setup…")
         run_in_thread(self._run_setup)
 
     def _run_setup(self) -> None:
         try:
+            from config.branding import APP_NAME, apply_macos_menu_name, running_from_app_bundle
+
+            # Ensure Apple menu / process name are branded before the mic TCC prompt.
+            self.after(0, lambda: apply_macos_menu_name(APP_NAME))
+            if sys.platform == "darwin" and not running_from_app_bundle():
+                self.after(
+                    0,
+                    lambda: self.status.set(
+                        f"⚠ Jalankan via ./scripts/run_mac_app.sh agar izin mic "
+                        f"tampil sebagai «{APP_NAME}», bukan Python 3.11."
+                    ),
+                )
             ok, msg = AudioCapture.check_mic_permission()
-            self.after(0, lambda: self.status.set(msg))
+            self.after(0, lambda: self.status.set(msg if ok else f"⚠ {msg}"))
             if self.install_deps_var.get():
                 plan = macos_dep_plan() if self.spec["os"] == "Darwin" else windows_dep_plan()
-                self.after(0, lambda: self.status.set("Perintah: " + " | ".join(" ".join(c) for c in plan.commands)))
+                cmds = " | ".join(" ".join(c) for c in plan.commands) or plan.description
+                self.after(0, lambda: self.status.set(f"Deps: {cmds[:200]}"))
                 success, out = run_plan(plan)
-                self.after(0, lambda: self.status.set(out[:500] if out else ("OK" if success else "Gagal deps")))
+                self.after(
+                    0,
+                    lambda: self.status.set(
+                        (out[:400] if out else "Deps OK") if success else f"Deps gagal: {out[:300]}"
+                    ),
+                )
             self.after(0, lambda: self.status.set("Mengunduh whisper binary…"))
             ensure_whisper_binary(progress=self._set_progress)
             model = self.model_var.get()
@@ -97,15 +169,26 @@ class SetupWizard(ctk.CTkToplevel):
             self.settings.diarization_enabled = bool(self.diar_var.get())
             self.settings.setup_complete = True
             self.settings.save()
-            self.after(0, lambda: self.status.set(
-                f"Setup selesai. Rekaman disimpan di: {self.settings.library_path()}"
-            ))
-            self.after(0, lambda: ctk.CTkButton(self, text="Lanjut ke App", command=self._finish).pack(pady=8))
+            lib = str(self.settings.library_path())
+            self.after(0, lambda: self._setup_done_ui(lib))
         except Exception as exc:
             err = str(exc)
             self.after(0, lambda m=err: self.status.set(f"Setup gagal: {m}"))
+            self.after(0, lambda: self._set_busy(False))
+
+    def _setup_done_ui(self, lib_path: str) -> None:
+        self.progress.set(1.0)
+        self.status.set(f"Setup selesai. Rekaman disimpan di:\n{lib_path}")
+        self._set_busy(False)
+        if self._finish_btn is None:
+            self._finish_btn = ctk.CTkButton(
+                self, text="Lanjut ke App", command=self._finish, width=180, height=36
+            )
+            self._finish_btn.pack(pady=10)
 
     def _tone(self) -> None:
+        if self._busy:
+            return
         self.status.set("Menjalankan tone test…")
 
         def work() -> None:
@@ -123,7 +206,27 @@ class SetupWizard(ctk.CTkToplevel):
         self.settings.save()
         self.status.set("Tone test dilewati — banner peringatan akan tampil di app.")
 
+    def _skip_all(self) -> None:
+        if self._busy:
+            return
+        self.settings.model = self.model_var.get()
+        self.settings.setup_complete = True
+        self.settings.tone_test_skipped = True
+        self.settings.save()
+        self.status.set("Setup dilewati. Unduh model nanti di Settings / jalankan ulang setup.")
+        self._finish()
+
+    def _on_close_attempt(self) -> None:
+        if self._busy:
+            self.status.set("Setup sedang berjalan — tunggu selesai atau biarkan window terbuka.")
+            return
+        # Closing wizard = skip into app
+        self._skip_all()
+
     def _finish(self) -> None:
-        self.grab_release()
+        try:
+            self.grab_release()
+        except Exception:
+            pass
         self.destroy()
         self.on_done()
