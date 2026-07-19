@@ -41,13 +41,12 @@
 
 ## Download
 
-Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** (not committed to git). Prefer **v0.1.1+** (PortAudio onedir + bundled `whisper-cli`).
+Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** (not committed to git). Prefer **v0.1.2+** (PortAudio onedir + bundled `whisper-cli`).
 
 | Asset | Platform |
 |-------|----------|
 | `Trareon-Transcribe-*-macos-arm64.dmg` | Mac Apple Silicon — drag app + Open helper |
 | `Trareon-Transcribe-*-macos-arm64.zip` | Same contents as zip |
-| `Trareon-Transcribe-*-macos-x64.dmg` / `.zip` | Mac Intel (best-effort CI) |
 | `Trareon-Transcribe-*-windows-x64-portable.zip` | Windows portable folder (`TrareonTranscribe\…`) |
 | `Trareon-Transcribe-*-windows-x64-Setup.exe` | Windows installer (Start Menu) |
 
@@ -61,7 +60,7 @@ Whisper **models** still download on first-run (internet once). Release builds b
 
 **Windows** — prefer **Setup.exe**, or unzip portable → run `TrareonTranscribe\TrareonTranscribe.exe`. Allow microphone access. For speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
 
-If you see **`libportaudio… error 0x57`**: that is a broken old onefile build — delete it and install **v0.1.1+** portable/Setup.
+If you see **`libportaudio… error 0x57`**: that is a broken old onefile build — delete it and install **v0.1.2+** portable/Setup.
 
 If **Windows Security** shows *Controlled folder access blocked*:
 1. Allow `TrareonTranscribe.exe` through CFA, or  
@@ -300,11 +299,11 @@ See [docs/design.md](docs/design.md) for the full product spec.
 | Empty captions | Check MIC/SPK toggles + OS mic permission |
 | No speaker text | Fix Multi-Output / VB-Cable → Tone Test |
 | Model missing | Re-run wizard or Settings → Unduh model |
-| `libportaudio… 0x57` (Windows) | Old onefile build — install **v0.1.1+** portable/Setup |
+| `libportaudio… 0x57` (Windows) | Old onefile build — install **v0.1.2+** portable/Setup |
 | STT belum siap (model sudah ada) | Need `whisper-cli`: Win release bundles it; Mac `brew install whisper-cpp` |
-| Theme tidak berubah | v0.1.1+ repaints UI; toggle Theme again |
-| Export tombol terpotong | v0.1.1+ minsize; jangan pakai jendela &lt; ~480px tinggi |
-| Tone test menggantung | v0.1.1+ timeout 10s — pakai Lewati Tone |
+| Theme tidak berubah | v0.1.2+ repaints UI; toggle Theme again |
+| Export tombol terpotong | v0.1.2+ minsize; jangan pakai jendela &lt; ~480px tinggi |
+| Tone test menggantung | v0.1.2+ timeout 10s — pakai Lewati Tone |
 
 ---
 

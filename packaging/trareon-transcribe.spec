@@ -90,8 +90,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Trareon Transcribe",
             "CFBundleDisplayName": "Trareon Transcribe",
-            "CFBundleShortVersionString": "0.1.1",
-            "CFBundleVersion": "0.1.1",
+            "CFBundleShortVersionString": "0.1.2",
+            "CFBundleVersion": "0.1.2",
             "LSMinimumSystemVersion": "12.0",
             "NSHighResolutionCapable": True,
             "NSMicrophoneUsageDescription": (

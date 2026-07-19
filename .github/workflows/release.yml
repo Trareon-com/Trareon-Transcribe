@@ -21,16 +21,10 @@ jobs:
         include:
           - os: macos-14
             artifact: macos-arm64
-            required: true
           - os: windows-latest
             artifact: windows-x64
-            required: true
-          # Intel Mac runners are flaky/queued — fail-soft so publish is not blocked.
-          - os: macos-13
-            artifact: macos-x64
-            required: false
+          # macos-13 (Intel) omitted — runners often stay queued for hours and block nothing useful.
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.required == false }}
     steps:
       - uses: actions/checkout@v7
 
@@ -79,30 +73,35 @@ jobs:
 
       - name: Bundle whisper-cli (Windows)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          DIR="dist/TrareonTranscribe"
-          test -d "$DIR"
-          curl -fsSL -o /tmp/w.zip \
-            "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-x64.zip"
-          python - <<'PY'
+          $ErrorActionPreference = "Stop"
+          $dir = "dist\TrareonTranscribe"
+          if (-not (Test-Path $dir)) { throw "Missing $dir" }
+          $zip = Join-Path $env:RUNNER_TEMP "whisper-bin-x64.zip"
+          $url = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-x64.zip"
+          Write-Host "Downloading $url -> $zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          python -c @"
           import zipfile
           from pathlib import Path
-          z = zipfile.ZipFile("/tmp/w.zip")
-          dest = Path("dist/TrareonTranscribe")
-          for n in z.namelist():
-              if n.lower().endswith("whisper-cli.exe") or n.lower().endswith("main.exe"):
-                  data = z.read(n)
-                  out = dest / Path(n).name
-                  if out.name == "main.exe":
-                      out = dest / "whisper-cli.exe"
-                  out.write_bytes(data)
-                  print("wrote", out)
-                  break
-          else:
-              raise SystemExit("whisper-cli.exe not in zip")
-          PY
+          zpath = Path(r'''$zip''')
+          dest = Path(r'''$dir''')
+          assert zpath.is_file() and zpath.stat().st_size > 1000, zpath
+          with zipfile.ZipFile(zpath) as z:
+              names = z.namelist()
+              print('zip entries', len(names))
+              for n in names:
+                  low = n.lower()
+                  if low.endswith('whisper-cli.exe') or low.endswith('main.exe'):
+                      data = z.read(n)
+                      out = dest / ('whisper-cli.exe' if low.endswith('main.exe') else Path(n).name)
+                      out.write_bytes(data)
+                      print('wrote', out, len(data))
+                      break
+              else:
+                  raise SystemExit('whisper-cli.exe not in zip: ' + ', '.join(names[:20]))
+          "@
 
       - name: Package (macOS zip + DMG)
         if: runner.os == 'macOS'
@@ -197,7 +196,7 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
 
