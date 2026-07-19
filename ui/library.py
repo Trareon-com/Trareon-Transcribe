@@ -8,6 +8,7 @@ from pathlib import Path
 
 import customtkinter as ctk
 
+from config.branding import APP_NAME, set_window_icon
 from engine.session_store import (
     delete_session,
     list_sessions,
@@ -17,14 +18,16 @@ from engine.session_store import (
     update_title,
 )
 from ui.export_dialog import ExportDialog
+from ui.transcript_player import TranscriptPlayerWindow
 
 
 class LibraryWindow(ctk.CTkToplevel):
     def __init__(self, master: ctk.CTk, library_root: Path) -> None:
         super().__init__(master)
         self.library_root = library_root
-        self.title("Library — Trareon Transcribe")
-        self.geometry("720x480")
+        self.title(f"Library — {APP_NAME}")
+        set_window_icon(self)
+        self.geometry("780x520")
         self.transient(master)
 
         top = ctk.CTkFrame(self, fg_color="transparent")
@@ -55,9 +58,18 @@ class LibraryWindow(ctk.CTkToplevel):
             size_mb = session_disk_bytes(folder) / (1024 * 1024)
             row = ctk.CTkFrame(self.listbox)
             row.pack(fill="x", pady=4)
-            label = f"{meta.created_at[:19] if meta.created_at else '?'}  |  {meta.title}  |  {meta.mode}  |  {size_mb:.1f} MB"
-            ctk.CTkLabel(row, text=label, anchor="w").pack(side="left", padx=8, fill="x", expand=True)
-            ctk.CTkButton(row, text="Buka", width=60, command=lambda p=folder: self._open(p)).pack(side="right", padx=2)
+            dur = f"{int(meta.duration_sec // 60)}:{int(meta.duration_sec % 60):02d}" if meta.duration_sec else "—"
+            label = (
+                f"{meta.created_at[:19].replace('T', ' ') if meta.created_at else '?'}  ·  "
+                f"{meta.title}  ·  {meta.mode}  ·  {dur}  ·  {size_mb:.1f} MB"
+            )
+            title_lbl = ctk.CTkLabel(row, text=label, anchor="w")
+            title_lbl.pack(side="left", padx=8, fill="x", expand=True)
+            title_lbl.bind("<Double-Button-1>", lambda _e, p=folder: self._open(p))
+            row.bind("<Double-Button-1>", lambda _e, p=folder: self._open(p))
+            ctk.CTkButton(row, text="Putar", width=70, command=lambda p=folder: self._open(p)).pack(
+                side="right", padx=2
+            )
             ctk.CTkButton(row, text="Export", width=70, command=lambda p=folder: self._export(p)).pack(
                 side="right", padx=2
             )
@@ -72,16 +84,7 @@ class LibraryWindow(ctk.CTkToplevel):
             ).pack(side="right", padx=2)
 
     def _open(self, path: Path) -> None:
-        sess = load_session(path)
-        win = ctk.CTkToplevel(self)
-        win.title(sess.meta.title)
-        win.geometry("560x400")
-        box = ctk.CTkTextbox(win)
-        box.pack(fill="both", expand=True, padx=8, pady=8)
-        for seg in sess.segments:
-            if seg.is_final:
-                box.insert("end", f"[{seg.speaker}] {seg.text}\n")
-        box.configure(state="disabled")
+        TranscriptPlayerWindow(self, path)
 
     def _export(self, path: Path) -> None:
         sess = load_session(path)

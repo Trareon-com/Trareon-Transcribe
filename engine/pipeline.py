@@ -55,6 +55,7 @@ class Pipeline:
     _start_mono: float = 0.0
     _last_autosave: float = 0.0
     _meeting_pause: bool = False
+    _stub_warned: bool = False
 
     def _set_status(self, s: PipelineStatus) -> None:
         self.status = s
@@ -187,8 +188,9 @@ class Pipeline:
             self.events.post(self.on_segment, partial)
         result = self._stt.transcribe(pcm, SAMPLE_RATE)
         if not result.text or result.text.startswith("[STT:"):
-            # still emit stub once for visibility in setup-incomplete envs
-            if result.text.startswith("[STT:"):
+            # Emit stub at most once so caption is not flooded
+            if result.text.startswith("[STT:") and not self._stub_warned:
+                self._stub_warned = True
                 final = TranscriptSegment(
                     start_ms=elapsed_ms,
                     end_ms=elapsed_ms + 1000,

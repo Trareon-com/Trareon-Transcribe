@@ -1,4 +1,4 @@
-"""Single-instance lock via exclusive file lock."""
+"""Single-instance lock via exclusive file lock + stale PID recovery."""
 
 from __future__ import annotations
 
@@ -11,11 +11,41 @@ from config.paths import instance_lock_file
 _lock_fh = None
 
 
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _read_lock_pid() -> int | None:
+    path = instance_lock_file()
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+        return int(text) if text else None
+    except (OSError, ValueError):
+        return None
+
+
 def acquire_instance_lock() -> bool:
-    """Return True if this process owns the lock; False if another instance runs."""
+    """Return True if this process owns the lock; False if another live instance runs."""
     global _lock_fh
     path = instance_lock_file()
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Clear stale lock from crashed process
+    existing = _read_lock_pid()
+    if existing is not None and existing != os.getpid() and not _pid_alive(existing):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     fh = open(path, "a+", encoding="utf-8")
     try:
         if sys.platform == "win32":
@@ -28,8 +58,17 @@ def acquire_instance_lock() -> bool:
 
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
+        # Another process holds flock — verify PID still alive
         fh.close()
+        other = _read_lock_pid()
+        if other is not None and not _pid_alive(other):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return acquire_instance_lock()
         return False
+
     fh.seek(0)
     fh.truncate()
     fh.write(str(os.getpid()))
@@ -60,3 +99,7 @@ def release_instance_lock() -> None:
     except OSError:
         pass
     _lock_fh = None
+    try:
+        instance_lock_file().unlink(missing_ok=True)
+    except OSError:
+        pass

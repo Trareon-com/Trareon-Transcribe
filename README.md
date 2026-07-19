@@ -19,7 +19,7 @@ Aplikasi desktop untuk **live transcription offline** — merekam & mentranskrip
 - **Toggle MIC / SPK** independen saat merekam
 - **Live caption** dengan label sumber (`MIC` / `SPK`) dan bahasa (`[ID]` / `[EN]`)
 - Status pipeline: Listening · Transcribing · Paused · Device error
-- Monitor **CPU / RAM**, timer rekaman, minimize ke tray
+- Monitor **CPU / RAM / GPU**, timer rekaman, minimize ke tray
 
 ### Dark mode
 
@@ -37,7 +37,7 @@ Wizard mendeteksi spek laptop, menyarankan model Whisper, memasang dependency (B
 
 ![Library](docs/screenshots/04-library.png)
 
-Riwayat rekaman: buka transcript, export ulang, rename judul, buka folder, hapus sesi.
+Riwayat rekaman: **Putar** membuka viewer dengan audio + transcript tersinkron (speaker, waktu, teks apa adanya — tanpa translate), export ulang, rename, buka folder, hapus.
 
 ### Settings
 
@@ -66,6 +66,7 @@ Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File
 | Crash-safe | Autosave ~10 detik + resume sesi incomplete |
 | Tone-test | Verifikasi routing BlackHole / VB-Cable |
 | Single-instance | Satu proses app saja |
+| Library player | Putar ulang mic/speaker WAV + highlight segmen transcript (speaker · waktu · teks) |
 | Export | WAV per-track + MD / TXT / JSON / SRT / VTT |
 
 ---
@@ -73,6 +74,12 @@ Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File
 ## Panduan penggunaan
 
 ### 1. Install & jalankan (developer)
+
+**macOS (Homebrew):** Python perlu paket Tk terpisah:
+
+```bash
+brew install python@3.11 python-tk@3.11
+```
 
 ```bash
 git clone https://github.com/Trareon-com/Trareon-Transcribe.git
@@ -82,6 +89,24 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
+
+**macOS (nama + icon di Dock):** setelah venv siap:
+
+```bash
+chmod +x scripts/run_mac_app.sh
+./scripts/run_mac_app.sh
+```
+
+Ini membuka `dist-run/TrareonTranscribe.app` (menu bar: “Trareon Transcribe”, bukan “Python”).
+
+**Demo dengan data dummy** (Library + player + caption, tanpa rekaman live):
+
+```bash
+./scripts/run_mac_app.sh --demo
+# atau: python scripts/seed_dummy_session.py --force
+```
+
+Sesi contoh ada di `~/Documents/Trareon Transcribe/Sessions/*-demo-seed` — di app: Library → **Putar** / **Export**.
 
 Untuk development + tes:
 
@@ -220,6 +245,10 @@ Design lengkap: [docs/design.md](docs/design.md)
 
 | Masalah | Coba |
 |---------|------|
+| `No module named '_tkinter'` | macOS: `brew install python-tk@3.11`, lalu buat ulang venv (`rm -rf .venv && python3.11 -m venv .venv && pip install -r requirements.txt`) |
+| App tidak muncul / langsung tutup | Hapus lock basi: `rm -f ~/Library/Application\ Support/TrareonTranscribe/instance.lock` lalu `./scripts/run_mac_app.sh` |
+| Crash SIGABRT / `RegisterApplication` | Jangan panggil AppKit sebelum Tk. Jalankan dari Terminal.app atau `./scripts/run_mac_app.sh` (bukan selalu dari terminal Cursor) |
+| Menu bar / Dock / dialog izin mic bertuliskan Python | Jalankan via `./scripts/run_mac_app.sh` (bukan `python main.py`). Dialog izin macOS mengikuti bundle `.app`. Jika dulu sudah grant ke «Python», buka System Settings → Privacy → Microphone → aktifkan **Trareon Transcribe**. Butuh `pyobjc-framework-Cocoa` di venv. |
 | Caption kosong | Pastikan MIC/SPK ON sesuai mode; cek izin Mikrofon OS |
 | Speaker tidak ter-transkrip | Tone Test gagal → perbaiki Multi-Output / VB-Cable |
 | `[STT: model/binary belum…]` | Jalankan ulang wizard / unduh model ke folder cache |

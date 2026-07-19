@@ -25,15 +25,21 @@ class TrayController:
             log.warning("pystray/PIL missing — tray disabled")
             return
 
-        image = Image.new("RGB", (64, 64), "#0B6E4F")
-        d = ImageDraw.Draw(image)
-        d.ellipse((12, 12, 52, 52), fill="#FFFFFF")
+        from config.branding import APP_NAME, icon_png
+
+        png = icon_png()
+        if png.exists():
+            image = Image.open(png).resize((64, 64))
+        else:
+            image = Image.new("RGB", (64, 64), "#0B6E4F")
+            d = ImageDraw.Draw(image)
+            d.ellipse((12, 12, 52, 52), fill="#FFFFFF")
 
         menu = pystray.Menu(
             pystray.MenuItem("Show", lambda: self.on_show()),
             pystray.MenuItem("Quit", lambda: self.on_quit()),
         )
-        self._icon = pystray.Icon("TrareonTranscribe", image, "Trareon Transcribe", menu)
+        self._icon = pystray.Icon("TrareonTranscribe", image, APP_NAME, menu)
 
         def run() -> None:
             assert self._icon is not None
