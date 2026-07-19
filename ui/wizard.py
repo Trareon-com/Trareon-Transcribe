@@ -14,6 +14,7 @@ from engine.stt import WhisperCppStt
 from engine.tone_test import run_tone_test
 from setup.deps import detect_spec, macos_dep_plan, run_plan, windows_dep_plan
 from setup.model_dl import download_model, ensure_whisper_binary, suggest_model
+from setup.whisper_models import MODEL_LABELS, WHISPER_MODELS
 from util.threading_helpers import run_in_thread
 
 
@@ -26,7 +27,7 @@ class SetupWizard(ctk.CTkToplevel):
         self._finish_btn: ctk.CTkButton | None = None
 
         self.title(f"{APP_NAME} — Setup")
-        self.geometry("660x560+160+100")
+        self.geometry("680x640+160+80")
         set_window_icon(self)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
@@ -39,7 +40,11 @@ class SetupWizard(ctk.CTkToplevel):
 
         self.spec = detect_spec()
         suggested = suggest_model(self.spec["ram_gb"], self.spec["is_apple_silicon"])
-        self.model_var = ctk.StringVar(value=settings.model or suggested)
+        if settings.model in WHISPER_MODELS:
+            initial_model = settings.model
+        else:
+            initial_model = suggested
+        self.model_var = ctk.StringVar(value=initial_model)
         self.install_deps_var = ctk.BooleanVar(value=True)
         self.diar_var = ctk.BooleanVar(value=False)
         self.hf_var = ctk.StringVar(value="")
@@ -48,26 +53,23 @@ class SetupWizard(ctk.CTkToplevel):
         ctk.CTkLabel(self, text=f"{APP_NAME} — Setup", font=ctk.CTkFont(size=20, weight="bold")).pack(
             pady=(16, 4)
         )
+        gpu = self.spec.get("gpu") or "GPU"
         ctk.CTkLabel(
             self,
             text=(
-                f"Spec: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM — "
-                f"saran model: {suggested}"
+                f"Spec terdeteksi: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM, "
+                f"{gpu} — saran model: {suggested}"
             ),
-            wraplength=600,
+            wraplength=620,
         ).pack(pady=4)
 
-        frame = ctk.CTkFrame(self)
+        frame = ctk.CTkScrollableFrame(self, height=220)
         frame.pack(fill="x", padx=20, pady=8)
         ctk.CTkLabel(frame, text="Pilih model Whisper:").pack(anchor="w", padx=12, pady=(8, 4))
-        for key, desc in (
-            ("tiny", "tiny ~75MB — cepat, akurasi rendah"),
-            ("medium", "medium ~1.5GB — seimbang"),
-            ("large-v3-turbo", "large-v3-turbo ~3GB — akurasi tinggi ID/EN"),
-        ):
-            ctk.CTkRadioButton(frame, text=desc, variable=self.model_var, value=key).pack(
-                anchor="w", padx=20, pady=2
-            )
+        for key in WHISPER_MODELS:
+            ctk.CTkRadioButton(
+                frame, text=MODEL_LABELS[key], variable=self.model_var, value=key
+            ).pack(anchor="w", padx=20, pady=2)
 
         ctk.CTkCheckBox(
             self,

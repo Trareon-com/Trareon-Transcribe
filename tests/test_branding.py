@@ -11,6 +11,7 @@ from config.branding import (
     APP_NAME,
     apply_macos_menu_name,
     icon_png,
+    launched_from_ide_terminal,
     running_from_app_bundle,
 )
 
@@ -32,11 +33,32 @@ def test_app_bundle_env_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     assert running_from_app_bundle() is True
 
 
+def test_ide_terminal_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CURSOR_TRACE_ID", raising=False)
+    monkeypatch.delenv("VSCODE_INJECTION", raising=False)
+    monkeypatch.delenv("VSCODE_PID", raising=False)
+    monkeypatch.setenv("TERM_PROGRAM", "Apple_Terminal")
+    assert launched_from_ide_terminal() is False
+    monkeypatch.setenv("TERM_PROGRAM", "vscode")
+    assert launched_from_ide_terminal() is True
+    monkeypatch.setenv("TERM_PROGRAM", "Apple_Terminal")
+    monkeypatch.setenv("CURSOR_TRACE_ID", "abc")
+    assert launched_from_ide_terminal() is True
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS only")
 def test_macos_menu_rename_after_tk() -> None:
+    from config.branding import launched_from_ide_terminal
+
+    if launched_from_ide_terminal():
+        pytest.skip("Tk RegisterApplication often SIGABRTs in Cursor/VS Code terminals")
+
     import tkinter as tk
 
-    root = tk.Tk()
+    try:
+        root = tk.Tk()
+    except Exception as e:
+        pytest.skip(f"Tk unavailable in this environment: {e}")
     root.withdraw()
     root.update_idletasks()
     apply_macos_menu_name(APP_NAME)

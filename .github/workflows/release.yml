@@ -1,36 +1,116 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-14
+            artifact: macos-arm64
+          - os: macos-13
+            artifact: macos-x64
+          - os: windows-latest
+            artifact: windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install
+
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: PyInstaller
+
+      - name: Build (PyInstaller)
+        run: python -m PyInstaller --noconfirm --clean packaging/trareon-transcribe.spec
+
+      - name: Package zip (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
         run: |
-          pyinstaller --noconfirm --clean packaging/trareon-transcribe.spec
-      - name: SBOM (CycloneDX)
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VER="${{ github.event.inputs.tag }}"
+            VER="${VER#v}"
+          fi
+          APP="dist/Trareon Transcribe.app"
+          test -d "$APP"
+          OUT="Trareon-Transcribe-${VER}-${{ matrix.artifact }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT"
+          echo "ASSET=$OUT" >> "$GITHUB_ENV"
+
+      - name: Package zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ver = $env:GITHUB_REF_NAME -replace '^v',''
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ github.event.inputs.tag }}" -replace '^v',''
+          }
+          $name = "Trareon-Transcribe-$ver-${{ matrix.artifact }}.zip"
+          Compress-Archive -Path "dist\TrareonTranscribe.exe" -DestinationPath $name -Force
+          "ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: SBOM
         run: |
           pip install cyclonedx-bom
-          cyclonedx-py requirements requirements.txt -o sbom.json
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+          cyclonedx-py requirements requirements.txt -o sbom-${{ matrix.artifact }}.json
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: trareon-${{ matrix.os }}
+          name: trareon-${{ matrix.artifact }}
           path: |
-            dist/
-            sbom.json
+            Trareon-Transcribe-*.zip
+            sbom-*.json
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Trareon Transcribe ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

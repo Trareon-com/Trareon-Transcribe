@@ -5,6 +5,22 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
+
+
+def _relaunch_via_mac_app(argv: list[str]) -> bool:
+    """Leave Cursor's process tree — Tk RegisterApplication often aborts there."""
+    from config.branding import project_root
+
+    script = project_root() / "scripts" / "run_mac_app.sh"
+    if not script.is_file():
+        return False
+    try:
+        # Drop the python entry so the .app runs main.py with the same flags.
+        os.execv("/bin/bash", ["bash", str(script), *argv[1:]])
+    except OSError:
+        return False
+    return True  # unreachable on success
 
 
 def main() -> int:
@@ -13,11 +29,33 @@ def main() -> int:
     log = setup_logging()
     demo = "--demo" in sys.argv
 
-    from config.branding import APP_NAME, set_window_icon
+    from config.branding import (
+        APP_NAME,
+        ensure_tk_registered,
+        launched_from_ide_terminal,
+        running_from_app_bundle,
+        set_window_icon,
+    )
     from config.instance_lock import acquire_instance_lock
     from config.settings import Settings
 
+    # Before instance lock / UI: IDE terminals crash Tk; open as a real .app instead.
+    if (
+        sys.platform == "darwin"
+        and launched_from_ide_terminal()
+        and not running_from_app_bundle()
+        and os.environ.get("TRAREON_NO_RELAUNCH") != "1"
+    ):
+        log.warning("IDE terminal detected — relaunching via ./scripts/run_mac_app.sh")
+        if not _relaunch_via_mac_app(sys.argv):
+            log.error(
+                "Could not relaunch. Run: ./scripts/run_mac_app.sh%s",
+                " --demo" if demo else "",
+            )
+            return 1
+
     if not acquire_instance_lock():
+        ensure_tk_registered()
         import tkinter as tk
         import tkinter.messagebox as messagebox
 
@@ -43,8 +81,9 @@ def main() -> int:
         log.info("Demo mode: %d session(s) ready", len(demo_sessions))
 
     log.info("Starting %s (setup_complete=%s)", APP_NAME, settings.setup_complete)
-    if os.environ.get("CURSOR_TRACE_ID") or "CURSOR" in os.environ.get("TERM_PROGRAM", "").upper():
-        log.warning("Launched from IDE terminal — prefer: ./scripts/run_mac_app.sh")
+
+    # customtkinter → darkdetect imports AppKit; register Tk first on macOS.
+    ensure_tk_registered()
 
     from ui.main_window import MainWindow
     from ui.theme import apply_theme
@@ -110,5 +149,38 @@ def _open_demo_ui(app, session) -> None:  # noqa: ANN001
     TranscriptPlayerWindow(lib, session.root)
 
 
+def _fatal(exc: BaseException) -> int:
+    """Log + show a dialog so double-click launches don't silently vanish."""
+    try:
+        from util.logging import setup_logging
+
+        setup_logging().exception("Fatal: %s", exc)
+    except Exception:
+        traceback.print_exc()
+    try:
+        import tkinter as tk
+        import tkinter.messagebox as messagebox
+
+        from config.branding import APP_NAME, ensure_tk_registered
+
+        ensure_tk_registered()
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            APP_NAME,
+            f"Gagal memulai {APP_NAME}:\n\n{exc}\n\n"
+            "Cek log di Application Support / AppData, atau jalankan dari Terminal.",
+        )
+        root.destroy()
+    except Exception:
+        pass
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException as exc:  # noqa: BLE001 — last-resort UI for packaged app
+        sys.exit(_fatal(exc))
