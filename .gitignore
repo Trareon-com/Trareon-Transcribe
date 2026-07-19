@@ -6,6 +6,7 @@ __pycache__/
 *.egg-info/
 dist/
 dist-run/
+dist-release/
 build/
 *.spec.bak
 .env

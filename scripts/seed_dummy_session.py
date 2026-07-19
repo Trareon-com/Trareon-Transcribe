@@ -37,9 +37,12 @@ def main() -> int:
             print("Or:   python main.py --demo")
         return 0
 
+    from config.branding import ensure_tk_registered
+    from config.settings import Settings
+
+    ensure_tk_registered()
     import customtkinter as ctk
 
-    from config.settings import Settings
     from ui.library import LibraryWindow
     from ui.theme import apply_theme
     from ui.transcript_player import TranscriptPlayerWindow

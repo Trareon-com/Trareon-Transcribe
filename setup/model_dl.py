@@ -15,15 +15,12 @@ from urllib.request import urlopen
 
 from config.paths import models_dir
 from setup.disk import MODEL_BYTES, WHISPER_BIN_BYTES, ensure_space
+from setup.whisper_models import MODEL_FILES, model_url, suggest_model
 
 log = logging.getLogger("trareon.model_dl")
 
-# Official ggml models (ggerganov / ggml-org HuggingFace mirror style URLs)
-MODEL_URLS = {
-    "tiny": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
-    "medium": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
-    "large-v3-turbo": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
-}
+# Official ggml models (ggerganov HuggingFace)
+MODEL_URLS = {name: model_url(name) for name in MODEL_FILES}
 
 # Optional expected SHA256 — empty means verify download completed + size sanity only.
 # Populate from release notes when pinning a release.
@@ -140,9 +137,11 @@ def ensure_whisper_binary(progress: ProgressCb | None = None) -> Path | None:
     return None
 
 
-def suggest_model(ram_gb: float, is_apple_silicon: bool) -> str:
-    if ram_gb >= 16 and is_apple_silicon:
-        return "large-v3-turbo"
-    if ram_gb >= 8:
-        return "medium"
-    return "tiny"
+# re-export for callers: from setup.model_dl import suggest_model
+__all__ = [
+    "MODEL_URLS",
+    "download_file",
+    "download_model",
+    "ensure_whisper_binary",
+    "suggest_model",
+]

@@ -9,6 +9,7 @@ import customtkinter as ctk
 
 from config.branding import APP_NAME, set_window_icon
 from config.settings import Settings
+from config.version import __version__
 from engine.pipeline import Pipeline, PipelineStatus
 from engine.session_store import Session, TranscriptSegment, find_inprogress
 from engine.stt import WhisperCppStt
@@ -29,8 +30,9 @@ class MainWindow(ctk.CTk):
         super().__init__()
         self.settings = settings
         self.colors = apply_theme(settings.theme)
-        self.title(APP_NAME)
+        self.title(f"{APP_NAME}  v{__version__}")
         set_window_icon(self)
+        self.minsize(780, 520)
         geo = settings.window_geometry or "920x640"
         if "x" in geo and "+" not in geo:
             self.geometry(f"{geo}+120+80")
@@ -48,16 +50,20 @@ class MainWindow(ctk.CTk):
         self._auto_scroll = True
         self._mic_blink_on = False
         self._partial_mark: str | None = None
+        self._conf_scores: list[float] = []
+        self._caption_font_size = 14
 
         self.mode_var = ctk.StringVar(value=settings.meeting_mode)
         self.title_var = ctk.StringVar(value=settings.last_meeting_title or "")
         self.status_var = ctk.StringVar(value=PipelineStatus.IDLE.value)
         self.timer_var = ctk.StringVar(value="00:00:00")
-        self.res_var = ctk.StringVar(value="CPU —  RAM —")
+        self.res_var = ctk.StringVar(value="CPU —  RAM —  GPU —")
+        self.conf_var = ctk.StringVar(value="Conf —")
         self.banner_var = ctk.StringVar(value="")
         self.ready_var = ctk.StringVar(value="")
         self.mic_var = ctk.StringVar(value="ON")
         self.spk_var = ctk.StringVar(value="ON")
+        self.font_var = ctk.StringVar(value="14")
 
         self._build()
         self._bind_keys()
@@ -70,11 +76,20 @@ class MainWindow(ctk.CTk):
         self.after(200, self._poll)
         self.after(500, self._check_resume)
         self.after(1000, self._tick_resources)
+        self.after(100, self._tick_vu)
 
     def _build(self) -> None:
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=16, pady=(12, 4))
-        ctk.CTkLabel(header, text=APP_NAME, font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        brand = ctk.CTkFrame(header, fg_color="transparent")
+        brand.pack(side="left")
+        ctk.CTkLabel(brand, text=APP_NAME, font=ctk.CTkFont(size=22, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(
+            brand,
+            text=f"v{__version__} · offline Whisper",
+            font=ctk.CTkFont(size=12),
+            text_color=("gray40", "gray65"),
+        ).pack(anchor="w")
         ctk.CTkButton(header, text="☀/🌙", width=48, command=self._toggle_theme).pack(side="right", padx=4)
         ctk.CTkButton(header, text="Settings", width=80, command=self._open_settings).pack(side="right", padx=4)
         ctk.CTkButton(header, text="Library", width=80, command=self._open_library).pack(side="right", padx=4)
@@ -112,15 +127,39 @@ class MainWindow(ctk.CTk):
         self.mic_warn = ctk.CTkLabel(tog, text="", text_color="#C0392B")
         self.mic_warn.pack(side="left", padx=8)
 
+        vu = ctk.CTkFrame(self, fg_color="transparent")
+        vu.pack(fill="x", padx=16, pady=(0, 4))
+        ctk.CTkLabel(vu, text="MIC", width=36).pack(side="left")
+        self.mic_vu = ctk.CTkProgressBar(vu, width=200, height=10)
+        self.mic_vu.set(0)
+        self.mic_vu.pack(side="left", padx=(4, 16))
+        ctk.CTkLabel(vu, text="SPK", width=36).pack(side="left")
+        self.spk_vu = ctk.CTkProgressBar(vu, width=200, height=10)
+        self.spk_vu.set(0)
+        self.spk_vu.pack(side="left", padx=4)
+
         meta = ctk.CTkFrame(self, fg_color="transparent")
         meta.pack(fill="x", padx=16)
         self.rec_label = ctk.CTkLabel(meta, text="○ IDLE")
         self.rec_label.pack(side="left")
         ctk.CTkLabel(meta, textvariable=self.timer_var).pack(side="left", padx=12)
         ctk.CTkLabel(meta, textvariable=self.status_var).pack(side="left", padx=12)
+        ctk.CTkLabel(meta, textvariable=self.conf_var).pack(side="left", padx=12)
         ctk.CTkLabel(meta, textvariable=self.res_var).pack(side="right")
 
-        self.caption = ctk.CTkTextbox(self, wrap="word")
+        cap_tools = ctk.CTkFrame(self, fg_color="transparent")
+        cap_tools.pack(fill="x", padx=16, pady=(4, 0))
+        ctk.CTkLabel(cap_tools, text="Font").pack(side="left")
+        ctk.CTkOptionMenu(
+            cap_tools,
+            variable=self.font_var,
+            values=["12", "14", "16", "18"],
+            width=70,
+            command=self._on_font_change,
+        ).pack(side="left", padx=6)
+        ctk.CTkButton(cap_tools, text="Clear", width=70, command=self._clear_caption).pack(side="left", padx=4)
+
+        self.caption = ctk.CTkTextbox(self, wrap="word", font=ctk.CTkFont(size=self._caption_font_size))
         self.caption.pack(fill="both", expand=True, padx=16, pady=8)
         self.caption.bind("<MouseWheel>", self._on_scroll)
         self.caption.insert("end", "Menunggu suara…\n")
@@ -302,6 +341,8 @@ class MainWindow(ctk.CTk):
             self.status_var.set(PipelineStatus.DEVICE_ERROR.value)
             return
         self._recording = True
+        self._conf_scores.clear()
+        self.conf_var.set("Conf —")
         self.start_btn.configure(text="Stop")
         self.rec_label.configure(text="● REC")
         self.caption.delete("1.0", "end")
@@ -317,6 +358,8 @@ class MainWindow(ctk.CTk):
         self.start_btn.configure(text="Start")
         self.rec_label.configure(text="○ IDLE")
         self.status_var.set(PipelineStatus.IDLE.value)
+        self.mic_vu.set(0)
+        self.spk_vu.set(0)
 
     def _on_status(self, status: PipelineStatus) -> None:
         self.status_var.set(status.value)
@@ -340,8 +383,28 @@ class MainWindow(ctk.CTk):
             if content == "Menunggu suara…":
                 self.caption.delete("1.0", "end")
             self.caption.insert("end", format_caption_line(seg) + "\n", "final")
+            if seg.confidence > 0:
+                self._conf_scores.append(float(seg.confidence))
+                # keep last N for a responsive average
+                if len(self._conf_scores) > 40:
+                    self._conf_scores = self._conf_scores[-40:]
+                avg = sum(self._conf_scores) / len(self._conf_scores)
+                self.conf_var.set(f"Conf {avg * 100:.0f}%")
         if self._auto_scroll:
             self.caption.see("end")
+
+    def _on_font_change(self, value: str) -> None:
+        try:
+            size = int(value)
+        except ValueError:
+            return
+        self._caption_font_size = size
+        self.caption.configure(font=ctk.CTkFont(size=size))
+
+    def _clear_caption(self) -> None:
+        self.caption.delete("1.0", "end")
+        self._partial_mark = None
+        self._auto_scroll = True
 
     def _on_scroll(self, _event=None) -> None:  # noqa: ANN001
         # If not at bottom, disable auto-scroll
@@ -391,6 +454,16 @@ class MainWindow(ctk.CTk):
         self.res_var.set(sample_resources())
         self.after(2000, self._tick_resources)
 
+    def _tick_vu(self) -> None:
+        if self._recording and self.pipeline:
+            mic, spk = self.pipeline.levels()
+            self.mic_vu.set(max(0.0, min(1.0, mic)))
+            self.spk_vu.set(max(0.0, min(1.0, spk)))
+        else:
+            self.mic_vu.set(0)
+            self.spk_vu.set(0)
+        self.after(80, self._tick_vu)
+
     def _check_resume(self) -> None:
         path = find_inprogress(self.settings.library_path())
         if path:
@@ -399,9 +472,17 @@ class MainWindow(ctk.CTk):
                 self.session = sess
                 self.title_var.set(sess.meta.title)
                 self.caption.delete("1.0", "end")
+                self._conf_scores.clear()
                 for seg in sess.segments:
                     if seg.is_final:
                         self.caption.insert("end", format_caption_line(seg) + "\n", "final")
+                        if seg.confidence > 0:
+                            self._conf_scores.append(float(seg.confidence))
+                if self._conf_scores:
+                    avg = sum(self._conf_scores) / len(self._conf_scores)
+                    self.conf_var.set(f"Conf {avg * 100:.0f}%")
+                else:
+                    self.conf_var.set("Conf —")
 
             ResumeDialog(
                 self,

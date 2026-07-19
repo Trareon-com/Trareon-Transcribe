@@ -8,6 +8,24 @@ Aplikasi desktop untuk **live transcription offline** — merekam & mentranskrip
 
 ---
 
+## Download (pengguna akhir)
+
+Binary siap pakai ada di **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** — bukan di dalam repo git (file terlalu besar).
+
+| File | Platform |
+|------|----------|
+| `Trareon-Transcribe-*-macos-arm64.zip` | Mac Apple Silicon (M1/M2/M3/M4) |
+| `Trareon-Transcribe-*-macos-x64.zip` | Mac Intel |
+| `Trareon-Transcribe-*-windows-x64.zip` | Windows 10/11 |
+
+**macOS:** unzip → taruh `Trareon Transcribe.app` di Applications → buka. Jika Gatekeeper menolak: klik kanan → Open (sekali), atau System Settings → Privacy & Security → Open Anyway. Model Whisper diunduh saat first-run wizard (butuh internet sekali).
+
+**Windows:** unzip → jalankan `TrareonTranscribe.exe`. Izinkan mikrofon di Settings Windows bila diminta. Untuk speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
+
+> Belum ada code signing / notarization Apple — wajar jika OS menampilkan peringatan “unidentified developer”.
+
+---
+
 ## Screenshots & fitur
 
 ### Jendela utama (Light mode)
@@ -18,6 +36,7 @@ Aplikasi desktop untuk **live transcription offline** — merekam & mentranskrip
 - **3 mode rapat** — Webinar / Rapat Online / Rapat Offline (preset mic & speaker)
 - **Toggle MIC / SPK** independen saat merekam
 - **Live caption** dengan label sumber (`MIC` / `SPK`) dan bahasa (`[ID]` / `[EN]`)
+- **VU meter** MIC/SPK, ukuran font caption, Clear, rata-rata confidence
 - Status pipeline: Listening · Transcribing · Paused · Device error
 - Monitor **CPU / RAM / GPU**, timer rekaman, minimize ke tray
 
@@ -31,13 +50,13 @@ Toggle tema ☀/🌙 di pojok kanan atas; pilihan tersimpan antar sesi.
 
 ![Setup wizard](docs/screenshots/03-setup-wizard.png)
 
-Wizard mendeteksi spek laptop, menyarankan model Whisper, memasang dependency (BlackHole/ffmpeg bila memungkinkan), mengunduh model + binary, opsional HF token, dan **tone-test** routing audio.
+Wizard mendeteksi spek (CPU/RAM/**GPU**), menyarankan model Whisper, memasang dependency (BlackHole/ffmpeg bila memungkinkan), mengunduh model + binary, opsional HF token, dan **tone-test** routing audio.
 
 ### Library sesi
 
 ![Library](docs/screenshots/04-library.png)
 
-Riwayat rekaman: **Putar** membuka viewer dengan audio + transcript tersinkron (speaker, waktu, teks apa adanya — tanpa translate), export ulang, rename, buka folder, hapus.
+Riwayat rekaman + ringkasan **penyimpanan** (GB sesi / disk bebas). **Putar** membuka viewer dengan audio + transcript tersinkron (speaker, waktu, teks apa adanya — tanpa translate), export ulang, rename, buka folder, hapus.
 
 ### Settings
 
@@ -57,7 +76,7 @@ Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File
 
 | Fitur | Keterangan |
 |--------|------------|
-| Offline STT | whisper.cpp (ggml): `tiny` / `medium` / `large-v3-turbo` |
+| Offline STT | whisper.cpp (ggml) — katalog penuh di bawah |
 | Dual stream | Mic + speaker/loopback paralel |
 | 3 mode | Webinar (spk), Rapat Online (mic+spk+echo-dedupe), Rapat Offline (mic) |
 | Dual VAD | WebRTC + Silero (filter noise) |
@@ -68,6 +87,19 @@ Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File
 | Single-instance | Satu proses app saja |
 | Library player | Putar ulang mic/speaker WAV + highlight segmen transcript (speaker · waktu · teks) |
 | Export | WAV per-track + MD / TXT / JSON / SRT / VTT |
+
+### Model Whisper (offline only)
+
+| Model | Size | RAM | Speed | Quality |
+|-------|------|-----|-------|---------|
+| `tiny` | ~75 MB | ~1 GB | Very fast | Low |
+| `base` | ~150 MB | ~1 GB | Fast | Medium |
+| `small` | ~500 MB | ~2 GB | Medium | Good |
+| `medium` | ~1.5 GB | ~5 GB | Slow | High |
+| `large-v3-turbo` | ~1.6 GB | ~4 GB | Medium | Very high |
+| `large` | ~3 GB | ~8 GB | Slowest | Best |
+
+Engine STT = **Whisper saja** (whisper.cpp). Tidak ada cloud ASR / engine pihak ketiga di jalur produk.
 
 ---
 
@@ -197,17 +229,24 @@ Path library bisa diganti di **Settings**.
 
 ---
 
-## Build executable
+## Build executable / release zip
 
 ```bash
 pip install -r requirements.txt
+chmod +x scripts/package_release.sh
+./scripts/package_release.sh          # → dist-release/*.zip
+# atau developer-only:
 ./scripts/build.sh
-# atau:
-pyinstaller --noconfirm --clean packaging/trareon-transcribe.spec
 ```
 
-Hasil: `dist/Trareon Transcribe` (macOS) / `.exe` (Windows).  
-Release GitHub Actions juga menghasilkan CycloneDX SBOM.
+**Publikasi ke GitHub Releases** (setelah `gh auth login`):
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+# CI (.github/workflows/release.yml) membangun macOS arm64/x64 + Windows dan mengunggah zip + SBOM
+# Atau lokal (hanya zip mesin ini):
+gh release create v0.1.0 dist-release/* --title "v0.1.0" --generate-notes
+```
 
 > Code signing / notarization memerlukan sertifikat organisasi (di luar repo).
 
@@ -247,13 +286,13 @@ Design lengkap: [docs/design.md](docs/design.md)
 |---------|------|
 | `No module named '_tkinter'` | macOS: `brew install python-tk@3.11`, lalu buat ulang venv (`rm -rf .venv && python3.11 -m venv .venv && pip install -r requirements.txt`) |
 | App tidak muncul / langsung tutup | Hapus lock basi: `rm -f ~/Library/Application\ Support/TrareonTranscribe/instance.lock` lalu `./scripts/run_mac_app.sh` |
-| Crash SIGABRT / `RegisterApplication` | Jangan panggil AppKit sebelum Tk. Jalankan dari Terminal.app atau `./scripts/run_mac_app.sh` (bukan selalu dari terminal Cursor) |
+| Crash SIGABRT / `RegisterApplication` | Biasanya dari terminal Cursor/VS Code. Pakai `./scripts/run_mac_app.sh` (main.py akan auto-relaunch dari IDE). Debug di IDE: `TRAREON_NO_RELAUNCH=1` + `ensure_tk_registered` sudah dipanggil sebelum import UI. |
 | Menu bar / Dock / dialog izin mic bertuliskan Python | Jalankan via `./scripts/run_mac_app.sh` (bukan `python main.py`). Dialog izin macOS mengikuti bundle `.app`. Jika dulu sudah grant ke «Python», buka System Settings → Privacy → Microphone → aktifkan **Trareon Transcribe**. Butuh `pyobjc-framework-Cocoa` di venv. |
 | Caption kosong | Pastikan MIC/SPK ON sesuai mode; cek izin Mikrofon OS |
 | Speaker tidak ter-transkrip | Tone Test gagal → perbaiki Multi-Output / VB-Cable |
 | `[STT: model/binary belum…]` | Jalankan ulang wizard / unduh model ke folder cache |
 | App “sudah berjalan” | Tutup instance lain / cek system tray |
-| Disk penuh | Kurangi model (`tiny`/`medium`) atau kosongkan ruang |
+| Disk penuh | Kurangi model Whisper (`tiny`/`base`/`small`) atau kosongkan ruang |
 
 ---
 

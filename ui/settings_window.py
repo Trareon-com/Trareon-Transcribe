@@ -12,9 +12,11 @@ from config.branding import APP_NAME, set_window_icon
 from config.keyring_store import get_hf_token, set_hf_token
 from config.paths import logs_dir, models_dir
 from config.settings import Settings
+from config.version import __version__
 from engine.audio_capture import AudioCapture
 from engine.tone_test import run_tone_test
 from setup.model_dl import download_model, ensure_whisper_binary
+from setup.whisper_models import WHISPER_MODELS
 from util.threading_helpers import run_in_thread
 
 
@@ -42,7 +44,7 @@ class SettingsWindow(ctk.CTkToplevel):
         form.pack(fill="both", expand=True, padx=16)
 
         ctk.CTkLabel(form, text="Model Whisper").pack(anchor="w")
-        ctk.CTkOptionMenu(form, variable=self.model_var, values=["tiny", "medium", "large-v3-turbo"]).pack(
+        ctk.CTkOptionMenu(form, variable=self.model_var, values=list(WHISPER_MODELS)).pack(
             anchor="w", pady=4
         )
 
@@ -89,7 +91,13 @@ class SettingsWindow(ctk.CTkToplevel):
         shortcuts = (
             "Shortcuts: Space Start/Stop · M Mic · S Speaker · E Export · T Tray · , Settings"
         )
-        ctk.CTkLabel(self, text=shortcuts, text_color="gray").pack(pady=(0, 10))
+        ctk.CTkLabel(self, text=shortcuts, text_color="gray").pack(pady=(0, 4))
+        ctk.CTkLabel(
+            self,
+            text=f"{APP_NAME} v{__version__} · https://github.com/Trareon-com/Trareon-Transcribe/releases",
+            text_color="gray",
+            font=ctk.CTkFont(size=11),
+        ).pack(pady=(0, 10))
 
     def _save(self) -> None:
         self.settings.model = self.model_var.get()

@@ -113,6 +113,11 @@ class Pipeline:
         if self._capture:
             self._capture.set_speaker_enabled(enabled)
 
+    def levels(self) -> tuple[float, float]:
+        if self._capture:
+            return self._capture.levels()
+        return 0.0, 0.0
+
     def set_title(self, title: str) -> None:
         if self.session:
             update_title(self.session, title)

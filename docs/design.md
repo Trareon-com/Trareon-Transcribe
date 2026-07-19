@@ -39,7 +39,7 @@ Trareon Transcribe
 │   ├── Dual VAD (WebRTC + Silero) → filter noise sekitar
 │   └── Echo-dedupe (mode Rapat Online)
 ├── STT Engine (whisper.cpp, offline, ggml)
-│   ├── Model: tiny / medium / large-v3-turbo (user pilih)
+│   ├── Model Whisper: tiny / base / small / medium / large-v3-turbo / large
 │   ├── Language: auto (ID/EN detect per-segment)
 │   └── Label bahasa per segment [ID] / [EN]
 ├── Diarization (optional, pyannote)
@@ -107,8 +107,9 @@ User dapat override toggle mic/speaker secara manual kapan saja saat merekam.
 
 ### 5.1 Model
 - Engine: whisper.cpp (C++, native, efisien di CPU/Apple Neural Engine).
-- Model ggml: `tiny` / `medium` / `large-v3-turbo` (default disarankan `medium`
-  untuk Mac lawas, `large-v3-turbo` untuk akurasi ID/EN terbaik).
+- Model ggml Whisper saja: `tiny` / `base` / `small` / `medium` /
+  `large-v3-turbo` / `large` (saran otomatis dari RAM; Apple Silicon
+  prefer turbo sebelum `large` penuh).
 - First-run wizard detect spec laptop (RAM/CPU/Neural Engine) → sarankan model,
   tapi user tetap bisa pilih dari list + penjelasan tiap model.
 
@@ -239,13 +240,12 @@ User dapat override toggle mic/speaker secara manual kapan saja saat merekam.
 ╔════════════════════════════════════════════════════════════════════╗
 ║  Trareon Transcribe — Setup                                        ║
 ╠════════════════════════════════════════════════════════════════════╣
-║  Spec terdeteksi: Apple M2, 16GB RAM                               ║
-║  Saran model: large-v3-turbo (akurasi ID/EN terbaik)               ║
+║  Spec terdeteksi: Apple M2, 16GB RAM, Apple M2 GPU                 ║
+║  Saran model: large-v3-turbo                                       ║
 ║                                                                     ║
 ║  Pilih model Whisper:                                               ║
-║   ( ) tiny      ~75MB   cepat, akurasi rendah                      ║
-║   ( ) medium    ~1.5GB  seimbang (disarankan Mac lawas)            ║
-║   (•) large-v3-turbo ~3GB akurasi tinggi ID/EN                    ║
+║   ( ) tiny / base / small / medium                                 ║
+║   (•) large-v3-turbo   ( ) large                                   ║
 ║                                                                     ║
 ║  [x] Install BlackHole + ffmpeg (otomatis)                         ║
 ║  [ ] Aktifkan diarization pyannote (butuh HF token)                ║

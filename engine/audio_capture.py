@@ -47,14 +47,40 @@ class AudioCapture:
         self._mic_wav: wave.Wave_write | None = None
         self._spk_wav: wave.Wave_write | None = None
         self._sd = None
+        self._mic_level = 0.0
+        self._spk_level = 0.0
 
     def set_mic_enabled(self, enabled: bool) -> None:
         with self._lock:
             self.state.mic_enabled = enabled
+            if not enabled:
+                self._mic_level = 0.0
 
     def set_speaker_enabled(self, enabled: bool) -> None:
         with self._lock:
             self.state.speaker_enabled = enabled
+            if not enabled:
+                self._spk_level = 0.0
+
+    def levels(self) -> tuple[float, float]:
+        """Return (mic, speaker) peak levels in 0.0–1.0 for VU meters."""
+        with self._lock:
+            return self._mic_level, self._spk_level
+
+    def _note_level(self, pcm: bytes, which: str) -> None:
+        if not pcm:
+            return
+        arr = np.frombuffer(pcm, dtype=np.int16)
+        if arr.size == 0:
+            return
+        # Peak-ish RMS normalized to ~0–1
+        rms = float(np.sqrt(np.mean(arr.astype(np.float32) ** 2))) / 32768.0
+        level = min(1.0, rms * 4.0)
+        with self._lock:
+            if which == "mic":
+                self._mic_level = max(level, self._mic_level * 0.65)
+            else:
+                self._spk_level = max(level, self._spk_level * 0.65)
 
     def open_wav_writers(self, mic_path: Path, speaker_path: Path) -> None:
         self.close_wav_writers()
@@ -92,6 +118,7 @@ class AudioCapture:
                 if not self.state.mic_enabled:
                     return
             pcm = bytes(indata)
+            self._note_level(pcm, "mic")
             if self._mic_wav:
                 try:
                     self._mic_wav.writeframes(pcm)
@@ -107,6 +134,7 @@ class AudioCapture:
                 if not self.state.speaker_enabled:
                     return
             pcm = bytes(indata)
+            self._note_level(pcm, "spk")
             if self._spk_wav:
                 try:
                     self._spk_wav.writeframes(pcm)
@@ -157,6 +185,9 @@ class AudioCapture:
                     pass
         self._mic_stream = None
         self._spk_stream = None
+        with self._lock:
+            self._mic_level = 0.0
+            self._spk_level = 0.0
         self.close_wav_writers()
 
     @staticmethod

@@ -2,7 +2,11 @@
 
 Important (macOS): never import AppKit/PyObjC before Tk creates the root window.
 Doing so makes Tk abort inside RegisterApplication (SIGABRT).
-After Tk exists, patch CFBundleName + the Apple menu so the bar is not "Python".
+`customtkinter` → `darkdetect` imports AppKit at import time, so call
+`ensure_tk_registered()` before any UI import.
+
+Cursor/VS Code integrated terminals often still SIGABRT on Tk — prefer
+`scripts/run_mac_app.sh` (or let main.py auto-relaunch).
 
 Mic permission dialogs use the .app bundle name only when the running Mach-O
 lives inside that bundle — use scripts/run_mac_app.sh (not bare `python main.py`).
@@ -19,6 +23,7 @@ APP_NAME = "Trareon Transcribe"
 APP_ID = "com.trareon.transcribe"
 
 _PYTHON_TITLE_RE = re.compile(r"Python(?:\s+[\d.]+)?", re.IGNORECASE)
+_tk_registered = False
 
 
 def project_root() -> Path:
@@ -43,6 +48,32 @@ def running_from_app_bundle() -> bool:
         return True
     exe = Path(sys.executable).resolve()
     return any(p.name.endswith(".app") for p in exe.parents)
+
+
+def launched_from_ide_terminal() -> bool:
+    """True in Cursor / VS Code integrated terminals (Tk often SIGABRTs there)."""
+    if os.environ.get("CURSOR_TRACE_ID"):
+        return True
+    term = os.environ.get("TERM_PROGRAM", "").upper()
+    if "CURSOR" in term or term == "VSCODE":
+        return True
+    return bool(os.environ.get("VSCODE_INJECTION") or os.environ.get("VSCODE_PID"))
+
+
+def ensure_tk_registered() -> None:
+    """Create a throwaway Tk root so Launch Services registers before AppKit loads."""
+    global _tk_registered
+    if _tk_registered or sys.platform != "darwin":
+        return
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        root.update_idletasks()
+    finally:
+        root.destroy()
+    _tk_registered = True
 
 
 def apply_macos_menu_name(name: str = APP_NAME) -> None:

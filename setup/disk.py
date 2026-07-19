@@ -24,12 +24,29 @@ def ensure_space(required_bytes: int, path: Path | None = None, buffer_ratio: fl
     return False, f"Ruang disk kurang — butuh ~{human_gb(need)}, tersedia {human_gb(free)}"
 
 
-# Approximate model sizes
+# Approximate download sizes (for disk check / UI)
 MODEL_BYTES = {
     "tiny": 75 * 1024**2,
+    "base": 150 * 1024**2,
+    "small": 500 * 1024**2,
     "medium": int(1.5 * 1024**3),
-    "large-v3-turbo": 3 * 1024**3,
+    "large-v3-turbo": int(1.6 * 1024**3),
+    "large": 3 * 1024**3,
 }
 
 WHISPER_BIN_BYTES = 50 * 1024**2
 MIN_SESSION_FREE = 1 * 1024**3
+
+
+def library_storage_summary(library_root: Path) -> str:
+    """e.g. 'Sesi 1.2 GB terpakai · disk bebas 120.5 GB'."""
+    used = 0
+    if library_root.exists():
+        for p in library_root.rglob("*"):
+            if p.is_file():
+                try:
+                    used += p.stat().st_size
+                except OSError:
+                    pass
+    free = free_bytes(library_root if library_root.exists() else Path.home())
+    return f"Sesi {human_gb(used)} terpakai · disk bebas {human_gb(free)}"

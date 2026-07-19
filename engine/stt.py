@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config.paths import models_dir
+from setup.whisper_models import MODEL_FILES
 
 log = logging.getLogger("trareon.stt")
 
@@ -39,12 +40,7 @@ def find_whisper_binary() -> Path | None:
 
 
 def find_model(name: str = "medium") -> Path | None:
-    mapping = {
-        "tiny": "ggml-tiny.bin",
-        "medium": "ggml-medium.bin",
-        "large-v3-turbo": "ggml-large-v3-turbo.bin",
-    }
-    fname = mapping.get(name, f"ggml-{name}.bin")
+    fname = MODEL_FILES.get(name, f"ggml-{name}.bin")
     p = models_dir() / fname
     return p if p.exists() else None
 

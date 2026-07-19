@@ -17,6 +17,7 @@ from engine.session_store import (
     session_disk_bytes,
     update_title,
 )
+from setup.disk import library_storage_summary
 from ui.export_dialog import ExportDialog
 from ui.transcript_player import TranscriptPlayerWindow
 
@@ -27,13 +28,18 @@ class LibraryWindow(ctk.CTkToplevel):
         self.library_root = library_root
         self.title(f"Library — {APP_NAME}")
         set_window_icon(self)
-        self.geometry("780x520")
+        self.geometry("780x540")
         self.transient(master)
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.pack(fill="x", padx=12, pady=8)
         ctk.CTkLabel(top, text="Riwayat sesi", font=ctk.CTkFont(size=18, weight="bold")).pack(side="left")
         ctk.CTkButton(top, text="Refresh", width=80, command=self.refresh).pack(side="right")
+
+        self.storage_var = ctk.StringVar(value="")
+        ctk.CTkLabel(self, textvariable=self.storage_var, text_color="gray", anchor="w").pack(
+            fill="x", padx=16
+        )
 
         self.listbox = ctk.CTkScrollableFrame(self, height=320)
         self.listbox.pack(fill="both", expand=True, padx=12, pady=8)
@@ -45,6 +51,10 @@ class LibraryWindow(ctk.CTkToplevel):
     def refresh(self) -> None:
         for w in self.listbox.winfo_children():
             w.destroy()
+        try:
+            self.storage_var.set(library_storage_summary(self.library_root))
+        except Exception:
+            self.storage_var.set("")
         metas = list_sessions(self.library_root)
         if not metas:
             self.empty.configure(text="Belum ada rekaman. Mulai rekam dari jendela utama.")

@@ -21,6 +21,8 @@ class DepPlan:
 def detect_spec() -> dict:
     import psutil
 
+    from util.resources import gpu_name
+
     ram_gb = psutil.virtual_memory().total / (1024**3)
     cpu = platform.processor() or platform.machine()
     is_apple = sys.platform == "darwin" and platform.machine().lower() in ("arm64", "aarch64")
@@ -29,6 +31,7 @@ def detect_spec() -> dict:
         "machine": platform.machine(),
         "cpu": cpu,
         "ram_gb": ram_gb,
+        "gpu": gpu_name(),
         "is_apple_silicon": is_apple,
         "has_brew": shutil.which("brew") is not None,
         "has_ffmpeg": shutil.which("ffmpeg") is not None,
