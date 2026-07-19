@@ -43,4 +43,4 @@ jobs:
           VER=8.28.0
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
             | tar -xz -C /tmp gitleaks
-          /tmp/gitleaks detect --source . --verbose --redact
+          /tmp/gitleaks detect --source . --verbose --redact --config .gitleaks.toml

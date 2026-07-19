@@ -1,0 +1,8 @@
+# Allow intentional fake secrets used only in unit tests.
+title = "Trareon Transcribe"
+
+[allowlist]
+description = "Test fixtures"
+paths = [
+  '''tests/.*''',
+]
