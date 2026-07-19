@@ -20,12 +20,10 @@ class Settings:
     always_on_top: bool = False
     library_root: str = ""
     diarization_enabled: bool = False
-    translate_enabled: bool = False
-    translate_direction: str = "en_id"  # en_id | id_en
     setup_complete: bool = False
     tone_test_ok: bool = False
     tone_test_skipped: bool = False
-    window_geometry: str = "920x640"
+    window_geometry: str = "960x720"
     window_x: int | None = None
     window_y: int | None = None
     reduced_motion: bool = False

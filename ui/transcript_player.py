@@ -9,15 +9,20 @@ from pathlib import Path
 import customtkinter as ctk
 import numpy as np
 
+from config.branding import set_window_icon
 from config.settings import Settings
 from engine.session_store import TranscriptSegment, load_session
 from ui.export_dialog import ExportDialog
-
-SPEAKER_COLORS = {
-    "MIC": "#0B6E4F",
-    "SPEAKER": "#6C3483",
-    "SPK": "#6C3483",
-}
+from ui.theme import (
+    colors_for,
+    ghost_button,
+    heading,
+    muted,
+    paint_window,
+    panel_frame,
+    primary_button,
+    styled_entry,
+)
 
 
 def _fmt_ms(ms: int) -> str:
@@ -29,13 +34,15 @@ def _fmt_ms(ms: int) -> str:
     return f"{m:02d}:{sec:02d}"
 
 
-def _speaker_color(name: str) -> str:
-    key = name.upper()
-    if key in SPEAKER_COLORS:
-        return SPEAKER_COLORS[key]
-    # stable-ish color for Speaker N
-    palette = ("#0B6E4F", "#6C3483", "#B9770E", "#1F618D", "#922B21")
-    return palette[sum(ord(c) for c in key) % len(palette)]
+def _speaker_color(name: str, colors: dict[str, str] | None = None) -> str:
+    c = colors or colors_for()
+    key = (name or "").upper()
+    if key.startswith("MIC"):
+        return c["mic"]
+    if key.startswith("SPK") or key.startswith("SPEAKER"):
+        return c["spk"]
+    palette = (c["mic"], c["accent"], "#B9770E", "#1F618D", c["danger"])
+    return palette[sum(ord(ch) for ch in key) % len(palette)]
 
 
 class WavPlayer:
@@ -159,9 +166,11 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         self._seg_frames: list[tuple[TranscriptSegment, ctk.CTkFrame]] = []
         self._current_idx = -1
         self._seek_drag = False
+        self.colors = paint_window(self)
 
         self.title(self.session.meta.title or "Transcript")
-        self.geometry("880x640")
+        set_window_icon(self)
+        self.geometry("900x660")
         self.minsize(720, 520)
 
         self._build_header()
@@ -174,29 +183,23 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         self.after(200, self._tick)
 
     def _build_header(self) -> None:
+        c = self.colors
         head = ctk.CTkFrame(self, fg_color="transparent")
-        head.pack(fill="x", padx=16, pady=(14, 6))
+        head.pack(fill="x", padx=20, pady=(16, 6))
         left = ctk.CTkFrame(head, fg_color="transparent")
         left.pack(side="left", fill="x", expand=True)
-        ctk.CTkLabel(
-            left,
-            text=self.session.meta.title or "Tanpa judul",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            anchor="w",
-        ).pack(anchor="w")
+        heading(left, self.session.meta.title or "Tanpa judul", c, size=18).pack(anchor="w")
         created = (self.session.meta.created_at or "")[:19].replace("T", " ")
         dur = _fmt_ms(int((self.session.meta.duration_sec or 0) * 1000))
-        meta = f"{created}  ·  {dur}  ·  {self.session.meta.mode}"
-        ctk.CTkLabel(left, text=meta, text_color="gray", anchor="w").pack(anchor="w")
-        right = ctk.CTkFrame(head, fg_color="transparent")
-        right.pack(side="right")
-        ctk.CTkButton(right, text="Export", width=90, command=self._export).pack(side="right", padx=4)
+        muted(left, f"{created}  ·  {dur}  ·  {self.session.meta.mode}", c, anchor="w").pack(anchor="w")
+        ghost_button(head, "Export", self._export, c, width=90).pack(side="right")
 
     def _build_search(self) -> None:
+        c = self.colors
         row = ctk.CTkFrame(self, fg_color="transparent")
-        row.pack(fill="x", padx=16, pady=(0, 6))
+        row.pack(fill="x", padx=20, pady=(0, 8))
         self.search_var = ctk.StringVar(value="")
-        entry = ctk.CTkEntry(row, textvariable=self.search_var, placeholder_text="Cari di transcript…")
+        entry = styled_entry(row, c, textvariable=self.search_var, placeholder_text="Cari di transcript…")
         entry.pack(fill="x", side="left", expand=True)
         entry.bind("<KeyRelease>", lambda _e: self._render_segments())
         tracks = []
@@ -208,38 +211,53 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
             tracks = ["(tidak ada audio)"]
         self.track_var = ctk.StringVar(value=tracks[0])
         self.track_menu = ctk.CTkOptionMenu(
-            row, variable=self.track_var, values=tracks, width=120, command=self._on_track_change
+            row,
+            variable=self.track_var,
+            values=tracks,
+            width=120,
+            height=32,
+            command=self._on_track_change,
+            fg_color=c["bg"],
+            button_color=c["border"],
+            button_hover_color=c["border"],
         )
         self.track_menu.pack(side="right", padx=(8, 0))
 
     def _build_transcript(self) -> None:
-        self.list = ctk.CTkScrollableFrame(self)
-        self.list.pack(fill="both", expand=True, padx=16, pady=6)
-        self.empty_lbl = ctk.CTkLabel(self.list, text="")
+        c = self.colors
+        panel = panel_frame(self, c)
+        panel.pack(fill="both", expand=True, padx=20, pady=(0, 8))
+        self.list = ctk.CTkScrollableFrame(panel, fg_color="transparent")
+        self.list.pack(fill="both", expand=True, padx=8, pady=8)
         self._render_segments()
 
     def _build_transport(self) -> None:
-        bar = ctk.CTkFrame(self)
-        bar.pack(fill="x", padx=16, pady=(4, 14))
+        c = self.colors
+        bar = panel_frame(self, c)
+        bar.pack(fill="x", padx=20, pady=(0, 16))
         controls = ctk.CTkFrame(bar, fg_color="transparent")
-        controls.pack(fill="x", padx=8, pady=(8, 4))
-        self.play_btn = ctk.CTkButton(controls, text="▶", width=44, command=self._toggle_play)
+        controls.pack(fill="x", padx=12, pady=(10, 4))
+        self.play_btn = primary_button(controls, "▶", self._toggle_play, c, width=44, height=30)
         self.play_btn.pack(side="left", padx=2)
-        ctk.CTkButton(controls, text="−10s", width=50, command=lambda: self._nudge(-10000)).pack(
-            side="left", padx=2
-        )
+        ghost_button(controls, "−10s", lambda: self._nudge(-10000), c, width=54).pack(side="left", padx=2)
         self.speed_var = ctk.StringVar(value="1.0x")
-        # speed: restart with resample is heavy — keep 1.0 for v1 honesty, menu reserved
-        ctk.CTkLabel(controls, textvariable=self.speed_var, width=40).pack(side="left", padx=4)
-        ctk.CTkButton(controls, text="+10s", width=50, command=lambda: self._nudge(10000)).pack(
-            side="left", padx=2
-        )
+        muted(controls, "", c, textvariable=self.speed_var, width=40).pack(side="left", padx=4)
+        ghost_button(controls, "+10s", lambda: self._nudge(10000), c, width=54).pack(side="left", padx=2)
         self.time_var = ctk.StringVar(value="00:00 / 00:00")
-        ctk.CTkLabel(controls, textvariable=self.time_var).pack(side="right")
+        muted(controls, "", c, textvariable=self.time_var, font=ctk.CTkFont(size=12)).pack(side="right")
 
-        self.seek = ctk.CTkSlider(bar, from_=0, to=1000, number_of_steps=1000, command=self._on_seek)
+        self.seek = ctk.CTkSlider(
+            bar,
+            from_=0,
+            to=1000,
+            number_of_steps=1000,
+            command=self._on_seek,
+            progress_color=c["accent"],
+            button_color=c["accent"],
+            button_hover_color=c["accent"],
+        )
         self.seek.set(0)
-        self.seek.pack(fill="x", padx=12, pady=(0, 10))
+        self.seek.pack(fill="x", padx=14, pady=(0, 12))
         self.seek.bind("<ButtonPress-1>", lambda _e: setattr(self, "_seek_drag", True))
         self.seek.bind("<ButtonRelease-1>", self._on_seek_release)
 
@@ -252,34 +270,42 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         return out
 
     def _render_segments(self) -> None:
+        c = self.colors
         for w in self.list.winfo_children():
             w.destroy()
         self._seg_frames.clear()
         segs = self._segments()
         if not segs:
-            ctk.CTkLabel(self.list, text="Belum ada segmen transcript di sesi ini.").pack(pady=24)
+            muted(self.list, "Belum ada segmen transcript di sesi ini.", c).pack(pady=24)
             return
         for seg in segs:
-            frame = ctk.CTkFrame(self.list, fg_color=("gray95", "gray20"), corner_radius=8)
+            frame = ctk.CTkFrame(
+                self.list,
+                fg_color=c["row"],
+                corner_radius=10,
+                border_width=1,
+                border_color=c["border"],
+            )
             frame.pack(fill="x", pady=4, padx=2)
             top = ctk.CTkFrame(frame, fg_color="transparent")
-            top.pack(fill="x", padx=10, pady=(8, 0))
-            color = _speaker_color(seg.speaker)
+            top.pack(fill="x", padx=12, pady=(8, 0))
+            src = "MIC" if (seg.speaker or "").upper().startswith("MIC") else "SPK"
             ctk.CTkLabel(
                 top,
-                text=seg.speaker,
-                text_color=color,
-                font=ctk.CTkFont(weight="bold"),
+                text=src,
+                text_color=_speaker_color(seg.speaker, c),
+                font=ctk.CTkFont(weight="bold", size=13),
             ).pack(side="left")
-            ctk.CTkLabel(top, text=_fmt_ms(seg.start_ms), text_color="gray").pack(side="left", padx=10)
+            muted(top, _fmt_ms(seg.start_ms), c).pack(side="left", padx=10)
             body = ctk.CTkLabel(
                 frame,
                 text=seg.text.strip(),
                 anchor="w",
                 justify="left",
                 wraplength=780,
+                text_color=c["text"],
             )
-            body.pack(fill="x", padx=10, pady=(2, 10))
+            body.pack(fill="x", padx=12, pady=(2, 10))
             frame.bind("<Button-1>", lambda _e, s=seg: self._jump_to(s.start_ms))
             body.bind("<Button-1>", lambda _e, s=seg: self._jump_to(s.start_ms))
             self._seg_frames.append((seg, frame))
@@ -361,11 +387,12 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
                 break
         if idx == self._current_idx:
             return
+        c = self.colors
         for i, (_seg, frame) in enumerate(self._seg_frames):
             if i == idx:
-                frame.configure(fg_color=("#D5F5E3", "#1E3A2F"))
+                frame.configure(fg_color=c["row_active"], border_color=c["accent"])
             else:
-                frame.configure(fg_color=("gray95", "gray20"))
+                frame.configure(fg_color=c["row"], border_color=c["border"])
         self._current_idx = idx
 
     def _export(self) -> None:

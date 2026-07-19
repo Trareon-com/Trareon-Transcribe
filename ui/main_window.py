@@ -6,8 +6,9 @@ import tkinter as tk
 import tkinter.messagebox as messagebox
 
 import customtkinter as ctk
+from PIL import Image
 
-from config.branding import APP_NAME, set_window_icon
+from config.branding import APP_NAME, icon_png, set_window_icon
 from config.settings import Settings
 from config.version import __version__
 from engine.pipeline import Pipeline, PipelineStatus
@@ -20,9 +21,16 @@ from ui.export_dialog import ExportDialog
 from ui.library import LibraryWindow
 from ui.resume_dialog import ResumeDialog
 from ui.settings_window import SettingsWindow
-from ui.theme import apply_theme
+from ui.theme import apply_theme, ghost_button
 from ui.tray import TrayController
 from util.threading_helpers import UiEventQueue
+
+_MODE_LABEL = {
+    "webinar": "Webinar",
+    "rapat_online": "Rapat Online",
+    "rapat_offline": "Rapat Offline",
+}
+_MODE_VALUE = {v: k for k, v in _MODE_LABEL.items()}
 
 
 class MainWindow(ctk.CTk):
@@ -30,10 +38,11 @@ class MainWindow(ctk.CTk):
         super().__init__()
         self.settings = settings
         self.colors = apply_theme(settings.theme)
+        self.configure(fg_color=self.colors["bg"])
         self.title(f"{APP_NAME}  v{__version__}")
         set_window_icon(self)
-        self.minsize(780, 520)
-        geo = settings.window_geometry or "920x640"
+        self.minsize(880, 600)
+        geo = settings.window_geometry or "1000x740"
         if "x" in geo and "+" not in geo:
             self.geometry(f"{geo}+120+80")
         else:
@@ -57,13 +66,15 @@ class MainWindow(ctk.CTk):
         self.title_var = ctk.StringVar(value=settings.last_meeting_title or "")
         self.status_var = ctk.StringVar(value=PipelineStatus.IDLE.value)
         self.timer_var = ctk.StringVar(value="00:00:00")
-        self.res_var = ctk.StringVar(value="CPU —  RAM —  GPU —")
+        self.res_var = ctk.StringVar(value="CPU —  ·  RAM —  ·  GPU —")
         self.conf_var = ctk.StringVar(value="Conf —")
+        self.hud_var = ctk.StringVar(value="○ Idle  ·  00:00:00  ·  Conf —")
         self.banner_var = ctk.StringVar(value="")
         self.ready_var = ctk.StringVar(value="")
         self.mic_var = ctk.StringVar(value="ON")
         self.spk_var = ctk.StringVar(value="ON")
-        self.font_var = ctk.StringVar(value="14")
+        self.font_var = ctk.StringVar(value="15")
+        self._caption_font_size = 15
 
         self._build()
         self._bind_keys()
@@ -78,106 +89,193 @@ class MainWindow(ctk.CTk):
         self.after(1000, self._tick_resources)
         self.after(100, self._tick_vu)
 
+    def _ghost_btn(self, parent: ctk.CTkFrame, text: str, command, width: int = 88) -> ctk.CTkButton:  # noqa: ANN001
+        return ghost_button(parent, text, command, self.colors, width=width)
+
     def _build(self) -> None:
+        c = self.colors
+
+        # Header: brand · status pill · resources · nav
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=16, pady=(12, 4))
+        header.pack(fill="x", padx=20, pady=(14, 6))
         brand = ctk.CTkFrame(header, fg_color="transparent")
         brand.pack(side="left")
-        ctk.CTkLabel(brand, text=APP_NAME, font=ctk.CTkFont(size=22, weight="bold")).pack(anchor="w")
+        try:
+            logo = ctk.CTkImage(Image.open(icon_png()), size=(22, 22))
+            ctk.CTkLabel(brand, text="", image=logo).pack(side="left", padx=(0, 8))
+            self._logo_img = logo  # keep ref
+        except Exception:
+            pass
         ctk.CTkLabel(
             brand,
-            text=f"v{__version__} · offline Whisper",
-            font=ctk.CTkFont(size=12),
-            text_color=("gray40", "gray65"),
-        ).pack(anchor="w")
-        ctk.CTkButton(header, text="☀/🌙", width=48, command=self._toggle_theme).pack(side="right", padx=4)
-        ctk.CTkButton(header, text="Settings", width=80, command=self._open_settings).pack(side="right", padx=4)
-        ctk.CTkButton(header, text="Library", width=80, command=self._open_library).pack(side="right", padx=4)
+            text=APP_NAME,
+            font=ctk.CTkFont(size=17, weight="bold"),
+            text_color=c["text"],
+        ).pack(side="left")
 
-        ctk.CTkLabel(self, textvariable=self.banner_var, text_color="#C0392B", wraplength=860).pack(
-            fill="x", padx=16
+        self.hud_pill = ctk.CTkFrame(header, fg_color=c["accent_soft"], corner_radius=16, height=30)
+        self.hud_pill.pack(side="left", padx=(20, 0))
+        self.rec_label = ctk.CTkLabel(
+            self.hud_pill,
+            textvariable=self.hud_var,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=c["hud_fg"],
         )
-        ctk.CTkLabel(self, textvariable=self.ready_var, text_color=("gray40", "gray65"), wraplength=860).pack(
-            fill="x", padx=16
-        )
+        self.rec_label.pack(padx=12, pady=4)
 
-        ctk.CTkLabel(self, text="Judul rapat").pack(anchor="w", padx=16)
-        title_entry = ctk.CTkEntry(self, textvariable=self.title_var, placeholder_text="Rapat tanpa judul")
-        title_entry.pack(fill="x", padx=16, pady=(0, 8))
+        self._ghost_btn(header, "Theme", self._toggle_theme, 70).pack(side="right", padx=(4, 0))
+        self._ghost_btn(header, "Settings", self._open_settings, 80).pack(side="right", padx=4)
+        self._ghost_btn(header, "Library", self._open_library, 76).pack(side="right", padx=4)
+        ctk.CTkLabel(
+            header, textvariable=self.res_var, font=ctk.CTkFont(size=11), text_color=c["muted"]
+        ).pack(side="right", padx=(0, 10))
+
+        # Control strip
+        strip = ctk.CTkFrame(self, fg_color=c["panel"], corner_radius=12, border_width=1, border_color=c["border"])
+        strip.pack(fill="x", padx=20, pady=(0, 8))
+        inner = ctk.CTkFrame(strip, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=10)
+
+        title_entry = ctk.CTkEntry(
+            inner,
+            textvariable=self.title_var,
+            placeholder_text="Judul rapat",
+            height=32,
+            border_color=c["border"],
+            fg_color=c["bg"],
+        )
+        title_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         title_entry.bind("<KeyRelease>", lambda _e: self._on_title_edit())
 
-        mode_f = ctk.CTkFrame(self, fg_color="transparent")
-        mode_f.pack(fill="x", padx=16, pady=4)
-        ctk.CTkLabel(mode_f, text="Mode rapat:").pack(side="left")
-        for text, val in (
-            ("Webinar", "webinar"),
-            ("Rapat Online", "rapat_online"),
-            ("Rapat Offline", "rapat_offline"),
-        ):
-            ctk.CTkRadioButton(
-                mode_f, text=text, variable=self.mode_var, value=val, command=self._apply_mode_defaults
-            ).pack(side="left", padx=8)
+        # CTk uses one text_color for selected+unselected — pick fill that keeps text ≥ AA.
+        self.mode_seg = ctk.CTkSegmentedButton(
+            inner,
+            values=list(_MODE_LABEL.values()),
+            command=self._on_mode_seg,
+            height=32,
+            border_width=1,
+            selected_color=c["accent_soft"],
+            selected_hover_color=c["row_active"],
+            unselected_color=c["bg"],
+            unselected_hover_color=c["row"],
+            text_color=c["text"],
+            text_color_disabled=c["muted"],
+            fg_color=c["border"],
+        )
+        self.mode_seg.set(_MODE_LABEL.get(self.mode_var.get(), "Rapat Online"))
+        self.mode_seg.pack(side="left", padx=(0, 10))
 
-        tog = ctk.CTkFrame(self)
-        tog.pack(fill="x", padx=16, pady=8)
-        self.mic_btn = ctk.CTkButton(tog, text="MIC  [ ON ]", width=140, command=self._toggle_mic)
-        self.mic_btn.pack(side="left", padx=8, pady=8)
-        self.spk_btn = ctk.CTkButton(tog, text="SPK  [ ON ]", width=140, command=self._toggle_spk)
-        self.spk_btn.pack(side="left", padx=8, pady=8)
-        self.mic_warn = ctk.CTkLabel(tog, text="", text_color="#C0392B")
-        self.mic_warn.pack(side="left", padx=8)
-
-        vu = ctk.CTkFrame(self, fg_color="transparent")
-        vu.pack(fill="x", padx=16, pady=(0, 4))
-        ctk.CTkLabel(vu, text="MIC", width=36).pack(side="left")
-        self.mic_vu = ctk.CTkProgressBar(vu, width=200, height=10)
+        audio = ctk.CTkFrame(inner, fg_color="transparent")
+        audio.pack(side="left", padx=(0, 8))
+        self.mic_btn = ctk.CTkButton(
+            audio,
+            text="MIC",
+            width=52,
+            height=28,
+            corner_radius=8,
+            fg_color=c["accent_soft"],
+            hover_color=c["border"],
+            text_color=c["accent"],
+            command=self._toggle_mic,
+        )
+        self.mic_btn.pack(side="left")
+        self.mic_vu = ctk.CTkProgressBar(audio, width=64, height=8, progress_color=c["accent"])
         self.mic_vu.set(0)
-        self.mic_vu.pack(side="left", padx=(4, 16))
-        ctk.CTkLabel(vu, text="SPK", width=36).pack(side="left")
-        self.spk_vu = ctk.CTkProgressBar(vu, width=200, height=10)
+        self.mic_vu.pack(side="left", padx=(4, 10))
+        self.spk_btn = ctk.CTkButton(
+            audio,
+            text="SPK",
+            width=52,
+            height=28,
+            corner_radius=8,
+            fg_color=c["accent_soft"],
+            hover_color=c["border"],
+            text_color=c["accent"],
+            command=self._toggle_spk,
+        )
+        self.spk_btn.pack(side="left")
+        self.spk_vu = ctk.CTkProgressBar(audio, width=64, height=8, progress_color=c["accent"])
         self.spk_vu.set(0)
-        self.spk_vu.pack(side="left", padx=4)
+        self.spk_vu.pack(side="left", padx=(4, 0))
+        self.mic_warn = ctk.CTkLabel(inner, text="", text_color=c["danger"], font=ctk.CTkFont(size=11))
+        self.mic_warn.pack(side="left", padx=4)
 
-        meta = ctk.CTkFrame(self, fg_color="transparent")
-        meta.pack(fill="x", padx=16)
-        self.rec_label = ctk.CTkLabel(meta, text="○ IDLE")
-        self.rec_label.pack(side="left")
-        ctk.CTkLabel(meta, textvariable=self.timer_var).pack(side="left", padx=12)
-        ctk.CTkLabel(meta, textvariable=self.status_var).pack(side="left", padx=12)
-        ctk.CTkLabel(meta, textvariable=self.conf_var).pack(side="left", padx=12)
-        ctk.CTkLabel(meta, textvariable=self.res_var).pack(side="right")
+        self.start_btn = ctk.CTkButton(
+            inner,
+            text="Start",
+            width=88,
+            height=32,
+            corner_radius=8,
+            fg_color=c["accent"],
+            hover_color=c["accent_hover"],
+            text_color=c["on_accent"],
+            command=self._toggle_record,
+        )
+        self.start_btn.pack(side="right", padx=(6, 0))
+        self.export_btn = self._ghost_btn(inner, "Export", self._export, 80)
+        self.export_btn.pack(side="right")
 
-        cap_tools = ctk.CTkFrame(self, fg_color="transparent")
-        cap_tools.pack(fill="x", padx=16, pady=(4, 0))
-        ctk.CTkLabel(cap_tools, text="Font").pack(side="left")
+        self.banner_label = ctk.CTkLabel(
+            self, textvariable=self.banner_var, text_color=c["danger"], wraplength=940, anchor="w"
+        )
+        self.banner_label.pack(fill="x", padx=22)
+        self.ready_label = ctk.CTkLabel(
+            self, textvariable=self.ready_var, text_color=c["muted"], wraplength=940, anchor="w",
+            font=ctk.CTkFont(size=11),
+        )
+        self.ready_label.pack(fill="x", padx=22, pady=(0, 4))
+
+        # Transcript stage
+        stage = ctk.CTkFrame(
+            self, fg_color=c["panel"], corner_radius=12, border_width=1, border_color=c["border"]
+        )
+        stage.pack(fill="both", expand=True, padx=20, pady=(0, 8))
+        cap_tools = ctk.CTkFrame(stage, fg_color="transparent")
+        cap_tools.pack(fill="x", padx=14, pady=(10, 0))
+        ctk.CTkLabel(
+            cap_tools, text="Live caption", font=ctk.CTkFont(size=12, weight="bold"), text_color=c["label"]
+        ).pack(side="left")
+        self._ghost_btn(cap_tools, "Clear", self._clear_caption, 64).pack(side="right", padx=(4, 0))
         ctk.CTkOptionMenu(
             cap_tools,
             variable=self.font_var,
-            values=["12", "14", "16", "18"],
+            values=["13", "15", "17", "19"],
             width=70,
+            height=28,
             command=self._on_font_change,
-        ).pack(side="left", padx=6)
-        ctk.CTkButton(cap_tools, text="Clear", width=70, command=self._clear_caption).pack(side="left", padx=4)
+            fg_color=c["bg"],
+            button_color=c["border"],
+            button_hover_color=c["border"],
+        ).pack(side="right", padx=4)
 
-        self.caption = ctk.CTkTextbox(self, wrap="word", font=ctk.CTkFont(size=self._caption_font_size))
-        self.caption.pack(fill="both", expand=True, padx=16, pady=8)
+        self.caption = ctk.CTkTextbox(
+            stage,
+            wrap="word",
+            font=ctk.CTkFont(size=self._caption_font_size),
+            fg_color=c["panel"],
+            text_color=c["text"],
+            border_width=0,
+            corner_radius=0,
+        )
+        self.caption.pack(fill="both", expand=True, padx=10, pady=(6, 12))
         self.caption.bind("<MouseWheel>", self._on_scroll)
         self.caption.insert("end", "Menunggu suara…\n")
-        self.caption.tag_config("partial", foreground="#7A8490")
-        self.caption.tag_config("final", foreground="")
+        self.caption.tag_config("partial", foreground=c["partial"])
+        self.caption.tag_config("final", foreground=c["text"])
+        self.caption.tag_config("mic", foreground=c["mic"])
+        self.caption.tag_config("spk", foreground=c["spk"])
 
-        actions = ctk.CTkFrame(self, fg_color="transparent")
-        actions.pack(fill="x", padx=16, pady=8)
-        self.start_btn = ctk.CTkButton(actions, text="Start", command=self._toggle_record)
-        self.start_btn.pack(side="left", padx=4)
-        ctk.CTkButton(actions, text="Export", command=self._export).pack(side="left", padx=4)
-        ctk.CTkButton(actions, text="Minimize to Tray", command=self._minimize_tray).pack(side="left", padx=4)
-
+        foot = ctk.CTkFrame(self, fg_color="transparent")
+        foot.pack(fill="x", padx=20, pady=(0, 12))
+        self._ghost_btn(foot, "Minimize to tray", self._minimize_tray, 140).pack(side="left")
         ctk.CTkLabel(
-            self,
-            text="Diarization: per-source (MIC/SPK). Aktifkan pyannote di Settings (butuh HF token).",
-            text_color="gray",
-        ).pack(pady=(0, 10))
+            foot,
+            text="Diarization aktif · Pembicara dipisahkan otomatis (MIC / SPK)",
+            text_color=c["muted"],
+            font=ctk.CTkFont(size=11),
+        ).pack(side="right")
+        self._refresh_hud()
+        self._style_source_btns()
 
     def _bind_keys(self) -> None:
         self.bind("<space>", self._hotkey_record)
@@ -233,10 +331,16 @@ class MainWindow(ctk.CTk):
         else:
             self.banner_var.set("")
 
+    def _on_mode_seg(self, label: str) -> None:
+        self.mode_var.set(_MODE_VALUE.get(label, "rapat_online"))
+        self._apply_mode_defaults()
+
     def _apply_mode_defaults(self) -> None:
         mode = self.mode_var.get()
         self.settings.meeting_mode = mode
         self.settings.save()
+        if hasattr(self, "mode_seg"):
+            self.mode_seg.set(_MODE_LABEL.get(mode, "Rapat Online"))
         if mode == "webinar":
             self._set_mic(False)
             self._set_spk(True)
@@ -247,16 +351,39 @@ class MainWindow(ctk.CTk):
             self._set_mic(True)
             self._set_spk(True)
 
+    def _style_source_btns(self) -> None:
+        c = self.colors
+        for btn, var in ((self.mic_btn, self.mic_var), (self.spk_btn, self.spk_var)):
+            on = var.get() == "ON"
+            btn.configure(
+                text=btn.cget("text").split()[0],  # MIC / SPK
+                fg_color=c["accent_soft"] if on else c["panel"],
+                text_color=c["hud_fg"] if on else c["text"],
+                border_width=0 if on else 1,
+                border_color=c["border"],
+            )
+
+    def _refresh_hud(self) -> None:
+        status = self.status_var.get() or "Idle"
+        if self._recording and status.lower() in ("idle", ""):
+            status = "Listening"
+        elif not self._recording and status.lower() == "idle":
+            status = "Idle"
+        conf = self.conf_var.get()
+        self.hud_var.set(f"● {status}  ·  {self.timer_var.get()}  ·  {conf}")
+
     def _set_mic(self, on: bool) -> None:
         self.mic_var.set("ON" if on else "OFF")
-        self.mic_btn.configure(text=f"MIC  [ {'ON' if on else 'OFF'} ]")
+        self.mic_btn.configure(text="MIC")
+        self._style_source_btns()
         if self.pipeline:
             self.pipeline.set_mic(on)
         self._update_mic_warn()
 
     def _set_spk(self, on: bool) -> None:
         self.spk_var.set("ON" if on else "OFF")
-        self.spk_btn.configure(text=f"SPK  [ {'ON' if on else 'OFF'} ]")
+        self.spk_btn.configure(text="SPK")
+        self._style_source_btns()
         if self.pipeline:
             self.pipeline.set_speaker(on)
 
@@ -343,34 +470,50 @@ class MainWindow(ctk.CTk):
         self._recording = True
         self._conf_scores.clear()
         self.conf_var.set("Conf —")
-        self.start_btn.configure(text="Stop")
-        self.rec_label.configure(text="● REC")
+        self.start_btn.configure(
+            text="Stop",
+            fg_color=self.colors["danger"],
+            hover_color=self.colors["danger_hover"],
+            text_color="#FFFFFF",
+        )
+        self.status_var.set(PipelineStatus.LISTENING.value)
         self.caption.delete("1.0", "end")
         self.caption.insert("end", "Menunggu suara…\n")
         self.settings.last_meeting_title = title
         self.settings.save()
+        self._refresh_hud()
 
     def _stop_record(self) -> None:
         if self.pipeline:
             self.session = self.pipeline.stop()
         self.pipeline = None
         self._recording = False
-        self.start_btn.configure(text="Start")
-        self.rec_label.configure(text="○ IDLE")
+        self.start_btn.configure(
+            text="Start",
+            fg_color=self.colors["accent"],
+            hover_color=self.colors["accent_hover"],
+            text_color=self.colors["on_accent"],
+        )
         self.status_var.set(PipelineStatus.IDLE.value)
         self.mic_vu.set(0)
         self.spk_vu.set(0)
+        self._refresh_hud()
 
     def _on_status(self, status: PipelineStatus) -> None:
         self.status_var.set(status.value)
+        self._refresh_hud()
+
+    def _caption_tags(self, seg: TranscriptSegment, *extra: str) -> tuple[str, ...]:
+        src = "mic" if (seg.speaker or "").upper().startswith("MIC") else "spk"
+        return (src, *extra)
 
     def _on_segment(self, seg: TranscriptSegment) -> None:
+        line = format_caption_line(seg) + "\n"
         if not seg.is_final:
-            # replace trailing partial line
             if self._partial_mark:
                 self.caption.delete(self._partial_mark, "end")
             self._partial_mark = self.caption.index("end-1c")
-            self.caption.insert("end", format_caption_line(seg) + "\n", "partial")
+            self.caption.insert("end", line, self._caption_tags(seg, "partial"))
         else:
             if self._partial_mark:
                 try:
@@ -378,18 +521,17 @@ class MainWindow(ctk.CTk):
                 except tk.TclError:
                     pass
                 self._partial_mark = None
-            # clear empty state once
             content = self.caption.get("1.0", "end").strip()
             if content == "Menunggu suara…":
                 self.caption.delete("1.0", "end")
-            self.caption.insert("end", format_caption_line(seg) + "\n", "final")
+            self.caption.insert("end", line, self._caption_tags(seg, "final"))
             if seg.confidence > 0:
                 self._conf_scores.append(float(seg.confidence))
-                # keep last N for a responsive average
                 if len(self._conf_scores) > 40:
                     self._conf_scores = self._conf_scores[-40:]
                 avg = sum(self._conf_scores) / len(self._conf_scores)
                 self.conf_var.set(f"Conf {avg * 100:.0f}%")
+                self._refresh_hud()
         if self._auto_scroll:
             self.caption.see("end")
 
@@ -446,6 +588,7 @@ class MainWindow(ctk.CTk):
             h, rem = divmod(sec, 3600)
             m, s = divmod(rem, 60)
             self.timer_var.set(f"{h:02d}:{m:02d}:{s:02d}")
+            self._refresh_hud()
         self.after(200, self._poll)
 
     def _tick_resources(self) -> None:
@@ -475,7 +618,11 @@ class MainWindow(ctk.CTk):
                 self._conf_scores.clear()
                 for seg in sess.segments:
                     if seg.is_final:
-                        self.caption.insert("end", format_caption_line(seg) + "\n", "final")
+                        self.caption.insert(
+                            "end",
+                            format_caption_line(seg) + "\n",
+                            self._caption_tags(seg, "final"),
+                        )
                         if seg.confidence > 0:
                             self._conf_scores.append(float(seg.confidence))
                 if self._conf_scores:
@@ -483,6 +630,7 @@ class MainWindow(ctk.CTk):
                     self.conf_var.set(f"Conf {avg * 100:.0f}%")
                 else:
                     self.conf_var.set("Conf —")
+                self._refresh_hud()
 
             ResumeDialog(
                 self,

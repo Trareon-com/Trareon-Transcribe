@@ -21,13 +21,13 @@ def _srt_ts(ms: int) -> str:
     return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
 
 
-def _lang_tag(lang: str) -> str:
-    code = (lang or "auto").lower()
-    if code.startswith("id") or code == "indonesian":
-        return "ID"
-    if code.startswith("en") or code == "english":
-        return "EN"
-    return code.upper()[:2] or "??"
+def _source_label(speaker: str) -> str:
+    s = (speaker or "").upper()
+    if s.startswith("MIC"):
+        return "MIC"
+    if s.startswith("SPK") or s.startswith("SPEAKER"):
+        return "SPK"
+    return speaker or "SPK"
 
 
 def write_markdown(session: Session, path: Path | None = None) -> Path:
@@ -37,7 +37,7 @@ def write_markdown(session: Session, path: Path | None = None) -> Path:
         if not seg.is_final or not seg.text.strip():
             continue
         lines.append(
-            f"- **{_fmt_ts(seg.start_ms)}** [{seg.speaker}] [{_lang_tag(seg.language)}]: {seg.text.strip()}"
+            f"- **{_fmt_ts(seg.start_ms)}** {_source_label(seg.speaker)}: {seg.text.strip()}"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
@@ -115,5 +115,5 @@ def export_formats(
 
 
 def format_caption_line(seg: TranscriptSegment) -> str:
-    icon = "MIC" if seg.speaker.upper().startswith("MIC") else "SPK"
-    return f"{icon} [{_lang_tag(seg.language)}]: {seg.text}"
+    """Live/export display: source only — no language tags (text as spoken)."""
+    return f"{_source_label(seg.speaker)}  {seg.text}"

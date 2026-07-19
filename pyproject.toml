@@ -21,7 +21,6 @@ dependencies = [
 
 [project.optional-dependencies]
 diarization = ["pyannote.audio>=3.1.0", "torch>=2.0.0"]
-translate = ["argostranslate>=1.9.0"]
 dev = [
   "ruff>=0.6.0",
   "bandit>=1.7.9",

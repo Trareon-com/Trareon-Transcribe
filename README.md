@@ -49,13 +49,21 @@ Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-
 | `Trareon-Transcribe-*-macos-x64.zip` | Mac Intel |
 | `Trareon-Transcribe-*-windows-x64.zip` | Windows 10 / 11 |
 
-**macOS** — unzip → move `Trareon Transcribe.app` to Applications → open.  
-If Gatekeeper blocks: right-click → **Open**, or System Settings → Privacy & Security → **Open Anyway**.  
+**macOS** — unzip the release zip. Prefer double-clicking **`Open Trareon Transcribe.command`** (clears quarantine, then opens the app). Or move `Trareon Transcribe.app` to Applications and open it.
+
+If macOS shows **“Apple could not verify…” / Move to Trash**:
+1. System Settings → Privacy & Security → scroll down → **Open Anyway** for Trareon Transcribe, or  
+2. Run the helper above once from Finder / Terminal.
+
 Whisper models download on first-run wizard (internet once).
 
 **Windows** — unzip → run `TrareonTranscribe.exe`. Allow microphone access when prompted. For speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
 
-> Builds are unsigned. A first-launch “unidentified developer” warning on macOS is expected until notarization is added.
+If **Windows Security** shows *“Controlled folder access blocked TrareonTranscribe.exe”*:
+1. Windows Security → Virus & threat protection → Ransomware protection → **Allow an app through Controlled folder access** → add `TrareonTranscribe.exe`, or  
+2. Keep the default library under `%LOCALAPPDATA%\TrareonTranscribe\Sessions` (Settings → Library root). Only Documents/Desktop/Pictures need an allow-list.
+
+> macOS builds are **ad-hoc signed** (not Apple Developer ID / notarized). Gatekeeper may still prompt on first download until notarization is added.
 
 ---
 
@@ -65,7 +73,7 @@ Screenshots below use **seeded demo data** (bilingual meeting captions) so you c
 
 ### Main window — light
 
-Live captions with MIC/SPK labels, VU meters, confidence, CPU/RAM/GPU HUD, font size & Clear.
+Transcript-first live captions (MIC/SPK, no language tags), compact controls, VU meters, confidence & resource HUD.
 
 ![Main window light](docs/screenshots/01-main-light.png)
 
@@ -95,7 +103,7 @@ Synced playback of mic/speaker WAV with speaker · timestamp · text (as recorde
 
 ### Settings
 
-Model catalog, library path, always-on-top, pyannote / Argos options, HF token (OS keyring), tone-test, open logs/cache.
+Model catalog, library path, always-on-top, optional pyannote (HF token in OS keyring), tone-test, open logs/cache.
 
 ![Settings](docs/screenshots/06-settings.png)
 
@@ -184,7 +192,7 @@ TRAREON_NO_RELAUNCH=1 python scripts/capture_screenshots.py   # refresh README g
 1. Set **Judul rapat** (or keep auto-detect).
 2. Choose mode: Webinar / Rapat Online / Rapat Offline.
 3. Toggle MIC / SPK as needed → **Start**.
-4. **Stop** → session lands under Documents → Library / Export.
+4. **Stop** → session lands in the library folder → Library / Export.
 5. During screen share: **Minimize to Tray**.
 
 ### Shortcuts
@@ -229,7 +237,7 @@ TRAREON_NO_RELAUNCH=1 python scripts/capture_screenshots.py   # refresh README g
 |------|--------|---------|
 | Config, lock, logs | `~/Library/Application Support/TrareonTranscribe/` | `%LOCALAPPDATA%\TrareonTranscribe\` |
 | Models + whisper-cli | `~/Library/Caches/TrareonTranscribe/models/` | `%LOCALAPPDATA%\TrareonTranscribe\Cache\models\` |
-| Sessions (default) | `~/Documents/Trareon Transcribe/Sessions/` | `%USERPROFILE%\Documents\Trareon Transcribe\Sessions\` |
+| Sessions (default) | `~/Documents/Trareon Transcribe/Sessions/` | `%LOCALAPPDATA%\TrareonTranscribe\Sessions\` |
 
 ```
 YYYYMMDD-judul-uuid/

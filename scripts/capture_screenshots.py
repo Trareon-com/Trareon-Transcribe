@@ -69,7 +69,7 @@ def main() -> int:
     app = MainWindow(settings)
     set_window_icon(app)
     app.title(f"{APP_NAME}  v{__version__}")
-    app.geometry("920x680+80+60")
+    app.geometry("1000x740+80+60")
     app.title_var.set(demo.meta.title)
     app.mode_var.set("rapat_online")
     app._apply_mode_defaults()  # noqa: SLF001
@@ -77,17 +77,19 @@ def main() -> int:
     confs: list[float] = []
     for seg in demo.segments:
         if seg.is_final and seg.text.strip():
-            app.caption.insert("end", format_caption_line(seg) + "\n", "final")
+            tags = app._caption_tags(seg, "final")  # noqa: SLF001
+            app.caption.insert("end", format_caption_line(seg) + "\n", tags)
             confs.append(seg.confidence)
-    app.rec_label.configure(text="● REC")
-    app.timer_var.set("00:00:42")
+    app._recording = True  # noqa: SLF001
+    app.timer_var.set("00:14:32")
     app.status_var.set("Listening")
     if confs:
         app.conf_var.set(f"Conf {sum(confs) / len(confs):.0%}")
-    app.res_var.set("CPU 14%  RAM 2.1G  GPU 3%")
+    app._refresh_hud()  # noqa: SLF001
+    app.res_var.set("CPU 18%  ·  RAM 46%  ·  GPU 12%")
     app.mic_vu.set(0.55)
     app.spk_vu.set(0.72)
-    app.ready_var.set("Siap merekam · model small · tone-test OK")
+    app.ready_var.set("")
     app.banner_var.set("")
     app.update()
     grab(OUT / "01-main-light.png", app)

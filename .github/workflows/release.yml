@@ -53,8 +53,15 @@ jobs:
           fi
           APP="dist/Trareon Transcribe.app"
           test -d "$APP"
+          codesign --force --deep --sign - "$APP" || true
+          STAGE="$(mktemp -d)"
+          ditto "$APP" "$STAGE/Trareon Transcribe.app"
+          cp scripts/open-macos-app.sh "$STAGE/open-macos-app.sh"
+          cp "scripts/Open Trareon Transcribe.command" "$STAGE/Open Trareon Transcribe.command"
+          chmod +x "$STAGE/open-macos-app.sh" "$STAGE/Open Trareon Transcribe.command"
           OUT="Trareon-Transcribe-${VER}-${{ matrix.artifact }}.zip"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT"
+          (cd "$STAGE" && zip -ry "$GITHUB_WORKSPACE/$OUT" "Trareon Transcribe.app" open-macos-app.sh "Open Trareon Transcribe.command")
+          rm -rf "$STAGE"
           echo "ASSET=$OUT" >> "$GITHUB_ENV"
 
       - name: Package zip (Windows)

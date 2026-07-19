@@ -15,6 +15,16 @@ from engine.tone_test import run_tone_test
 from setup.deps import detect_spec, macos_dep_plan, run_plan, windows_dep_plan
 from setup.model_dl import download_model, ensure_whisper_binary, suggest_model
 from setup.whisper_models import MODEL_LABELS, WHISPER_MODELS
+from ui.theme import (
+    field_label,
+    ghost_button,
+    heading,
+    muted,
+    paint_window,
+    panel_frame,
+    primary_button,
+    styled_entry,
+)
 from util.threading_helpers import run_in_thread
 
 
@@ -25,9 +35,10 @@ class SetupWizard(ctk.CTkToplevel):
         self.on_done = on_done
         self._busy = False
         self._finish_btn: ctk.CTkButton | None = None
+        self.colors = paint_window(self)
 
         self.title(f"{APP_NAME} — Setup")
-        self.geometry("680x640+160+80")
+        self.geometry("700x680+160+80")
         set_window_icon(self)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
@@ -50,61 +61,78 @@ class SetupWizard(ctk.CTkToplevel):
         self.hf_var = ctk.StringVar(value="")
         self.status = ctk.StringVar(value="Siap memulai setup. Anda juga bisa lewati dan lengkapi nanti.")
 
-        ctk.CTkLabel(self, text=f"{APP_NAME} — Setup", font=ctk.CTkFont(size=20, weight="bold")).pack(
-            pady=(16, 4)
-        )
+        c = self.colors
+        heading(self, f"{APP_NAME} — Setup", c, size=20).pack(anchor="w", padx=24, pady=(18, 4))
         gpu = self.spec.get("gpu") or "GPU"
-        ctk.CTkLabel(
+        muted(
             self,
-            text=(
+            (
                 f"Spec terdeteksi: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM, "
                 f"{gpu} — saran model: {suggested}"
             ),
-            wraplength=620,
-        ).pack(pady=4)
+            c,
+            wraplength=640,
+            font=ctk.CTkFont(size=12),
+        ).pack(anchor="w", padx=24, pady=(0, 10))
 
-        frame = ctk.CTkScrollableFrame(self, height=220)
-        frame.pack(fill="x", padx=20, pady=8)
-        ctk.CTkLabel(frame, text="Pilih model Whisper:").pack(anchor="w", padx=12, pady=(8, 4))
+        panel = panel_frame(self, c)
+        panel.pack(fill="both", expand=True, padx=24, pady=(0, 10))
+        frame = ctk.CTkScrollableFrame(panel, fg_color="transparent", height=240)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        field_label(frame, "Pilih model Whisper", c).pack(anchor="w", padx=8, pady=(4, 6))
         for key in WHISPER_MODELS:
             ctk.CTkRadioButton(
-                frame, text=MODEL_LABELS[key], variable=self.model_var, value=key
-            ).pack(anchor="w", padx=20, pady=2)
+                frame,
+                text=MODEL_LABELS[key],
+                variable=self.model_var,
+                value=key,
+                text_color=c["text"],
+                fg_color=c["accent"],
+                hover_color=c["accent_hover"],
+                border_color=c["border"],
+            ).pack(anchor="w", padx=16, pady=2)
 
+        opts = ctk.CTkFrame(self, fg_color="transparent")
+        opts.pack(fill="x", padx=24, pady=(0, 6))
         ctk.CTkCheckBox(
-            self,
+            opts,
             text="Install virtual cable + ffmpeg (otomatis jika memungkinkan)",
             variable=self.install_deps_var,
-        ).pack(anchor="w", padx=24, pady=6)
+            text_color=c["text"],
+            fg_color=c["accent"],
+            hover_color=c["accent_hover"],
+            border_color=c["border"],
+            checkmark_color=c["on_accent"],
+        ).pack(anchor="w", pady=3)
         ctk.CTkCheckBox(
-            self,
+            opts,
             text="Siapkan diarization pyannote (butuh HF token)",
             variable=self.diar_var,
-        ).pack(anchor="w", padx=24, pady=2)
-        ctk.CTkEntry(
-            self, textvariable=self.hf_var, placeholder_text="HF token (opsional)", width=420
-        ).pack(padx=24, pady=6)
+            text_color=c["text"],
+            fg_color=c["accent"],
+            hover_color=c["accent_hover"],
+            border_color=c["border"],
+            checkmark_color=c["on_accent"],
+        ).pack(anchor="w", pady=3)
+        styled_entry(
+            opts, c, textvariable=self.hf_var, placeholder_text="HF token (opsional)", width=420
+        ).pack(anchor="w", pady=(6, 0))
 
-        self.progress = ctk.CTkProgressBar(self, width=520)
+        self.progress = ctk.CTkProgressBar(self, width=540, progress_color=c["accent"])
         self.progress.set(0)
-        self.progress.pack(pady=8)
-        ctk.CTkLabel(self, textvariable=self.status, wraplength=600).pack(pady=4)
+        self.progress.pack(padx=24, pady=8, anchor="w")
+        muted(self, "", c, textvariable=self.status, wraplength=640, font=ctk.CTkFont(size=12)).pack(
+            anchor="w", padx=24
+        )
 
         self.btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_row.pack(pady=10)
-        self.start_btn = ctk.CTkButton(self.btn_row, text="Mulai Setup", command=self._start, width=120)
-        self.start_btn.pack(side="left", padx=6)
-        ctk.CTkButton(self.btn_row, text="Tone Test", command=self._tone, width=100).pack(side="left", padx=6)
-        ctk.CTkButton(self.btn_row, text="Lewati Tone", command=self._skip_tone, width=100).pack(
-            side="left", padx=6
-        )
-        ctk.CTkButton(
-            self.btn_row,
-            text="Lewati & buka app",
-            command=self._skip_all,
-            width=140,
-            fg_color=("gray70", "gray35"),
-        ).pack(side="left", padx=6)
+        self.btn_row.pack(fill="x", padx=24, pady=(10, 18))
+        self.start_btn = primary_button(self.btn_row, "Mulai Setup", self._start, c, width=120)
+        self.start_btn.pack(side="left", padx=(0, 6))
+        ghost_button(self.btn_row, "Tone Test", self._tone, c, width=100).pack(side="left", padx=4)
+        ghost_button(self.btn_row, "Lewati Tone", self._skip_tone, c, width=110).pack(side="left", padx=4)
+        ghost_button(self.btn_row, "Lewati & buka app", self._skip_all, c, width=140).pack(side="left", padx=4)
 
         stt = WhisperCppStt(self.model_var.get())
         if stt.available():
@@ -138,7 +166,6 @@ class SetupWizard(ctk.CTkToplevel):
         try:
             from config.branding import APP_NAME, apply_macos_menu_name, running_from_app_bundle
 
-            # Ensure Apple menu / process name are branded before the mic TCC prompt.
             self.after(0, lambda: apply_macos_menu_name(APP_NAME))
             if sys.platform == "darwin" and not running_from_app_bundle():
                 self.after(
@@ -183,8 +210,8 @@ class SetupWizard(ctk.CTkToplevel):
         self.status.set(f"Setup selesai. Rekaman disimpan di:\n{lib_path}")
         self._set_busy(False)
         if self._finish_btn is None:
-            self._finish_btn = ctk.CTkButton(
-                self, text="Lanjut ke App", command=self._finish, width=180, height=36
+            self._finish_btn = primary_button(
+                self, "Lanjut ke App", self._finish, self.colors, width=180, height=36
             )
             self._finish_btn.pack(pady=10)
 
@@ -222,7 +249,6 @@ class SetupWizard(ctk.CTkToplevel):
         if self._busy:
             self.status.set("Setup sedang berjalan — tunggu selesai atau biarkan window terbuka.")
             return
-        # Closing wizard = skip into app
         self._skip_all()
 
     def _finish(self) -> None:

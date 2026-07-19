@@ -63,7 +63,13 @@ def library_index_file() -> Path:
 
 
 def default_library_root() -> Path:
-    p = _home() / "Documents" / APP_DISPLAY / "Sessions"
+    # Windows: keep sessions under LocalAppData so Controlled Folder Access
+    # (ransomware protection) does not block unsigned builds writing Documents.
+    # macOS/Linux: Documents is the natural user-visible library location.
+    if sys.platform == "win32":
+        p = app_support_dir() / "Sessions"
+    else:
+        p = _home() / "Documents" / APP_DISPLAY / "Sessions"
     p.mkdir(parents=True, exist_ok=True)
     return p
 

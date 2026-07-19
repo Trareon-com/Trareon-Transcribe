@@ -17,6 +17,16 @@ from engine.audio_capture import AudioCapture
 from engine.tone_test import run_tone_test
 from setup.model_dl import download_model, ensure_whisper_binary
 from setup.whisper_models import WHISPER_MODELS
+from ui.theme import (
+    field_label,
+    ghost_button,
+    heading,
+    muted,
+    paint_window,
+    panel_frame,
+    primary_button,
+    styled_entry,
+)
 from util.threading_helpers import run_in_thread
 
 
@@ -25,8 +35,9 @@ class SettingsWindow(ctk.CTkToplevel):
         super().__init__(master)
         self.settings = settings
         self.on_saved = on_saved
+        self.colors = paint_window(self)
         self.title(f"Settings — {APP_NAME}")
-        self.geometry("520x600")
+        self.geometry("560x640")
         set_window_icon(self)
         self.transient(master)
 
@@ -34,70 +45,94 @@ class SettingsWindow(ctk.CTkToplevel):
         self.library_var = ctk.StringVar(value=settings.library_root)
         self.aot_var = ctk.BooleanVar(value=settings.always_on_top)
         self.diar_var = ctk.BooleanVar(value=settings.diarization_enabled)
-        self.tr_var = ctk.BooleanVar(value=settings.translate_enabled)
         self.motion_var = ctk.BooleanVar(value=settings.reduced_motion)
         self.hf_var = ctk.StringVar(value=get_hf_token() or "")
         self.status = ctk.StringVar(value="")
 
-        ctk.CTkLabel(self, text="Settings", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=12)
-        form = ctk.CTkScrollableFrame(self, height=400)
-        form.pack(fill="both", expand=True, padx=16)
+        c = self.colors
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.pack(fill="x", padx=20, pady=(16, 8))
+        heading(head, "Settings", c).pack(side="left")
+        muted(head, f"v{__version__}", c).pack(side="left", padx=10)
 
-        ctk.CTkLabel(form, text="Model Whisper").pack(anchor="w")
-        ctk.CTkOptionMenu(form, variable=self.model_var, values=list(WHISPER_MODELS)).pack(
-            anchor="w", pady=4
-        )
+        panel = panel_frame(self, c)
+        panel.pack(fill="both", expand=True, padx=20, pady=(0, 8))
+        form = ctk.CTkScrollableFrame(panel, fg_color="transparent")
+        form.pack(fill="both", expand=True, padx=12, pady=12)
 
-        ctk.CTkLabel(form, text="Library root (Sessions)").pack(anchor="w", pady=(10, 0))
-        ctk.CTkEntry(form, textvariable=self.library_var, width=420).pack(anchor="w", pady=4)
+        field_label(form, "Model Whisper", c).pack(anchor="w")
+        ctk.CTkOptionMenu(
+            form,
+            variable=self.model_var,
+            values=list(WHISPER_MODELS),
+            width=280,
+            height=32,
+            fg_color=c["bg"],
+            button_color=c["border"],
+            button_hover_color=c["border"],
+            text_color=c["text"],
+        ).pack(anchor="w", pady=(4, 10))
 
-        ctk.CTkCheckBox(form, text="Always on top", variable=self.aot_var).pack(anchor="w", pady=4)
-        ctk.CTkCheckBox(form, text="Reduced motion (MIC OFF solid warning)", variable=self.motion_var).pack(
-            anchor="w", pady=4
-        )
-        ctk.CTkCheckBox(form, text="Enable pyannote diarization", variable=self.diar_var).pack(anchor="w", pady=4)
-        ctk.CTkCheckBox(form, text="Enable offline translate (Argos)", variable=self.tr_var).pack(anchor="w", pady=4)
+        field_label(form, "Library root (Sessions)", c).pack(anchor="w")
+        styled_entry(form, c, textvariable=self.library_var, width=460).pack(anchor="w", pady=(4, 10))
 
-        ctk.CTkLabel(form, text="Hugging Face token").pack(anchor="w", pady=(10, 0))
-        ctk.CTkEntry(form, textvariable=self.hf_var, width=420, show="•").pack(anchor="w", pady=4)
+        for text, var in (
+            ("Always on top", self.aot_var),
+            ("Reduced motion (MIC OFF solid warning)", self.motion_var),
+            ("Enable pyannote diarization", self.diar_var),
+        ):
+            ctk.CTkCheckBox(
+                form,
+                text=text,
+                variable=var,
+                text_color=c["text"],
+                fg_color=c["accent"],
+                hover_color=c["accent_hover"],
+                border_color=c["border"],
+                checkmark_color=c["on_accent"],
+            ).pack(anchor="w", pady=3)
+
+        field_label(form, "Hugging Face token (pyannote only)", c).pack(anchor="w", pady=(12, 0))
+        styled_entry(form, c, textvariable=self.hf_var, width=460, show="•").pack(anchor="w", pady=(4, 10))
 
         devices = AudioCapture.list_devices()
-        names = [str(d.get("name", i)) for i, d in enumerate(devices)] or ["(default)"]
-        ctk.CTkLabel(form, text=f"Audio devices detected: {len(names)}").pack(anchor="w", pady=(10, 0))
+        muted(form, f"Audio devices detected: {len(devices) or 1}", c).pack(anchor="w", pady=(4, 8))
 
         row = ctk.CTkFrame(form, fg_color="transparent")
-        row.pack(fill="x", pady=8)
-        ctk.CTkButton(row, text="Test audio routing", command=self._tone).pack(side="left", padx=4)
-        ctk.CTkButton(row, text="Unduh model", command=self._download_model).pack(side="left", padx=4)
-        ctk.CTkButton(row, text="Buka log", command=lambda: self._open(logs_dir())).pack(side="left", padx=4)
+        row.pack(fill="x", pady=4)
+        ghost_button(row, "Test audio", self._tone, c, width=100).pack(side="left", padx=(0, 6))
+        ghost_button(row, "Unduh model", self._download_model, c, width=110).pack(side="left", padx=3)
+        ghost_button(row, "Buka log", lambda: self._open(logs_dir()), c, width=90).pack(side="left", padx=3)
 
         row2 = ctk.CTkFrame(form, fg_color="transparent")
         row2.pack(fill="x", pady=4)
-        ctk.CTkButton(row2, text="Buka cache model", command=lambda: self._open(models_dir())).pack(
-            side="left", padx=4
+        ghost_button(row2, "Cache model", lambda: self._open(models_dir()), c, width=110).pack(
+            side="left", padx=(0, 6)
         )
-        ctk.CTkButton(row2, text="Buka library", command=lambda: self._open(Path(self.library_var.get()))).pack(
-            side="left", padx=4
-        )
-        ctk.CTkButton(row2, text="Ulangi Setup", command=self._rerun_setup).pack(side="left", padx=4)
+        ghost_button(
+            row2, "Buka library", lambda: self._open(Path(self.library_var.get())), c, width=110
+        ).pack(side="left", padx=3)
+        ghost_button(row2, "Ulangi Setup", self._rerun_setup, c, width=110).pack(side="left", padx=3)
 
-        self.bar = ctk.CTkProgressBar(form, width=400)
+        self.bar = ctk.CTkProgressBar(form, width=420, progress_color=c["accent"])
         self.bar.set(0)
-        self.bar.pack(pady=8)
+        self.bar.pack(pady=(12, 4), anchor="w")
 
-        ctk.CTkLabel(self, textvariable=self.status, wraplength=480).pack(pady=4)
-        ctk.CTkButton(self, text="Simpan", command=self._save).pack(pady=10)
+        foot = ctk.CTkFrame(self, fg_color="transparent")
+        foot.pack(fill="x", padx=20, pady=(0, 16))
+        muted(foot, "", c, textvariable=self.status, wraplength=400).pack(side="left", fill="x", expand=True)
+        primary_button(foot, "Simpan", self._save, c, width=100).pack(side="right")
 
-        shortcuts = (
-            "Shortcuts: Space Start/Stop · M Mic · S Speaker · E Export · T Tray · , Settings"
-        )
-        ctk.CTkLabel(self, text=shortcuts, text_color="gray").pack(pady=(0, 4))
-        ctk.CTkLabel(
+        muted(
             self,
-            text=f"{APP_NAME} v{__version__} · https://github.com/Trareon-com/Trareon-Transcribe/releases",
-            text_color="gray",
-            font=ctk.CTkFont(size=11),
-        ).pack(pady=(0, 10))
+            "Shortcuts: Space Start/Stop · M Mic · S Speaker · E Export · T Tray · , Settings",
+            c,
+        ).pack(pady=(0, 4))
+        muted(
+            self,
+            f"{APP_NAME} · https://github.com/Trareon-com/Trareon-Transcribe/releases",
+            c,
+        ).pack(pady=(0, 12))
 
     def _save(self) -> None:
         self.settings.model = self.model_var.get()
@@ -105,7 +140,6 @@ class SettingsWindow(ctk.CTkToplevel):
         self.settings.always_on_top = self.aot_var.get()
         self.settings.reduced_motion = self.motion_var.get()
         self.settings.diarization_enabled = self.diar_var.get()
-        self.settings.translate_enabled = self.tr_var.get()
         set_hf_token(self.hf_var.get().strip())
         Path(self.settings.library_root).mkdir(parents=True, exist_ok=True)
         self.settings.save()

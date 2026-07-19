@@ -40,8 +40,8 @@ Trareon Transcribe
 │   └── Echo-dedupe (mode Rapat Online)
 ├── STT Engine (whisper.cpp, offline, ggml)
 │   ├── Model Whisper: tiny / base / small / medium / large-v3-turbo / large
-│   ├── Language: auto (ID/EN detect per-segment)
-│   └── Label bahasa per segment [ID] / [EN]
+│   ├── Language: auto (ID/EN detect per-segment; disimpan di JSON)
+│   └── Caption UI: MIC/SPK + teks apa adanya (tanpa label bahasa)
 ├── Diarization (optional, pyannote)
 │   ├── Default: per-source (MIC / SPEAKER)
 │   └── Optional: Speaker 1..N (butuh HF token gratis)
@@ -116,7 +116,7 @@ User dapat override toggle mic/speaker secara manual kapan saja saat merekam.
 ### 5.2 Language & Code-Switching
 - `language = auto` → deteksi bahasa **per-segment** (bukan per-call).
 - Code-switching ID ↔ EN ↔ ID ditangani natural: tiap segment dideteksi ulang.
-- UI menampilkan label bahasa per segment: `[ID]` / `[EN]`.
+- UI menampilkan teks apa adanya dengan prefix sumber (`MIC` / `SPK`); field `language` tetap di JSON untuk debug.
 - Tidak memaksa `id` atau `en` agar code-switching tidak rusak.
 
 ### 5.3 Live streaming behavior
@@ -195,11 +195,11 @@ User dapat override toggle mic/speaker secara manual kapan saja saat merekam.
 ║  ● REC 00:14:32        CPU 12%  RAM 1.8G                            ║
 ║                                                                     ║
 ║  ┌─────────────────────────────────────────────────────────────┐  ║
-║  │ 🎤 MIC  [ID]: Ini projectnya, please review ya              │  ║
-║  │ 🔊 SPK [EN]: Sure, I will check tomorrow                    │  ║
-║  │ 🎤 MIC  [ID]: besok kita bahas di meeting                   │  ║
-║  │ 🔊 SPK [ID]: oke, kirim file-nya                            │  ║
-║  │ 🎤 MIC  [ID]: (scroll ke atas = auto-scroll OFF)            │  ║
+║  │ MIC  Ini projectnya, please review ya                       │  ║
+║  │ SPK  Sure, I will check tomorrow                            │  ║
+║  │ MIC  besok kita bahas di meeting                            │  ║
+║  │ SPK  oke, kirim file-nya                                    │  ║
+║  │ MIC  (scroll ke atas = auto-scroll OFF)                     │  ║
 ║  └─────────────────────────────────────────────────────────────┘  ║
 ║                                                                     ║
 ║  [ Stop ]   [ Export ]   [ Minimize to Tray ]                       ║
@@ -228,7 +228,7 @@ User dapat override toggle mic/speaker secara manual kapan saja saat merekam.
 ║▒ MIC [ ON ]   SPK [ ON ]                                        ▒░║
 ║▒ ● REC 00:14:32  CPU 12% RAM 1.8G                               ▒░║
 ║▒ ┌───────────────────────────────────────────────────────────┐ ▒░║
-║▒ │ 🎤 [ID]: live caption di dark mode...                      │ ▒░║
+║▒ │ MIC  live caption di dark mode...                          │ ▒░║
 ║▒ └───────────────────────────────────────────────────────────┘ ▒░║
 ║▒ [ Stop ] [ Export ] [ Minimize to Tray ]                       ▒░║
 ╚▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╝
@@ -297,11 +297,9 @@ Setelah setup, user tinggal double-click executable (tidak perlu install Python)
 
 ---
 
-## 11. Optional: Translate offline EN ↔ ID
+## 11. Translate
 
-- Menggunakan Argos Translate / NLLB (offline).
-- Opsional, default off. Berguna jika ingin teks ID diterjemahkan ke EN atau sebaliknya
-  tanpa keluar dari laptop.
+Tidak di-bundle. Gunakan app translate eksternal jika perlu; caption tetap teks asli.
 
 ---
 
@@ -376,7 +374,7 @@ pyinstaller --onefile --windowed --name "Trareon Transcribe" ui/main_window.py
 | lumiaspic/transcription | 2 track WAV terpisah + merged Markdown | Export WAV per-track + Markdown |
 | TalkTrack | Per-app capture + auto-stop saat inactive | Auto-pause saat Zoom/Meet inactive |
 | Audio-process | Dual VAD (WebRTC + Silero) + SpeakerTracker | Dual VAD filter noise sekitar |
-| WhisperLive | VAD + save wav + translation thread | Save WAV + optional translate |
+| WhisperLive | VAD + save wav + translation thread | Save WAV (translate via app eksternal) |
 | emidium-science | Floating overlay + resource monitor | Resource monitor CPU/RAM di UI |
 | collabora/WhisperLive | VAD server + save wav mic | Save WAV mic + VAD |
 
@@ -388,7 +386,7 @@ pyinstaller --onefile --windowed --name "Trareon Transcribe" ui/main_window.py
 - ✅ 2 stream independen + toggle runtime
 - ✅ 3 mode: Webinar / Rapat Online / Rapat Offline
 - ✅ Diarization: per-source default + pyannote optional (Opsi A)
-- ✅ whisper.cpp offline, auto language, label [ID]/[EN]
+- ✅ whisper.cpp offline, auto language (JSON), caption tanpa label bahasa
 - ✅ Dual VAD, echo-dedupe, failsafe
 - ✅ Light mode default + dark toggle
 - ✅ Auto-scroll cerdas (bawah = on, atas = off)

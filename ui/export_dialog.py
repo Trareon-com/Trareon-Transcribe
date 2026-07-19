@@ -8,10 +8,11 @@ from pathlib import Path
 
 import customtkinter as ctk
 
+from config.branding import set_window_icon
 from config.settings import Settings
 from engine.session_store import Session
-from engine.translate import translate_text
 from export.writer import export_formats
+from ui.theme import field_label, heading, muted, paint_window, panel_frame, primary_button, styled_entry
 from util.threading_helpers import run_in_thread
 
 
@@ -20,8 +21,10 @@ class ExportDialog(ctk.CTkToplevel):
         super().__init__(master)
         self.session = session
         self.settings = settings or Settings.load()
+        self.colors = paint_window(self)
         self.title("Export")
-        self.geometry("420x400")
+        self.geometry("440x420")
+        set_window_icon(self)
         self.transient(master)
         self.grab_set()
 
@@ -31,27 +34,46 @@ class ExportDialog(ctk.CTkToplevel):
         self.json_out = ctk.BooleanVar(value=True)
         self.srt = ctk.BooleanVar(value=False)
         self.vtt = ctk.BooleanVar(value=False)
-        self.translate = ctk.BooleanVar(value=bool(self.settings.translate_enabled))
         self.status = ctk.StringVar(value="")
 
-        ctk.CTkLabel(self, text="Judul rapat").pack(anchor="w", padx=16, pady=(16, 4))
-        ctk.CTkEntry(self, textvariable=self.title_var, width=360).pack(padx=16)
-        ctk.CTkLabel(self, text="Format").pack(anchor="w", padx=16, pady=(12, 4))
+        c = self.colors
+        heading(self, "Export", c).pack(anchor="w", padx=20, pady=(18, 8))
+
+        panel = panel_frame(self, c)
+        panel.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        body = ctk.CTkFrame(panel, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=14, pady=14)
+
+        field_label(body, "Judul rapat", c).pack(anchor="w")
+        styled_entry(body, c, textvariable=self.title_var).pack(fill="x", pady=(4, 12))
+
+        field_label(body, "Format", c).pack(anchor="w")
         for label, var in (
             ("Markdown (.md)", self.md),
             ("Plain text (.txt)", self.txt),
             ("JSON", self.json_out),
             ("SRT", self.srt),
             ("VTT", self.vtt),
-            ("Translate EN↔ID (offline Argos)", self.translate),
         ):
-            ctk.CTkCheckBox(self, text=label, variable=var).pack(anchor="w", padx=24, pady=2)
+            ctk.CTkCheckBox(
+                body,
+                text=label,
+                variable=var,
+                text_color=c["text"],
+                fg_color=c["accent"],
+                hover_color=c["accent_hover"],
+                border_color=c["border"],
+                checkmark_color=c["on_accent"],
+            ).pack(anchor="w", pady=2)
 
-        self.bar = ctk.CTkProgressBar(self, width=320)
+        self.bar = ctk.CTkProgressBar(body, progress_color=c["accent"])
         self.bar.set(0)
-        self.bar.pack(pady=10)
-        ctk.CTkLabel(self, textvariable=self.status, wraplength=380).pack()
-        ctk.CTkButton(self, text="Export", command=self._export).pack(pady=12)
+        self.bar.pack(fill="x", pady=(14, 6))
+        muted(body, "", c, textvariable=self.status, wraplength=360).pack(anchor="w")
+
+        foot = ctk.CTkFrame(self, fg_color="transparent")
+        foot.pack(fill="x", padx=20, pady=(0, 16))
+        primary_button(foot, "Export", self._export, c, width=120).pack(side="right")
 
     def _export(self) -> None:
         self.session.meta.title = self.title_var.get().strip() or self.session.meta.title
@@ -60,11 +82,6 @@ class ExportDialog(ctk.CTkToplevel):
         self.bar.set(0.3)
 
         def work() -> None:
-            if self.translate.get():
-                for seg in self.session.segments:
-                    if seg.is_final and seg.text.strip():
-                        seg.text = translate_text(seg.text, self.settings.translate_direction)
-                self.session.save_transcript()
             if self.settings.diarization_enabled:
                 self._maybe_diarize()
             paths = export_formats(

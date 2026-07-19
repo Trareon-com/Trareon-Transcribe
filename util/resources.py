@@ -97,7 +97,7 @@ def sample_resources() -> str:
     cpu = psutil.cpu_percent(interval=None)
     ram = psutil.virtual_memory().used / (1024**3)
     gpu_part = _gpu_part()
-    return f"CPU {cpu:.0f}%  RAM {ram:.1f}G  {gpu_part}"
+    return f"CPU {cpu:.0f}%  ·  RAM {ram:.1f}G  ·  {gpu_part}"
 
 
 def _gpu_part() -> str:
