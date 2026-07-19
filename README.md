@@ -1,94 +1,128 @@
-# Trareon Transcribe
+<p align="center">
+  <img src="assets/trareon-transcribe-icon.png" alt="Trareon Transcribe" width="96" height="96">
+</p>
 
-Aplikasi desktop untuk **live transcription offline** — merekam & mentranskrip mikrofon + suara speaker (system audio) secara real-time. Cocok untuk webinar, rapat Zoom/Meet/Teams, dan rapat offline.
+<h1 align="center">Trareon Transcribe</h1>
 
-**Platform:** macOS (Apple Silicon + Intel) & Windows 11  
-**Stack:** Python 3.11 · CustomTkinter · whisper.cpp · PyInstaller  
-**Privasi:** audio & teks tidak dikirim ke cloud (inferensi lokal)
+<p align="center">
+  <strong>Offline live transcription</strong> for meetings — mic + system audio,<br>
+  powered by local Whisper. Your audio never leaves the machine.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Trareon-com/Trareon-Transcribe/releases"><img alt="Release" src="https://img.shields.io/github/v/release/Trareon-com/Trareon-Transcribe?style=flat-square&color=0B6E4F"></a>
+  <a href="https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Trareon-com/Trareon-Transcribe/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1B1F24?style=flat-square">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11-3776AB?style=flat-square">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-5C6570?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="#download">Download</a> ·
+  <a href="#gallery">Gallery</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#audio-routing">Audio routing</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
 
 ---
 
-## Download (pengguna akhir)
+## Why Trareon Transcribe?
 
-Binary siap pakai ada di **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** — bukan di dalam repo git (file terlalu besar).
+| | |
+|---|---|
+| **Private by default** | STT runs on-device via whisper.cpp. No cloud ASR in the product path. |
+| **Mic + speaker** | Capture both sides of Zoom / Meet / Teams (or room mic only). |
+| **Meeting-ready** | Live captions, Library player, export to MD / TXT / JSON / SRT / VTT. |
+| **Crash-safe** | Autosave + resume for interrupted sessions. |
 
-| File | Platform |
-|------|----------|
-| `Trareon-Transcribe-*-macos-arm64.zip` | Mac Apple Silicon (M1/M2/M3/M4) |
+---
+
+## Download
+
+Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** (not committed to git).
+
+| Asset | Platform |
+|-------|----------|
+| `Trareon-Transcribe-*-macos-arm64.zip` | Mac Apple Silicon (M1–M4) |
 | `Trareon-Transcribe-*-macos-x64.zip` | Mac Intel |
-| `Trareon-Transcribe-*-windows-x64.zip` | Windows 10/11 |
+| `Trareon-Transcribe-*-windows-x64.zip` | Windows 10 / 11 |
 
-**macOS:** unzip → taruh `Trareon Transcribe.app` di Applications → buka. Jika Gatekeeper menolak: klik kanan → Open (sekali), atau System Settings → Privacy & Security → Open Anyway. Model Whisper diunduh saat first-run wizard (butuh internet sekali).
+**macOS** — unzip → move `Trareon Transcribe.app` to Applications → open.  
+If Gatekeeper blocks: right-click → **Open**, or System Settings → Privacy & Security → **Open Anyway**.  
+Whisper models download on first-run wizard (internet once).
 
-**Windows:** unzip → jalankan `TrareonTranscribe.exe`. Izinkan mikrofon di Settings Windows bila diminta. Untuk speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
+**Windows** — unzip → run `TrareonTranscribe.exe`. Allow microphone access when prompted. For speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
 
-> Belum ada code signing / notarization Apple — wajar jika OS menampilkan peringatan “unidentified developer”.
+> Builds are unsigned. A first-launch “unidentified developer” warning on macOS is expected until notarization is added.
 
 ---
 
-## Screenshots & fitur
+## Gallery
 
-### Jendela utama (Light mode)
+Screenshots below use **seeded demo data** (bilingual meeting captions) so you can see the real UI without a live recording.
 
-![Main window light mode](docs/screenshots/01-main-light.png)
+### Main window — light
 
-- **Judul rapat** — isi/edit kapan saja (prefill dari judul Zoom/Meet jika terdeteksi)
-- **3 mode rapat** — Webinar / Rapat Online / Rapat Offline (preset mic & speaker)
-- **Toggle MIC / SPK** independen saat merekam
-- **Live caption** dengan label sumber (`MIC` / `SPK`) dan bahasa (`[ID]` / `[EN]`)
-- **VU meter** MIC/SPK, ukuran font caption, Clear, rata-rata confidence
-- Status pipeline: Listening · Transcribing · Paused · Device error
-- Monitor **CPU / RAM / GPU**, timer rekaman, minimize ke tray
+Live captions with MIC/SPK labels, VU meters, confidence, CPU/RAM/GPU HUD, font size & Clear.
 
-### Dark mode
+![Main window light](docs/screenshots/01-main-light.png)
 
-![Main window dark mode](docs/screenshots/02-main-dark.png)
+### Main window — dark
 
-Toggle tema ☀/🌙 di pojok kanan atas; pilihan tersimpan antar sesi.
+Theme toggle persists across sessions.
 
-### Setup wizard (first run)
+![Main window dark](docs/screenshots/02-main-dark.png)
+
+### Setup wizard
+
+Detects CPU / RAM / **GPU**, recommends a Whisper model, installs helpers, downloads models, optional HF token, tone-test.
 
 ![Setup wizard](docs/screenshots/03-setup-wizard.png)
 
-Wizard mendeteksi spek (CPU/RAM/**GPU**), menyarankan model Whisper, memasang dependency (BlackHole/ffmpeg bila memungkinkan), mengunduh model + binary, opsional HF token, dan **tone-test** routing audio.
+### Library
 
-### Library sesi
+Session history with **storage usage** (GB used / free). Open, rename, export, or delete.
 
 ![Library](docs/screenshots/04-library.png)
 
-Riwayat rekaman + ringkasan **penyimpanan** (GB sesi / disk bebas). **Putar** membuka viewer dengan audio + transcript tersinkron (speaker, waktu, teks apa adanya — tanpa translate), export ulang, rename, buka folder, hapus.
+### Transcript player
+
+Synced playback of mic/speaker WAV with speaker · timestamp · text (as recorded — no auto-translate).
+
+![Transcript player](docs/screenshots/05-transcript-player.png)
 
 ### Settings
 
-![Settings](docs/screenshots/05-settings.png)
+Model catalog, library path, always-on-top, pyannote / Argos options, HF token (OS keyring), tone-test, open logs/cache.
 
-Model, path library, always-on-top, reduced motion, pyannote, translate offline, HF token (keyring), tone-test, buka log/cache/library.
+![Settings](docs/screenshots/06-settings.png)
 
 ### Export
 
-![Export dialog](docs/screenshots/06-export.png)
+Markdown, TXT, JSON, SRT, VTT written into the session folder.
 
-Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File ditulis ke folder sesi.
+![Export](docs/screenshots/07-export.png)
 
 ---
 
-## Fitur utama
+## Features
 
-| Fitur | Keterangan |
-|--------|------------|
-| Offline STT | whisper.cpp (ggml) — katalog penuh di bawah |
-| Dual stream | Mic + speaker/loopback paralel |
-| 3 mode | Webinar (spk), Rapat Online (mic+spk+echo-dedupe), Rapat Offline (mic) |
-| Dual VAD | WebRTC + Silero (filter noise) |
-| Echo-dedupe | Cegah duplikasi suara user di Rapat Online |
-| Diarization | Default per-source MIC/SPK; opsional pyannote Speaker 1..N |
-| Crash-safe | Autosave ~10 detik + resume sesi incomplete |
-| Tone-test | Verifikasi routing BlackHole / VB-Cable |
-| Single-instance | Satu proses app saja |
-| Library player | Putar ulang mic/speaker WAV + highlight segmen transcript (speaker · waktu · teks) |
-| Export | WAV per-track + MD / TXT / JSON / SRT / VTT |
+| Feature | Detail |
+|---------|--------|
+| Offline STT | whisper.cpp (ggml) — tiny → large |
+| Dual stream | Mic + speaker / loopback in parallel |
+| Meeting modes | Webinar · Rapat Online · Rapat Offline |
+| Dual VAD | WebRTC + Silero |
+| Echo-dedupe | Reduces self-echo on Rapat Online |
+| Diarization | Per-source MIC/SPK; optional pyannote |
+| Library player | Seek, speed, highlight active segment |
+| Export | WAV tracks + MD / TXT / JSON / SRT / VTT |
+| Tray | Keep capturing while sharing a screen |
+| Single-instance | One app process at a time |
 
-### Model Whisper (offline only)
+### Whisper models (offline)
 
 | Model | Size | RAM | Speed | Quality |
 |-------|------|-----|-------|---------|
@@ -99,212 +133,162 @@ Pilih format: Markdown, TXT, JSON, SRT, VTT (+ opsional translate EN↔ID). File
 | `large-v3-turbo` | ~1.6 GB | ~4 GB | Medium | Very high |
 | `large` | ~3 GB | ~8 GB | Slowest | Best |
 
-Engine STT = **Whisper saja** (whisper.cpp). Tidak ada cloud ASR / engine pihak ketiga di jalur produk.
-
 ---
 
-## Panduan penggunaan
+## Quick start
 
-### 1. Install & jalankan (developer)
+### End users
 
-**macOS (Homebrew):** Python perlu paket Tk terpisah:
+1. Download the zip for your OS from [Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases).
+2. Launch the app → complete the setup wizard.
+3. Configure [audio routing](#audio-routing) → run **Tone Test**.
+4. Pick a meeting mode → **Start**.
+
+### Developers
 
 ```bash
+# macOS needs Tk as a separate Homebrew formula
 brew install python@3.11 python-tk@3.11
-```
 
-```bash
 git clone https://github.com/Trareon-com/Trareon-Transcribe.git
 cd Trareon-Transcribe
 python3.11 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python main.py
-```
 
-**macOS (nama + icon di Dock):** setelah venv siap:
-
-```bash
+# Preferred on macOS (Dock / mic dialog = “Trareon Transcribe”)
 chmod +x scripts/run_mac_app.sh
 ./scripts/run_mac_app.sh
-```
 
-Ini membuka `dist-run/TrareonTranscribe.app` (menu bar: “Trareon Transcribe”, bukan “Python”).
-
-**Demo dengan data dummy** (Library + player + caption, tanpa rekaman live):
-
-```bash
+# Demo UI with dummy Library sessions
 ./scripts/run_mac_app.sh --demo
-# atau: python scripts/seed_dummy_session.py --force
 ```
-
-Sesi contoh ada di `~/Documents/Trareon Transcribe/Sessions/*-demo-seed` — di app: Library → **Putar** / **Export**.
-
-Untuk development + tes:
 
 ```bash
 pip install -r requirements-dev.txt
 pytest -q
+TRAREON_NO_RELAUNCH=1 python scripts/capture_screenshots.py   # refresh README gallery
 ```
 
-### 2. First-run wizard
+### First-run wizard checklist
 
-1. Biarkan app mendeteksi RAM/CPU dan sarankan model.
-2. Centang install **BlackHole + ffmpeg** (macOS / Homebrew) atau ikuti panduan VB-Cable (Windows).
-3. Unduh model Whisper pilihan Anda (butuh ruang disk cukup).
-4. Jalankan **Tone Test** — nada pendek harus terdengar di speaker capture.
-5. (Opsional) tempel Hugging Face token untuk pyannote → disimpan di OS keyring.
-6. Klik **Lanjut ke App**.
+1. Confirm detected CPU / RAM / GPU and the suggested model.
+2. Install BlackHole + ffmpeg (macOS) or follow VB-Cable guidance (Windows).
+3. Download a Whisper model (needs free disk space).
+4. Run **Tone Test** until the tone is heard on the speaker capture path.
+5. (Optional) Hugging Face token for pyannote → stored in the OS keyring.
+6. Continue to the main window.
 
-### 3. Routing audio (penting)
+### Daily recording
 
-**macOS**
+1. Set **Judul rapat** (or keep auto-detect).
+2. Choose mode: Webinar / Rapat Online / Rapat Offline.
+3. Toggle MIC / SPK as needed → **Start**.
+4. **Stop** → session lands under Documents → Library / Export.
+5. During screen share: **Minimize to Tray**.
 
-1. Install [BlackHole 2ch](https://existential.audio/blackhole/) (`brew install --cask blackhole-2ch`).
-2. Buka **Audio MIDI Setup** → buat **Multi-Output Device** (Speaker bawaan + BlackHole).
-3. Set Multi-Output sebagai output sistem (atau output Zoom).
-4. Di Trareon, pastikan input speaker = BlackHole → jalankan Tone Test.
+### Shortcuts
 
-**Windows**
-
-1. Install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/).
-2. Arahkan output meeting ke VB-Cable / gunakan WASAPI loopback.
-3. Jalankan **Settings → Test audio routing**.
-
-### 4. Alur rekam sehari-hari
-
-1. Isi **Judul rapat** (atau biarkan auto-detect).
-2. Pilih mode:
-   - **Webinar** — hanya mendengar (speaker ON, mic OFF)
-   - **Rapat Online** — mic + speaker + echo-dedupe
-   - **Rapat Offline** — hanya mic ruangan
-3. Override MIC/SPK kapan saja dengan tombol atau shortcut.
-4. **Start** → caption muncul live (partial abu-abu → final solid).
-5. **Stop** (konfirmasi) → folder sesi difinalisasi di Documents.
-6. **Export** → pilih format → buka folder hasil.
-7. Saat share screen Zoom: **Minimize to Tray** — transkrip tetap jalan.
-
-### 5. Library & resume
-
-- **Library** menampilkan semua sesi di folder Sessions.
-- Jika app crash, saat dibuka lagi muncul dialog **Lanjutkan / Buang** sesi `.inprogress`.
-
-### 6. Shortcut keyboard
-
-| Key | Aksi |
-|-----|------|
+| Key | Action |
+|-----|--------|
 | `Space` | Start / Stop |
-| `M` | Toggle mikrofon |
+| `M` | Toggle mic |
 | `S` | Toggle speaker |
 | `E` | Export |
-| `T` | Minimize to tray |
+| `T` | Tray |
 | `,` | Settings |
 
 ---
 
-## Penyimpanan file
+## Audio routing
 
-| Jenis | macOS | Windows |
-|--------|--------|---------|
+<details>
+<summary><strong>macOS (BlackHole)</strong></summary>
+
+1. Install [BlackHole 2ch](https://existential.audio/blackhole/) (`brew install --cask blackhole-2ch`).
+2. Audio MIDI Setup → **Multi-Output Device** (built-in speakers + BlackHole).
+3. Set Multi-Output as system (or meeting app) output.
+4. In Trareon, select BlackHole as speaker input → **Tone Test**.
+
+</details>
+
+<details>
+<summary><strong>Windows (VB-Cable)</strong></summary>
+
+1. Install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/).
+2. Route meeting output to VB-Cable / WASAPI loopback.
+3. Settings → **Test audio routing**.
+
+</details>
+
+---
+
+## Where files live
+
+| Data | macOS | Windows |
+|------|--------|---------|
 | Config, lock, logs | `~/Library/Application Support/TrareonTranscribe/` | `%LOCALAPPDATA%\TrareonTranscribe\` |
-| Model + whisper-cli | `~/Library/Caches/TrareonTranscribe/models/` | `%LOCALAPPDATA%\TrareonTranscribe\Cache\models\` |
-| **Library sesi** (default) | `~/Documents/Trareon Transcribe/Sessions/` | `%USERPROFILE%\Documents\Trareon Transcribe\Sessions\` |
-
-Struktur satu sesi:
+| Models + whisper-cli | `~/Library/Caches/TrareonTranscribe/models/` | `%LOCALAPPDATA%\TrareonTranscribe\Cache\models\` |
+| Sessions (default) | `~/Documents/Trareon Transcribe/Sessions/` | `%USERPROFILE%\Documents\Trareon Transcribe\Sessions\` |
 
 ```
 YYYYMMDD-judul-uuid/
-├── meta.json           # judul, mode, durasi, device
-├── transcript.json     # source of truth
-├── mic.wav             # track mikrofon
-├── speaker.wav         # track speaker/loopback
-├── .inprogress         # ada = sesi belum selesai
-├── transcript.md       # saat export
-├── transcript.txt
-├── transcript.srt      # opsional
-└── transcript.vtt      # opsional
+├── meta.json
+├── transcript.json
+├── mic.wav
+├── speaker.wav
+├── .inprogress          # present while recording
+└── transcript.{md,txt,srt,vtt}   # after export
 ```
-
-Path library bisa diganti di **Settings**.
 
 ---
 
-## Build executable / release zip
+## Build & release
 
 ```bash
-pip install -r requirements.txt
-chmod +x scripts/package_release.sh
-./scripts/package_release.sh          # → dist-release/*.zip
-# atau developer-only:
-./scripts/build.sh
+./scripts/package_release.sh          # → dist-release/*.zip for this machine
+git tag vX.Y.Z && git push origin vX.Y.Z   # CI builds macOS arm64/x64 + Windows
 ```
 
-**Publikasi ke GitHub Releases** (setelah `gh auth login`):
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-# CI (.github/workflows/release.yml) membangun macOS arm64/x64 + Windows dan mengunggah zip + SBOM
-# Atau lokal (hanya zip mesin ini):
-gh release create v0.1.0 dist-release/* --title "v0.1.0" --generate-notes
-```
-
-> Code signing / notarization memerlukan sertifikat organisasi (di luar repo).
+See [docs/design.md](docs/design.md) for the full product spec.
 
 ---
 
-## Privasi & keamanan
+## Privacy & security
 
-- Tidak ada telemetri / analytics.
-- Runtime transkripsi **offline**; unduhan hanya saat setup/model.
-- HF token di **keyring**, bukan `config.json`.
-- Lihat [SECURITY.md](SECURITY.md).
+- No telemetry / analytics.
+- Transcription is offline; network is only used for setup downloads.
+- HF tokens stay in the OS keyring.
 - CI: ruff · bandit · pytest · pip-audit · gitleaks.
+- See [SECURITY.md](SECURITY.md).
 
 ---
 
-## Struktur proyek
+## Troubleshooting
 
-```
-main.py                 # entrypoint + single-instance
-engine/                 # audio, VAD, STT, dedupe, session, tone-test, diarization
-ui/                     # main, wizard, settings, library, export, tray
-export/                 # naming + writers
-setup/                  # deps, disk check, model download
-config/                 # paths, settings, keyring, lock
-docs/                   # design + screenshots
-tests/
-.github/workflows/      # CI + release
-```
-
-Design lengkap: [docs/design.md](docs/design.md)
+| Issue | Fix |
+|-------|-----|
+| `No module named '_tkinter'` | `brew install python-tk@3.11`, recreate `.venv` |
+| App exits immediately | `rm -f ~/Library/Application\ Support/TrareonTranscribe/instance.lock` then `./scripts/run_mac_app.sh` |
+| SIGABRT / `RegisterApplication` | Use `./scripts/run_mac_app.sh` (not bare `python` from Cursor/VS Code) |
+| Menu / mic dialog says “Python” | Launch via `run_mac_app.sh` / Release `.app` |
+| Empty captions | Check MIC/SPK toggles + OS mic permission |
+| No speaker text | Fix Multi-Output / VB-Cable → Tone Test |
+| Model missing | Re-run wizard or Settings → Unduh model |
 
 ---
 
-## Troubleshooting singkat
+## Contributing
 
-| Masalah | Coba |
-|---------|------|
-| `No module named '_tkinter'` | macOS: `brew install python-tk@3.11`, lalu buat ulang venv (`rm -rf .venv && python3.11 -m venv .venv && pip install -r requirements.txt`) |
-| App tidak muncul / langsung tutup | Hapus lock basi: `rm -f ~/Library/Application\ Support/TrareonTranscribe/instance.lock` lalu `./scripts/run_mac_app.sh` |
-| Crash SIGABRT / `RegisterApplication` | Biasanya dari terminal Cursor/VS Code. Pakai `./scripts/run_mac_app.sh` (main.py akan auto-relaunch dari IDE). Debug di IDE: `TRAREON_NO_RELAUNCH=1` + `ensure_tk_registered` sudah dipanggil sebelum import UI. |
-| Menu bar / Dock / dialog izin mic bertuliskan Python | Jalankan via `./scripts/run_mac_app.sh` (bukan `python main.py`). Dialog izin macOS mengikuti bundle `.app`. Jika dulu sudah grant ke «Python», buka System Settings → Privacy → Microphone → aktifkan **Trareon Transcribe**. Butuh `pyobjc-framework-Cocoa` di venv. |
-| Caption kosong | Pastikan MIC/SPK ON sesuai mode; cek izin Mikrofon OS |
-| Speaker tidak ter-transkrip | Tone Test gagal → perbaiki Multi-Output / VB-Cable |
-| `[STT: model/binary belum…]` | Jalankan ulang wizard / unduh model ke folder cache |
-| App “sudah berjalan” | Tutup instance lain / cek system tray |
-| Disk penuh | Kurangi model Whisper (`tiny`/`base`/`small`) atau kosongkan ruang |
-
----
-
-## Kontribusi
-
-1. Fork & branch dari `main`
+1. Fork and branch from `main`.
 2. `pip install -r requirements-dev.txt && pre-commit install`
 3. `pytest -q && ruff check .`
-4. Buka PR (lihat template security checklist)
+4. Open a PR (security checklist in the template).
+
+Please do **not** add `Co-authored-by: Cursor` (or similar tool trailers) to commits — they inflate the GitHub contributors graph without reflecting human authorship.
 
 ---
 
 ## License
 
-Lihat [LICENSE](LICENSE).
+[Apache License 2.0](LICENSE) — © Trareon.
