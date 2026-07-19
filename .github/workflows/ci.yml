@@ -28,7 +28,7 @@ jobs:
         run: ruff check .
 
       - name: Bandit
-        run: bandit -r engine ui export setup config util main.py -x tests
+        run: bandit -c pyproject.toml -r engine ui export setup config util main.py
 
       - name: Pytest
         run: pytest -q
