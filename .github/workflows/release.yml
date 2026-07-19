@@ -74,7 +74,7 @@ jobs:
           pip install cyclonedx-bom
           cyclonedx-py requirements requirements.txt -o sbom-${{ matrix.artifact }}.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: trareon-${{ matrix.artifact }}
           path: |
