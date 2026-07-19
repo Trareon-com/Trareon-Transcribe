@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v0.1.0)"
+        description: "Release tag (e.g. v0.1.1)"
         required: true
-        default: "v0.1.0"
+        default: "v0.1.1"
 
 permissions:
   contents: write
@@ -21,11 +21,16 @@ jobs:
         include:
           - os: macos-14
             artifact: macos-arm64
-          - os: macos-13
-            artifact: macos-x64
+            required: true
           - os: windows-latest
             artifact: windows-x64
+            required: true
+          # Intel Mac runners are flaky/queued — fail-soft so publish is not blocked.
+          - os: macos-13
+            artifact: macos-x64
+            required: false
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.required == false }}
     steps:
       - uses: actions/checkout@v7
 
@@ -38,43 +43,141 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VER="${{ github.event.inputs.tag }}"
+          else
+            VER="${GITHUB_REF_NAME}"
+          fi
+          VER="${VER#v}"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
       - name: Build (PyInstaller)
         run: python -m PyInstaller --noconfirm --clean packaging/trareon-transcribe.spec
 
-      - name: Package zip (macOS)
+      - name: Bundle whisper-cli (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
-          VER="${GITHUB_REF_NAME#v}"
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VER="${{ github.event.inputs.tag }}"
-            VER="${VER#v}"
-          fi
           APP="dist/Trareon Transcribe.app"
           test -d "$APP"
+          if command -v brew >/dev/null; then
+            brew install whisper-cpp || true
+          fi
+          for cand in /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli "$(brew --prefix 2>/dev/null)/bin/whisper-cli"; do
+            if [[ -n "$cand" && -x "$cand" ]]; then
+              cp "$cand" "$APP/Contents/MacOS/whisper-cli"
+              chmod +x "$APP/Contents/MacOS/whisper-cli"
+              echo "Bundled $cand"
+              break
+            fi
+          done
+
+      - name: Bundle whisper-cli (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="dist/TrareonTranscribe"
+          test -d "$DIR"
+          curl -fsSL -o /tmp/w.zip \
+            "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-x64.zip"
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          z = zipfile.ZipFile("/tmp/w.zip")
+          dest = Path("dist/TrareonTranscribe")
+          for n in z.namelist():
+              if n.lower().endswith("whisper-cli.exe") or n.lower().endswith("main.exe"):
+                  data = z.read(n)
+                  out = dest / Path(n).name
+                  if out.name == "main.exe":
+                      out = dest / "whisper-cli.exe"
+                  out.write_bytes(data)
+                  print("wrote", out)
+                  break
+          else:
+              raise SystemExit("whisper-cli.exe not in zip")
+          PY
+
+      - name: Package (macOS zip + DMG)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER="${{ steps.ver.outputs.ver }}"
+          APP="dist/Trareon Transcribe.app"
           codesign --force --deep --sign - "$APP" || true
           STAGE="$(mktemp -d)"
           ditto "$APP" "$STAGE/Trareon Transcribe.app"
           cp scripts/open-macos-app.sh "$STAGE/open-macos-app.sh"
           cp "scripts/Open Trareon Transcribe.command" "$STAGE/Open Trareon Transcribe.command"
           chmod +x "$STAGE/open-macos-app.sh" "$STAGE/Open Trareon Transcribe.command"
-          OUT="Trareon-Transcribe-${VER}-${{ matrix.artifact }}.zip"
-          (cd "$STAGE" && zip -ry "$GITHUB_WORKSPACE/$OUT" "Trareon Transcribe.app" open-macos-app.sh "Open Trareon Transcribe.command")
+          OUT_ZIP="Trareon-Transcribe-${VER}-${{ matrix.artifact }}.zip"
+          (cd "$STAGE" && zip -ry "$GITHUB_WORKSPACE/$OUT_ZIP" "Trareon Transcribe.app" open-macos-app.sh "Open Trareon Transcribe.command")
+          OUT_DMG="Trareon-Transcribe-${VER}-${{ matrix.artifact }}.dmg"
+          hdiutil create -volname "Trareon Transcribe" -srcfolder "$STAGE" -ov -format UDZO "$OUT_DMG"
           rm -rf "$STAGE"
-          echo "ASSET=$OUT" >> "$GITHUB_ENV"
+          echo "ASSET_ZIP=$OUT_ZIP" >> "$GITHUB_ENV"
+          echo "ASSET_DMG=$OUT_DMG" >> "$GITHUB_ENV"
 
-      - name: Package zip (Windows)
+      - name: Package (Windows portable + Setup)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $ver = $env:GITHUB_REF_NAME -replace '^v',''
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $ver = "${{ github.event.inputs.tag }}" -replace '^v',''
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.ver.outputs.ver }}"
+          if (-not (Test-Path "dist\TrareonTranscribe\TrareonTranscribe.exe")) {
+            throw "Missing dist\TrareonTranscribe\TrareonTranscribe.exe (onedir build failed)"
           }
-          $name = "Trareon-Transcribe-$ver-${{ matrix.artifact }}.zip"
-          Compress-Archive -Path "dist\TrareonTranscribe.exe" -DestinationPath $name -Force
-          "ASSET=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          $portable = "Trareon-Transcribe-$ver-windows-x64-portable.zip"
+          if (Test-Path $portable) { Remove-Item $portable -Force }
+          # Folder zip → TrareonTranscribe\TrareonTranscribe.exe (+ DLLs, whisper-cli.exe)
+          Compress-Archive -Path "dist\TrareonTranscribe" -DestinationPath $portable -Force
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" "packaging\windows\trareon-setup.iss"
+          $setup = "Trareon-Transcribe-$ver-windows-x64-Setup.exe"
+          if (Test-Path "dist-release\$setup") {
+            Copy-Item "dist-release\$setup" $setup -Force
+          } else {
+            Write-Warning "Setup.exe not produced — portable zip still uploaded"
+          }
+          Get-ChildItem $portable, $setup -ErrorAction SilentlyContinue | Format-Table Name, Length
+
+      - name: Smoke (source audio + onedir PortAudio / whisper)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/smoke_frozen.py || true
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            python - <<'PY'
+          from pathlib import Path
+          root = Path("dist/TrareonTranscribe")
+          assert root.is_dir(), root
+          dlls = list(root.rglob("*portaudio*"))
+          print("portaudio hits:", dlls[:10])
+          assert dlls, "PortAudio binary missing from onedir — sounddevice collect failed"
+          assert (root / "whisper-cli.exe").is_file() or any(root.rglob("whisper-cli.exe")), "whisper-cli.exe missing"
+          print("Windows onedir smoke OK")
+          PY
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            python - <<'PY'
+          from pathlib import Path
+          app = Path("dist/Trareon Transcribe.app")
+          assert app.is_dir()
+          # sounddevice dylib usually under Frameworks or Resources
+          hits = list(app.rglob("*portaudio*")) + list(app.rglob("*sounddevice*"))
+          print("audio hits:", len(hits))
+          cli = app / "Contents/MacOS/whisper-cli"
+          print("whisper-cli bundled:", cli.is_file())
+          print("macOS app smoke OK")
+          PY
+          fi
 
       - name: SBOM
         run: |
@@ -86,13 +189,15 @@ jobs:
           name: trareon-${{ matrix.artifact }}
           path: |
             Trareon-Transcribe-*.zip
+            Trareon-Transcribe-*.dmg
+            Trareon-Transcribe-*-Setup.exe
             sbom-*.json
           if-no-files-found: error
 
   publish:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: always() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     steps:
       - uses: actions/checkout@v7
 
@@ -110,6 +215,15 @@ jobs:
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
+          ls -la artifacts || true
+
+      - name: Require core artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # arm64 + windows required; intel optional
+          ls artifacts/Trareon-Transcribe-*-macos-arm64.zip
+          ls artifacts/Trareon-Transcribe-*-windows-x64-portable.zip || ls artifacts/Trareon-Transcribe-*-windows*.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

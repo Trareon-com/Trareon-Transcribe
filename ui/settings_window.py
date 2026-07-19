@@ -10,10 +10,11 @@ import customtkinter as ctk
 
 from config.branding import APP_NAME, set_window_icon
 from config.keyring_store import get_hf_token, set_hf_token
-from config.paths import logs_dir, models_dir
+from config.paths import ensure_dir, logs_dir, models_dir
 from config.settings import Settings
 from config.version import __version__
 from engine.audio_capture import AudioCapture
+from engine.stt import WhisperCppStt
 from engine.tone_test import run_tone_test
 from setup.model_dl import download_model, ensure_whisper_binary
 from setup.whisper_models import WHISPER_MODELS
@@ -27,6 +28,7 @@ from ui.theme import (
     primary_button,
     styled_entry,
 )
+from update.check import check_for_update, open_download
 from util.threading_helpers import run_in_thread
 
 
@@ -37,7 +39,8 @@ class SettingsWindow(ctk.CTkToplevel):
         self.on_saved = on_saved
         self.colors = paint_window(self)
         self.title(f"Settings — {APP_NAME}")
-        self.geometry("560x640")
+        self.minsize(520, 640)
+        self.geometry("560x680")
         set_window_icon(self)
         self.transient(master)
 
@@ -54,6 +57,11 @@ class SettingsWindow(ctk.CTkToplevel):
         head.pack(fill="x", padx=20, pady=(16, 8))
         heading(head, "Settings", c).pack(side="left")
         muted(head, f"v{__version__}", c).pack(side="left", padx=10)
+
+        foot = ctk.CTkFrame(self, fg_color="transparent")
+        foot.pack(side="bottom", fill="x", padx=20, pady=(0, 12))
+        muted(foot, "", c, textvariable=self.status, wraplength=360).pack(side="left", fill="x", expand=True)
+        primary_button(foot, "Simpan", self._save, c, width=100).pack(side="right")
 
         panel = panel_frame(self, c)
         panel.pack(fill="both", expand=True, padx=20, pady=(0, 8))
@@ -118,21 +126,18 @@ class SettingsWindow(ctk.CTkToplevel):
         self.bar.set(0)
         self.bar.pack(pady=(12, 4), anchor="w")
 
-        foot = ctk.CTkFrame(self, fg_color="transparent")
-        foot.pack(fill="x", padx=20, pady=(0, 16))
-        muted(foot, "", c, textvariable=self.status, wraplength=400).pack(side="left", fill="x", expand=True)
-        primary_button(foot, "Simpan", self._save, c, width=100).pack(side="right")
+        ghost_button(form, "Cek update", self._check_update, c, width=120).pack(anchor="w", pady=(8, 4))
 
         muted(
-            self,
+            form,
             "Shortcuts: Space Start/Stop · M Mic · S Speaker · E Export · T Tray · , Settings",
             c,
-        ).pack(pady=(0, 4))
+        ).pack(pady=(8, 4), anchor="w")
         muted(
-            self,
+            form,
             f"{APP_NAME} · https://github.com/Trareon-com/Trareon-Transcribe/releases",
             c,
-        ).pack(pady=(0, 12))
+        ).pack(pady=(0, 8), anchor="w")
 
     def _save(self) -> None:
         self.settings.model = self.model_var.get()
@@ -141,7 +146,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.settings.reduced_motion = self.motion_var.get()
         self.settings.diarization_enabled = self.diar_var.get()
         set_hf_token(self.hf_var.get().strip())
-        Path(self.settings.library_root).mkdir(parents=True, exist_ok=True)
+        ensure_dir(Path(self.settings.library_root))
         self.settings.save()
         self.status.set("Tersimpan.")
         if self.on_saved:
@@ -156,6 +161,8 @@ class SettingsWindow(ctk.CTkToplevel):
             self.settings.tone_test_skipped = not res.ok
             self.settings.save()
             self.after(0, lambda: self.status.set(res.message))
+            if self.on_saved:
+                self.after(0, self.on_saved)
 
         run_in_thread(work)
 
@@ -168,15 +175,54 @@ class SettingsWindow(ctk.CTkToplevel):
 
         def work() -> None:
             try:
-                ensure_whisper_binary(progress=progress)
+                binary = ensure_whisper_binary(progress=progress)
                 download_model(model, progress=progress)
                 self.settings.model = model
+                stt = WhisperCppStt(model)
+                if stt.available():
+                    self.settings.setup_complete = True
+                    msg = f"Model {model} siap (STT OK)."
+                elif binary is None:
+                    msg = (
+                        f"Model {model} terunduh, tapi whisper-cli belum ada. "
+                        "Windows: unduh ulang release terbaru. macOS: brew install whisper-cpp."
+                    )
+                else:
+                    msg = f"Model {model} terunduh — cek binary di cache models."
                 self.settings.save()
-                self.after(0, lambda: self.status.set(f"Model {model} siap."))
+                self.after(0, lambda: self.status.set(msg))
                 self.after(0, lambda: self.bar.set(1.0))
+                if self.on_saved:
+                    self.after(0, self.on_saved)
             except Exception as exc:
                 err = str(exc)
                 self.after(0, lambda m=err: self.status.set(f"Gagal unduh: {m}"))
+
+        run_in_thread(work)
+
+    def _check_update(self) -> None:
+        self.status.set("Mengecek update…")
+
+        def work() -> None:
+            info = check_for_update()
+            if info is None:
+                self.after(0, lambda: self.status.set("Tidak bisa cek update (offline / API)."))
+                return
+            if not info.update_available:
+                self.after(0, lambda: self.status.set(f"Sudah versi terbaru ({info.current})."))
+                return
+
+            def ask() -> None:
+                import tkinter.messagebox as messagebox
+
+                if messagebox.askyesno(
+                    "Update tersedia",
+                    f"Versi baru {info.latest} (sekarang {info.current}).\nBuka unduhan?",
+                ):
+                    open_download(info)
+                self.status.set(f"Update {info.latest} tersedia.")
+
+            self.after(0, ask)
 
         run_in_thread(work)
 

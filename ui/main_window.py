@@ -9,8 +9,9 @@ import customtkinter as ctk
 from PIL import Image
 
 from config.branding import APP_NAME, icon_png, set_window_icon
-from config.settings import Settings
+from config.settings import Settings, sanitize_geometry
 from config.version import __version__
+from engine.audio_probe import probe_audio
 from engine.pipeline import Pipeline, PipelineStatus
 from engine.session_store import Session, TranscriptSegment, find_inprogress
 from engine.stt import WhisperCppStt
@@ -42,15 +43,17 @@ class MainWindow(ctk.CTk):
         self.title(f"{APP_NAME}  v{__version__}")
         set_window_icon(self)
         self.minsize(880, 600)
-        geo = settings.window_geometry or "1000x740"
-        if "x" in geo and "+" not in geo:
-            self.geometry(f"{geo}+120+80")
-        else:
-            self.geometry(geo)
+        geo = sanitize_geometry(settings.window_geometry or "1000x740")
+        self.settings.window_geometry = geo
         if settings.window_x is not None and settings.window_y is not None:
             if settings.window_x >= -20 and settings.window_y >= -20:
-                self.geometry(f"{geo.split('+')[0]}+{settings.window_x}+{settings.window_y}")
+                self.geometry(f"{geo}+{settings.window_x}+{settings.window_y}")
+            else:
+                self.geometry(f"{geo}+120+80")
+        else:
+            self.geometry(f"{geo}+120+80")
         self.attributes("-topmost", settings.always_on_top)
+        self._audio_probe_msg = ""
 
         self.events = UiEventQueue()
         self.pipeline: Pipeline | None = None
@@ -88,6 +91,7 @@ class MainWindow(ctk.CTk):
         self.after(500, self._check_resume)
         self.after(1000, self._tick_resources)
         self.after(100, self._tick_vu)
+        self.after(300, self._probe_audio_engine)
 
     def _ghost_btn(self, parent: ctk.CTkFrame, text: str, command, width: int = 88) -> ctk.CTkButton:  # noqa: ANN001
         return ghost_button(parent, text, command, self.colors, width=width)
@@ -314,22 +318,36 @@ class MainWindow(ctk.CTk):
     def refresh_readiness(self) -> None:
         self._update_tone_banner()
         stt = WhisperCppStt(self.settings.model)
+        parts: list[str] = []
+        if self._audio_probe_msg and not self._audio_probe_msg.startswith("Audio OK"):
+            parts.append(f"⚠ {self._audio_probe_msg}")
         if stt.available():
-            self.ready_var.set(f"STT siap · model {self.settings.model}")
+            parts.append(f"STT siap · model {self.settings.model}")
         else:
-            self.ready_var.set(
+            parts.append(
                 "⚠ Model/binary Whisper belum lengkap — Settings → Unduh model, atau Setup wizard."
             )
+        self.ready_var.set("  ·  ".join(parts))
+
+    def _probe_audio_engine(self) -> None:
+        res = probe_audio()
+        self._audio_probe_msg = res.message
+        if not res.ok:
+            messagebox.showerror("Audio", res.message)
+        self.refresh_readiness()
 
     def _update_tone_banner(self) -> None:
+        msgs: list[str] = []
         if not self.settings.tone_test_ok and (
             self.settings.tone_test_skipped or self.settings.setup_complete
         ):
-            self.banner_var.set(
-                "⚠ Routing speaker belum diverifikasi. Settings → Test audio routing."
+            msgs.append("⚠ Routing speaker belum diverifikasi. Settings → Test audio routing.")
+        if self._recording and self.pipeline and not self.pipeline.speaker_capture_ok():
+            msgs.append(
+                "⚠ Speaker capture tidak aktif — rekaman mic tetap jalan. "
+                "Pasang VB-Cable (Win) / BlackHole (Mac)."
             )
-        else:
-            self.banner_var.set("")
+        self.banner_var.set("\n".join(msgs))
 
     def _on_mode_seg(self, label: str) -> None:
         self.mode_var.set(_MODE_VALUE.get(label, "rapat_online"))
@@ -422,6 +440,27 @@ class MainWindow(ctk.CTk):
         self.settings.theme = "dark" if self.settings.theme != "dark" else "light"
         self.colors = apply_theme(self.settings.theme)
         self.settings.save()
+        caption = ""
+        try:
+            caption = self.caption.get("1.0", "end-1c")
+        except Exception:
+            pass
+        recording = self._recording
+        for child in self.winfo_children():
+            child.destroy()
+        self.configure(fg_color=self.colors["bg"])
+        self._build()
+        if caption.strip():
+            self.caption.delete("1.0", "end")
+            self.caption.insert("end", caption)
+        if recording:
+            self.start_btn.configure(
+                text="Stop",
+                fg_color=self.colors["danger"],
+                hover_color=self.colors["danger_hover"],
+                text_color="#FFFFFF",
+            )
+        self.refresh_readiness()
 
     def _toggle_record(self) -> None:
         if self._recording:
@@ -481,6 +520,7 @@ class MainWindow(ctk.CTk):
         self.caption.insert("end", "Menunggu suara…\n")
         self.settings.last_meeting_title = title
         self.settings.save()
+        self._update_tone_banner()
         self._refresh_hud()
 
     def _stop_record(self) -> None:
@@ -642,8 +682,7 @@ class MainWindow(ctk.CTk):
 
     def _persist_geometry(self) -> None:
         geo = self.geometry()
-        # "WxH+X+Y"
-        self.settings.window_geometry = geo.split("+")[0]
+        self.settings.window_geometry = sanitize_geometry(geo.split("+")[0])
         try:
             parts = geo.split("+")
             if len(parts) >= 3:

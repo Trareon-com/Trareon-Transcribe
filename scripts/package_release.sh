@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build shareable zip(s) under dist-release/ (not committed to git).
+# Build shareable artifacts under dist-release/ (not committed to git).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VERSION="${1:-$("$ROOT/.venv/bin/python" -c 'from config.version import __version__; print(__version__)' 2>/dev/null || echo 0.1.0)}"
+VERSION="${1:-$("$ROOT/.venv/bin/python" -c 'from config.version import __version__; print(__version__)' 2>/dev/null || echo 0.1.1)}"
 OUT="$ROOT/dist-release"
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -23,7 +23,15 @@ if [[ "$OS" == "Darwin" ]]; then
     echo "Missing $APP" >&2
     exit 1
   fi
-  # Ad-hoc sign by default; Developer ID + notary if env set.
+  # Bundle whisper-cli from Homebrew when available
+  for cand in /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli; do
+    if [[ -x "$cand" ]]; then
+      cp "$cand" "$APP/Contents/MacOS/whisper-cli"
+      chmod +x "$APP/Contents/MacOS/whisper-cli"
+      echo "Bundled whisper-cli from $cand"
+      break
+    fi
+  done
   if [[ -n "${APPLE_CODESIGN_IDENTITY:-}" ]]; then
     codesign --force --deep --options runtime --sign "$APPLE_CODESIGN_IDENTITY" "$APP"
     if [[ -n "${APPLE_NOTARY_PROFILE:-}" ]]; then
@@ -45,12 +53,31 @@ if [[ "$OS" == "Darwin" ]]; then
   chmod +x "$STAGE/open-macos-app.sh" "$STAGE/Open Trareon Transcribe.command"
   ZIP="$OUT/Trareon-Transcribe-${VERSION}-macos-${ARCH}.zip"
   (cd "$STAGE" && zip -ry "$ZIP" "Trareon Transcribe.app" open-macos-app.sh "Open Trareon Transcribe.command")
+  DMG="$OUT/Trareon-Transcribe-${VERSION}-macos-${ARCH}.dmg"
+  rm -f "$DMG"
+  hdiutil create -volname "Trareon Transcribe" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
   rm -rf "$STAGE"
   echo "Built: $ZIP"
+  echo "Built: $DMG"
 elif [[ "$OS" == MINGW* || "$OS" == MSYS* || "$OS" == CYGWIN* || "$OS" == Windows_NT ]]; then
-  ZIP="$OUT/Trareon-Transcribe-${VERSION}-windows-x64.zip"
-  (cd "$ROOT/dist" && zip -9 "$ZIP" TrareonTranscribe.exe)
+  DIR="$ROOT/dist/TrareonTranscribe"
+  if [[ ! -d "$DIR" ]]; then
+    echo "Missing $DIR (expected Windows onedir)" >&2
+    exit 1
+  fi
+  ZIP="$OUT/Trareon-Transcribe-${VERSION}-windows-x64-portable.zip"
+  (cd "$ROOT/dist" && zip -9r "$ZIP" TrareonTranscribe)
   echo "Built: $ZIP"
+  if command -v iscc >/dev/null 2>&1 || command -v ISCC >/dev/null 2>&1; then
+    ISCC_BIN="$(command -v iscc || command -v ISCC)"
+    "$ISCC_BIN" "/DAppVersion=${VERSION}" "$ROOT/packaging/windows/trareon-setup.iss"
+    SETUP="$OUT/Trareon-Transcribe-${VERSION}-windows-x64-Setup.exe"
+    if [[ -f "$ROOT/dist-release/Trareon-Transcribe-${VERSION}-windows-x64-Setup.exe" ]]; then
+      echo "Built: $SETUP"
+    fi
+  else
+    echo "ISCC not found — skipping Setup.exe (portable zip only)"
+  fi
 else
   echo "Unsupported OS: $OS" >&2
   exit 1

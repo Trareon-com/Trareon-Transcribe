@@ -40,6 +40,10 @@ def icon_icns() -> Path:
     return project_root() / "assets" / "trareon-transcribe-icon.icns"
 
 
+def icon_ico() -> Path:
+    return project_root() / "assets" / "trareon-transcribe-icon.ico"
+
+
 def running_from_app_bundle() -> bool:
     """True when launched via our .app (or frozen PyInstaller) so TCC uses our name."""
     if getattr(sys, "frozen", False):
@@ -125,7 +129,7 @@ def apply_macos_menu_name(name: str = APP_NAME) -> None:
 
 
 def set_window_icon(window) -> None:  # noqa: ANN001
-    """Set window + Dock icon after the Tk root exists (safe)."""
+    """Set window + Dock/taskbar icon after the Tk root exists (safe)."""
     if sys.platform == "darwin":
         apply_macos_menu_name(APP_NAME)
         try:
@@ -133,6 +137,17 @@ def set_window_icon(window) -> None:  # noqa: ANN001
             window.after(800, lambda: apply_macos_menu_name(APP_NAME))
         except Exception:
             pass
+
+    if sys.platform == "win32":
+        ico = icon_ico()
+        if ico.exists():
+            try:
+                window.iconbitmap(default=str(ico.resolve()))
+            except Exception:
+                try:
+                    window.iconbitmap(str(ico.resolve()))
+                except Exception:
+                    pass
 
     png = icon_png()
     if not png.exists():

@@ -38,7 +38,8 @@ class SetupWizard(ctk.CTkToplevel):
         self.colors = paint_window(self)
 
         self.title(f"{APP_NAME} — Setup")
-        self.geometry("700x680+160+80")
+        self.minsize(640, 620)
+        self.geometry("700x700+160+80")
         set_window_icon(self)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", self._on_close_attempt)
@@ -189,25 +190,33 @@ class SetupWizard(ctk.CTkToplevel):
                     ),
                 )
             self.after(0, lambda: self.status.set("Mengunduh whisper binary…"))
-            ensure_whisper_binary(progress=self._set_progress)
+            binary = ensure_whisper_binary(progress=self._set_progress)
             model = self.model_var.get()
             download_model(model, progress=self._set_progress)
             if self.hf_var.get().strip():
                 set_hf_token(self.hf_var.get().strip())
             self.settings.model = model
             self.settings.diarization_enabled = bool(self.diar_var.get())
-            self.settings.setup_complete = True
+            stt_ok = WhisperCppStt(model).available()
+            self.settings.setup_complete = stt_ok
             self.settings.save()
             lib = str(self.settings.library_path())
-            self.after(0, lambda: self._setup_done_ui(lib))
+            note = ""
+            if not stt_ok:
+                note = (
+                    " STT belum lengkap"
+                    + ("" if binary else " (whisper-cli gagal / belum terpasang)")
+                    + "."
+                )
+            self.after(0, lambda: self._setup_done_ui(lib, note))
         except Exception as exc:
             err = str(exc)
             self.after(0, lambda m=err: self.status.set(f"Setup gagal: {m}"))
             self.after(0, lambda: self._set_busy(False))
 
-    def _setup_done_ui(self, lib_path: str) -> None:
+    def _setup_done_ui(self, lib_path: str, note: str = "") -> None:
         self.progress.set(1.0)
-        self.status.set(f"Setup selesai. Rekaman disimpan di:\n{lib_path}")
+        self.status.set(f"Setup selesai{note} Rekaman disimpan di:\n{lib_path}")
         self._set_busy(False)
         if self._finish_btn is None:
             self._finish_btn = primary_button(
@@ -219,6 +228,7 @@ class SetupWizard(ctk.CTkToplevel):
         if self._busy:
             return
         self.status.set("Menjalankan tone test…")
+        self._set_busy(True)
 
         def work() -> None:
             res = run_tone_test()
@@ -226,6 +236,7 @@ class SetupWizard(ctk.CTkToplevel):
             self.settings.tone_test_skipped = False
             self.settings.save()
             self.after(0, lambda: self.status.set(res.message))
+            self.after(0, lambda: self._set_busy(False))
 
         run_in_thread(work)
 
@@ -239,6 +250,7 @@ class SetupWizard(ctk.CTkToplevel):
         if self._busy:
             return
         self.settings.model = self.model_var.get()
+        # Explicit skip: allow app entry; readiness banner will warn if STT incomplete.
         self.settings.setup_complete = True
         self.settings.tone_test_skipped = True
         self.settings.save()

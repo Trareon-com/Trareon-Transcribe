@@ -41,29 +41,46 @@
 
 ## Download
 
-Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** (not committed to git).
+Prebuilt apps are on **[GitHub Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases)** (not committed to git). Prefer **v0.1.1+** (PortAudio onedir + bundled `whisper-cli`).
 
 | Asset | Platform |
 |-------|----------|
-| `Trareon-Transcribe-*-macos-arm64.zip` | Mac Apple Silicon (M1–M4) |
-| `Trareon-Transcribe-*-macos-x64.zip` | Mac Intel |
-| `Trareon-Transcribe-*-windows-x64.zip` | Windows 10 / 11 |
+| `Trareon-Transcribe-*-macos-arm64.dmg` | Mac Apple Silicon — drag app + Open helper |
+| `Trareon-Transcribe-*-macos-arm64.zip` | Same contents as zip |
+| `Trareon-Transcribe-*-macos-x64.dmg` / `.zip` | Mac Intel (best-effort CI) |
+| `Trareon-Transcribe-*-windows-x64-portable.zip` | Windows portable folder (`TrareonTranscribe\…`) |
+| `Trareon-Transcribe-*-windows-x64-Setup.exe` | Windows installer (Start Menu) |
 
-**macOS** — unzip the release zip. Prefer double-clicking **`Open Trareon Transcribe.command`** (clears quarantine, then opens the app). Or move `Trareon Transcribe.app` to Applications and open it.
+**macOS** — open the DMG or unzip. Prefer double-clicking **`Open Trareon Transcribe.command`** (clears quarantine, then opens the app). Or move `Trareon Transcribe.app` to Applications.
 
 If macOS shows **“Apple could not verify…” / Move to Trash**:
-1. System Settings → Privacy & Security → scroll down → **Open Anyway** for Trareon Transcribe, or  
-2. Run the helper above once from Finder / Terminal.
+1. System Settings → Privacy & Security → scroll down → **Open Anyway**, or  
+2. Run the helper `.command` once from Finder.
 
-Whisper models download on first-run wizard (internet once).
+Whisper **models** still download on first-run (internet once). Release builds bundle **`whisper-cli`** when CI can resolve it; otherwise: `brew install whisper-cpp`.
 
-**Windows** — unzip → run `TrareonTranscribe.exe`. Allow microphone access when prompted. For speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
+**Windows** — prefer **Setup.exe**, or unzip portable → run `TrareonTranscribe\TrareonTranscribe.exe`. Allow microphone access. For speaker capture, install [VB-Cable](https://vb-audio.com/Cable/).
 
-If **Windows Security** shows *“Controlled folder access blocked TrareonTranscribe.exe”*:
-1. Windows Security → Virus & threat protection → Ransomware protection → **Allow an app through Controlled folder access** → add `TrareonTranscribe.exe`, or  
-2. Keep the default library under `%LOCALAPPDATA%\TrareonTranscribe\Sessions` (Settings → Library root). Only Documents/Desktop/Pictures need an allow-list.
+If you see **`libportaudio… error 0x57`**: that is a broken old onefile build — delete it and install **v0.1.1+** portable/Setup.
 
-> macOS builds are **ad-hoc signed** (not Apple Developer ID / notarized). Gatekeeper may still prompt on first download until notarization is added.
+If **Windows Security** shows *Controlled folder access blocked*:
+1. Allow `TrareonTranscribe.exe` through CFA, or  
+2. Keep the default library under `%LOCALAPPDATA%\TrareonTranscribe\Sessions`.
+
+### Ad-hoc signing (macOS)
+
+Release CI signs with an **ad-hoc** identity (`codesign --sign -`) when no Developer ID is configured:
+
+```bash
+codesign --force --deep --sign - "dist/Trareon Transcribe.app"
+```
+
+- No Apple Developer Program required.
+- Does **not** notarize — Gatekeeper may still prompt for internet downloads.
+- Local/dev: `./scripts/package_release.sh` then use `Open Trareon Transcribe.command`.
+- Optional notarize later: set `APPLE_CODESIGN_IDENTITY` + `APPLE_NOTARY_PROFILE`.
+
+In-app: **Settings → Cek update** (or startup check) opens the matching GitHub Release asset.
 
 ---
 
@@ -254,8 +271,8 @@ YYYYMMDD-judul-uuid/
 ## Build & release
 
 ```bash
-./scripts/package_release.sh          # → dist-release/*.zip for this machine
-git tag vX.Y.Z && git push origin vX.Y.Z   # CI builds macOS arm64/x64 + Windows
+./scripts/package_release.sh          # → dist-release/ zip + DMG (mac) / portable (win)
+git tag vX.Y.Z && git push origin vX.Y.Z   # CI: macOS arm64 (+x64 best-effort) + Windows portable/Setup
 ```
 
 See [docs/design.md](docs/design.md) for the full product spec.
@@ -283,6 +300,11 @@ See [docs/design.md](docs/design.md) for the full product spec.
 | Empty captions | Check MIC/SPK toggles + OS mic permission |
 | No speaker text | Fix Multi-Output / VB-Cable → Tone Test |
 | Model missing | Re-run wizard or Settings → Unduh model |
+| `libportaudio… 0x57` (Windows) | Old onefile build — install **v0.1.1+** portable/Setup |
+| STT belum siap (model sudah ada) | Need `whisper-cli`: Win release bundles it; Mac `brew install whisper-cpp` |
+| Theme tidak berubah | v0.1.1+ repaints UI; toggle Theme again |
+| Export tombol terpotong | v0.1.1+ minsize; jangan pakai jendela &lt; ~480px tinggi |
+| Tone test menggantung | v0.1.1+ timeout 10s — pakai Lewati Tone |
 
 ---
 

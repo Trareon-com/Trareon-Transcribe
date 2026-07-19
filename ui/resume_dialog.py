@@ -19,7 +19,8 @@ class ResumeDialog(ctk.CTkToplevel):
         self.on_discard = on_discard
         self.colors = paint_window(self)
         self.title("Sesi belum selesai")
-        self.geometry("440x240")
+        self.minsize(420, 260)
+        self.geometry("460x280")
         self.transient(master)
         self.grab_set()
 

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec — macOS .app (onedir) + Windows onefile .exe."""
+"""PyInstaller spec — macOS .app (onedir) + Windows onedir (PortAudio-safe)."""
 
 from __future__ import annotations
 
@@ -19,10 +19,11 @@ hiddenimports = [
     "config.version",
 ]
 
-tmp_ret = collect_all("customtkinter")
-datas += tmp_ret[0]
-binaries += tmp_ret[1]
-hiddenimports += tmp_ret[2]
+for pkg in ("customtkinter", "sounddevice"):
+    tmp_ret = collect_all(pkg)
+    datas += tmp_ret[0]
+    binaries += tmp_ret[1]
+    hiddenimports += tmp_ret[2]
 
 if sys.platform == "darwin":
     hiddenimports += ["AppKit", "Foundation", "objc"]
@@ -30,12 +31,19 @@ if sys.platform == "darwin":
 root = Path(SPECPATH).resolve().parent
 icon_png = root / "assets" / "trareon-transcribe-icon.png"
 icon_icns = root / "assets" / "trareon-transcribe-icon.icns"
-if icon_png.exists():
-    datas += [(str(icon_png), "assets")]
-if icon_icns.exists():
-    datas += [(str(icon_icns), "assets")]
+icon_ico = root / "assets" / "trareon-transcribe-icon.ico"
+for p, dest in ((icon_png, "assets"), (icon_icns, "assets"), (icon_ico, "assets")):
+    if p.exists():
+        datas += [(str(p), dest)]
 
-icon = str(icon_icns if icon_icns.exists() else icon_png) if (icon_icns.exists() or icon_png.exists()) else None
+if sys.platform == "win32" and icon_ico.exists():
+    icon = str(icon_ico)
+elif icon_icns.exists():
+    icon = str(icon_icns)
+elif icon_png.exists():
+    icon = str(icon_png)
+else:
+    icon = None
 
 a = Analysis(
     [str(root / "main.py")],
@@ -82,8 +90,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Trareon Transcribe",
             "CFBundleDisplayName": "Trareon Transcribe",
-            "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "0.1.0",
+            "CFBundleShortVersionString": "0.1.1",
+            "CFBundleVersion": "0.1.1",
             "LSMinimumSystemVersion": "12.0",
             "NSHighResolutionCapable": True,
             "NSMicrophoneUsageDescription": (
@@ -94,18 +102,26 @@ if sys.platform == "darwin":
         },
     )
 else:
+    # onedir — PortAudio DLLs break under onefile (_MEI) + UPX on Windows.
     exe = EXE(
         pyz,
         a.scripts,
-        a.binaries,
-        a.datas,
         [],
+        exclude_binaries=True,
         name="TrareonTranscribe",
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
-        upx=True,
+        upx=False,
         console=False,
         disable_windowed_traceback=False,
         icon=icon,
+    )
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=False,
+        upx=False,
+        name="TrareonTranscribe",
     )

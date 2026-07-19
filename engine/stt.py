@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 import wave
 from dataclasses import dataclass
@@ -32,10 +35,32 @@ def find_whisper_binary() -> Path | None:
         base / "main",
         base / "main.exe",
         base / "bin" / "whisper-cli",
+        base / "bin" / "whisper-cli.exe",
     ]
+    # Bundled next to frozen executable (CI packs whisper-cli into onedir / .app)
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        candidates.extend(
+            [
+                exe_dir / "whisper-cli",
+                exe_dir / "whisper-cli.exe",
+                exe_dir / "models" / "whisper-cli",
+                exe_dir / "models" / "whisper-cli.exe",
+            ]
+        )
+        # macOS .app: Contents/MacOS/
+        if exe_dir.name == "MacOS":
+            resources = exe_dir.parent / "Resources" / "models"
+            candidates.extend([resources / "whisper-cli", exe_dir / "whisper-cli"])
+
     for c in candidates:
-        if c.exists():
+        if c.is_file():
             return c
+
+    for name in ("whisper-cli", "whisper-cli.exe"):
+        hit = shutil.which(name)
+        if hit:
+            return Path(hit)
     return None
 
 
@@ -57,7 +82,6 @@ def _parse_lang(output: str) -> str:
     m = re.search(r"language\s*[:=]\s*['\"]?(\w+)", output, re.I)
     if m:
         return m.group(1).lower()
-    # heuristic
     text = output.lower()
     id_hits = sum(1 for w in ("yang", "dan", "untuk", "dengan", "ini", "ada") if w in text)
     en_hits = sum(1 for w in ("the", "and", "for", "with", "this", "that") if w in text)
@@ -66,6 +90,14 @@ def _parse_lang(output: str) -> str:
     if en_hits > id_hits:
         return "en"
     return "auto"
+
+
+def _subprocess_kwargs() -> dict:
+    kwargs: dict = {}
+    if sys.platform == "win32":
+        # Avoid black console flash when spawning whisper-cli.exe
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    return kwargs
 
 
 class WhisperCppStt:
@@ -81,7 +113,6 @@ class WhisperCppStt:
         if not pcm16:
             return SttResult("", "auto", 0.0)
         if not self.available():
-            # Offline stub so UI pipeline can be exercised without models
             return SttResult(
                 text="[STT: model/binary belum terpasang — jalankan Setup]",
                 language="id",
@@ -112,6 +143,8 @@ class WhisperCppStt:
                     text=True,
                     timeout=120,
                     check=False,
+                    env={**os.environ},
+                    **_subprocess_kwargs(),
                 )
             except subprocess.TimeoutExpired:
                 log.error("whisper.cpp timed out")
@@ -124,7 +157,6 @@ class WhisperCppStt:
             combined = (proc.stdout or "") + "\n" + text
             lang = _parse_lang(combined)
             if not text:
-                # some builds print to stdout
                 lines = [
                     ln.strip()
                     for ln in (proc.stdout or "").splitlines()

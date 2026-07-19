@@ -49,6 +49,7 @@ class AudioCapture:
         self._sd = None
         self._mic_level = 0.0
         self._spk_level = 0.0
+        self.speaker_ok = True  # False when loopback failed; mic-only degrade
 
     def set_mic_enabled(self, enabled: bool) -> None:
         with self._lock:
@@ -110,6 +111,7 @@ class AudioCapture:
         if self.state.running:
             return
         self.state.running = True
+        self.speaker_ok = True
 
         def mic_cb(indata, frames, time_info, status) -> None:  # noqa: ANN001
             if status:
@@ -173,6 +175,7 @@ class AudioCapture:
         except Exception as e:
             log.warning("speaker stream failed (virtual cable?): %s", e)
             self._spk_stream = None
+            self.speaker_ok = False
 
     def stop(self) -> None:
         self.state.running = False

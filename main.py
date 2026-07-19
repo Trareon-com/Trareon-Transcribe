@@ -59,6 +59,16 @@ def main() -> int:
         import tkinter as tk
         import tkinter.messagebox as messagebox
 
+        from config.paths import instance_lock_file
+
+        lock = instance_lock_file()
+        if sys.platform == "win32":
+            hint = f"Jika macet, hapus file:\n{lock}"
+        else:
+            hint = (
+                f"Jika macet:\nrm -f \"{lock}\"\n"
+                f"(atau: rm -f ~/Library/Application\\ Support/TrareonTranscribe/instance.lock)"
+            )
         root = tk.Tk()
         root.withdraw()
         root.title(APP_NAME)
@@ -66,7 +76,7 @@ def main() -> int:
             APP_NAME,
             f"{APP_NAME} sudah berjalan.\n"
             "Cek Dock / system tray, atau tutup instance lama lalu coba lagi.\n\n"
-            "Jika macet: rm -f ~/Library/Application\\ Support/TrareonTranscribe/instance.lock",
+            f"{hint}",
         )
         root.destroy()
         return 1
@@ -127,6 +137,34 @@ def main() -> int:
         if settings.window_x is not None and settings.window_x < -50:
             app.geometry("920x640+120+80")
         show_main()
+
+    def _deferred_update_check() -> None:
+        if demo:
+            return
+        from update.check import check_for_update, open_download
+
+        def work() -> None:
+            info = check_for_update()
+            if info is None or not info.update_available:
+                return
+
+            def ask() -> None:
+                import tkinter.messagebox as messagebox
+
+                if messagebox.askyesno(
+                    "Update tersedia",
+                    f"Versi baru {info.latest} tersedia (sekarang {info.current}).\n"
+                    "Buka halaman unduhan?",
+                ):
+                    open_download(info)
+
+            app.after(0, ask)
+
+        from util.threading_helpers import run_in_thread
+
+        run_in_thread(work)
+
+    app.after(2500, _deferred_update_check)
 
     app.mainloop()
     return 0

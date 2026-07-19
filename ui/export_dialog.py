@@ -23,7 +23,8 @@ class ExportDialog(ctk.CTkToplevel):
         self.settings = settings or Settings.load()
         self.colors = paint_window(self)
         self.title("Export")
-        self.geometry("440x420")
+        self.minsize(480, 520)
+        self.geometry("480x540")
         set_window_icon(self)
         self.transient(master)
         self.grab_set()
@@ -37,12 +38,18 @@ class ExportDialog(ctk.CTkToplevel):
         self.status = ctk.StringVar(value="")
 
         c = self.colors
+
+        # Footer first so it never clips when the window is short.
+        foot = ctk.CTkFrame(self, fg_color="transparent")
+        foot.pack(side="bottom", fill="x", padx=20, pady=(0, 16))
+        primary_button(foot, "Export", self._export, c, width=120).pack(side="right")
+
         heading(self, "Export", c).pack(anchor="w", padx=20, pady=(18, 8))
 
         panel = panel_frame(self, c)
         panel.pack(fill="both", expand=True, padx=20, pady=(0, 12))
-        body = ctk.CTkFrame(panel, fg_color="transparent")
-        body.pack(fill="both", expand=True, padx=14, pady=14)
+        body = ctk.CTkScrollableFrame(panel, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=10, pady=10)
 
         field_label(body, "Judul rapat", c).pack(anchor="w")
         styled_entry(body, c, textvariable=self.title_var).pack(fill="x", pady=(4, 12))
@@ -69,11 +76,7 @@ class ExportDialog(ctk.CTkToplevel):
         self.bar = ctk.CTkProgressBar(body, progress_color=c["accent"])
         self.bar.set(0)
         self.bar.pack(fill="x", pady=(14, 6))
-        muted(body, "", c, textvariable=self.status, wraplength=360).pack(anchor="w")
-
-        foot = ctk.CTkFrame(self, fg_color="transparent")
-        foot.pack(fill="x", padx=20, pady=(0, 16))
-        primary_button(foot, "Export", self._export, c, width=120).pack(side="right")
+        muted(body, "", c, textvariable=self.status, wraplength=400).pack(anchor="w")
 
     def _export(self) -> None:
         self.session.meta.title = self.title_var.get().strip() or self.session.meta.title

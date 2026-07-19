@@ -118,6 +118,12 @@ class Pipeline:
             return self._capture.levels()
         return 0.0, 0.0
 
+    def speaker_capture_ok(self) -> bool:
+        """False when loopback/speaker stream failed (mic-only degrade)."""
+        if self._capture is None:
+            return True
+        return bool(self._capture.speaker_ok)
+
     def set_title(self, title: str) -> None:
         if self.session:
             update_title(self.session, title)

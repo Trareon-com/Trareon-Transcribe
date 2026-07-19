@@ -30,6 +30,7 @@ class LibraryWindow(ctk.CTkToplevel):
         self.colors = paint_window(self)
         self.title(f"Library — {APP_NAME}")
         set_window_icon(self)
+        self.minsize(720, 480)
         self.geometry("820x560")
         self.transient(master)
 

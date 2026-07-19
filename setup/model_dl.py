@@ -6,7 +6,7 @@ import hashlib
 import logging
 import platform
 import shutil
-import tarfile
+import subprocess
 import tempfile
 import zipfile
 from collections.abc import Callable
@@ -23,8 +23,14 @@ log = logging.getLogger("trareon.model_dl")
 MODEL_URLS = {name: model_url(name) for name in MODEL_FILES}
 
 # Optional expected SHA256 — empty means verify download completed + size sanity only.
-# Populate from release notes when pinning a release.
 MODEL_SHA256: dict[str, str] = {}
+
+# Whisper.cpp release that still ships Windows CLI zip (macOS has no CLI zip).
+WHISPER_CPP_TAG = "v1.9.1"
+WHISPER_WIN_ZIP = (
+    f"https://github.com/ggml-org/whisper.cpp/releases/download/"
+    f"{WHISPER_CPP_TAG}/whisper-bin-x64.zip"
+)
 
 ProgressCb = Callable[[str, float], None]
 
@@ -75,25 +81,58 @@ def download_model(name: str, progress: ProgressCb | None = None) -> Path:
     return dest
 
 
-def _whisper_release_asset() -> tuple[str, str] | None:
-    sysname = platform.system().lower()
-    machine = platform.machine().lower()
-    # Best-effort: user can also place binary manually in models_dir
-    if sysname == "darwin":
-        if "arm" in machine or machine == "aarch64":
-            return (
-                "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.5/whisper-bin-macos.zip",
-                "zip",
-            )
-        return (
-            "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.5/whisper-bin-macos.zip",
-            "zip",
+def _copy_binary_to_models(src: Path) -> Path:
+    dest = models_dir() / src.name
+    shutil.copy2(src, dest)
+    dest.chmod(dest.stat().st_mode | 0o111)
+    return dest
+
+
+def _try_brew_whisper(progress: ProgressCb | None = None) -> Path | None:
+    brew = shutil.which("brew")
+    if not brew:
+        log.warning("Homebrew not found — cannot auto-install whisper-cpp")
+        return None
+    if progress:
+        progress("whisper-cpp (brew)", 0.1)
+    try:
+        subprocess.run(
+            [brew, "install", "whisper-cpp"],
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=False,
         )
-    if sysname == "windows":
-        return (
-            "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.5/whisper-bin-x64.zip",
-            "zip",
-        )
+    except Exception as e:
+        log.warning("brew install whisper-cpp failed: %s", e)
+        return None
+    if progress:
+        progress("whisper-cpp (brew)", 1.0)
+    for name in ("whisper-cli", "whisper-cpp"):
+        hit = shutil.which(name)
+        if hit:
+            return _copy_binary_to_models(Path(hit))
+    # Common Cellar locations
+    for pattern in (
+        "/opt/homebrew/bin/whisper-cli",
+        "/usr/local/bin/whisper-cli",
+    ):
+        p = Path(pattern)
+        if p.is_file():
+            return _copy_binary_to_models(p)
+    return None
+
+
+def _extract_whisper_from_zip(archive: Path) -> Path | None:
+    with tempfile.TemporaryDirectory() as td:
+        extract_dir = Path(td) / "ex"
+        extract_dir.mkdir()
+        with zipfile.ZipFile(archive) as zf:
+            zf.extractall(extract_dir)
+        for name in ("whisper-cli.exe", "whisper-cli", "main.exe", "main"):
+            hits = list(extract_dir.rglob(name))
+            if hits:
+                return _copy_binary_to_models(hits[0])
     return None
 
 
@@ -103,43 +142,44 @@ def ensure_whisper_binary(progress: ProgressCb | None = None) -> Path | None:
     existing = find_whisper_binary()
     if existing:
         return existing
-    asset = _whisper_release_asset()
-    if not asset:
-        log.warning("No prebuilt whisper binary URL for this platform; place whisper-cli in %s", models_dir())
-        return None
-    url, kind = asset
+
+    sysname = platform.system().lower()
     ok, msg = ensure_space(WHISPER_BIN_BYTES, models_dir())
     if not ok:
         raise OSError(msg)
-    with tempfile.TemporaryDirectory() as td:
-        archive = Path(td) / ("w.zip" if kind == "zip" else "w.tgz")
-        try:
-            download_file(url, archive, progress=progress)
-        except Exception as e:
-            log.warning("binary download failed: %s — place whisper-cli manually", e)
-            return None
-        extract_dir = Path(td) / "ex"
-        extract_dir.mkdir()
-        if kind == "zip":
-            with zipfile.ZipFile(archive) as zf:
-                zf.extractall(extract_dir)
-        else:
-            with tarfile.open(archive) as tf:
-                tf.extractall(extract_dir)
-        # find executable
-        for name in ("whisper-cli", "whisper-cli.exe", "main", "main.exe"):
-            hits = list(extract_dir.rglob(name))
-            if hits:
-                dest = models_dir() / hits[0].name
-                shutil.copy2(hits[0], dest)
-                dest.chmod(dest.stat().st_mode | 0o111)
-                return dest
+
+    if sysname == "windows":
+        with tempfile.TemporaryDirectory() as td:
+            archive = Path(td) / "w.zip"
+            try:
+                if progress:
+                    progress("whisper-cli.exe", 0.0)
+                download_file(WHISPER_WIN_ZIP, archive, progress=progress)
+            except Exception as e:
+                log.warning("binary download failed: %s — place whisper-cli.exe manually", e)
+                return None
+            return _extract_whisper_from_zip(archive)
+
+    if sysname == "darwin":
+        # No official macOS CLI zip in recent releases — use Homebrew.
+        got = _try_brew_whisper(progress=progress)
+        if got:
+            return got
+        log.warning(
+            "No whisper-cli on PATH. Install: brew install whisper-cpp — then re-run Setup. "
+            "Or place whisper-cli in %s",
+            models_dir(),
+        )
+        return None
+
+    log.warning("No prebuilt whisper binary for this platform; place whisper-cli in %s", models_dir())
     return None
 
 
-# re-export for callers: from setup.model_dl import suggest_model
+# re-export for callers
 __all__ = [
     "MODEL_URLS",
+    "WHISPER_WIN_ZIP",
     "download_file",
     "download_model",
     "ensure_whisper_binary",
