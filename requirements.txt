@@ -1,0 +1,10 @@
+# Pinned runtime deps — regenerate with: pip-compile pyproject.toml
+customtkinter==5.2.2
+sounddevice==0.5.1
+numpy==2.2.2
+psutil==6.1.1
+webrtcvad==2.0.10
+keyring==25.6.0
+Pillow==11.1.0
+pystray==0.19.5
+pyinstaller==6.11.1
