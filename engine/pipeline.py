@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from engine.audio_capture import SAMPLE_RATE, AudioCapture
 from engine.dedupe import EchoDedupe
@@ -23,7 +23,7 @@ CHUNK_SEC = 20
 AUTOSAVE_SEC = 10
 
 
-class PipelineStatus(str, Enum):
+class PipelineStatus(StrEnum):
     IDLE = "Idle"
     LISTENING = "Listening"
     TRANSCRIBING = "Transcribing"

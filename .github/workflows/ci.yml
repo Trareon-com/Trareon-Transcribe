@@ -10,24 +10,37 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
+
       - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
       - name: Ruff
         run: ruff check .
+
       - name: Bandit
         run: bandit -r engine ui export setup config util main.py -x tests
+
       - name: Pytest
         run: pytest -q
+
       - name: pip-audit
         run: pip-audit -r requirements.txt || true
+
+      # OSS CLI — gitleaks-action@v2/v3 needs a paid GITLEAKS_LICENSE on org repos
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VER=8.28.0
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --verbose --redact

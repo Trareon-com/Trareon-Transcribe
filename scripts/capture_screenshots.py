@@ -40,13 +40,13 @@ def grab(path: Path, widget) -> None:
 
 def main() -> None:
     from config.settings import Settings
+    from engine.session_store import Session, SessionMeta, TranscriptSegment
+    from ui.export_dialog import ExportDialog
+    from ui.library import LibraryWindow
     from ui.main_window import MainWindow
+    from ui.settings_window import SettingsWindow
     from ui.theme import apply_theme
     from ui.wizard import SetupWizard
-    from ui.library import LibraryWindow
-    from ui.settings_window import SettingsWindow
-    from ui.export_dialog import ExportDialog
-    from engine.session_store import Session, SessionMeta, TranscriptSegment
 
     settings = Settings.load()
     settings.setup_complete = True

@@ -1,7 +1,6 @@
 import os
 
 from config import instance_lock
-from config.paths import instance_lock_file
 
 
 def test_stale_pid_lock_is_reclaimed(monkeypatch, tmp_path):

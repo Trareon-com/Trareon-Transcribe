@@ -112,4 +112,4 @@ def _gpu_part() -> str:
     # Windows/Linux without NVIDIA: hide noisy name, show dash
     if sys.platform == "win32":
         return "GPU —"
-    return f"GPU —" if not name else "GPU —"
+    return "GPU —" if not name else "GPU —"
