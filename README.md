@@ -157,6 +157,21 @@ Markdown, TXT, JSON, SRT, VTT written into the session folder.
 | `large-v3-turbo` | ~1.6 GB | ~4 GB | Medium | Very high |
 | `large` | ~3 GB | ~8 GB | Slowest | Best |
 
+### Speaker diarization (optional)
+
+Identifies individual speakers using [pyannote-audio](https://github.com/pyannote/pyannote-audio), instead of the default per-source MIC/SPK labels. Requires Python 3.10–3.12 and a free Hugging Face token.
+
+1. Install the extra dependencies (pyannote + torch):
+   ```bash
+   pip install '.[diarization]'
+   ```
+2. Create a Hugging Face **READ** token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens), then accept the terms for:
+   - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
+   - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
+3. Paste the token into **Settings → Diarization (pyannote)**, then enable **"Enable pyannote diarization"** and save.
+
+On first use, the app downloads ~1 GB of models (internet needed once). Subsequent starts are ready in ~10–15 seconds. Diarized speakers apply on Export; live captions still show per-source MIC/SPK.
+
 ---
 
 ## Quick start
