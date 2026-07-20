@@ -30,3 +30,11 @@ def run_in_thread(target: Callable[..., None], *args: Any, name: str | None = No
     t = threading.Thread(target=target, args=args, name=name, daemon=True)
     t.start()
     return t
+
+
+def ui_after(widget: Any, fn: Callable[[], None], delay_ms: int = 0) -> None:
+    """Schedule on Tk main loop; no-op if widget already destroyed / no mainloop."""
+    try:
+        widget.after(delay_ms, fn)
+    except RuntimeError:
+        pass

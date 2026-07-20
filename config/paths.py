@@ -78,6 +78,11 @@ def instance_lock_file() -> Path:
     return app_support_dir() / "instance.lock"
 
 
+def control_socket_path() -> Path:
+    """Unix domain socket for local automation (`--control` / trareon_ctl)."""
+    return app_support_dir() / "control.sock"
+
+
 def library_index_file() -> Path:
     return app_support_dir() / "library-index.json"
 

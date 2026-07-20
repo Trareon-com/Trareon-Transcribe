@@ -42,6 +42,17 @@ def run_tone_test(
             f"Audio engine gagal load ({e}). Unduh ulang build terbaru dari GitHub Releases.",
         )
 
+    from engine.audio_capture import resolve_speaker_input_device
+
+    capture_dev = resolve_speaker_input_device(speaker_device)
+    if capture_dev is None:
+        return ToneTestResult(
+            False,
+            0.0,
+            "Tidak ada virtual loopback. macOS: brew install --cask blackhole-2ch. "
+            "Windows: pasang VB-Cable. Jangan pakai mic bawaan sebagai speaker.",
+        )
+
     sr = 16000
     tone = _tone_pcm(sr=sr)
     result_box: list[ToneTestResult] = []
@@ -54,7 +65,7 @@ def run_tone_test(
                 samplerate=sr,
                 channels=1,
                 dtype="int16",
-                device=speaker_device,
+                device=capture_dev,
             )
             sd.play(tone, samplerate=sr, device=output_device)
             sd.wait()

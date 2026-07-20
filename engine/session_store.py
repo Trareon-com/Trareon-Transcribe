@@ -7,7 +7,7 @@ import re
 import shutil
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -104,7 +104,8 @@ def _atomic_json(path: Path, data: Any) -> None:
 
 def create_session(library_root: Path, title: str, mode: str) -> Session:
     library_root.mkdir(parents=True, exist_ok=True)
-    day = datetime.now().strftime("%Y%m%d")
+    local = datetime.now().astimezone()
+    day = local.strftime("%Y%m%d")
     sid = uuid.uuid4().hex[:8]
     folder_name = f"{day}-{_slug(title)}-{sid}"
     root = library_root / folder_name
@@ -112,7 +113,7 @@ def create_session(library_root: Path, title: str, mode: str) -> Session:
     meta = SessionMeta(
         title=title or "Rapat tanpa judul",
         mode=mode,
-        created_at=datetime.now(UTC).isoformat(),
+        created_at=local.isoformat(),
         session_id=sid,
         folder_name=folder_name,
     )
@@ -129,13 +130,19 @@ def update_title(session: Session, title: str) -> None:
 
 
 def finalize_session(session: Session, rename_for_title: bool = True) -> Session:
-    session.meta.ended_at = datetime.now(UTC).isoformat()
-    try:
-        started = datetime.fromisoformat(session.meta.created_at)
-        ended = datetime.fromisoformat(session.meta.ended_at)
-        session.meta.duration_sec = max(0.0, (ended - started).total_seconds())
-    except ValueError:
-        pass
+    session.meta.ended_at = datetime.now().astimezone().isoformat()
+    # Keep duration already set from capture / demo WAV; only fall back to wall clock.
+    if session.meta.duration_sec <= 0 and session.meta.created_at:
+        try:
+            started = datetime.fromisoformat(session.meta.created_at.replace("Z", "+00:00"))
+            ended = datetime.fromisoformat(session.meta.ended_at.replace("Z", "+00:00"))
+            if started.tzinfo is None:
+                started = started.astimezone()  # treat naive as local
+            if ended.tzinfo is None:
+                ended = ended.astimezone()
+            session.meta.duration_sec = max(0.0, (ended - started).total_seconds())
+        except (ValueError, TypeError):
+            pass
     session.save_meta()
     session.save_transcript()
     session.clear_inprogress()

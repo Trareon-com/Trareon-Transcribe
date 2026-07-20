@@ -21,13 +21,17 @@ def _srt_ts(ms: int) -> str:
     return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
 
 
-def _source_label(speaker: str) -> str:
+def source_label(speaker: str) -> str:
     s = (speaker or "").upper()
     if s.startswith("MIC"):
         return "MIC"
     if s.startswith("SPK") or s.startswith("SPEAKER"):
         return "SPK"
     return speaker or "SPK"
+
+
+# Back-compat alias used by older call sites / tests.
+_source_label = source_label
 
 
 def write_markdown(session: Session, path: Path | None = None) -> Path:

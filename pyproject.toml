@@ -13,6 +13,7 @@ dependencies = [
   "psutil>=5.9.8",
   "webrtcvad-wheels>=2.0.14; platform_system != 'Darwin' or platform_machine != 'arm64'",
   "webrtcvad>=2.0.10; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "setuptools>=69.0.0,<81",
   "keyring>=25.0.0",
   "Pillow>=10.0.0",
   "pystray>=0.19.5",

@@ -192,6 +192,14 @@ chmod +x scripts/run_mac_app.sh
 pip install -r requirements-dev.txt
 pytest -q
 TRAREON_NO_RELAUNCH=1 python scripts/capture_screenshots.py   # refresh README gallery
+
+# Mac pre-release gate (smoke + UI drive + live socket control) — must be green
+./scripts/mac_gate.sh
+
+# Drive a visible app yourself (CustomTkinter is not clickable via Accessibility):
+TRAREON_NO_RELAUNCH=1 python main.py --demo --control &
+python scripts/trareon_ctl.py status
+python scripts/trareon_ctl.py start   # … theme|library|settings|stop|quit
 ```
 
 ### First-run wizard checklist

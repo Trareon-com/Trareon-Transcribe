@@ -36,7 +36,7 @@ class TrayController:
             d.ellipse((12, 12, 52, 52), fill="#FFFFFF")
 
         menu = pystray.Menu(
-            pystray.MenuItem("Show", lambda: self.on_show()),
+            pystray.MenuItem(f"Show {APP_NAME}", lambda: self.on_show(), default=True),
             pystray.MenuItem("Quit", lambda: self.on_quit()),
         )
         self._icon = pystray.Icon("TrareonTranscribe", image, APP_NAME, menu)

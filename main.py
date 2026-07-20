@@ -89,6 +89,11 @@ def main() -> int:
         demo_sessions = seed_demo_sessions(force="--force-demo" in sys.argv)
         settings = Settings.load()
         log.info("Demo mode: %d session(s) ready", len(demo_sessions))
+    else:
+        # Invalidate mic-bleed "tone OK" when no BlackHole/VB-Cable is present.
+        from setup.gate import clear_false_tone_ok
+
+        settings = clear_false_tone_ok(settings)
 
     log.info("Starting %s (setup_complete=%s)", APP_NAME, settings.setup_complete)
 
@@ -121,7 +126,11 @@ def main() -> int:
         app.settings = Settings.load()
         show_main()
 
-    if not settings.setup_complete and not demo:
+    from setup.gate import needs_setup_wizard
+
+    # Real launches: Setup first when incomplete, STT missing, or speaker loopback unacked.
+    # --demo skips wizard so Library/player can be reviewed without deps.
+    if needs_setup_wizard(settings, demo=demo):
         # Do NOT withdraw the root on macOS — Toplevel children of a withdrawn
         # master often never appear. Keep root mapped but behind the wizard.
         app.geometry("920x640+120+80")
@@ -133,6 +142,7 @@ def main() -> int:
         wiz.lift()
         wiz.focus_force()
         app.after(100, wiz.lift)
+        log.info("Showing Setup wizard (gate)")
     else:
         if settings.window_x is not None and settings.window_x < -50:
             app.geometry("920x640+120+80")
@@ -165,6 +175,14 @@ def main() -> int:
         run_in_thread(work)
 
     app.after(2500, _deferred_update_check)
+
+    # Local automation socket — CustomTkinter is not reliably clickable via AX/cliclick.
+    if "--control" in sys.argv or os.environ.get("TRAREON_CONTROL") == "1":
+        os.environ.setdefault("TRAREON_AUTO_YES", "1")
+        from util.remote_control import attach_to_main_window
+
+        sock = attach_to_main_window(app)
+        log.info("Control socket ready: %s", sock.path)
 
     app.mainloop()
     return 0

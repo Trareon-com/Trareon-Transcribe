@@ -15,24 +15,28 @@ import customtkinter as ctk
 # dark text #F2F4F7 on #262B32 ≈ 12:1; muted #B0B8C2 ≈ 5.5:1; on_accent dark on mint ≈ 7:1
 COLORS = {
     "light": {
-        "bg": "#EEF1F5",
+        # Matches main-window redesign mockup (forest green on cool grey).
+        "bg": "#F4F6F8",
         "panel": "#FFFFFF",
         "text": "#14181F",
-        "muted": "#4B5563",
+        "muted": "#5B6570",
         "label": "#374151",
-        "accent": "#145C3F",
-        "accent_soft": "#D7F0E4",
-        "accent_hover": "#0F4A33",
+        "accent": "#0E5C40",
+        "accent_soft": "#E6F5EE",
+        "accent_hover": "#0A4A33",
         "on_accent": "#FFFFFF",
         "danger": "#B91C1C",
         "danger_hover": "#991B1B",
-        "partial": "#5B6470",
-        "border": "#B8C0CC",
-        "spk": "#14181F",
-        "mic": "#145C3F",
-        "row": "#F3F5F8",
-        "row_active": "#D7F0E4",
-        "hud_fg": "#0F4A33",
+        "partial": "#6B7280",
+        "border": "#D5DAE1",
+        "spk": "#1F2937",
+        "mic": "#0E5C40",
+        "row": "#EEF1F4",
+        "row_active": "#D8F0E4",
+        "hud_fg": "#0E5C40",
+        "vu_off": "#C5CDD6",
+        "warn_bg": "#FEF2F2",
+        "warn_border": "#FECACA",
     },
     "dark": {
         "bg": "#12151A",
@@ -53,6 +57,9 @@ COLORS = {
         "row": "#181D24",
         "row_active": "#163528",
         "hud_fg": "#8AF0C0",
+        "vu_off": "#4A5560",
+        "warn_bg": "#3A1F1F",
+        "warn_border": "#6B3030",
     },
 }
 
@@ -162,6 +169,8 @@ def heading(parent: Any, text: str, colors: dict[str, str], *, size: int = 18) -
         text=text,
         font=ctk.CTkFont(size=size, weight="bold"),
         text_color=colors["text"],
+        anchor="w",
+        justify="left",
     )
 
 
@@ -194,3 +203,87 @@ def styled_entry(parent: Any, colors: dict[str, str], **kwargs: Any) -> ctk.CTkE
     }
     opts.update(kwargs)
     return ctk.CTkEntry(parent, **opts)
+
+
+_WRAP_TYPES = frozenset({"CTkLabel", "CTkCheckBox", "CTkRadioButton"})
+
+
+def wrap_width_for(widget_w: int, master_w: int, fallback: int, *, min_wrap: int = 160) -> int:
+    """Pick wraplength from laid-out width, else parent, else window fallback."""
+    if widget_w >= 40:
+        return max(min_wrap, widget_w - 8)
+    if master_w >= 60:
+        return max(min_wrap, master_w - 24)
+    return max(min_wrap, fallback)
+
+
+def _walk_widgets(widget: Any):
+    yield widget
+    try:
+        children = widget.winfo_children()
+    except Exception:
+        return
+    for child in children:
+        yield from _walk_widgets(child)
+
+
+def sync_responsive(win: Any, *, pad: int = 48, min_wrap: int = 160) -> None:
+    """Recompute wraplength on every text widget so copy follows the window edge."""
+    try:
+        fallback = max(min_wrap, int(win.winfo_width()) - pad)
+    except Exception:
+        return
+    for w in _walk_widgets(win):
+        if type(w).__name__ not in _WRAP_TYPES:
+            continue
+        try:
+            aw = int(w.winfo_width())
+        except Exception:
+            aw = 0
+        try:
+            mw = int(w.master.winfo_width()) if w.master is not None else 0
+        except Exception:
+            mw = 0
+        wrap = wrap_width_for(aw, mw, fallback, min_wrap=min_wrap)
+        try:
+            w.configure(wraplength=wrap)
+        except Exception:
+            pass
+
+
+def bind_responsive(win: Any, *, pad: int = 48) -> None:
+    """Keep labels/checkboxes/radios wrapping on every window resize.
+
+    Idempotent — safe to call again after theme rebuild (won't stack handlers).
+    """
+    state = getattr(win, "_trareon_responsive", None)
+    if state is None:
+        state = {"after": None, "pad": pad}
+        setattr(win, "_trareon_responsive", state)
+
+        def _run() -> None:
+            state["after"] = None
+            sync_responsive(win, pad=int(state["pad"]))
+
+        def _schedule(event: Any = None) -> None:
+            if event is not None and getattr(event, "widget", None) is not win:
+                return
+            aid = state["after"]
+            if aid is not None:
+                try:
+                    win.after_cancel(aid)
+                except Exception:
+                    pass
+            try:
+                state["after"] = win.after(40, _run)
+            except Exception:
+                _run()
+
+        win.bind("<Configure>", _schedule, add="+")
+    else:
+        state["pad"] = pad
+
+    try:
+        win.after(60, lambda: sync_responsive(win, pad=int(state["pad"])))
+    except Exception:
+        sync_responsive(win, pad=pad)

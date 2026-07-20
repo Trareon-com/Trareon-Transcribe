@@ -4,6 +4,8 @@ sounddevice==0.5.1
 numpy==2.2.2
 psutil==6.1.1
 webrtcvad==2.0.10
+# webrtcvad still imports pkg_resources (gone in setuptools 81+)
+setuptools>=69.0.0,<81
 keyring==25.7.0
 Pillow==12.3.0
 pystray==0.19.5

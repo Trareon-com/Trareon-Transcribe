@@ -93,11 +93,11 @@ def _gpu_util_nvidia() -> tuple[int | None, str]:
 
 
 def sample_resources() -> str:
-    """Return a short HUD string, e.g. 'CPU 12%  RAM 7.7G  GPU 3%'."""
+    """Return a short HUD string matching mock: 'CPU 18%  |  RAM 46%  |  GPU 12%'."""
     cpu = psutil.cpu_percent(interval=None)
-    ram = psutil.virtual_memory().used / (1024**3)
+    ram_pct = psutil.virtual_memory().percent
     gpu_part = _gpu_part()
-    return f"CPU {cpu:.0f}%  ·  RAM {ram:.1f}G  ·  {gpu_part}"
+    return f"CPU {cpu:.0f}%  |  RAM {ram_pct:.0f}%  |  {gpu_part}"
 
 
 def _gpu_part() -> str:

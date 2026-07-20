@@ -14,6 +14,7 @@ from config.settings import Settings
 from engine.session_store import TranscriptSegment, load_session
 from ui.export_dialog import ExportDialog
 from ui.theme import (
+    bind_responsive,
     colors_for,
     ghost_button,
     heading,
@@ -22,6 +23,7 @@ from ui.theme import (
     panel_frame,
     primary_button,
     styled_entry,
+    sync_responsive,
 )
 
 
@@ -166,12 +168,13 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         self._seg_frames: list[tuple[TranscriptSegment, ctk.CTkFrame]] = []
         self._current_idx = -1
         self._seek_drag = False
+        self._export_win = None
         self.colors = paint_window(self)
 
         self.title(self.session.meta.title or "Transcript")
         set_window_icon(self)
         self.geometry("900x660")
-        self.minsize(720, 520)
+        self.minsize(560, 420)
 
         self._build_header()
         self._build_search()
@@ -180,28 +183,36 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         self._load_default_track()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<space>", lambda _e: self._toggle_play())
+        bind_responsive(self)
         self.after(200, self._tick)
 
     def _build_header(self) -> None:
         c = self.colors
         head = ctk.CTkFrame(self, fg_color="transparent")
-        head.pack(fill="x", padx=20, pady=(16, 6))
+        head.pack(fill="x", padx=22, pady=(18, 6))
+        # Button first so long titles never clip Export.
+        ghost_button(head, "↓  Export", self._export, c, width=100).pack(side="right")
         left = ctk.CTkFrame(head, fg_color="transparent")
-        left.pack(side="left", fill="x", expand=True)
-        heading(left, self.session.meta.title or "Tanpa judul", c, size=18).pack(anchor="w")
-        created = (self.session.meta.created_at or "")[:19].replace("T", " ")
+        left.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        heading(left, self.session.meta.title or "Tanpa judul", c, size=20).pack(anchor="w", fill="x")
+        from util.timefmt import format_local
+
+        created = format_local(self.session.meta.created_at)
         dur = _fmt_ms(int((self.session.meta.duration_sec or 0) * 1000))
-        muted(left, f"{created}  ·  {dur}  ·  {self.session.meta.mode}", c, anchor="w").pack(anchor="w")
-        ghost_button(head, "Export", self._export, c, width=90).pack(side="right")
+        muted(
+            left,
+            f"{created}  ·  {dur}  ·  {self.session.meta.mode}",
+            c,
+            wraplength=520,
+            anchor="w",
+            justify="left",
+        ).pack(anchor="w", fill="x", pady=(2, 0))
 
     def _build_search(self) -> None:
         c = self.colors
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(0, 8))
         self.search_var = ctk.StringVar(value="")
-        entry = styled_entry(row, c, textvariable=self.search_var, placeholder_text="Cari di transcript…")
-        entry.pack(fill="x", side="left", expand=True)
-        entry.bind("<KeyRelease>", lambda _e: self._render_segments())
         tracks = []
         if self.session.mic_wav.exists() and self.session.mic_wav.stat().st_size > 44:
             tracks.append("Mic")
@@ -222,6 +233,9 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
             button_hover_color=c["border"],
         )
         self.track_menu.pack(side="right", padx=(8, 0))
+        entry = styled_entry(row, c, textvariable=self.search_var, placeholder_text="Cari di transcript…")
+        entry.pack(fill="x", side="left", expand=True)
+        entry.bind("<KeyRelease>", lambda _e: self._render_segments())
 
     def _build_transcript(self) -> None:
         c = self.colors
@@ -237,12 +251,13 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         bar.pack(fill="x", padx=20, pady=(0, 16))
         controls = ctk.CTkFrame(bar, fg_color="transparent")
         controls.pack(fill="x", padx=12, pady=(10, 4))
-        self.play_btn = primary_button(controls, "▶", self._toggle_play, c, width=44, height=30)
+        self.play_btn = primary_button(controls, "▶", self._toggle_play, c, width=48, height=32)
         self.play_btn.pack(side="left", padx=2)
-        ghost_button(controls, "−10s", lambda: self._nudge(-10000), c, width=54).pack(side="left", padx=2)
+        ghost_button(controls, "−10s", lambda: self._nudge(-10000), c, width=58).pack(side="left", padx=2)
         self.speed_var = ctk.StringVar(value="1.0x")
         muted(controls, "", c, textvariable=self.speed_var, width=40).pack(side="left", padx=4)
-        ghost_button(controls, "+10s", lambda: self._nudge(10000), c, width=54).pack(side="left", padx=2)
+        ghost_button(controls, "+10s", lambda: self._nudge(10000), c, width=58).pack(side="left", padx=2)
+        muted(controls, "Space play/pause", c, font=ctk.CTkFont(size=11)).pack(side="left", padx=(10, 0))
         self.time_var = ctk.StringVar(value="00:00 / 00:00")
         muted(controls, "", c, textvariable=self.time_var, font=ctk.CTkFont(size=12)).pack(side="right")
 
@@ -276,20 +291,37 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         self._seg_frames.clear()
         segs = self._segments()
         if not segs:
-            muted(self.list, "Belum ada segmen transcript di sesi ini.", c).pack(pady=24)
+            wrap = ctk.CTkFrame(self.list, fg_color="transparent")
+            wrap.pack(fill="x", pady=40)
+            muted(
+                wrap,
+                "Belum ada segmen transcript",
+                c,
+                font=ctk.CTkFont(size=14, weight="bold"),
+                text_color=c["text"],
+            ).pack()
+            muted(wrap, "Sesi ini belum punya teks final untuk diputar.", c, wraplength=400).pack(
+                pady=(4, 0)
+            )
+            sync_responsive(self)
             return
+        try:
+            wrap = max(280, self.winfo_width() - 80)
+        except Exception:
+            wrap = 520
         for seg in segs:
             frame = ctk.CTkFrame(
                 self.list,
-                fg_color=c["row"],
+                fg_color=c["panel"],
                 corner_radius=10,
                 border_width=1,
                 border_color=c["border"],
             )
-            frame.pack(fill="x", pady=4, padx=2)
+            frame.pack(fill="x", pady=5, padx=2)
             top = ctk.CTkFrame(frame, fg_color="transparent")
-            top.pack(fill="x", padx=12, pady=(8, 0))
-            src = "MIC" if (seg.speaker or "").upper().startswith("MIC") else "SPK"
+            top.pack(fill="x", padx=14, pady=(10, 0))
+            is_mic = (seg.speaker or "").upper().startswith("MIC")
+            src = "MIC" if is_mic else "SPK"
             ctk.CTkLabel(
                 top,
                 text=src,
@@ -302,13 +334,15 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
                 text=seg.text.strip(),
                 anchor="w",
                 justify="left",
-                wraplength=780,
+                wraplength=wrap,
                 text_color=c["text"],
+                font=ctk.CTkFont(size=13),
             )
-            body.pack(fill="x", padx=12, pady=(2, 10))
+            body.pack(fill="x", padx=14, pady=(4, 12))
             frame.bind("<Button-1>", lambda _e, s=seg: self._jump_to(s.start_ms))
             body.bind("<Button-1>", lambda _e, s=seg: self._jump_to(s.start_ms))
             self._seg_frames.append((seg, frame))
+        sync_responsive(self)
 
     def _load_default_track(self) -> None:
         self._on_track_change(self.track_var.get())
@@ -392,11 +426,17 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
             if i == idx:
                 frame.configure(fg_color=c["row_active"], border_color=c["accent"])
             else:
-                frame.configure(fg_color=c["row"], border_color=c["border"])
+                frame.configure(fg_color=c["panel"], border_color=c["border"])
         self._current_idx = idx
 
     def _export(self) -> None:
-        ExportDialog(self, self.session, self.session.meta.title, Settings.load())
+        from ui.window_util import open_singleton
+
+        open_singleton(
+            self,
+            "_export_win",
+            lambda: ExportDialog(self, self.session, self.session.meta.title, Settings.load()),
+        )
 
     def _on_close(self) -> None:
         self.player.stop()

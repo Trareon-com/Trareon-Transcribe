@@ -67,7 +67,7 @@ class Pipeline:
 
         self._stt = WhisperCppStt(self.model_name)
         self.session = create_session(Path(self.library_root), title, self.settings_mode)
-        self._apply_mode_defaults()
+        # Respect mic/spk flags already set by MainWindow (do not overwrite UI toggles).
         self._mic_buf.clear()
         self._spk_buf.clear()
         self._stop.clear()
@@ -94,14 +94,6 @@ class Pipeline:
         t2.start()
         self._threads.append(t2)
         return self.session
-
-    def _apply_mode_defaults(self) -> None:
-        if self.settings_mode == "webinar":
-            self.mic_enabled, self.speaker_enabled = False, True
-        elif self.settings_mode == "rapat_offline":
-            self.mic_enabled, self.speaker_enabled = True, False
-        else:
-            self.mic_enabled, self.speaker_enabled = True, True
 
     def set_mic(self, enabled: bool) -> None:
         self.mic_enabled = enabled
@@ -137,6 +129,7 @@ class Pipeline:
         self._flush("SPEAKER", self._spk_buf)
         sess = self.session
         if sess:
+            sess.meta.duration_sec = self.elapsed_sec()
             sess = finalize_session(sess, rename_for_title=True)
             self.session = sess
         self._set_status(PipelineStatus.IDLE)

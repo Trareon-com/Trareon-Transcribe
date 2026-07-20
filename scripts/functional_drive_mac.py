@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 os.environ["TRAREON_NO_RELAUNCH"] = "1"
+os.environ.setdefault("TRAREON_AUTO_YES", "1")
 
 OUT = ROOT / "docs" / "screenshots" / "functional"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -260,7 +261,34 @@ def main() -> int:
     except Exception as e:
         rec("caption_font_clear", False, str(e))
 
-    grab(app, "08-main-final")
+    # Real start/stop (AUTO_YES skips confirm dialogs)
+    try:
+        app.title_var.set("Gate record test")
+        app._set_mic(True)  # noqa: SLF001
+        app._set_spk(True)  # noqa: SLF001
+        app._start_record()  # noqa: SLF001
+        app.update()
+        started = bool(app._recording)  # noqa: SLF001
+        rec("record_start", started, app.status_var.get())
+        if started:
+            deadline = time.time() + 2.5
+            while time.time() < deadline:
+                app.update()
+                time.sleep(0.1)
+            grab(app, "08-recording")
+            app._stop_record()  # noqa: SLF001
+            app.update()
+            rec(
+                "record_stop",
+                not app._recording and app.session is not None,  # noqa: SLF001
+                str(getattr(app.session, "root", "")),
+            )
+        else:
+            rec("record_stop", False, "start failed")
+    except Exception as e:
+        rec("record_cycle", False, traceback.format_exc(limit=2))
+
+    grab(app, "09-main-final")
     app.destroy()
 
     # Summary

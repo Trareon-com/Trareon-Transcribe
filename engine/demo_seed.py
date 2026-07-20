@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import struct
 import wave
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from config.paths import default_library_root
@@ -132,7 +132,7 @@ def seed_demo_sessions(
     _write_tone_wav(s1.mic_wav, duration_ms, mic_beeps)
     _write_tone_wav(s1.speaker_wav, duration_ms, spk_beeps)
     s1.meta.duration_sec = duration_ms / 1000.0
-    s1.meta.created_at = (datetime.now(UTC) - timedelta(minutes=15)).isoformat()
+    s1.meta.created_at = (datetime.now().astimezone() - timedelta(minutes=15)).isoformat()
     s1 = finalize_session(s1, rename_for_title=False)
     export_formats(s1, md=True, txt=True, json_out=True, srt=True, vtt=True)
     sessions.append(s1)
@@ -153,14 +153,16 @@ def seed_demo_sessions(
     _write_tone_wav(s2.mic_wav, dur2, [(0, 700.0), (5400, 700.0)])
     _write_tone_wav(s2.speaker_wav, dur2, [(2600, 480.0)])
     s2.meta.duration_sec = dur2 / 1000.0
-    s2.meta.created_at = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+    s2.meta.created_at = (datetime.now().astimezone() - timedelta(hours=2)).isoformat()
     s2 = finalize_session(s2, rename_for_title=False)
     export_formats(s2, md=True, txt=True, json_out=True, srt=False, vtt=False)
     sessions.append(s2)
 
     if update_settings:
         settings = Settings.load()
+        # Demo may open the main UI, but do not fake a real speaker tone pass.
         settings.setup_complete = True
+        settings.tone_test_ok = False
         settings.tone_test_skipped = True
         settings.library_root = str(root)
         settings.last_meeting_title = DEMO_TITLE

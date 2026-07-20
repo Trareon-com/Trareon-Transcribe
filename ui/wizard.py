@@ -16,6 +16,7 @@ from setup.deps import detect_spec, macos_dep_plan, run_plan, windows_dep_plan
 from setup.model_dl import download_model, ensure_whisper_binary, suggest_model
 from setup.whisper_models import MODEL_LABELS, WHISPER_MODELS
 from ui.theme import (
+    bind_responsive,
     field_label,
     ghost_button,
     heading,
@@ -38,7 +39,7 @@ class SetupWizard(ctk.CTkToplevel):
         self.colors = paint_window(self)
 
         self.title(f"{APP_NAME} — Setup")
-        self.minsize(640, 620)
+        self.minsize(520, 560)
         self.geometry("700x700+160+80")
         set_window_icon(self)
         self.transient(master)
@@ -60,25 +61,33 @@ class SetupWizard(ctk.CTkToplevel):
         self.install_deps_var = ctk.BooleanVar(value=True)
         self.diar_var = ctk.BooleanVar(value=False)
         self.hf_var = ctk.StringVar(value="")
-        self.status = ctk.StringVar(value="Siap memulai setup. Anda juga bisa lewati dan lengkapi nanti.")
+        self.status = ctk.StringVar(
+            value=(
+                "Setup wajib sebelum rekaman nyata: unduh model + pasang "
+                "BlackHole (Mac) / VB-Cable (Win). Lewati hanya jika Anda paham risikonya."
+            )
+        )
 
         c = self.colors
-        heading(self, f"{APP_NAME} — Setup", c, size=20).pack(anchor="w", padx=24, pady=(18, 4))
+        heading(self, f"{APP_NAME} — Setup", c, size=22).pack(anchor="w", fill="x", padx=24, pady=(20, 4))
         gpu = self.spec.get("gpu") or "GPU"
-        muted(
+        self.spec_lbl = muted(
             self,
             (
                 f"Spec terdeteksi: {self.spec['machine']}, {self.spec['ram_gb']:.0f} GB RAM, "
                 f"{gpu} — saran model: {suggested}"
             ),
             c,
-            wraplength=640,
+            wraplength=400,
             font=ctk.CTkFont(size=12),
-        ).pack(anchor="w", padx=24, pady=(0, 10))
+            anchor="w",
+            justify="left",
+        )
+        self.spec_lbl.pack(anchor="w", fill="x", padx=24, pady=(0, 12))
 
         panel = panel_frame(self, c)
-        panel.pack(fill="both", expand=True, padx=24, pady=(0, 10))
-        frame = ctk.CTkScrollableFrame(panel, fg_color="transparent", height=240)
+        panel.pack(fill="both", expand=True, padx=24, pady=(0, 12))
+        frame = ctk.CTkScrollableFrame(panel, fg_color="transparent")
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         field_label(frame, "Pilih model Whisper", c).pack(anchor="w", padx=8, pady=(4, 6))
@@ -92,21 +101,25 @@ class SetupWizard(ctk.CTkToplevel):
                 fg_color=c["accent"],
                 hover_color=c["accent_hover"],
                 border_color=c["border"],
-            ).pack(anchor="w", padx=16, pady=2)
+            ).pack(anchor="w", fill="x", padx=16, pady=2)
 
         opts = ctk.CTkFrame(self, fg_color="transparent")
         opts.pack(fill="x", padx=24, pady=(0, 6))
-        ctk.CTkCheckBox(
+        self.deps_cb = ctk.CTkCheckBox(
             opts,
-            text="Install virtual cable + ffmpeg (otomatis jika memungkinkan)",
+            text=(
+                "Install BlackHole + ffmpeg (Mac via brew) — wajib agar VU SPK / "
+                "Zoom terdengar. Windows: VB-Cable manual (lihat README)."
+            ),
             variable=self.install_deps_var,
             text_color=c["text"],
             fg_color=c["accent"],
             hover_color=c["accent_hover"],
             border_color=c["border"],
             checkmark_color=c["on_accent"],
-        ).pack(anchor="w", pady=3)
-        ctk.CTkCheckBox(
+        )
+        self.deps_cb.pack(anchor="w", fill="x", pady=3)
+        self.diar_cb = ctk.CTkCheckBox(
             opts,
             text="Siapkan diarization pyannote (butuh HF token)",
             variable=self.diar_var,
@@ -115,25 +128,41 @@ class SetupWizard(ctk.CTkToplevel):
             hover_color=c["accent_hover"],
             border_color=c["border"],
             checkmark_color=c["on_accent"],
-        ).pack(anchor="w", pady=3)
-        styled_entry(
-            opts, c, textvariable=self.hf_var, placeholder_text="HF token (opsional)", width=420
-        ).pack(anchor="w", pady=(6, 0))
-
-        self.progress = ctk.CTkProgressBar(self, width=540, progress_color=c["accent"])
-        self.progress.set(0)
-        self.progress.pack(padx=24, pady=8, anchor="w")
-        muted(self, "", c, textvariable=self.status, wraplength=640, font=ctk.CTkFont(size=12)).pack(
-            anchor="w", padx=24
         )
+        self.diar_cb.pack(anchor="w", fill="x", pady=3)
+        styled_entry(
+            opts, c, textvariable=self.hf_var, placeholder_text="HF token (opsional)"
+        ).pack(anchor="w", fill="x", pady=(6, 0))
+
+        self.progress = ctk.CTkProgressBar(self, progress_color=c["accent"])
+        self.progress.set(0)
+        self.progress.pack(fill="x", padx=24, pady=8)
+        self.status_lbl = muted(
+            self, "", c, textvariable=self.status, wraplength=400, font=ctk.CTkFont(size=12)
+        )
+        self.status_lbl.pack(anchor="w", fill="x", padx=24)
 
         self.btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_row.pack(fill="x", padx=24, pady=(10, 18))
-        self.start_btn = primary_button(self.btn_row, "Mulai Setup", self._start, c, width=120)
-        self.start_btn.pack(side="left", padx=(0, 6))
-        ghost_button(self.btn_row, "Tone Test", self._tone, c, width=100).pack(side="left", padx=4)
-        ghost_button(self.btn_row, "Lewati Tone", self._skip_tone, c, width=110).pack(side="left", padx=4)
-        ghost_button(self.btn_row, "Lewati & buka app", self._skip_all, c, width=140).pack(side="left", padx=4)
+        self.btn_row.pack(fill="x", padx=24, pady=(12, 4))
+        self.start_btn = primary_button(self.btn_row, "Mulai Setup", self._start, c, width=132)
+        self.start_btn.pack(side="left", padx=(0, 8), pady=2)
+        ghost_button(self.btn_row, "Tone Test", self._tone, c, width=100).pack(side="left", padx=4, pady=2)
+        ghost_button(self.btn_row, "Lewati Tone", self._skip_tone, c, width=110).pack(
+            side="left", padx=4, pady=2
+        )
+        btn_row2 = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row2.pack(fill="x", padx=24, pady=(4, 20))
+        muted(
+            btn_row2,
+            "Lewati hanya jika model + routing audio sudah siap.",
+            c,
+            wraplength=400,
+            anchor="w",
+        ).pack(side="left", fill="x", expand=True, padx=(0, 8))
+        ghost_button(btn_row2, "Lewati & buka app", self._skip_all, c, width=150).pack(
+            side="right", pady=2
+        )
+        bind_responsive(self)
 
         stt = WhisperCppStt(self.model_var.get())
         if stt.available():

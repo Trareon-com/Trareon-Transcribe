@@ -13,6 +13,8 @@ def free_bytes(path: Path | None = None) -> int:
 
 
 def human_gb(n: int) -> str:
+    if n < 100 * 1024**2:  # under ~100 MB — show MB so tiny libraries aren't "0.0 GB"
+        return f"{n / (1024**2):.1f} MB"
     return f"{n / (1024**3):.1f} GB"
 
 

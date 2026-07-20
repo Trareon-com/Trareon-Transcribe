@@ -18,6 +18,45 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 DTYPE = "int16"
 
+# Virtual loopback inputs only — never treat the built-in mic as "speaker".
+_LOOPBACK_HINTS = (
+    "blackhole",
+    "vb-audio",
+    "vb cable",
+    "cable output",
+    "cable input",
+    "voicemeeter",
+    "soundflower",
+    "loopback",
+    "virtual cable",
+)
+
+
+def find_loopback_input_device() -> int | None:
+    """Index of a virtual cable / BlackHole input, or None if not installed."""
+    try:
+        import sounddevice as sd
+    except Exception:
+        return None
+    try:
+        devices = list(sd.query_devices())
+    except Exception:
+        return None
+    for i, d in enumerate(devices):
+        if int(d.get("max_input_channels") or 0) < 1:
+            continue
+        name = str(d.get("name") or "").lower()
+        if any(h in name for h in _LOOPBACK_HINTS):
+            return i
+    return None
+
+
+def resolve_speaker_input_device(explicit: Any = None) -> Any:
+    """Use explicit device, else a real loopback — never default mic."""
+    if explicit is not None and explicit != "":
+        return explicit
+    return find_loopback_input_device()
+
 
 @dataclass
 class StreamState:
@@ -49,24 +88,28 @@ class AudioCapture:
         self._sd = None
         self._mic_level = 0.0
         self._spk_level = 0.0
-        self.speaker_ok = True  # False when loopback failed; mic-only degrade
+        # Adaptive ambient estimate — quiet room (fan/AC) should read flat on VU.
+        self._noise_mic = 0.045
+        self._noise_spk = 0.045
+        self.speaker_ok = True  # False when no loopback device; mic-only degrade
+        self.speaker_device_resolved: Any = None
 
     def set_mic_enabled(self, enabled: bool) -> None:
         with self._lock:
             self.state.mic_enabled = enabled
-            if not enabled:
-                self._mic_level = 0.0
+            # Do not zero VU — mute is for record/STT only; meters stay live.
 
     def set_speaker_enabled(self, enabled: bool) -> None:
         with self._lock:
             self.state.speaker_enabled = enabled
-            if not enabled:
-                self._spk_level = 0.0
 
     def levels(self) -> tuple[float, float]:
         """Return (mic, speaker) peak levels in 0.0–1.0 for VU meters."""
         with self._lock:
             return self._mic_level, self._spk_level
+
+    # Speech headroom above adaptive floor → full-scale VU.
+    _SPEECH_SPAN = 0.22
 
     def _note_level(self, pcm: bytes, which: str) -> None:
         if not pcm:
@@ -74,14 +117,45 @@ class AudioCapture:
         arr = np.frombuffer(pcm, dtype=np.int16)
         if arr.size == 0:
             return
-        # Peak-ish RMS normalized to ~0–1
         rms = float(np.sqrt(np.mean(arr.astype(np.float32) ** 2))) / 32768.0
-        level = min(1.0, rms * 4.0)
         with self._lock:
-            if which == "mic":
-                self._mic_level = max(level, self._mic_level * 0.65)
+            est = self._noise_mic if which == "mic" else self._noise_spk
+            # Track ambient only when frame looks like room noise, not speech.
+            if rms < max(est * 2.4, 0.14):
+                est = min(0.14, 0.90 * est + 0.10 * rms)
+                if which == "mic":
+                    self._noise_mic = est
+                else:
+                    self._noise_spk = est
+            floor = max(0.035, est * 1.7)
+            if rms < floor:
+                level = 0.0
             else:
-                self._spk_level = max(level, self._spk_level * 0.65)
+                level = min(1.0, (rms - floor) / self._SPEECH_SPAN)
+            if which == "mic":
+                if level <= 0:
+                    self._mic_level *= 0.30
+                    if self._mic_level < 0.04:
+                        self._mic_level = 0.0
+                else:
+                    self._mic_level = max(level, self._mic_level * 0.55)
+            else:
+                if level <= 0:
+                    self._spk_level *= 0.30
+                    if self._spk_level < 0.04:
+                        self._spk_level = 0.0
+                else:
+                    self._spk_level = max(level, self._spk_level * 0.55)
+
+    def decay_levels(self, factor: float = 0.82) -> None:
+        """Idle decay so meters fall when the room is quiet."""
+        with self._lock:
+            self._mic_level *= factor
+            self._spk_level *= factor
+            if self._mic_level < 0.04:
+                self._mic_level = 0.0
+            if self._spk_level < 0.04:
+                self._spk_level = 0.0
 
     def open_wav_writers(self, mic_path: Path, speaker_path: Path) -> None:
         self.close_wav_writers()
@@ -116,11 +190,13 @@ class AudioCapture:
         def mic_cb(indata, frames, time_info, status) -> None:  # noqa: ANN001
             if status:
                 log.debug("mic status: %s", status)
-            with self._lock:
-                if not self.state.mic_enabled:
-                    return
-            pcm = bytes(indata)
+            pcm = indata.tobytes() if hasattr(indata, "tobytes") else bytes(indata)
+            # VU always tracks hardware; mute only skips WAV / STT.
             self._note_level(pcm, "mic")
+            with self._lock:
+                enabled = self.state.mic_enabled
+            if not enabled:
+                return
             if self._mic_wav:
                 try:
                     self._mic_wav.writeframes(pcm)
@@ -132,11 +208,12 @@ class AudioCapture:
         def spk_cb(indata, frames, time_info, status) -> None:  # noqa: ANN001
             if status:
                 log.debug("spk status: %s", status)
-            with self._lock:
-                if not self.state.speaker_enabled:
-                    return
-            pcm = bytes(indata)
+            pcm = indata.tobytes() if hasattr(indata, "tobytes") else bytes(indata)
             self._note_level(pcm, "spk")
+            with self._lock:
+                enabled = self.state.speaker_enabled
+            if not enabled:
+                return
             if self._spk_wav:
                 try:
                     self._spk_wav.writeframes(pcm)
@@ -160,22 +237,37 @@ class AudioCapture:
             log.error("mic start failed: %s", e)
             raise
 
-        try:
-            # Prefer loopback on Windows if available
-            kwargs: dict[str, Any] = dict(
-                samplerate=SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype=DTYPE,
-                blocksize=block,
-                device=self.speaker_device,
-                callback=spk_cb,
+        # SPK must be a virtual loopback. Default input is the mic — using it
+        # makes MIC and SPK VU rise together and records the wrong source.
+        spk_dev = resolve_speaker_input_device(self.speaker_device)
+        self.speaker_device_resolved = spk_dev
+        if spk_dev is None:
+            log.info(
+                "No virtual loopback (BlackHole / VB-Cable) — speaker capture disabled"
             )
-            self._spk_stream = sd.InputStream(**kwargs)
-            self._spk_stream.start()
-        except Exception as e:
-            log.warning("speaker stream failed (virtual cable?): %s", e)
             self._spk_stream = None
             self.speaker_ok = False
+            with self._lock:
+                self._spk_level = 0.0
+        else:
+            try:
+                self._spk_stream = sd.InputStream(
+                    samplerate=SAMPLE_RATE,
+                    channels=CHANNELS,
+                    dtype=DTYPE,
+                    blocksize=block,
+                    device=spk_dev,
+                    callback=spk_cb,
+                )
+                self._spk_stream.start()
+                self.speaker_ok = True
+                log.info("Speaker loopback device: %s", spk_dev)
+            except Exception as e:
+                log.warning("speaker stream failed (virtual cable?): %s", e)
+                self._spk_stream = None
+                self.speaker_ok = False
+                with self._lock:
+                    self._spk_level = 0.0
 
     def stop(self) -> None:
         self.state.running = False

@@ -55,6 +55,7 @@ class Settings:
     mic_device: str = ""
     speaker_device: str = ""
     last_meeting_title: str = ""
+    caption_font_size: int = 16
 
     def library_path(self) -> Path:
         if self.library_root:

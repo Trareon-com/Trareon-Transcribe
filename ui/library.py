@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tkinter.messagebox as messagebox
 from pathlib import Path
 
 import customtkinter as ctk
@@ -19,8 +20,32 @@ from engine.session_store import (
 )
 from setup.disk import library_storage_summary
 from ui.export_dialog import ExportDialog
-from ui.theme import danger_button, ghost_button, heading, muted, paint_window, panel_frame, primary_button
+from ui.theme import (
+    bind_responsive,
+    danger_button,
+    ghost_button,
+    heading,
+    muted,
+    paint_window,
+    panel_frame,
+    primary_button,
+    styled_entry,
+    sync_responsive,
+)
 from ui.transcript_player import TranscriptPlayerWindow
+from ui.window_util import focus_existing, open_singleton
+from util.timefmt import format_local
+
+
+def _fmt_dur(sec: float) -> str:
+    if sec <= 0:
+        return "—"
+    sec = int(sec)
+    h, rem = divmod(sec, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
 
 
 class LibraryWindow(ctk.CTkToplevel):
@@ -30,26 +55,81 @@ class LibraryWindow(ctk.CTkToplevel):
         self.colors = paint_window(self)
         self.title(f"Library — {APP_NAME}")
         set_window_icon(self)
-        self.minsize(720, 480)
-        self.geometry("820x560")
+        self.minsize(560, 440)
+        self.geometry("1080x640")
         self.transient(master)
+        self._player_win: TranscriptPlayerWindow | None = None
+        self._export_win: ExportDialog | None = None
 
         c = self.colors
         top = ctk.CTkFrame(self, fg_color="transparent")
-        top.pack(fill="x", padx=20, pady=(16, 6))
-        heading(top, "Library", c).pack(side="left")
+        top.pack(fill="x", padx=22, pady=(18, 6))
+        left = ctk.CTkFrame(top, fg_color="transparent")
+        left.pack(side="left", fill="x", expand=True)
+        heading(left, "Library", c, size=20).pack(anchor="w")
+        muted(left, "Rekaman tersimpan · klik ganda untuk putar", c).pack(anchor="w", pady=(2, 0))
         ghost_button(top, "Refresh", self.refresh, c, width=88).pack(side="right")
 
         self.storage_var = ctk.StringVar(value="")
-        muted(self, "", c, textvariable=self.storage_var, anchor="w").pack(fill="x", padx=22)
+        self.search_var = ctk.StringVar(value="")
+        self.storage_lbl = muted(self, "", c, textvariable=self.storage_var, wraplength=600, anchor="w")
+        self.storage_lbl.pack(fill="x", padx=24, pady=(0, 4))
+        search_row = ctk.CTkFrame(self, fg_color="transparent")
+        search_row.pack(fill="x", padx=24, pady=(0, 6))
+        entry = styled_entry(
+            search_row, c, textvariable=self.search_var, placeholder_text="Cari judul / mode…"
+        )
+        entry.pack(fill="x")
+        self._search_after: str | None = None
+
+        def _schedule_search(_e=None) -> None:  # noqa: ANN001
+            if self._search_after is not None:
+                try:
+                    self.after_cancel(self._search_after)
+                except Exception:
+                    pass
+            self._search_after = self.after(120, self.refresh)
+
+        entry.bind("<KeyRelease>", _schedule_search)
 
         panel = panel_frame(self, c)
-        panel.pack(fill="both", expand=True, padx=20, pady=(8, 16))
+        panel.pack(fill="both", expand=True, padx=22, pady=(4, 18))
         self.listbox = ctk.CTkScrollableFrame(panel, fg_color="transparent")
-        self.listbox.pack(fill="both", expand=True, padx=10, pady=10)
+        self.listbox.pack(fill="both", expand=True, padx=12, pady=12)
         self.empty = muted(self.listbox, "", c)
         self.empty.pack(pady=24)
+        self._layout_wide: bool | None = None
+        self._resize_after: str | None = None
+        bind_responsive(self)
+        self.bind("<Configure>", self._on_resize, add="+")
         self.refresh()
+
+    def _on_resize(self, event=None) -> None:  # noqa: ANN001
+        if event is not None and event.widget is not self:
+            return
+        try:
+            wide = int(self.winfo_width()) >= 820
+        except Exception:
+            return
+        if self._layout_wide is not None and self._layout_wide == wide:
+            return
+        if self._resize_after is not None:
+            try:
+                self.after_cancel(self._resize_after)
+            except Exception:
+                pass
+
+        def _apply() -> None:
+            self._resize_after = None
+            try:
+                now = int(self.winfo_width()) >= 820
+            except Exception:
+                return
+            if self._layout_wide != now:
+                self._layout_wide = now
+                self.refresh()
+
+        self._resize_after = self.after(100, _apply)
 
     def refresh(self) -> None:
         c = self.colors
@@ -60,11 +140,41 @@ class LibraryWindow(ctk.CTkToplevel):
         except Exception:
             self.storage_var.set("")
         metas = list_sessions(self.library_root)
+        q = (self.search_var.get() or "").strip().lower()
+        if q:
+            metas = [
+                m
+                for m in metas
+                if q in (m.title or "").lower()
+                or q in (m.mode or "").lower()
+                or q in (m.folder_name or "").lower()
+            ]
+        try:
+            wide = int(self.winfo_width()) >= 820
+        except Exception:
+            wide = True
+        self._layout_wide = wide
         if not metas:
-            self.empty = muted(
-                self.listbox, "Belum ada rekaman. Mulai rekam dari jendela utama.", c
-            )
-            self.empty.pack(pady=32)
+            wrap = ctk.CTkFrame(self.listbox, fg_color="transparent")
+            wrap.pack(fill="x", pady=48)
+            muted(
+                wrap,
+                "Tidak ada hasil" if q else "Belum ada rekaman",
+                c,
+                font=ctk.CTkFont(size=15, weight="bold"),
+                text_color=c["text"],
+            ).pack()
+            muted(
+                wrap,
+                (
+                    f"Tidak ada sesi cocok dengan «{q}»."
+                    if q
+                    else "Mulai rekam dari jendela utama — sesi muncul di sini otomatis."
+                ),
+                c,
+                wraplength=420,
+                justify="center",
+            ).pack(pady=(6, 0))
             return
         for meta in metas:
             folder = self.library_root / (meta.folder_name or "")
@@ -74,48 +184,84 @@ class LibraryWindow(ctk.CTkToplevel):
             row = ctk.CTkFrame(
                 self.listbox,
                 fg_color=c["row"],
-                corner_radius=10,
+                corner_radius=12,
                 border_width=1,
                 border_color=c["border"],
             )
-            row.pack(fill="x", pady=4)
-            dur = (
-                f"{int(meta.duration_sec // 60)}:{int(meta.duration_sec % 60):02d}"
-                if meta.duration_sec
-                else "—"
+            row.pack(fill="x", pady=5)
+
+            body = ctk.CTkFrame(row, fg_color="transparent")
+            body.pack(fill="x", padx=16, pady=14)
+            when = format_local(meta.created_at)
+            title = (meta.title or "Tanpa judul").strip()
+
+            actions = ctk.CTkFrame(body, fg_color="transparent")
+            if wide:
+                actions.pack(side="right", padx=(12, 0))
+            info = ctk.CTkFrame(body, fg_color="transparent")
+            info.pack(side="left", fill="x", expand=True)
+
+            ctk.CTkLabel(
+                info,
+                text=title,
+                anchor="w",
+                justify="left",
+                wraplength=480 if wide else 360,
+                font=ctk.CTkFont(size=15, weight="bold"),
+                text_color=c["text"],
+            ).pack(fill="x", anchor="w")
+            muted(
+                info,
+                f"{when}  ·  {meta.mode}  ·  {_fmt_dur(meta.duration_sec)}  ·  {size_mb:.1f} MB",
+                c,
+                wraplength=480 if wide else 360,
+                anchor="w",
+                justify="left",
+            ).pack(fill="x", anchor="w", pady=(3, 0 if wide else 10))
+
+            if not wide:
+                actions.pack(fill="x", pady=(8, 0))
+
+            primary_button(actions, "Putar", lambda p=folder: self._open(p), c, width=72, height=32).pack(
+                side="left", padx=(0, 4), pady=2
             )
-            label = (
-                f"{meta.created_at[:19].replace('T', ' ') if meta.created_at else '?'}  ·  "
-                f"{meta.title}  ·  {meta.mode}  ·  {dur}  ·  {size_mb:.1f} MB"
+            ghost_button(actions, "Export", lambda p=folder: self._export(p), c, width=72, height=32).pack(
+                side="left", padx=2, pady=2
             )
-            title_lbl = ctk.CTkLabel(row, text=label, anchor="w", text_color=c["text"])
-            title_lbl.pack(side="left", padx=12, pady=10, fill="x", expand=True)
-            title_lbl.bind("<Double-Button-1>", lambda _e, p=folder: self._open(p))
+            ghost_button(actions, "Rename", lambda p=folder: self._rename(p), c, width=72, height=32).pack(
+                side="left", padx=2, pady=2
+            )
+            ghost_button(actions, "Folder", lambda p=folder: self._reveal(p), c, width=72, height=32).pack(
+                side="left", padx=2, pady=2
+            )
+            danger_button(actions, "Hapus", lambda p=folder: self._delete(p), c, width=68, height=32).pack(
+                side="left", padx=(4, 0), pady=2
+            )
+            body.bind("<Double-Button-1>", lambda _e, p=folder: self._open(p))
             row.bind("<Double-Button-1>", lambda _e, p=folder: self._open(p))
-            danger_button(row, "Hapus", lambda p=folder: self._delete(p), c, width=64).pack(
-                side="right", padx=(2, 10), pady=8
-            )
-            ghost_button(row, "Folder", lambda p=folder: self._reveal(p), c, width=70).pack(
-                side="right", padx=2, pady=8
-            )
-            ghost_button(row, "Rename", lambda p=folder: self._rename(p), c, width=70).pack(
-                side="right", padx=2, pady=8
-            )
-            ghost_button(row, "Export", lambda p=folder: self._export(p), c, width=70).pack(
-                side="right", padx=2, pady=8
-            )
-            primary_button(row, "Putar", lambda p=folder: self._open(p), c, width=70, height=30).pack(
-                side="right", padx=2, pady=8
-            )
+        sync_responsive(self)
 
     def _open(self, path: Path) -> None:
-        TranscriptPlayerWindow(self, path)
+        # One player at a time — reopen if a different session is chosen.
+        if self._player_win is not None and focus_existing(self._player_win):
+            try:
+                if getattr(self._player_win, "session", None) and self._player_win.session.root == path:
+                    return
+                self._player_win.destroy()
+            except Exception:
+                pass
+            self._player_win = None
+        open_singleton(self, "_player_win", lambda: TranscriptPlayerWindow(self, path))
 
     def _export(self, path: Path) -> None:
         sess = load_session(path)
         from config.settings import Settings
 
-        ExportDialog(self, sess, sess.meta.title, Settings.load())
+        open_singleton(
+            self,
+            "_export_win",
+            lambda: ExportDialog(self, sess, sess.meta.title, Settings.load()),
+        )
 
     def _rename(self, path: Path) -> None:
         sess = load_session(path)
@@ -128,6 +274,12 @@ class LibraryWindow(ctk.CTkToplevel):
         self.refresh()
 
     def _delete(self, path: Path) -> None:
+        try:
+            title = load_session(path).meta.title or path.name
+        except Exception:
+            title = path.name
+        if not messagebox.askyesno("Hapus sesi", f"Hapus «{title}»?\nFile audio & transcript akan dihapus."):
+            return
         delete_session(path, self.library_root)
         self.refresh()
 
