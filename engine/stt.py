@@ -29,11 +29,18 @@ class SttResult:
 
 def find_whisper_binary() -> Path | None:
     base = models_dir()
+    # whisper-whisper-cli is the current binary name; whisper-cli is now a
+    # deprecated shim that just prints a warning and re-execs it, so prefer
+    # the new name and fall back to the old one for older installs.
     candidates = [
+        base / "whisper-whisper-cli",
+        base / "whisper-whisper-cli.exe",
         base / "whisper-cli",
         base / "whisper-cli.exe",
         base / "main",
         base / "main.exe",
+        base / "bin" / "whisper-whisper-cli",
+        base / "bin" / "whisper-whisper-cli.exe",
         base / "bin" / "whisper-cli",
         base / "bin" / "whisper-cli.exe",
     ]
@@ -42,8 +49,12 @@ def find_whisper_binary() -> Path | None:
         exe_dir = Path(sys.executable).resolve().parent
         candidates.extend(
             [
+                exe_dir / "whisper-whisper-cli",
+                exe_dir / "whisper-whisper-cli.exe",
                 exe_dir / "whisper-cli",
                 exe_dir / "whisper-cli.exe",
+                exe_dir / "models" / "whisper-whisper-cli",
+                exe_dir / "models" / "whisper-whisper-cli.exe",
                 exe_dir / "models" / "whisper-cli",
                 exe_dir / "models" / "whisper-cli.exe",
             ]
@@ -51,13 +62,20 @@ def find_whisper_binary() -> Path | None:
         # macOS .app: Contents/MacOS/
         if exe_dir.name == "MacOS":
             resources = exe_dir.parent / "Resources" / "models"
-            candidates.extend([resources / "whisper-cli", exe_dir / "whisper-cli"])
+            candidates.extend(
+                [
+                    resources / "whisper-whisper-cli",
+                    resources / "whisper-cli",
+                    exe_dir / "whisper-whisper-cli",
+                    exe_dir / "whisper-cli",
+                ]
+            )
 
     for c in candidates:
         if c.is_file():
             return c
 
-    for name in ("whisper-cli", "whisper-cli.exe"):
+    for name in ("whisper-whisper-cli", "whisper-whisper-cli.exe", "whisper-cli", "whisper-cli.exe"):
         hit = shutil.which(name)
         if hit:
             return Path(hit)

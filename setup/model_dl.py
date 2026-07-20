@@ -108,13 +108,15 @@ def _try_brew_whisper(progress: ProgressCb | None = None) -> Path | None:
         return None
     if progress:
         progress("whisper-cpp (brew)", 1.0)
-    for name in ("whisper-cli", "whisper-cpp"):
+    for name in ("whisper-whisper-cli", "whisper-cli", "whisper-cpp"):
         hit = shutil.which(name)
         if hit:
             return _copy_binary_to_models(Path(hit))
     # Common Cellar locations
     for pattern in (
+        "/opt/homebrew/bin/whisper-whisper-cli",
         "/opt/homebrew/bin/whisper-cli",
+        "/usr/local/bin/whisper-whisper-cli",
         "/usr/local/bin/whisper-cli",
     ):
         p = Path(pattern)
@@ -129,7 +131,9 @@ def _extract_whisper_from_zip(archive: Path) -> Path | None:
         extract_dir.mkdir()
         with zipfile.ZipFile(archive) as zf:
             zf.extractall(extract_dir)
-        for name in ("whisper-cli.exe", "whisper-cli", "main.exe", "main"):
+        # whisper-whisper-cli is the current binary name; whisper-cli is now
+        # a deprecated shim, so prefer the new name when both are present.
+        for name in ("whisper-whisper-cli.exe", "whisper-whisper-cli", "whisper-cli.exe", "whisper-cli", "main.exe", "main"):
             hits = list(extract_dir.rglob(name))
             if hits:
                 return _copy_binary_to_models(hits[0])

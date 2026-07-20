@@ -62,7 +62,12 @@ jobs:
           if command -v brew >/dev/null; then
             brew install whisper-cpp || true
           fi
-          for cand in /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli "$(brew --prefix 2>/dev/null)/bin/whisper-cli"; do
+          # whisper-whisper-cli is the current binary; whisper-cli is now a
+          # deprecated shim that just prints a warning and re-execs it, so
+          # prefer the new name when Homebrew ships both.
+          for cand in \
+            /opt/homebrew/bin/whisper-whisper-cli /usr/local/bin/whisper-whisper-cli "$(brew --prefix 2>/dev/null)/bin/whisper-whisper-cli" \
+            /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli "$(brew --prefix 2>/dev/null)/bin/whisper-cli"; do
             if [[ -n "$cand" && -x "$cand" ]]; then
               cp "$cand" "$APP/Contents/MacOS/whisper-cli"
               chmod +x "$APP/Contents/MacOS/whisper-cli"
@@ -88,19 +93,27 @@ jobs:
           zpath = Path(r'''$zip''')
           dest = Path(r'''$dir''')
           assert zpath.is_file() and zpath.stat().st_size > 1000, zpath
+          # whisper-whisper-cli.exe is the current binary; whisper-cli.exe is
+          # now a deprecated shim that just prints a warning and re-execs it,
+          # so prefer the new name when the release zip ships both.
           with zipfile.ZipFile(zpath) as z:
               names = z.namelist()
               print('zip entries', len(names))
-              for n in names:
-                  low = n.lower()
-                  if low.endswith('whisper-cli.exe') or low.endswith('main.exe'):
-                      data = z.read(n)
-                      out = dest / ('whisper-cli.exe' if low.endswith('main.exe') else Path(n).name)
-                      out.write_bytes(data)
-                      print('wrote', out, len(data))
+              wanted = ('whisper-whisper-cli.exe', 'whisper-cli.exe', 'main.exe')
+              found = None
+              for want in wanted:
+                  for n in names:
+                      if n.lower().endswith(want):
+                          found = n
+                          break
+                  if found:
                       break
-              else:
+              if not found:
                   raise SystemExit('whisper-cli.exe not in zip: ' + ', '.join(names[:20]))
+              data = z.read(found)
+              out = dest / 'whisper-cli.exe'
+              out.write_bytes(data)
+              print('wrote', out, len(data), 'from', found)
           "@
 
       - name: Package (macOS zip + DMG)

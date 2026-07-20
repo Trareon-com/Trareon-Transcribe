@@ -43,7 +43,7 @@ def macos_dep_plan() -> DepPlan:
     if shutil.which("brew"):
         cmds.append(["brew", "install", "--cask", "blackhole-2ch"])
         cmds.append(["brew", "install", "ffmpeg"])
-        if not shutil.which("whisper-cli"):
+        if not shutil.which("whisper-whisper-cli") and not shutil.which("whisper-cli"):
             cmds.append(["brew", "install", "whisper-cpp"])
     return DepPlan(
         description="Install BlackHole 2ch + ffmpeg + whisper-cpp via Homebrew",
