@@ -56,7 +56,6 @@ def main() -> int:
     from engine.stt import WhisperCppStt
     from engine.tone_test import run_tone_test
     from setup.model_dl import ensure_whisper_binary
-    from update.check import check_for_update
     from ui.export_dialog import ExportDialog
     from ui.library import LibraryWindow
     from ui.main_window import MainWindow
@@ -64,6 +63,7 @@ def main() -> int:
     from ui.theme import apply_theme
     from ui.transcript_player import TranscriptPlayerWindow
     from ui.wizard import SetupWizard
+    from update.check import check_for_update
 
     ensure_tk_registered()
 
@@ -169,7 +169,7 @@ def main() -> int:
         app.update()
         sett.destroy()
         rec("settings_window", True)
-    except Exception as e:
+    except Exception:
         rec("settings_window", False, traceback.format_exc(limit=2))
 
     # Library + player
@@ -194,7 +194,7 @@ def main() -> int:
                 rec("player_toggle", False, str(e))
             player.destroy()
         lib.destroy()
-    except Exception as e:
+    except Exception:
         rec("library_player", False, traceback.format_exc(limit=2))
 
     # Export dialog
@@ -224,7 +224,7 @@ def main() -> int:
             exp.destroy()
         else:
             rec("export_run", False, "no session")
-    except Exception as e:
+    except Exception:
         rec("export_run", False, traceback.format_exc(limit=2))
 
     # Readiness after tiny model saved
@@ -249,7 +249,7 @@ def main() -> int:
         wiz._finish()  # noqa: SLF001
         app.update()
         rec("wizard_finish", done["v"])
-    except Exception as e:
+    except Exception:
         rec("wizard", False, traceback.format_exc(limit=2))
 
     # Font change + clear caption
@@ -285,7 +285,7 @@ def main() -> int:
             )
         else:
             rec("record_stop", False, "start failed")
-    except Exception as e:
+    except Exception:
         rec("record_cycle", False, traceback.format_exc(limit=2))
 
     grab(app, "09-main-final")
@@ -309,6 +309,6 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except SystemExit:
         raise
-    except Exception:
+    except Exception as exc:
         traceback.print_exc()
-        raise SystemExit(1)
+        raise SystemExit(1) from exc

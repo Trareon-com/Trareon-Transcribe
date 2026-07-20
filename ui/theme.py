@@ -259,7 +259,7 @@ def bind_responsive(win: Any, *, pad: int = 48) -> None:
     state = getattr(win, "_trareon_responsive", None)
     if state is None:
         state = {"after": None, "pad": pad}
-        setattr(win, "_trareon_responsive", state)
+        win._trareon_responsive = state
 
         def _run() -> None:
             state["after"] = None
