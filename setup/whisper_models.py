@@ -15,6 +15,15 @@ MODEL_FILES: dict[str, str] = {
 WHISPER_MODELS: tuple[str, ...] = tuple(MODEL_FILES.keys())
 
 # Short labels for radio / docs (size · speed · quality)
+MODEL_SIZES: dict[str, int] = {
+    "tiny": 75,
+    "base": 142,
+    "small": 466,
+    "medium": 1_500,
+    "large": 2_900,
+    "large-v3-turbo": 1_500,
+}
+
 MODEL_LABELS: dict[str, str] = {
     "tiny": "tiny ~75MB — very fast, low quality",
     "base": "base ~150MB — fast, medium quality",

@@ -99,6 +99,12 @@ class Settings:
         if s.window_y is not None and s.window_y < -50:
             s.window_y = None
 
+        from setup.whisper_models import MODEL_FILES
+
+        if s.model not in MODEL_FILES:
+            log.warning("Unknown model %r in settings.json — resetting to 'medium'", s.model)
+            s.model = "medium"
+
         # Migrate broken / legacy Documents paths (esp. Windows CFA).
         need_migrate = False
         if not s.library_root:

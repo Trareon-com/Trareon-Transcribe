@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import sys
 from pathlib import Path
+from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -24,6 +26,8 @@ from ui.theme import (
     styled_entry,
 )
 from util.threading_helpers import run_in_thread, ui_after
+
+log = logging.getLogger("trareon.export_dialog")
 
 
 class ExportDialog(ctk.CTkToplevel):
@@ -52,6 +56,7 @@ class ExportDialog(ctk.CTkToplevel):
         # Footer first so it never clips when the window is short.
         foot = ctk.CTkFrame(self, fg_color="transparent")
         foot.pack(side="bottom", fill="x", padx=22, pady=(0, 16))
+        self.footer = foot
         primary_button(foot, "↓  Export", self._export, c, width=128).pack(side="right")
         ghost_button(foot, "Batal", self.destroy, c, width=80).pack(side="right", padx=(0, 8))
 
@@ -90,6 +95,7 @@ class ExportDialog(ctk.CTkToplevel):
         self.bar = ctk.CTkProgressBar(body, progress_color=c["accent"])
         self.bar.set(0)
         self.bar.pack(fill="x", pady=(14, 6))
+        self._export_anim_timer: str | None = None
         self.status_lbl = muted(body, "", c, textvariable=self.status, wraplength=400, anchor="w")
         self.status_lbl.pack(anchor="w", fill="x")
         bind_responsive(self)
@@ -109,22 +115,65 @@ class ExportDialog(ctk.CTkToplevel):
         self.session.save_meta()
         self.status.set("Mengekspor…")
         self.bar.set(0.3)
+        self._animate_export_progress()
         # Snapshot Tk vars on UI thread — worker threads must not call .get().
         do_diar = bool(self.settings.diarization_enabled)
 
         def work() -> None:
-            note = self._maybe_diarize() if do_diar else ""
-            paths = export_formats(
-                self.session,
-                md=md,
-                txt=txt,
-                json_out=json_out,
-                srt=srt,
-                vtt=vtt,
-            )
+            try:
+                note = self._maybe_diarize() if do_diar else ""
+                paths = export_formats(
+                    self.session,
+                    md=md,
+                    txt=txt,
+                    json_out=json_out,
+                    srt=srt,
+                    vtt=vtt,
+                )
+            except Exception as e:  # noqa: BLE001 — surface to UI instead of hanging forever
+                log.exception("export failed")
+                ui_after(self, lambda e=e: self._export_failed(e))
+                return
             ui_after(self, lambda p=paths, n=note: self._done(p, n))
 
         run_in_thread(work)
+
+    def _export_failed(self, err: Exception) -> None:
+        self._stop_export_progress()
+        self.bar.set(0)
+        self.status.set(f"Export gagal: {err}")
+        messagebox.showerror("Export gagal", f"Export tidak selesai:\n\n{err}")
+
+    def _animate_export_progress(self) -> None:
+        """Smooth indeterminate progress animation during export."""
+        if self._export_anim_timer is not None:
+            try:
+                self.after_cancel(self._export_anim_timer)
+            except Exception:
+                pass
+
+        def _pulse() -> None:
+            if self._export_anim_timer is None:
+                return
+            try:
+                cur = self.bar.get()
+                if cur >= 0.8:
+                    self.bar.set(0.3)
+                else:
+                    self.bar.set(min(0.8, cur + 0.05))
+                self._export_anim_timer = self.after(120, _pulse)
+            except Exception:
+                self._export_anim_timer = None
+
+        self._export_anim_timer = self.after(120, _pulse)
+
+    def _stop_export_progress(self) -> None:
+        if self._export_anim_timer is not None:
+            try:
+                self.after_cancel(self._export_anim_timer)
+            except Exception:
+                pass
+            self._export_anim_timer = None
 
     def _maybe_diarize(self) -> str:
         from config.keyring_store import get_hf_token
@@ -150,11 +199,29 @@ class ExportDialog(ctk.CTkToplevel):
         return f"Diarization OK · {len(turns)} segmen speaker."
 
     def _done(self, paths: list[Path], note: str = "") -> None:
+        self._stop_export_progress()
+        self.bar.configure(progress_color=self.colors["accent"])
         self.bar.set(1.0)
-        msg = f"Selesai: {len(paths)} file"
+        msg = f"✓ Selesai: {len(paths)} file"
         if note:
             msg = f"{msg} · {note}"
         self.status.set(msg)
+        if not hasattr(self, "_open_folder_btn"):
+            self._open_folder_btn = ghost_button(
+                self.footer, "📂 Buka Folder", self._open_folder, self.colors, width=130
+            )
+            self._open_folder_btn.pack(side="left")
+        folder = self.session.root
+        try:
+            if sys.platform == "darwin":
+                subprocess.run(["open", str(folder)], check=False)
+            elif sys.platform == "win32":
+                subprocess.run(["explorer", str(folder)], check=False)
+        except Exception:
+            pass
+
+    def _open_folder(self) -> None:
+        """Open the session's export folder in Finder/Explorer."""
         folder = self.session.root
         try:
             if sys.platform == "darwin":

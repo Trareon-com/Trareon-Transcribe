@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -209,6 +210,21 @@ def load_session(root: Path) -> Session:
     session = Session(root=root, meta=meta)
     session.load_transcript()
     return session
+
+
+def quarantine_session(root: Path) -> Path:
+    """Rename a corrupt session folder so it stops re-triggering resume on every launch."""
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    dest = root.with_name(f"{root.name}.corrupt-{ts}")
+    try:
+        root.rename(dest)
+    except OSError:
+        return root
+    try:
+        (dest / INPROGRESS).unlink(missing_ok=True)
+    except OSError:
+        pass
+    return dest
 
 
 def delete_session(root: Path, library_root: Path) -> None:

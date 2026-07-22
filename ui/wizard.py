@@ -14,7 +14,7 @@ from engine.stt import WhisperCppStt
 from engine.tone_test import run_tone_test
 from setup.deps import detect_spec, macos_dep_plan, run_plan, windows_dep_plan
 from setup.model_dl import download_model, ensure_whisper_binary, suggest_model
-from setup.whisper_models import MODEL_LABELS, WHISPER_MODELS
+from setup.whisper_models import MODEL_LABELS, MODEL_SIZES, WHISPER_MODELS
 from ui.theme import (
     bind_responsive,
     field_label,
@@ -92,9 +92,11 @@ class SetupWizard(ctk.CTkToplevel):
 
         field_label(frame, "Pilih model Whisper", c).pack(anchor="w", padx=8, pady=(4, 6))
         for key in WHISPER_MODELS:
+            size = MODEL_SIZES.get(key, 0)
+            size_str = f" ({size} MB)" if size else ""
             ctk.CTkRadioButton(
                 frame,
-                text=MODEL_LABELS[key],
+                text=MODEL_LABELS[key] + size_str,
                 variable=self.model_var,
                 value=key,
                 text_color=c["text"],
@@ -136,7 +138,12 @@ class SetupWizard(ctk.CTkToplevel):
 
         self.progress = ctk.CTkProgressBar(self, progress_color=c["accent"])
         self.progress.set(0)
-        self.progress.pack(fill="x", padx=24, pady=8)
+        self.progress.pack(fill="x", padx=24, pady=(12, 2))
+        self.step_var = ctk.StringVar(value="")
+        self.step_lbl = muted(
+            self, "", c, textvariable=self.step_var, wraplength=420, font=ctk.CTkFont(size=11, weight="bold")
+        )
+        self.step_lbl.pack(anchor="w", fill="x", padx=26, pady=(0, 2))
         self.status_lbl = muted(
             self, "", c, textvariable=self.status, wraplength=400, font=ctk.CTkFont(size=12)
         )
@@ -205,9 +212,11 @@ class SetupWizard(ctk.CTkToplevel):
                         f"tampil sebagai «{APP_NAME}», bukan Python 3.11."
                     ),
                 )
+            self.after(0, lambda: self.step_var.set("1/5: Memeriksa perangkat audio & izin mic"))
             ok, msg = AudioCapture.check_mic_permission()
             self.after(0, lambda: self.status.set(msg if ok else f"⚠ {msg}"))
             if self.install_deps_var.get():
+                self.after(0, lambda: self.step_var.set("2/5: Memasang BlackHole / VB-Cable"))
                 plan = macos_dep_plan() if self.spec["os"] == "Darwin" else windows_dep_plan()
                 cmds = " | ".join(" ".join(c) for c in plan.commands) or plan.description
                 self.after(0, lambda: self.status.set(f"Deps: {cmds[:200]}"))
@@ -218,9 +227,27 @@ class SetupWizard(ctk.CTkToplevel):
                         (out[:400] if out else "Deps OK") if success else f"Deps gagal: {out[:300]}"
                     ),
                 )
+            # Audio routing check — safe, no system changes
+            self.after(0, lambda: self.step_var.set("3/5: Memeriksa BlackHole & routing"))
+            try:
+                from engine.audio_capture import find_loopback_input_device
+                bh = find_loopback_input_device()
+                if bh is not None:
+                    self.after(0, lambda: self.status.set(
+                        "BlackHole terdeteksi ✓ — routing dapat diatur nanti"
+                    ))
+                else:
+                    self.after(0, lambda: self.status.set(
+                        "BlackHole tidak terdeteksi — SPK capture hanya via MIC"
+                    ))
+            except Exception:
+                self.after(0, lambda: self.status.set("Pengecekan routing: skip"))
+            self.after(0, lambda: self.step_var.set("4/5: Mengunduh binary whisper.cpp"))
             self.after(0, lambda: self.status.set("Mengunduh whisper binary…"))
             binary = ensure_whisper_binary(progress=self._set_progress)
             model = self.model_var.get()
+            self.after(0, lambda: self.step_var.set("5/5: Mengunduh model & menyimpan"))
+            self.after(0, lambda: self.status.set(f"Mengunduh model {model}…"))
             download_model(model, progress=self._set_progress)
             if self.hf_var.get().strip():
                 set_hf_token(self.hf_var.get().strip())
@@ -245,6 +272,7 @@ class SetupWizard(ctk.CTkToplevel):
 
     def _setup_done_ui(self, lib_path: str, note: str = "") -> None:
         self.progress.set(1.0)
+        self.step_var.set("✓ Setup selesai")
         self.status.set(f"Setup selesai{note} Rekaman disimpan di:\n{lib_path}")
         self._set_busy(False)
         if self._finish_btn is None:

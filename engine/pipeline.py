@@ -21,6 +21,9 @@ log = logging.getLogger("trareon.pipeline")
 
 CHUNK_SEC = 20
 AUTOSAVE_SEC = 10
+# Backpressure cap — if STT falls behind (slow model/hardware), drop the oldest
+# audio instead of growing memory unbounded for the rest of the session.
+_MAX_BUF_BYTES = SAMPLE_RATE * 2 * CHUNK_SEC * 3
 
 
 class PipelineStatus(StrEnum):
@@ -110,6 +113,14 @@ class Pipeline:
             return self._capture.levels()
         return 0.0, 0.0
 
+    def decay_levels(self, alpha: float) -> None:
+        """Apply exponential decay to the VU meter levels for smooth animation.
+
+        Must be called each tick before :meth:`levels` to avoid jarring jumps.
+        """
+        if self._capture:
+            self._capture.decay_levels(alpha)
+
     def speaker_capture_ok(self) -> bool:
         """False when loopback/speaker stream failed (mic-only degrade)."""
         if self._capture is None:
@@ -140,12 +151,20 @@ class Pipeline:
             return
         with self._lock:
             self._mic_buf.extend(pcm)
+            if len(self._mic_buf) > _MAX_BUF_BYTES:
+                excess = len(self._mic_buf) - _MAX_BUF_BYTES
+                del self._mic_buf[:excess]
+                log.warning("MIC buffer overflow — dropped %d bytes (STT falling behind)", excess)
 
     def _on_spk(self, pcm: bytes) -> None:
         if self._meeting_pause:
             return
         with self._lock:
             self._spk_buf.extend(pcm)
+            if len(self._spk_buf) > _MAX_BUF_BYTES:
+                excess = len(self._spk_buf) - _MAX_BUF_BYTES
+                del self._spk_buf[:excess]
+                log.warning("SPEAKER buffer overflow — dropped %d bytes (STT falling behind)", excess)
 
     def _chunk_loop(self) -> None:
         need = SAMPLE_RATE * 2 * CHUNK_SEC  # bytes

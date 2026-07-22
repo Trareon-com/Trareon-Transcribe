@@ -251,15 +251,20 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         bar.pack(fill="x", padx=20, pady=(0, 16))
         controls = ctk.CTkFrame(bar, fg_color="transparent")
         controls.pack(fill="x", padx=12, pady=(10, 4))
-        self.play_btn = primary_button(controls, "▶", self._toggle_play, c, width=48, height=32)
+        self.play_btn = primary_button(controls, "▶", self._toggle_play, c, width=56, height=36)
         self.play_btn.pack(side="left", padx=2)
         ghost_button(controls, "−10s", lambda: self._nudge(-10000), c, width=58).pack(side="left", padx=2)
-        self.speed_var = ctk.StringVar(value="1.0x")
-        muted(controls, "", c, textvariable=self.speed_var, width=40).pack(side="left", padx=4)
+        self.speed_var = ctk.StringVar(value="Speed: 1.0x")
+        muted(controls, "", c, textvariable=self.speed_var, width=80).pack(side="left", padx=4)
         ghost_button(controls, "+10s", lambda: self._nudge(10000), c, width=58).pack(side="left", padx=2)
-        muted(controls, "Space play/pause", c, font=ctk.CTkFont(size=11)).pack(side="left", padx=(10, 0))
+        muted(
+            controls, "Space: play/pause · Scroll: seek", c, font=ctk.CTkFont(size=10)
+        ).pack(side="left", padx=(10, 0))
         self.time_var = ctk.StringVar(value="00:00 / 00:00")
-        muted(controls, "", c, textvariable=self.time_var, font=ctk.CTkFont(size=12)).pack(side="right")
+        muted(
+            controls, "", c, textvariable=self.time_var,
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).pack(side="right")
 
         self.seek = ctk.CTkSlider(
             bar,
@@ -286,6 +291,7 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
 
     def _render_segments(self) -> None:
         c = self.colors
+        q = self.search_var.get().strip().lower()
         for w in self.list.winfo_children():
             w.destroy()
         self._seg_frames.clear()
@@ -310,12 +316,13 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         except Exception:
             wrap = 520
         for seg in segs:
+            border_c = c["accent"] if q else c["border"]
             frame = ctk.CTkFrame(
                 self.list,
                 fg_color=c["panel"],
                 corner_radius=10,
                 border_width=1,
-                border_color=c["border"],
+                border_color=border_c,
             )
             frame.pack(fill="x", pady=5, padx=2)
             top = ctk.CTkFrame(frame, fg_color="transparent")
@@ -425,6 +432,11 @@ class TranscriptPlayerWindow(ctk.CTkToplevel):
         for i, (_seg, frame) in enumerate(self._seg_frames):
             if i == idx:
                 frame.configure(fg_color=c["row_active"], border_color=c["accent"])
+                # Auto-scroll active segment into view
+                try:
+                    self.list._parent_canvas.yview_moveto(max(0, i / max(1, len(self._seg_frames) - 1)))
+                except Exception:
+                    pass
             else:
                 frame.configure(fg_color=c["panel"], border_color=c["border"])
         self._current_idx = idx

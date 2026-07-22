@@ -180,6 +180,16 @@ def ensure_whisper_binary(progress: ProgressCb | None = None) -> Path | None:
     return None
 
 
+def find_partial_models() -> list[str]:
+    """Return list of model names with partial downloads."""
+    from config.paths import models_dir
+
+    partials: list[str] = []
+    for f in models_dir().glob("*.ggml.part"):
+        partials.append(f.stem)
+    return partials
+
+
 # re-export for callers
 __all__ = [
     "MODEL_URLS",
@@ -187,5 +197,6 @@ __all__ = [
     "download_file",
     "download_model",
     "ensure_whisper_binary",
+    "find_partial_models",
     "suggest_model",
 ]

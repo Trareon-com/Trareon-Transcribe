@@ -49,14 +49,36 @@
 - [x] Unit test VAD (`tests/test_vad.py`).
 - [x] Integration test capture→VAD→STT→dedupe→export dengan fixture PCM sintetis
       (`tests/test_pipeline_integration.py`).
+- [x] Smoke test manual di MacBook nyata (macOS 26.5.2, Apple M4 Pro): setup wizard,
+      3 mode toggle default, live capture mic + whisper.cpp STT nyata, stop + export
+      3 file, theme toggle, Settings panel — semua berfungsi.
+- [x] **Bug kritis ditemukan & diperbaiki**: "Minimize to tray" meng-crash seluruh
+      proses di macOS (pystray Darwin `run()` dipanggil di background thread →
+      AppKit assertion fatal). Fix: `run_detached()` di main thread untuk macOS
+      (`ui/tray.py`). Lihat Code-Desktop.md untuk detail.
+- [ ] Verifikasi lanjut: ikon tray di status bar macOS setelah fix — visibilitas dan
+      klik-untuk-restore belum terkonfirmasi andal dalam sesi ini (`NotValidated`).
 
 ## Handoff
 - **Commit hash:** (isi saat commit)
-- **Commands actually run and results:** `pytest tests/ -q` → 69 passed; `ruff check .` → All checks passed.
+- **Commands actually run and results:** `pytest tests/ -q` → 69 passed; `ruff check .` →
+  All checks passed; manual smoke test via `scripts/run_mac_app.sh` di MacBook (macOS
+  26.5.2, Apple M4 Pro, arm64) — app launch, setup wizard, live record + real whisper.cpp
+  STT, stop, export 3 file, mode/theme toggle, Settings panel, minimize-to-tray semua
+  diverifikasi visual.
 - **Known limitations:** Intel lawas lambat di large model; detect judul mac butuh screen
   recording; VB-Audio Cable via Chocolatey mungkin perlu restart Windows agar driver aktif;
   belum ada smoke test nyata di Windows 11 VM / Mac Intel fisik dalam sesi ini — dilaporkan
-  `NotValidated`, bukan diasumsikan lulus.
+  `NotValidated`, bukan diasumsikan lulus. Branding workaround di `scripts/run_mac_app.sh`
+  (proses seharusnya bernama "TrareonTranscribe" untuk dialog izin mic) tidak melekat di
+  mesin ini — proses tetap tampil sebagai "Python" di Activity Monitor/TCC meski menu bar
+  app menampilkan nama benar; kemungkinan Homebrew framework Python me-relaunch dirinya
+  sendiri ke `Python.app` untuk GUI, membatalkan trik binary-copy. Belum diperbaiki —
+  perlu investigasi lebih lanjut (lihat Code-Desktop.md).
+  Whisper large-v3-turbo teramati mengulang satu kalimat berkali-kali pada audio
+  hening/ambigu (looping/hallucination) — perilaku umum model, bukan bug aplikasi, tapi
+  layak dimitigasi (mis. filter pengulangan identik dalam satu chunk).
 - **Unverified platforms or capabilities:** Linux; pyannote diarization (phase 2); reconnect
-  watchdog belum diuji di hardware Windows/mac fisik dengan device dicabut-pasang sungguhan.
+  watchdog belum diuji di hardware Windows/mac fisik dengan device dicabut-pasang sungguhan;
+  visibilitas ikon tray macOS pasca-fix `run_detached()`.
 - **Reviewer decision:** (ship / fix-first / blocked)
