@@ -53,11 +53,17 @@ def macos_dep_plan() -> DepPlan:
 
 def windows_dep_plan() -> DepPlan:
     cmds: list[list[str]] = []
-    # Chocolatey optional
+    manual_note = ""
     if shutil.which("choco"):
         cmds.append(["choco", "install", "ffmpeg", "-y"])
+        cmds.append(["choco", "install", "vb-cable", "-y"])
+    else:
+        manual_note = (
+            " Chocolatey tidak ditemukan — install ffmpeg dan VB-Audio Cable manual: "
+            "https://www.gyan.dev/ffmpeg/builds/ dan https://vb-audio.com/Cable/"
+        )
     return DepPlan(
-        description="Install ffmpeg (Chocolatey if available). VB-Audio Virtual Cable: install manually from https://vb-audio.com/Cable/",
+        description="Install ffmpeg + VB-Audio Virtual Cable via Chocolatey." + manual_note,
         commands=cmds,
     )
 
