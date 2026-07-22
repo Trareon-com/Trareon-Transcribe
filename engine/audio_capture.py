@@ -93,6 +93,10 @@ class AudioCapture:
         self._noise_spk = 0.045
         self.speaker_ok = True  # False when no loopback device; mic-only degrade
         self.speaker_device_resolved: Any = None
+        self._mic_cb: Callable[..., None] | None = None
+        self._spk_cb: Callable[..., None] | None = None
+        self._watch_thread: threading.Thread | None = None
+        self._watch_stop = threading.Event()
 
     def set_mic_enabled(self, enabled: bool) -> None:
         with self._lock:
@@ -222,21 +226,35 @@ class AudioCapture:
             if self.on_speaker_chunk:
                 self.on_speaker_chunk(pcm)
 
-        block = int(SAMPLE_RATE * 0.1)
+        self._mic_cb = mic_cb
+        self._spk_cb = spk_cb
+        self._block = int(SAMPLE_RATE * 0.1)
+        self._open_mic_stream()
+        self._open_spk_stream()
+
+        self._watch_stop.clear()
+        self._watch_thread = threading.Thread(
+            target=self._watchdog_loop, name="audio-watchdog", daemon=True
+        )
+        self._watch_thread.start()
+
+    def _open_mic_stream(self) -> None:
         try:
-            self._mic_stream = sd.InputStream(
+            self._mic_stream = self._sd.InputStream(
                 samplerate=SAMPLE_RATE,
                 channels=CHANNELS,
                 dtype=DTYPE,
-                blocksize=block,
+                blocksize=self._block,
                 device=self.mic_device,
-                callback=mic_cb,
+                callback=self._mic_cb,
             )
             self._mic_stream.start()
         except Exception as e:
             log.error("mic start failed: %s", e)
+            self._mic_stream = None
             raise
 
+    def _open_spk_stream(self) -> None:
         # SPK must be a virtual loopback. Default input is the mic — using it
         # makes MIC and SPK VU rise together and records the wrong source.
         spk_dev = resolve_speaker_input_device(self.speaker_device)
@@ -249,28 +267,69 @@ class AudioCapture:
             self.speaker_ok = False
             with self._lock:
                 self._spk_level = 0.0
-        else:
-            try:
-                self._spk_stream = sd.InputStream(
-                    samplerate=SAMPLE_RATE,
-                    channels=CHANNELS,
-                    dtype=DTYPE,
-                    blocksize=block,
-                    device=spk_dev,
-                    callback=spk_cb,
-                )
-                self._spk_stream.start()
-                self.speaker_ok = True
-                log.info("Speaker loopback device: %s", spk_dev)
-            except Exception as e:
-                log.warning("speaker stream failed (virtual cable?): %s", e)
-                self._spk_stream = None
-                self.speaker_ok = False
-                with self._lock:
-                    self._spk_level = 0.0
+            return
+        try:
+            self._spk_stream = self._sd.InputStream(
+                samplerate=SAMPLE_RATE,
+                channels=CHANNELS,
+                dtype=DTYPE,
+                blocksize=self._block,
+                device=spk_dev,
+                callback=self._spk_cb,
+            )
+            self._spk_stream.start()
+            self.speaker_ok = True
+            log.info("Speaker loopback device: %s", spk_dev)
+        except Exception as e:
+            log.warning("speaker stream failed (virtual cable?): %s", e)
+            self._spk_stream = None
+            self.speaker_ok = False
+            with self._lock:
+                self._spk_level = 0.0
+
+    def _watchdog_loop(self) -> None:
+        """Detect device disconnects (sleep/wake, USB unplug) and reopen streams."""
+        while not self._watch_stop.wait(2.0):
+            if not self.state.running:
+                return
+            if self._mic_stream is not None and not self._mic_stream.active:
+                log.warning("mic stream inactive — attempting reconnect")
+                try:
+                    self._mic_stream.close()
+                except Exception:
+                    pass
+                try:
+                    self._open_mic_stream()
+                    log.info("mic stream reconnected")
+                except Exception as e:
+                    log.error("mic reconnect failed: %s", e)
+            if self.speaker_device is not None or self.speaker_ok:
+                if self._spk_stream is not None and not self._spk_stream.active:
+                    log.warning("speaker stream inactive — attempting reconnect")
+                    try:
+                        self._spk_stream.close()
+                    except Exception:
+                        pass
+                    try:
+                        self._open_spk_stream()
+                        log.info("speaker stream reconnected")
+                    except Exception as e:
+                        log.error("speaker reconnect failed: %s", e)
+                elif self._spk_stream is None and find_loopback_input_device() is not None:
+                    # Loopback device appeared after startup (e.g. driver install) or
+                    # came back after being unplugged — pick it back up.
+                    log.info("loopback device now available — opening speaker stream")
+                    try:
+                        self._open_spk_stream()
+                    except Exception as e:
+                        log.debug("speaker stream retry failed: %s", e)
 
     def stop(self) -> None:
         self.state.running = False
+        self._watch_stop.set()
+        if self._watch_thread is not None:
+            self._watch_thread.join(timeout=3.0)
+        self._watch_thread = None
         for s in (self._mic_stream, self._spk_stream):
             if s is not None:
                 try:
