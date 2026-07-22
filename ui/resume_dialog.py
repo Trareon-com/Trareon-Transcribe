@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tkinter import messagebox
 
 import customtkinter as ctk
 
-from engine.session_store import delete_session, load_session
+from engine.session_store import delete_session, load_session, quarantine_session
 from ui.theme import bind_responsive, danger_button, heading, muted, paint_window, panel_frame, primary_button
 
 
@@ -52,7 +53,18 @@ class ResumeDialog(ctk.CTkToplevel):
         bind_responsive(self)
 
     def _resume(self) -> None:
-        sess = load_session(self.session_path)
+        try:
+            sess = load_session(self.session_path)
+        except Exception:
+            quarantine_session(self.session_path)
+            self.grab_release()
+            self.destroy()
+            messagebox.showerror(
+                "Sesi rusak",
+                "Data sesi sebelumnya rusak dan tidak bisa dibuka. Sesi ini diarsipkan; memulai baru.",
+            )
+            self.on_discard()
+            return
         self.grab_release()
         self.destroy()
         self.on_resume(sess)

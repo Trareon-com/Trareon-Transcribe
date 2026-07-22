@@ -51,6 +51,47 @@ def macos_dep_plan() -> DepPlan:
     )
 
 
+def setup_audio_routing() -> tuple[bool, str]:
+    """Safe audio routing check — does NOT change system audio.
+
+    Detects if BlackHole is installed and if Multi-Output routing is active.
+    Opens Audio MIDI Setup with instructions if BlackHole is installed but not routed.
+    Does NOT modify system output device or spawn background processes.
+    """
+    if sys.platform != "darwin":
+        return True, "Audio routing only needed on macOS."
+
+    # Check if BlackHole is installed
+    try:
+        from engine.audio_capture import find_loopback_input_device
+        if find_loopback_input_device() is None:
+            return True, "BlackHole belum terinstall — SPK capture hanya via MIC."
+    except Exception:
+        pass
+
+    # Check if Multi-Output routing is already active
+    try:
+        import sounddevice as sd
+        for d in sd.query_devices():
+            name = str(d.get("name", ""))
+            if "ulti-Output" in name or "Aggregate" in name:
+                if int(d.get("max_output_channels", 0)) >= 2:
+                    return True, "Multi-Output Device sudah aktif ✓"
+    except Exception:
+        pass
+
+    # BlackHole present but no routing — show instructions
+    from pathlib import Path
+    tool = Path(__file__).resolve().parent / "create_multi_output"
+    if tool.exists():
+        try:
+            subprocess.run([str(tool)], capture_output=True, timeout=15)
+        except Exception:
+            pass
+
+    return True, "Panduan routing dibuka — ikuti langkah di Audio MIDI Setup."
+
+
 def windows_dep_plan() -> DepPlan:
     cmds: list[list[str]] = []
     manual_note = ""

@@ -97,6 +97,8 @@ class AudioCapture:
         self._spk_cb: Callable[..., None] | None = None
         self._watch_thread: threading.Thread | None = None
         self._watch_stop = threading.Event()
+        self._spk_retry_count = 0
+        self._spk_retry_interval = 2.0  # seconds
 
     def set_mic_enabled(self, enabled: bool) -> None:
         with self._lock:
@@ -303,9 +305,20 @@ class AudioCapture:
                     log.info("mic stream reconnected")
                 except Exception as e:
                     log.error("mic reconnect failed: %s", e)
-            if self.speaker_device is not None or self.speaker_ok:
+            if self.state.speaker_enabled:
                 if self._spk_stream is not None and not self._spk_stream.active:
-                    log.warning("speaker stream inactive — attempting reconnect")
+                    self._spk_retry_count += 1
+                    self._spk_retry_interval = min(30.0, self._spk_retry_interval * 2)
+                    if self._spk_retry_count >= 5:
+                        log.warning(
+                            "speaker retry exhausted (%d/5) — will retry when device list changes",
+                            self._spk_retry_count,
+                        )
+                        continue
+                    log.warning(
+                        "speaker stream inactive — attempting reconnect (attempt %d/5)",
+                        self._spk_retry_count,
+                    )
                     try:
                         self._spk_stream.close()
                     except Exception:
@@ -313,11 +326,19 @@ class AudioCapture:
                     try:
                         self._open_spk_stream()
                         log.info("speaker stream reconnected")
+                        self._spk_retry_count = 0
+                        self._spk_retry_interval = 2.0
                     except Exception as e:
-                        log.error("speaker reconnect failed: %s", e)
+                        log.error(
+                            "speaker reconnect failed (%d/5): %s",
+                            self._spk_retry_count,
+                            e,
+                        )
                 elif self._spk_stream is None and find_loopback_input_device() is not None:
                     # Loopback device appeared after startup (e.g. driver install) or
-                    # came back after being unplugged — pick it back up.
+                    # came back after being unplugged — pick it back up, reset retries.
+                    self._spk_retry_count = 0
+                    self._spk_retry_interval = 2.0
                     log.info("loopback device now available — opening speaker stream")
                     try:
                         self._open_spk_stream()

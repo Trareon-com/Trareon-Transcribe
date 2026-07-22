@@ -81,6 +81,8 @@ class LibraryWindow(ctk.CTkToplevel):
         )
         entry.pack(fill="x")
         self._search_after: str | None = None
+        self._row_data: dict[Path, dict] = {}
+        self.result_count_var = ctk.StringVar(value="")
 
         def _schedule_search(_e=None) -> None:  # noqa: ANN001
             if self._search_after is not None:
@@ -91,6 +93,18 @@ class LibraryWindow(ctk.CTkToplevel):
             self._search_after = self.after(120, self.refresh)
 
         entry.bind("<KeyRelease>", _schedule_search)
+
+        count_row = ctk.CTkFrame(self, fg_color="transparent")
+        count_row.pack(fill="x", padx=24, pady=(0, 2))
+        self.result_count_lbl = ctk.CTkLabel(
+            count_row,
+            textvariable=self.result_count_var,
+            text_color=self.colors["muted"],
+            font=ctk.CTkFont(size=11),
+            anchor="w",
+            justify="left",
+        )
+        self.result_count_lbl.pack(fill="x")
 
         panel = panel_frame(self, c)
         panel.pack(fill="both", expand=True, padx=22, pady=(4, 18))
@@ -140,6 +154,7 @@ class LibraryWindow(ctk.CTkToplevel):
         except Exception:
             self.storage_var.set("")
         metas = list_sessions(self.library_root)
+        total_before = len(metas)
         q = (self.search_var.get() or "").strip().lower()
         if q:
             metas = [
@@ -149,6 +164,9 @@ class LibraryWindow(ctk.CTkToplevel):
                 or q in (m.mode or "").lower()
                 or q in (m.folder_name or "").lower()
             ]
+        self.result_count_var.set(
+            f"{len(metas)} hasil untuk «{q}»" if q else (f"{total_before} sesi" if total_before else "")
+        )
         try:
             wide = int(self.winfo_width()) >= 820
         except Exception:
@@ -159,9 +177,9 @@ class LibraryWindow(ctk.CTkToplevel):
             wrap.pack(fill="x", pady=48)
             muted(
                 wrap,
-                "Tidak ada hasil" if q else "Belum ada rekaman",
+                "📁  " + ("Tidak ada hasil" if q else "Belum ada rekaman"),
                 c,
-                font=ctk.CTkFont(size=15, weight="bold"),
+                font=ctk.CTkFont(size=18, weight="bold"),
                 text_color=c["text"],
             ).pack()
             muted(
@@ -175,6 +193,15 @@ class LibraryWindow(ctk.CTkToplevel):
                 wraplength=420,
                 justify="center",
             ).pack(pady=(6, 0))
+            if not q:
+                muted(
+                    wrap,
+                    "🎤  Tekan Start di jendela utama untuk memulai rekaman baru.",
+                    c,
+                    wraplength=420,
+                    justify="center",
+                    font=ctk.CTkFont(size=13),
+                ).pack(pady=(14, 0))
             return
         for meta in metas:
             folder = self.library_root / (meta.folder_name or "")
@@ -189,6 +216,18 @@ class LibraryWindow(ctk.CTkToplevel):
                 border_color=c["border"],
             )
             row.pack(fill="x", pady=5)
+            def _enter(_e, rr=row, hl=c["row_active"]):
+                rr.configure(fg_color=hl)
+            def _leave(_e, rr=row, orig=c["row"]):
+                rr.configure(fg_color=orig)
+            try:
+                row.bind("<Enter>", _enter, add=True)
+            except Exception:
+                pass
+            try:
+                row.bind("<Leave>", _leave, add=True)
+            except Exception:
+                pass
 
             body = ctk.CTkFrame(row, fg_color="transparent")
             body.pack(fill="x", padx=16, pady=14)
@@ -201,7 +240,7 @@ class LibraryWindow(ctk.CTkToplevel):
             info = ctk.CTkFrame(body, fg_color="transparent")
             info.pack(side="left", fill="x", expand=True)
 
-            ctk.CTkLabel(
+            title_label = ctk.CTkLabel(
                 info,
                 text=title,
                 anchor="w",
@@ -209,15 +248,19 @@ class LibraryWindow(ctk.CTkToplevel):
                 wraplength=480 if wide else 360,
                 font=ctk.CTkFont(size=15, weight="bold"),
                 text_color=c["text"],
-            ).pack(fill="x", anchor="w")
-            muted(
+            )
+            title_label.pack(fill="x", anchor="w")
+            meta_label = muted(
                 info,
-                f"{when}  ·  {meta.mode}  ·  {_fmt_dur(meta.duration_sec)}  ·  {size_mb:.1f} MB",
+                f"📅 {when}  ·  {meta.mode}  ·  {_fmt_dur(meta.duration_sec)}  ·  {size_mb:.1f} MB",
                 c,
                 wraplength=480 if wide else 360,
                 anchor="w",
                 justify="left",
-            ).pack(fill="x", anchor="w", pady=(3, 0 if wide else 10))
+                font=ctk.CTkFont(size=11),
+            )
+            meta_label.pack(fill="x", anchor="w", pady=(3, 0 if wide else 10))
+            self._row_data[folder] = {"title": title_label, "info": info, "meta": meta, "row": row, "meta_label": meta_label}
 
             if not wide:
                 actions.pack(fill="x", pady=(8, 0))
@@ -264,21 +307,87 @@ class LibraryWindow(ctk.CTkToplevel):
         )
 
     def _rename(self, path: Path) -> None:
-        sess = load_session(path)
-        dialog = ctk.CTkInputDialog(text="Judul baru:", title="Rename")
-        new = dialog.get_input()
-        if not new:
+        self._start_inline_rename(path)
+
+    def _start_inline_rename(self, folder: Path) -> None:
+        """Inline-rename a session by replacing the title label with an entry."""
+        row_data = self._row_data.get(folder)
+        if row_data is None:
             return
-        update_title(sess, new)
-        rename_session_folder(sess)
-        self.refresh()
+        title_label = row_data["title"]
+        info = row_data["info"]
+        meta = row_data["meta"]
+        current_title = (meta.title or "").strip()
+
+        # Hide the title label
+        title_label.pack_forget()
+
+        entry = ctk.CTkEntry(
+            info,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=self.colors["text"],
+            fg_color=self.colors["bg"],
+            border_color=self.colors["accent"],
+            border_width=2,
+            corner_radius=6,
+            height=28,
+        )
+        entry.insert(0, current_title)
+        entry.select_range(0, "end")
+        entry.focus_set()
+        entry.pack(fill="x", anchor="w", before=row_data.get("meta_label"))
+
+        def _commit() -> None:
+            new = entry.get().strip()
+            entry.pack_forget()
+            title_label.pack(fill="x", anchor="w")
+            if new and new != current_title:
+                try:
+                    sess = load_session(folder)
+                    update_title(sess, new)
+                    rename_session_folder(sess)
+                    self.refresh()
+                except Exception:
+                    pass
+            else:
+                title_label.configure(text=current_title)
+
+        def _cancel() -> None:
+            entry.pack_forget()
+            title_label.pack(fill="x", anchor="w")
+            title_label.configure(text=current_title)
+
+        entry.bind("<Return>", lambda _e: _commit())
+        entry.bind("<Escape>", lambda _e: _cancel())
+        entry.bind(
+            "<FocusOut>",
+            lambda _e: self.after(100, _commit) if self._focus_still_in_entry(entry) else _commit(),
+        )
+
+    @staticmethod
+    def _focus_still_in_entry(entry: ctk.CTkEntry) -> bool:
+        """Check if focus moved within the entry (e.g. right-click menu)."""
+        try:
+            focused = entry.focus_get()
+            return focused is entry
+        except Exception:
+            return False
 
     def _delete(self, path: Path) -> None:
         try:
             title = load_session(path).meta.title or path.name
         except Exception:
             title = path.name
-        if not messagebox.askyesno("Hapus sesi", f"Hapus «{title}»?\nFile audio & transcript akan dihapus."):
+        try:
+            size_bytes = session_disk_bytes(path)
+            size_mb = size_bytes / (1024 * 1024)
+            size_hint = f" ({size_mb:.1f} MB dapat dibebaskan)"
+        except Exception:
+            size_hint = ""
+        if not messagebox.askyesno(
+            "Hapus sesi",
+            f"Hapus «{title}»?{size_hint}\nFile audio & transcript akan dihapus.",
+        ):
             return
         delete_session(path, self.library_root)
         self.refresh()

@@ -63,3 +63,17 @@
   `tests/test_pipeline_integration.py` (integration, fixture PCM sintetis melalui
   capture→VAD→STT stub→dedupe→export, tanpa bergantung pada binary whisper.cpp asli
   atau hardware audio).
+- 2026-07-22: **Bug kritis ditemukan & diperbaiki via smoke test manual di MacBook**:
+  "Minimize to tray" meng-crash seluruh proses aplikasi di macOS (EXC_BREAKPOINT —
+  "NSUpdateCycleInitialize() is called off the main thread", crash report
+  `Python-2026-07-22-212645.ips`). Penyebab: `ui/tray.py` menjalankan
+  `pystray.Icon.run()` di background thread; backend Darwin pystray mewajibkan
+  `run()` dipanggil dari main thread (AppKit/NSStatusBar). Diperbaiki dengan memakai
+  `run_detached()` di main thread khusus untuk `sys.platform == "darwin"` (Tk sudah
+  memompa NSApplication run loop bersama di main thread), branch non-macOS tetap
+  memakai `run()` di thread terpisah seperti semula. Diverifikasi: window
+  minimize tanpa crash, proses tetap hidup di background (`ps aux` mengonfirmasi).
+  Known limitation: ikon status bar tray belum terkonfirmasi visual/clickable dalam
+  kombinasi Tk+pystray+`run_detached()` ini — restore window sejauh ini belum
+  teruji andal selain relaunch; perlu verifikasi lanjut di mesin nyata dengan Dock
+  terlihat.

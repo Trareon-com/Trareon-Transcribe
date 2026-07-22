@@ -88,3 +88,23 @@ def test_echo_dedupe_drops_speaker_repeat_in_rapat_online(pipeline: Pipeline):
     # rapat_online dedupe should drop it.
     pipeline._process_chunk("SPEAKER", _speech_pcm())
     assert len(pipeline.session.segments) == 1
+
+
+def test_mic_buffer_is_capped_when_stt_falls_behind(pipeline: Pipeline):
+    from engine.pipeline import _MAX_BUF_BYTES
+
+    huge_chunk = _silence_pcm(ms=2000)  # far more than one poll's worth
+    for _ in range(10):
+        pipeline._on_mic(huge_chunk)
+
+    assert len(pipeline._mic_buf) <= _MAX_BUF_BYTES
+
+
+def test_spk_buffer_is_capped_when_stt_falls_behind(pipeline: Pipeline):
+    from engine.pipeline import _MAX_BUF_BYTES
+
+    huge_chunk = _silence_pcm(ms=2000)
+    for _ in range(10):
+        pipeline._on_spk(huge_chunk)
+
+    assert len(pipeline._spk_buf) <= _MAX_BUF_BYTES

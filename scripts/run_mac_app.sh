@@ -72,7 +72,10 @@ chmod +x "$APP/Contents/MacOS/${EXE_NAME}"
 /usr/bin/touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
 
-rm -f "$HOME/Library/Application Support/TrareonTranscribe/instance.lock"
+# Do NOT blindly delete instance.lock here — config/instance_lock.py already
+# does correct PID-liveness-based stale-lock detection at startup. Deleting
+# the file unconditionally let two live instances both acquire a fresh flock
+# on the recreated inode, spawning two visible windows.
 
 if [[ $# -gt 0 ]]; then
   open "$APP" --args "$@"

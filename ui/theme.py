@@ -10,58 +10,65 @@ from typing import Any
 
 import customtkinter as ctk
 
-# Contrast notes (approx vs panel):
-# light text #14181F on #FFFFFF ≈ 16:1; muted #4B5563 ≈ 7:1; border #B8C0CC ≈ 2.9–3:1
-# dark text #F2F4F7 on #262B32 ≈ 12:1; muted #B0B8C2 ≈ 5.5:1; on_accent dark on mint ≈ 7:1
+# Contrast ratios calculated via WCAG 2.0 relative luminance formula.
+# Each key color annotated with its contrast ratio against the relevant background.
 COLORS = {
     "light": {
         # Matches main-window redesign mockup (forest green on cool grey).
         "bg": "#F4F6F8",
         "panel": "#FFFFFF",
-        "text": "#14181F",
-        "muted": "#5B6570",
-        "label": "#374151",
+        "text": "#14181F",           # 16.4:1 on bg · 17.8:1 on panel — AA ✓
+        "muted": "#4B5563",          # 7.6:1 on #FFFFFF panel — AA ✓
+        "label": "#374151",          # 10.3:1 on panel — AA ✓
         "accent": "#0E5C40",
         "accent_soft": "#E6F5EE",
         "accent_hover": "#0A4A33",
-        "on_accent": "#FFFFFF",
+        "on_accent": "#FFFFFF",      # 8.0:1 on #0E5C40 accent — AA ✓
         "danger": "#B91C1C",
         "danger_hover": "#991B1B",
-        "partial": "#6B7280",
-        "border": "#D5DAE1",
-        "spk": "#1F2937",
+        "partial": "#6B7280",        # 4.8:1 on panel — AA ✓
+        "border": "#D5DAE1",         # 1.4:1 on panel — sub-3:1 (intentional decorative)
+        "spk": "#1F2937",            # 14.7:1 on panel — AA ✓
         "mic": "#0E5C40",
         "row": "#EEF1F4",
         "row_active": "#D8F0E4",
         "hud_fg": "#0E5C40",
-        "vu_off": "#C5CDD6",
+        "vu_off": "#C5CDD6",         # decorative only (meter segments)
         "warn_bg": "#FEF2F2",
         "warn_border": "#FECACA",
     },
     "dark": {
         "bg": "#12151A",
         "panel": "#1E242C",
-        "text": "#F2F4F7",
-        "muted": "#B0B8C2",
-        "label": "#C5CDD6",
+        "text": "#F2F4F7",           # 16.6:1 on bg · 14.2:1 on panel — AA ✓
+        "muted": "#B0B8C2",          # 7.8:1 on panel — AA ✓
+        "label": "#C5CDD6",          # 9.7:1 on panel — AA ✓
         "accent": "#3DDC97",
         "accent_soft": "#163528",
         "accent_hover": "#55E5A8",
-        "on_accent": "#0B1A14",
+        "on_accent": "#0B1A14",      # 10.1:1 on #3DDC97 accent — AA ✓
         "danger": "#F07167",
         "danger_hover": "#F48B82",
-        "partial": "#A8B0BA",
-        "border": "#5A6572",
-        "spk": "#F2F4F7",
+        "partial": "#A8B0BA",        # 7.1:1 on panel — AA ✓
+        "border": "#5A6572",         # 2.6:1 on panel — sub-3:1 (intentional decorative)
+        "spk": "#F2F4F7",            # 14.2:1 on panel — AA ✓
         "mic": "#3DDC97",
         "row": "#181D24",
         "row_active": "#163528",
         "hud_fg": "#8AF0C0",
-        "vu_off": "#4A5560",
+        "vu_off": "#4A5560",         # decorative only (meter segments)
         "warn_bg": "#3A1F1F",
         "warn_border": "#6B3030",
     },
 }
+
+
+# Layout constants (shared across all UI modules)
+PAD = 18
+RADIUS = 12
+BUTTON_RADIUS = 8
+SECTION_PAD = 14
+CARD_PAD = 16
 
 
 def apply_theme(mode: str) -> dict[str, str]:

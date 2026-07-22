@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -40,6 +41,20 @@ class TrayController:
             pystray.MenuItem("Quit", lambda: self.on_quit()),
         )
         self._icon = pystray.Icon("TrareonTranscribe", image, APP_NAME, menu)
+
+        if sys.platform == "darwin":
+            # pystray's macOS backend wraps AppKit/NSStatusBar, which asserts if
+            # driven off the main thread (fatal EXC_BREAKPOINT — takes the whole
+            # app down, not just the tray). Tk's Cocoa integration already pumps
+            # the shared NSApplication run loop on the main thread, so we only
+            # need to mark the status item ready here; call this from the Tk
+            # callback (main thread), never from a background thread.
+            try:
+                self._icon.run_detached()
+            except Exception:
+                log.warning("tray run_detached failed — tray disabled", exc_info=True)
+                self._icon = None
+            return
 
         def run() -> None:
             assert self._icon is not None

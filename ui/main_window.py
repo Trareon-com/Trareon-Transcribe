@@ -85,9 +85,12 @@ class MainWindow(ctk.CTk):
         self._layout_mode: str | None = None
         self._auto_scroll = True
         self._mic_blink_on = False
+        self._mic_blink_timer: str | None = None
         self._partial_mark: str | None = None
         self._conf_scores: list[float] = []
         self._banner_dismissed = False
+        self._rec_dot_sym = "●"
+        self._rec_dot_timer: str | None = None
         font_size = max(12, min(24, int(getattr(settings, "caption_font_size", 16) or 16)))
         self._caption_font_size = font_size
 
@@ -385,7 +388,7 @@ class MainWindow(ctk.CTk):
         foot.pack(fill="x", padx=pad, pady=(0, 14))
         ctk.CTkButton(
             foot,
-            text="↧↧  Minimize to tray",
+            text="⌄  Minimize to tray",
             command=self._minimize_tray,
             height=28,
             width=168,
@@ -432,8 +435,8 @@ class MainWindow(ctk.CTk):
     def _footer_status_text(self) -> str:
         # Mock copy; note pyannote when diarization is off.
         if self.settings.diarization_enabled:
-            return "Diarization aktif · Pembicara dipisahkan otomatis (MIC / SPK)."
-        return "Diarization siap di Settings · Label MIC / SPK aktif di caption."
+            return "👥  Diarization aktif · Pembicara dipisahkan otomatis (MIC / SPK)."
+        return "👥  Diarization siap di Settings · Label MIC / SPK aktif di caption."
 
     def _sync_status_band(self) -> None:
         """Warnings only above caption — ready status lives in the footer (no empty gap)."""
@@ -457,7 +460,7 @@ class MainWindow(ctk.CTk):
         # ready_label kept for bind_responsive but not packed — shown via ready_foot.
         try:
             mapped = bool(self.status_box.winfo_ismapped())
-        except Exception:
+        except (tk.TclError, RuntimeError):
             mapped = False
         c = self.colors
         try:
@@ -465,7 +468,7 @@ class MainWindow(ctk.CTk):
                 fg_color=c.get("warn_bg", "#FEF2F2"),
                 border_color=c.get("warn_border", "#FECACA"),
             )
-        except Exception:
+        except (tk.TclError, RuntimeError):
             pass
         if shown:
             self._status_body.pack(side="left", fill="x", expand=True, padx=(12, 4), pady=8)
@@ -500,7 +503,7 @@ class MainWindow(ctk.CTk):
         """Wide = mock row (left title·modes / right VU·actions); narrow = stacked."""
         try:
             w = int(self.winfo_width())
-        except Exception:
+        except (tk.TclError, ValueError, RuntimeError):
             return
         sync_responsive(self)
         if not hasattr(self, "_toolbar"):
@@ -512,7 +515,7 @@ class MainWindow(ctk.CTk):
                 if getattr(self, "_narrow_row", None) is not None:
                     try:
                         self._narrow_row.destroy()
-                    except Exception:
+                    except (tk.TclError, RuntimeError):
                         pass
                     self._narrow_row = None
                 for child in (self._title_wrap, self._modes_frame, self._meters, self._actions):
@@ -539,7 +542,7 @@ class MainWindow(ctk.CTk):
                     row.pack(side="top", fill="x")
                     self._meters.pack(in_=row, side="left")
                     self._actions.pack(in_=row, side="right")
-            except Exception:
+            except (tk.TclError, RuntimeError):
                 pass
         if hasattr(self, "foot_hint"):
             try:
@@ -548,12 +551,12 @@ class MainWindow(ctk.CTk):
                     anchor="e" if w >= 720 else "w",
                     justify="right" if w >= 720 else "left",
                 )
-            except Exception:
+            except (tk.TclError, RuntimeError):
                 pass
         if hasattr(self, "ready_foot"):
             try:
                 self.ready_foot.configure(wraplength=max(160, w - 420))
-            except Exception:
+            except (tk.TclError, RuntimeError):
                 pass
 
     def _bind_keys(self) -> None:
@@ -634,7 +637,7 @@ class MainWindow(ctk.CTk):
         if self._recording and self.pipeline and not self.pipeline.speaker_capture_ok():
             msgs.append(
                 "⚠ Speaker capture tidak aktif — rekaman mic tetap jalan. "
-                "Pasang VB-Cable (Win) / BlackHole (Mac)."
+                "Pasang VB-Cable (Win) / BlackHole (Mac) → klik Bantuan untuk instruksi lengkap."
             )
         self.banner_var.set("\n".join(msgs))
         self._sync_status_band()
@@ -697,8 +700,8 @@ class MainWindow(ctk.CTk):
         elif not self._recording and status.lower() == "idle":
             status = "Idle"
         conf = self.conf_var.get() or "Conf -"
-        # Mock: ● Listening · 00:14:32 · Conf 90%
-        self.hud_var.set(f"●  {status}  ·  {self.timer_var.get()}  ·  {conf}")
+        dot = self._rec_dot_sym if self._recording else "●"
+        self.hud_var.set(f"{dot}  {status}  ·  {self.timer_var.get()}  ·  {conf}")
         try:
             c = self.colors
             self.hud_pill.configure(fg_color=c["accent_soft"] if self._recording else c["panel"])
@@ -754,7 +757,7 @@ class MainWindow(ctk.CTk):
                 self._mic_blink_on = True
                 self._blink_mic()
         else:
-            self._mic_blink_on = False
+            self._stop_mic_blink()
             self.mic_warn.configure(text="", cursor="")
             self.mic_warn.unbind("<Button-1>")
         self._sync_status_band()
@@ -770,7 +773,17 @@ class MainWindow(ctk.CTk):
         except Exception:
             current = on
         self.mic_warn.configure(text_color=off if current == on else on)
-        self.after(600, self._blink_mic)
+        self._mic_blink_timer = self.after(600, self._blink_mic)
+
+    def _stop_mic_blink(self) -> None:
+        """Cancel the blink timer and reset state."""
+        self._mic_blink_on = False
+        if self._mic_blink_timer is not None:
+            try:
+                self.after_cancel(self._mic_blink_timer)
+            except Exception:
+                pass
+            self._mic_blink_timer = None
 
     def _on_title_edit(self) -> None:
         title = self.title_var.get().strip()
@@ -782,12 +795,19 @@ class MainWindow(ctk.CTk):
         self.settings.theme = "dark" if self.settings.theme != "dark" else "light"
         self.colors = apply_theme(self.settings.theme)
         self.settings.save()
+        # Stop blink and VU timers before rebuilding UI to avoid orphan callbacks.
+        self._stop_mic_blink()
+        self._stop_meters()
         caption = ""
         try:
             caption = self.caption.get("1.0", "end-1c")
         except Exception:
             pass
         recording = self._recording
+        # Cover the window during rebuild to prevent flash.
+        overlay = ctk.CTkFrame(self, fg_color=self.colors["bg"], corner_radius=0)
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.update_idletasks()
         # Never destroy Library/Settings/Export toplevels — only rebuild main chrome.
         for child in list(self.winfo_children()):
             try:
@@ -818,6 +838,8 @@ class MainWindow(ctk.CTk):
         self._repaint_toplevels()
         if not recording:
             self.after(100, self._start_meters)
+        # Remove the flash-prevention overlay after the rebuild is rendered.
+        self.after(50, overlay.destroy)
 
     def _restore_caption_text(self, text: str) -> None:
         """Re-insert caption with MIC/SPK color tags after theme rebuild."""
@@ -936,12 +958,43 @@ class MainWindow(ctk.CTk):
         self.settings.save()
         self._update_tone_banner()
         self._refresh_hud()
+        self._start_rec_dot_pulse()
+
+    def _start_rec_dot_pulse(self) -> None:
+        """Pulse the recording dot (● ⇄ ○) while recording."""
+        self._rec_dot_sym = "◉"
+
+        def _pulse_dot() -> None:
+            if not self._recording or self._quitting:
+                self._rec_dot_sym = "●"
+                self._rec_dot_timer = None
+                self._refresh_hud()
+                return
+            self._rec_dot_sym = "○" if self._rec_dot_sym == "◉" else "◉"
+            self._refresh_hud()
+            self._rec_dot_timer = self.after(800, _pulse_dot)
+
+        if self._rec_dot_timer is not None:
+            try:
+                self.after_cancel(self._rec_dot_timer)
+            except Exception:
+                pass
+        self._rec_dot_timer = self.after(800, _pulse_dot)
 
     def _stop_record(self) -> None:
         if self.pipeline:
             self.session = self.pipeline.stop()
         self.pipeline = None
         self._recording = False
+        self.timer_var.set("00:00:00")  # reset timer display
+        # Stop recording dot pulse
+        self._rec_dot_sym = "●"
+        if self._rec_dot_timer is not None:
+            try:
+                self.after_cancel(self._rec_dot_timer)
+            except Exception:
+                pass
+            self._rec_dot_timer = None
         self.start_btn.configure(
             text="▶  Start",
             fg_color=self.colors["accent"],
@@ -953,6 +1006,19 @@ class MainWindow(ctk.CTk):
         self._start_meters()
         self._refresh_hud()
         if self.session:
+            n_seg = len(self.session.segments)
+            dur = self.session.meta.duration_sec
+            if dur > 0:
+                h, rem = divmod(int(dur), 3600)
+                m, s = divmod(rem, 60)
+                dur_str = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+            else:
+                dur_str = "—"
+            summary = (
+                f"✓  Sesi selesai  ·  {dur_str}  ·  {n_seg} segmen\n\n"
+                f"Export atau buka Library untuk putar ulang."
+            )
+            self._show_summary_overlay(summary)
             msg = "Sesi selesai · Export atau buka Library untuk putar ulang"
             self.ready_var.set(msg)
             if hasattr(self, "foot_hint"):
@@ -995,6 +1061,17 @@ class MainWindow(ctk.CTk):
             pass
         self._set_empty_overlay(True)
 
+    def _show_summary_overlay(self, text: str) -> None:
+        """Show session-completed summary in the caption area instead of the empty idle state."""
+        self.caption.delete("1.0", "end")
+        self._partial_mark = None
+        self._caption_final_count = 0
+        try:
+            self._empty_overlay.configure(text=text)
+        except Exception:
+            pass
+        self._set_empty_overlay(True)
+
     def _caption_menu(self, event=None) -> str:  # noqa: ANN001
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="Clear caption", command=self._clear_caption)
@@ -1011,6 +1088,8 @@ class MainWindow(ctk.CTk):
         self.font_var.set(str(size))
         self._on_font_change(str(size))
 
+    _MAX_CAPTION_SEGMENTS = 500
+
     def _insert_caption_line(self, seg: TranscriptSegment, *extra: str) -> None:
         """MIC/SPK label colored; body uses final/partial — matches design guide."""
         self._set_empty_overlay(False)
@@ -1020,6 +1099,26 @@ class MainWindow(ctk.CTk):
         # Label color only (CTk Textbox forbids per-tag fonts).
         self.caption.insert("end", label, (src,))
         self.caption.insert("end", f"  {seg.text}\n\n", (body_tag,))
+        if body_tag == "final":
+            self._caption_final_count = getattr(self, "_caption_final_count", 0) + 1
+            if self._caption_final_count > self._MAX_CAPTION_SEGMENTS:
+                self._trim_caption_head()
+
+    def _trim_caption_head(self, n: int = 50) -> None:
+        """Drop the oldest ~n rendered segments from the Tk widget only.
+
+        self.session.segments (what export/writer.py reads) is untouched —
+        this is purely a rendering-performance cap for very long sessions.
+        """
+        try:
+            was_at_bottom = self._auto_scroll
+            trim_to = self.caption.index(f"1.0 + {n * 2} lines")
+            self.caption.delete("1.0", trim_to)
+            self._caption_final_count = max(0, self._caption_final_count - n)
+            if was_at_bottom:
+                self.caption.see("end")
+        except tk.TclError:
+            pass
 
     def _on_segment(self, seg: TranscriptSegment) -> None:
         if not seg.is_final:
@@ -1063,6 +1162,7 @@ class MainWindow(ctk.CTk):
     def _clear_caption(self) -> None:
         self._show_caption_empty()
         self._auto_scroll = True
+        self._caption_final_count = 0
 
     def _on_scroll(self, _event=None) -> None:  # noqa: ANN001
         # If not at bottom, disable auto-scroll
@@ -1098,6 +1198,8 @@ class MainWindow(ctk.CTk):
         )
 
     def _after_settings(self) -> None:
+        old_model = self.settings.model
+        old_diar = self.settings.diarization_enabled
         self.settings = Settings.load()
         self.attributes("-topmost", self.settings.always_on_top)
         self.refresh_readiness()
@@ -1106,6 +1208,14 @@ class MainWindow(ctk.CTk):
                 self.foot_hint.configure(text=self._footer_status_text())
             except Exception:
                 pass
+        if self._recording and (
+            self.settings.model != old_model or self.settings.diarization_enabled != old_diar
+        ):
+            messagebox.showinfo(
+                "Perubahan diterapkan sesi berikutnya",
+                "Perubahan model Whisper / diarization berlaku mulai sesi rekaman "
+                "berikutnya, bukan sesi yang sedang berjalan.",
+            )
 
     def _minimize_tray(self) -> None:
         self.tray.start()
@@ -1116,6 +1226,8 @@ class MainWindow(ctk.CTk):
         self.lift()
 
     def _poll(self) -> None:
+        if self._quitting:
+            return
         self.events.drain()
         if self._recording and self.pipeline:
             sec = int(self.pipeline.elapsed_sec())
@@ -1126,6 +1238,8 @@ class MainWindow(ctk.CTk):
         self.after(200, self._poll)
 
     def _tick_resources(self) -> None:
+        if self._quitting:
+            return
         from util.resources import sample_resources
 
         self.res_var.set(sample_resources())
@@ -1156,26 +1270,26 @@ class MainWindow(ctk.CTk):
                 pass
             self._meter = None
 
+    def _revive_meters(self) -> None:
+        """Single-attempt VU meter revive after PortAudio drop."""
+        self._meter_revive_pending = False
+        self._start_meters()
+
     def _tick_vu(self) -> None:
+        if self._quitting:
+            return
         mic = spk = 0.0
-        src = None
-        if self._recording and self.pipeline and self.pipeline._capture:  # noqa: SLF001
-            src = self.pipeline._capture  # noqa: SLF001
+        if self._recording and self.pipeline:
+            self.pipeline.decay_levels(0.85)
+            mic, spk = self.pipeline.levels()
         elif self._meter is not None and self._meter.state.running:
-            src = self._meter
+            self._meter.decay_levels(0.85)
+            mic, spk = self._meter.levels()
         else:
             # Revive idle meters once if PortAudio dropped them (no retry storm).
             if not self._recording and not self._meter_revive_pending and not self._quitting:
                 self._meter_revive_pending = True
-
-                def _revive() -> None:
-                    self._meter_revive_pending = False
-                    self._start_meters()
-
-                self.after(400, _revive)
-        if src is not None:
-            src.decay_levels(0.85)
-            mic, spk = src.levels()
+                self.after(400, self._revive_meters)
         # Deadzone — sub-threshold wiggle never paints as movement.
         if mic < 0.06:
             mic = 0.0
@@ -1196,6 +1310,7 @@ class MainWindow(ctk.CTk):
                 self.session = sess
                 self.title_var.set(sess.meta.title)
                 self.caption.delete("1.0", "end")
+                self._caption_final_count = 0
                 self._conf_scores.clear()
                 for seg in sess.segments:
                     if seg.is_final:
@@ -1230,11 +1345,21 @@ class MainWindow(ctk.CTk):
         self.settings.save()
 
     def _on_close(self) -> None:
+        self._quitting = True
         if self._recording:
             if not self._confirm_stop():
+                self._quitting = False
                 return
             self._stop_record()
+        self._stop_mic_blink()
         self._stop_meters()
+        # Cancel pending recording dot timer.
+        if self._rec_dot_timer is not None:
+            try:
+                self.after_cancel(self._rec_dot_timer)
+            except Exception:
+                pass
+            self._rec_dot_timer = None
         self._persist_geometry()
         self.tray.stop()
         self.destroy()

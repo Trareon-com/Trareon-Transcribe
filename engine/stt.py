@@ -83,7 +83,10 @@ def find_whisper_binary() -> Path | None:
 
 
 def find_model(name: str = "medium") -> Path | None:
-    fname = MODEL_FILES.get(name, f"ggml-{name}.bin")
+    if name not in MODEL_FILES:
+        log.warning("Unknown/unsafe model name %r — falling back to 'medium'", name)
+        name = "medium"
+    fname = MODEL_FILES[name]
     p = models_dir() / fname
     return p if p.exists() else None
 

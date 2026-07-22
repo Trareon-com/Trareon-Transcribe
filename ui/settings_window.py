@@ -16,7 +16,7 @@ from config.version import __version__
 from engine.audio_capture import AudioCapture
 from engine.stt import WhisperCppStt
 from engine.tone_test import run_tone_test
-from setup.model_dl import download_model, ensure_whisper_binary
+from setup.model_dl import download_model, ensure_whisper_binary, find_partial_models
 from setup.whisper_models import WHISPER_MODELS
 from ui.theme import (
     bind_responsive,
@@ -71,7 +71,10 @@ class SettingsWindow(ctk.CTkToplevel):
         form.pack(fill="both", expand=True, padx=14, pady=14)
 
         def _section(title: str) -> None:
-            field_label(form, title, c).pack(anchor="w", pady=(10, 4))
+            """Section header with top separator line."""
+            sep = ctk.CTkFrame(form, fg_color=c["border"], height=1)
+            sep.pack(fill="x", pady=(14, 8))
+            field_label(form, title, c).pack(anchor="w", pady=(0, 4))
 
         _section("Model & library")
         ctk.CTkOptionMenu(
@@ -108,10 +111,22 @@ class SettingsWindow(ctk.CTkToplevel):
             ).pack(anchor="w", fill="x", pady=3)
 
         _section("Diarization (pyannote)")
-        styled_entry(form, c, textvariable=self.hf_var, show="•").pack(anchor="w", fill="x", pady=(0, 4))
+        hf_row = ctk.CTkFrame(form, fg_color="transparent")
+        hf_row.pack(anchor="w", fill="x", pady=(0, 4))
+        styled_entry(hf_row, c, textvariable=self.hf_var, show="•").pack(side="left", fill="x", expand=True)
+        token = self.hf_var.get().strip() or get_hf_token()
+        self.hf_dot = ctk.CTkLabel(
+            hf_row,
+            text="●" if token else "○",
+            text_color=c["accent"] if token else c["muted"],
+            font=ctk.CTkFont(size=16),
+            width=24,
+        )
+        self.hf_dot.pack(side="left", padx=(6, 0))
+        self.hf_var.trace_add("write", self._update_hf_dot)
         from engine.diarization import pyannote_status
 
-        self.hf_status = ctk.StringVar(value=pyannote_status(self.hf_var.get().strip() or get_hf_token()))
+        self.hf_status = ctk.StringVar(value=pyannote_status(token))
         self.hf_status_lbl = muted(form, "", c, textvariable=self.hf_status, wraplength=400, anchor="w")
         self.hf_status_lbl.pack(anchor="w", fill="x", pady=(0, 6))
 
@@ -135,6 +150,17 @@ class SettingsWindow(ctk.CTkToplevel):
             row.pack(fill="x", pady=3)
             for label, cmd, w in texts:
                 ghost_button(row, label, cmd, c, width=w).pack(side="left", padx=(0, 6), pady=2)
+
+        from setup.model_dl import find_partial_models as _find_partial
+
+        _partials = _find_partial()
+        if _partials:
+            muted(form, f"⚠ Unduhan terputus: {', '.join(_partials)}", c, wraplength=400).pack(
+                anchor="w", pady=(4, 2)
+            )
+            ghost_button(form, "Lanjutkan unduhan", self._resume_downloads, c, width=140).pack(
+                anchor="w", pady=(0, 8)
+            )
 
         self.bar = ctk.CTkProgressBar(form, progress_color=c["accent"])
         self.bar.set(0)
@@ -171,7 +197,7 @@ class SettingsWindow(ctk.CTkToplevel):
         try:
             set_hf_token(token)
         except Exception as e:
-            self.status.set(f"Gagal simpan token ke keyring: {e}")
+            self.status.set(f"Gagal simpan token: {e}")
             return
         ensure_dir(Path(self.settings.library_root))
         self.settings.save()
@@ -265,6 +291,36 @@ class SettingsWindow(ctk.CTkToplevel):
         self.settings.setup_complete = False
         self.settings.save()
         self.status.set("Setup akan muncul saat app dibuka ulang. Tutup & jalankan lagi.")
+
+    def _update_hf_dot(self, *args: object) -> None:
+        """Update the HF token indicator dot when the entry changes."""
+        token = self.hf_var.get().strip()
+        self.hf_dot.configure(
+            text="●" if token else "○",
+            text_color=self.colors["accent"] if token else self.colors["muted"],
+        )
+
+    def _resume_downloads(self) -> None:
+        """Resume interrupted model downloads."""
+        partials = find_partial_models()
+        if not partials:
+            self.status.set("Tidak ada unduhan terputus.")
+            return
+
+        def progress(name: str, frac: float) -> None:
+            ui_after(self, lambda: (self.bar.set(frac), self.status.set(f"{name} {frac*100:.0f}%")))
+
+        def work() -> None:
+            try:
+                for name in partials:
+                    self.status.set(f"Melanjutkan {name}…")
+                    download_model(name, progress=progress)
+                ui_after(self, lambda: self.status.set("Unduhan selesai."))
+                ui_after(self, lambda: self.bar.set(1.0))
+            except Exception as exc:
+                ui_after(self, lambda m=str(exc): self.status.set(f"Gagal: {m}"))
+
+        run_in_thread(work)
 
     def _browse_library(self) -> None:
         from tkinter import filedialog
