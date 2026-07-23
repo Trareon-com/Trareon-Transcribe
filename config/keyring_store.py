@@ -19,7 +19,7 @@ import stat
 
 from config.paths import app_support_dir
 
-_TOKEN_FILE = "hf_token.dat"  # noqa: S105 — filename, not a credential
+_TOKEN_FILE = "hf_token.dat"  # noqa: S105 # nosec B105 -- filename, not a credential
 _KEY_FILE = ".hf_token_key"
 
 
