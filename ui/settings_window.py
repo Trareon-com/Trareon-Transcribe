@@ -41,7 +41,16 @@ class SettingsWindow(ctk.CTkToplevel):
         self.colors = paint_window(self)
         self.title(f"Settings — {APP_NAME}")
         self.minsize(480, 560)
-        self.geometry("560x680")
+        # CTkScrollableFrame's scroll-region recompute doesn't reliably fire
+        # before the window is first mapped, so at the old 560x680 default
+        # the "Alat" button rows (past the fold) rendered squashed to a
+        # hairline and were unreachable — no scroll gesture nor a synthetic
+        # Configure/resize event fixed it short of the user manually
+        # dragging the window resize handle. Tall enough by default that all
+        # content fits without scrolling sidesteps the bug entirely; users
+        # on very short screens can still shrink it (a real user-driven
+        # resize does trigger the recompute correctly).
+        self.geometry("560x860")
         set_window_icon(self)
         self.transient(master)
 
@@ -185,6 +194,7 @@ class SettingsWindow(ctk.CTkToplevel):
             anchor="w",
         )
         self.link_lbl.pack(fill="x", pady=(0, 8), anchor="w")
+
         bind_responsive(self)
 
     def _save(self) -> None:
