@@ -109,6 +109,24 @@ def windows_dep_plan() -> DepPlan:
     )
 
 
+def loopback_routing_message(*, device_name: str, detected: bool, is_windows: bool, deps_installed: bool) -> str:
+    """Post-install routing status text, shared by the setup wizard.
+
+    VB-Cable's driver commonly needs a logoff/reboot before Windows
+    enumerates the new audio endpoint — `choco install` reporting success
+    doesn't mean the device is usable yet, so a Windows-specific restart
+    hint is shown when it's still not detected right after install.
+    """
+    if detected:
+        return f"{device_name} terdeteksi ✓ — routing dapat diatur nanti"
+    if is_windows and deps_installed:
+        return (
+            f"{device_name} terinstall tapi belum terdeteksi Windows — "
+            "restart komputer lalu buka app lagi agar SPK capture aktif."
+        )
+    return f"{device_name} tidak terdeteksi — SPK capture hanya via MIC"
+
+
 def run_plan(plan: DepPlan) -> tuple[bool, str]:
     if not plan.commands:
         return True, plan.description + " (no auto commands; follow manual steps)"

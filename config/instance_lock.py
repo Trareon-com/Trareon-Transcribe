@@ -20,6 +20,13 @@ def _pid_alive(pid: int) -> bool:
         return False
     except PermissionError:
         return True
+    except OSError:
+        # Windows' os.kill(pid, 0) failure for a dead PID isn't reliably a
+        # ProcessLookupError (Win32 errors routed through
+        # PyErr_SetFromWindowsErr aren't errno-subclassed the way POSIX
+        # failures are) — treat "can't determine" as "assume alive" so we
+        # never crash, just skip clearing a lock we're unsure about.
+        return True
     return True
 
 

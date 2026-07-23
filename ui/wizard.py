@@ -231,15 +231,15 @@ class SetupWizard(ctk.CTkToplevel):
             self.after(0, lambda: self.step_var.set("3/5: Memeriksa BlackHole & routing"))
             try:
                 from engine.audio_capture import find_loopback_input_device
-                bh = find_loopback_input_device()
-                if bh is not None:
-                    self.after(0, lambda: self.status.set(
-                        "BlackHole terdeteksi ✓ — routing dapat diatur nanti"
-                    ))
-                else:
-                    self.after(0, lambda: self.status.set(
-                        "BlackHole tidak terdeteksi — SPK capture hanya via MIC"
-                    ))
+                from setup.deps import loopback_routing_message
+                is_win = self.spec["os"] != "Darwin"
+                msg = loopback_routing_message(
+                    device_name="VB-Cable" if is_win else "BlackHole",
+                    detected=find_loopback_input_device() is not None,
+                    is_windows=is_win,
+                    deps_installed=bool(self.install_deps_var.get()),
+                )
+                self.after(0, lambda: self.status.set(msg))
             except Exception:
                 self.after(0, lambda: self.status.set("Pengecekan routing: skip"))
             self.after(0, lambda: self.step_var.set("4/5: Mengunduh binary whisper.cpp"))

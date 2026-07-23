@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,9 +35,6 @@ jobs:
       - name: Bandit
         run: bandit -c pyproject.toml -r engine ui export setup config util main.py
 
-      - name: Pytest
-        run: pytest -q
-
       - name: pip-audit
         run: pip-audit -r requirements.txt || true
 
@@ -49,3 +46,38 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
             | tar -xz -C /tmp gitleaks
           /tmp/gitleaks detect --source . --verbose --redact --config .gitleaks.toml
+
+  test:
+    # Runs the platform-neutral pytest suite on every OS we ship for — Ruff/
+    # Bandit/pip-audit/Gitleaks stay Ubuntu-only above since they aren't
+    # platform-sensitive. Before this, pytest had never executed on Windows
+    # or macOS in CI at all (only at release-tag time in release.yml, which
+    # has no test step of its own).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libportaudio2
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Pytest
+        run: pytest -q

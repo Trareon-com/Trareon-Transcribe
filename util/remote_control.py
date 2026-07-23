@@ -1,7 +1,9 @@
-"""Local Unix-socket remote control for Mac/Linux automation.
+"""Local remote control for Mac/Linux/Windows automation.
 
 CustomTkinter buttons are not reliable via Accessibility / cliclick.
 Agents and gate scripts drive the visible app through this socket instead.
+Unix domain socket on POSIX; 127.0.0.1 TCP loopback on Windows (AF_UNIX
+support there is inconsistent across Python/Windows build combinations).
 
 Protocol: one JSON object per line. Request `{"cmd":"..."}` → response JSON.
 """
@@ -12,6 +14,7 @@ import json
 import logging
 import os
 import socket
+import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +23,14 @@ from typing import Any
 from config.paths import control_socket_path
 
 log = logging.getLogger("trareon.remote")
+
+# AF_UNIX support on Windows is inconsistent across Python/Windows build
+# combinations (may not exist at all, or hits a historically flaky ~108-byte
+# sun_path limit on nested %LOCALAPPDATA% paths) — use a TCP loopback socket
+# there instead. control_socket_path() stays the discoverable marker file on
+# both platforms; on Windows it holds the OS-assigned port as plain text
+# rather than being a real socket file.
+_IS_WINDOWS = sys.platform == "win32"
 
 # Commands that skip confirm dialogs (start STT warn / stop confirm).
 _AUTO_YES_CMDS = frozenset({"start", "stop", "quit"})
@@ -40,8 +51,14 @@ class RemoteControl:
                 self.path.unlink()
             except OSError:
                 pass
-        srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(str(self.path))
+        if _IS_WINDOWS:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.bind(("127.0.0.1", 0))
+            port = srv.getsockname()[1]
+            self.path.write_text(str(port), encoding="utf-8")
+        else:
+            srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            srv.bind(str(self.path))
         srv.listen(4)
         srv.settimeout(0.5)
         self._server = srv
@@ -146,9 +163,19 @@ def send_command(cmd: str, timeout: float = 45.0, **extra: Any) -> dict:
     if not path.exists():
         return {"ok": False, "error": f"socket missing: {path} (launch with --control)"}
     req = {"cmd": cmd, **extra}
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+    if _IS_WINDOWS:
+        try:
+            port = int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": f"bad port file {path}: {e}"}
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connect_args = (("127.0.0.1", port),)
+    else:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        connect_args = (str(path),)
+    with sock:
         sock.settimeout(timeout)
-        sock.connect(str(path))
+        sock.connect(*connect_args)
         sock.sendall((json.dumps(req) + "\n").encode("utf-8"))
         buf = b""
         while b"\n" not in buf:

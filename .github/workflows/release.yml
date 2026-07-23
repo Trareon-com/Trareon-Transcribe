@@ -165,7 +165,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/smoke_frozen.py || true
+          python scripts/smoke_frozen.py
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             python - <<'PY'
           from pathlib import Path
