@@ -82,7 +82,6 @@ class MainWindow(ctk.CTk):
         self._settings_win: SettingsWindow | None = None
         self._export_win: ExportDialog | None = None
         self._main_resize_bound = False
-        self._layout_mode: str | None = None
         self._auto_scroll = True
         self._mic_blink_on = False
         self._mic_blink_timer: str | None = None
@@ -146,7 +145,6 @@ class MainWindow(ctk.CTk):
         """Layout mirrors redesign mockup: header · toolbar · caption · footer."""
         c = self.colors
         pad = 18
-        self._narrow_row = None
 
         # —— 1. Header: brand · HUD pill · metrics · nav ——
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -199,22 +197,66 @@ class MainWindow(ctk.CTk):
             anchor="e",
         ).pack(side="right", padx=(12, 10))
 
-        # —— 2. Toolbar: left cluster (title·modes) · gap · right cluster (VU·Start·Export) ——
-        # Pack RIGHT first so the empty middle is real whitespace, not a stretched meter.
+        # —— 2. Toolbar: title (full width) · mode pills (full width) · controls row ——
+        # One fixed vertical layout at every window size — no width-based mode
+        # switching. The old wide/narrow reflow reparented frames between two
+        # code paths on resize, and could leave the MIC/SPK/Start/Export row
+        # unpacked entirely if that reparent step was interrupted mid-resize.
+        # A single always-packed structure can't end up in that broken state.
         self._toolbar = ctk.CTkFrame(self, fg_color="transparent")
         self._toolbar.pack(fill="x", padx=pad, pady=(0, 8))
 
-        self._actions = ctk.CTkFrame(self._toolbar, fg_color="transparent")
-        self._actions.pack(side="right")
-        self.start_btn = primary_button(self._actions, "▶  Start", self._toggle_record, c, width=96, height=34)
-        self.start_btn.pack(side="left")
-        self.export_btn = ghost_button(self._actions, "↓  Export", self._export, c, width=96, height=34)
-        self.export_btn.pack(side="left", padx=(6, 0))
-        self._style_export_btn()
+        self._title_wrap = ctk.CTkFrame(
+            self._toolbar, fg_color=c["panel"], corner_radius=10, border_width=1, border_color=c["border"], height=34
+        )
+        self._title_wrap.pack(side="top", fill="x", pady=(0, 8))
+        self._title_entry = ctk.CTkEntry(
+            self._title_wrap,
+            textvariable=self.title_var,
+            placeholder_text="Judul rapat — mis. Weekly Product Sync",
+            height=30,
+            border_width=0,
+            fg_color=c["panel"],
+            text_color=c["text"],
+            placeholder_text_color=c["muted"],
+            corner_radius=8,
+        )
+        self._title_entry.pack(side="left", fill="x", expand=True, padx=(8, 0), pady=2)
+        self._title_entry.bind("<KeyRelease>", lambda _e: self._on_title_edit())
+        # Mock pencil affordance as text (glyph ✎ mis-renders as paperclip on some macOS fonts).
+        ctk.CTkLabel(
+            self._title_wrap,
+            text="edit",
+            text_color=c["muted"],
+            font=ctk.CTkFont(size=11),
+            width=32,
+        ).pack(side="right", padx=(0, 10))
 
-        # Compact meter cluster (natural width) — packed RIGHT so gap is whitespace.
-        self._meters = ctk.CTkFrame(self._toolbar, fg_color="transparent")
-        self._meters.pack(side="right", padx=(0, 10))
+        self._modes_frame = ctk.CTkFrame(
+            self._toolbar, fg_color=c["panel"], corner_radius=10, border_width=1, border_color=c["border"]
+        )
+        self._modes_frame.pack(side="top", fill="x", pady=(0, 8))
+        self._mode_btns: dict[str, ctk.CTkButton] = {}
+        for key, label in _MODE_LABEL.items():
+            btn = ctk.CTkButton(
+                self._modes_frame,
+                text=label,
+                height=28,
+                corner_radius=8,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                command=lambda lab=label: self._on_mode_seg(lab),
+            )
+            btn.pack(side="left", fill="x", expand=True, padx=2, pady=2)
+            self._mode_btns[key] = btn
+        self.mode_seg = _ModeSegProxy(self)
+
+        # Controls row: MIC/SPK meters left, Start/Export right — one frame,
+        # always packed, never destroyed/reparented.
+        self._controls_row = ctk.CTkFrame(self._toolbar, fg_color="transparent")
+        self._controls_row.pack(side="top", fill="x")
+
+        self._meters = ctk.CTkFrame(self._controls_row, fg_color="transparent")
+        self._meters.pack(side="left")
 
         mic_box = ctk.CTkFrame(self._meters, fg_color="transparent")
         mic_box.pack(side="left", padx=(0, 14))
@@ -254,53 +296,13 @@ class MainWindow(ctk.CTk):
         self.spk_vu = BarVuMeter(spk_box, colors=c, height=24)
         self.spk_vu.pack(side="left", padx=(2, 0))
 
-        self._title_wrap = ctk.CTkFrame(
-            self._toolbar, fg_color=c["panel"], corner_radius=10, border_width=1, border_color=c["border"], height=34
-        )
-        self._title_wrap.pack(side="left", padx=(0, 8))
-        self._title_entry = ctk.CTkEntry(
-            self._title_wrap,
-            textvariable=self.title_var,
-            placeholder_text="Judul rapat — mis. Weekly Product Sync",
-            height=30,
-            width=300,
-            border_width=0,
-            fg_color=c["panel"],
-            text_color=c["text"],
-            placeholder_text_color=c["muted"],
-            corner_radius=8,
-        )
-        self._title_entry.pack(side="left", padx=(8, 0), pady=2)
-        self._title_entry.bind("<KeyRelease>", lambda _e: self._on_title_edit())
-        # Mock pencil affordance as text (glyph ✎ mis-renders as paperclip on some macOS fonts).
-        ctk.CTkLabel(
-            self._title_wrap,
-            text="edit",
-            text_color=c["muted"],
-            font=ctk.CTkFont(size=11),
-            width=32,
-        ).pack(side="right", padx=(0, 10))
-
-        self._modes_frame = ctk.CTkFrame(
-            self._toolbar, fg_color=c["panel"], corner_radius=10, border_width=1, border_color=c["border"]
-        )
-        self._modes_frame.pack(side="left", padx=(0, 8))
-        self._mode_btns: dict[str, ctk.CTkButton] = {}
-        for key, label in _MODE_LABEL.items():
-            btn = ctk.CTkButton(
-                self._modes_frame,
-                text=label,
-                height=28,
-                width=126 if key != "webinar" else 92,
-                corner_radius=8,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                command=lambda lab=label: self._on_mode_seg(lab),
-            )
-            btn.pack(side="left", padx=2, pady=2)
-            self._mode_btns[key] = btn
-        self.mode_seg = _ModeSegProxy(self)
-        # Kept for reflow API / older callers — unused in wide layout (right-pack gap).
-        self._toolbar_gap = ctk.CTkFrame(self._toolbar, fg_color="transparent", width=1, height=1)
+        self._actions = ctk.CTkFrame(self._controls_row, fg_color="transparent")
+        self._actions.pack(side="right")
+        self.start_btn = primary_button(self._actions, "▶  Start", self._toggle_record, c, width=96, height=34)
+        self.start_btn.pack(side="left")
+        self.export_btn = ghost_button(self._actions, "↓  Export", self._export, c, width=96, height=34)
+        self.export_btn.pack(side="left", padx=(6, 0))
+        self._style_export_btn()
 
         # Status (warnings) — soft band, hidden when empty; dismissible for the session
         self.status_box = ctk.CTkFrame(
@@ -429,7 +431,6 @@ class MainWindow(ctk.CTk):
         if not self._main_resize_bound:
             self.bind("<Configure>", self._on_main_resize, add="+")
             self._main_resize_bound = True
-        self._layout_mode = None  # force reflow after rebuild
         self.after(80, self._reflow_controls)
 
     def _footer_status_text(self) -> str:
@@ -500,7 +501,8 @@ class MainWindow(ctk.CTk):
         self._reflow_controls()
 
     def _reflow_controls(self) -> None:
-        """Wide = mock row (left title·modes / right VU·actions); narrow = stacked."""
+        """Title/modes/controls are a fixed stacked layout at every width now —
+        only wraplength on the footer text needs to track window width."""
         try:
             w = int(self.winfo_width())
         except (tk.TclError, ValueError, RuntimeError):
@@ -508,46 +510,6 @@ class MainWindow(ctk.CTk):
         sync_responsive(self)
         if not hasattr(self, "_toolbar"):
             return
-        # Wide row needs ~1200px (title 300 + edit + 3 mode pills + MIC/SPK
-        # meters + Start/Export) — below that the clusters overlap instead of
-        # leaving the intended empty middle gap. 1080 was too low and caused
-        # "Rapat Offline" to render clipped/overlapped by the meter cluster.
-        mode = "wide" if w >= 1300 else "narrow"
-        if getattr(self, "_layout_mode", None) != mode:
-            self._layout_mode = mode
-            try:
-                if getattr(self, "_narrow_row", None) is not None:
-                    try:
-                        self._narrow_row.destroy()
-                    except (tk.TclError, RuntimeError):
-                        pass
-                    self._narrow_row = None
-                for child in (self._title_wrap, self._modes_frame, self._meters, self._actions):
-                    child.pack_forget()
-                if mode == "wide":
-                    # Right cluster first → empty centre gap (mock).
-                    self._actions.pack(side="right")
-                    self._meters.pack(side="right", padx=(0, 10))
-                    self._title_entry.configure(width=300)
-                    self._title_wrap.pack(side="left", padx=(0, 8))
-                    self._modes_frame.pack(side="left", padx=(0, 8))
-                    for key, btn in self._mode_btns.items():
-                        btn.configure(width=126 if key != "webinar" else 92)
-                        btn.pack_configure(fill="none", expand=False)
-                else:
-                    self._title_wrap.pack(side="top", fill="x", pady=(0, 6))
-                    self._title_entry.configure(width=400)
-                    self._modes_frame.pack(side="top", fill="x", pady=(0, 6))
-                    for btn in self._mode_btns.values():
-                        btn.configure(width=0)
-                        btn.pack_configure(fill="x", expand=True)
-                    row = ctk.CTkFrame(self._toolbar, fg_color="transparent")
-                    self._narrow_row = row
-                    row.pack(side="top", fill="x")
-                    self._meters.pack(in_=row, side="left")
-                    self._actions.pack(in_=row, side="right")
-            except (tk.TclError, RuntimeError):
-                pass
         if hasattr(self, "foot_hint"):
             try:
                 self.foot_hint.configure(
