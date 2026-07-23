@@ -1,6 +1,6 @@
 ; Inno Setup — Trareon Transcribe Windows installer (onedir)
 #ifndef AppVersion
-  #define AppVersion "0.1.2"
+  #define AppVersion "0.1.3"
 #endif
 
 #define MyAppName "Trareon Transcribe"

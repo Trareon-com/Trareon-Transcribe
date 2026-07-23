@@ -327,6 +327,8 @@ See [docs/design.md](docs/design.md) for the full product spec.
 | Theme tidak berubah | v0.1.2+ repaints UI; toggle Theme again |
 | Export tombol terpotong | v0.1.2+ minsize; jangan pakai jendela &lt; ~480px tinggi |
 | Tone test menggantung | v0.1.2+ timeout 10s — pakai Lewati Tone |
+| Export / Test audio / Cek update menggantung tanpa error | Fixed di v0.1.3 — background-thread UI callback tidak jalan reliably; upgrade ke v0.1.3+ |
+| Settings tombol "Alat" tidak terlihat | Fixed di v0.1.3 — window default sekarang cukup tinggi tanpa perlu scroll |
 
 ---
 
