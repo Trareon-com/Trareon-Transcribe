@@ -18,6 +18,13 @@ fi
 
 REAL_PY=$("$VENV_PY" -c 'import os, sys; print(os.path.realpath(sys.executable))')
 SITE_PACKAGES=$("$VENV_PY" -c 'import site; print(site.getsitepackages()[0])')
+# Some Python distributions (e.g. uv-managed python-build-standalone, as
+# opposed to Homebrew's framework build) are relocatable but look up their
+# stdlib relative to their OWN install location, not the binary's — copying
+# just the binary into the .app without PYTHONHOME breaks with
+# "ModuleNotFoundError: No module named 'encodings'" at startup. Setting
+# PYTHONHOME to the real interpreter's base_prefix fixes both cases.
+PYTHON_BASE_PREFIX=$("$VENV_PY" -c 'import sys; print(sys.base_prefix)')
 if [[ ! -f "$REAL_PY" ]]; then
   echo "Could not resolve base Python binary" >&2
   exit 1
@@ -54,6 +61,7 @@ PLIST
 
 ROOT_LIT=$(/usr/bin/python3 -c 'import sys; print(repr(sys.argv[1]))' "$ROOT")
 SITE_LIT=$(/usr/bin/python3 -c 'import sys; print(repr(sys.argv[1]))' "$SITE_PACKAGES")
+PYHOME_LIT=$(/usr/bin/python3 -c 'import sys; print(repr(sys.argv[1]))' "$PYTHON_BASE_PREFIX")
 cat > "$APP/Contents/MacOS/${EXE_NAME}" <<EOF
 #!/bin/bash
 set -euo pipefail
@@ -63,6 +71,7 @@ DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 cd "\$ROOT"
 export TRAREON_APP_BUNDLE=1
 export PYTHONNOUSERSITE=1
+export PYTHONHOME=${PYHOME_LIT}
 export PYTHONPATH="\$ROOT:\$SITE\${PYTHONPATH:+:\$PYTHONPATH}"
 # Process image stays under TrareonTranscribe.app → TCC / Dock use our name
 exec "\$DIR/${RUNTIME_NAME}" "\$ROOT/main.py" "\$@"

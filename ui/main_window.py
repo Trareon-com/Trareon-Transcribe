@@ -291,7 +291,7 @@ class MainWindow(ctk.CTk):
                 self._modes_frame,
                 text=label,
                 height=28,
-                width=108 if key != "webinar" else 88,
+                width=126 if key != "webinar" else 92,
                 corner_radius=8,
                 font=ctk.CTkFont(size=12, weight="bold"),
                 command=lambda lab=label: self._on_mode_seg(lab),
@@ -508,7 +508,11 @@ class MainWindow(ctk.CTk):
         sync_responsive(self)
         if not hasattr(self, "_toolbar"):
             return
-        mode = "wide" if w >= 1080 else "narrow"
+        # Wide row needs ~1200px (title 300 + edit + 3 mode pills + MIC/SPK
+        # meters + Start/Export) — below that the clusters overlap instead of
+        # leaving the intended empty middle gap. 1080 was too low and caused
+        # "Rapat Offline" to render clipped/overlapped by the meter cluster.
+        mode = "wide" if w >= 1300 else "narrow"
         if getattr(self, "_layout_mode", None) != mode:
             self._layout_mode = mode
             try:
@@ -528,7 +532,7 @@ class MainWindow(ctk.CTk):
                     self._title_wrap.pack(side="left", padx=(0, 8))
                     self._modes_frame.pack(side="left", padx=(0, 8))
                     for key, btn in self._mode_btns.items():
-                        btn.configure(width=108 if key != "webinar" else 88)
+                        btn.configure(width=126 if key != "webinar" else 92)
                         btn.pack_configure(fill="none", expand=False)
                 else:
                     self._title_wrap.pack(side="top", fill="x", pady=(0, 6))
