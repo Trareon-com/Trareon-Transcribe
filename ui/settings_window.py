@@ -30,7 +30,7 @@ from ui.theme import (
     styled_entry,
 )
 from update.check import check_for_update, open_download
-from util.threading_helpers import run_in_thread, ui_after
+from util.threading_helpers import ensure_ui_after_pump, run_in_thread, ui_after
 
 
 class SettingsWindow(ctk.CTkToplevel):
@@ -53,6 +53,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.geometry("560x860")
         set_window_icon(self)
         self.transient(master)
+        ensure_ui_after_pump(self)
 
         self.model_var = ctk.StringVar(value=settings.model)
         self.library_var = ctk.StringVar(value=settings.library_root)

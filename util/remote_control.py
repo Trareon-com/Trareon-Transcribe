@@ -149,7 +149,16 @@ class RemoteControl:
                 done.set()
 
         try:
-            self.app.after(0, run)
+            # self.app.after(0, run) directly from this background accept-
+            # loop thread does not reliably wake Tcl's event loop (Tcl/Tk's
+            # cross-thread `after` scheduling isn't guaranteed thread-safe —
+            # confirmed: this made every remote command, including `ping`,
+            # hang until the 45s timeout below). Route through the main
+            # window's own UiEventQueue instead — it's already drained
+            # reliably by a main-thread-owned recurring self.after() poll
+            # (see MainWindow._poll), the same mechanism live transcription
+            # segments already rely on.
+            self.app.events.post(run)
         except Exception as e:
             return {"ok": False, "error": f"schedule failed: {e}"}
         if not done.wait(timeout=45):

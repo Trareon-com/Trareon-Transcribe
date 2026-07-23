@@ -30,8 +30,18 @@ def test_send_command_without_server() -> None:
     assert "socket missing" in r.get("error", "")
 
 
+class _FakeEvents:
+    """Mimics util.threading_helpers.UiEventQueue closely enough for tests —
+    RemoteControl._dispatch() posts here instead of calling app.after()
+    directly (which doesn't reliably fire cross-thread in the real app)."""
+
+    def post(self, fn, *args) -> None:  # noqa: ANN001
+        fn(*args)
+
+
 class _FakeApp:
     _quitting = False
+    events = _FakeEvents()
 
     def after(self, _delay: int, fn) -> None:  # noqa: ANN001
         fn()

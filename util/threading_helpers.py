@@ -32,9 +32,58 @@ def run_in_thread(target: Callable[..., None], *args: Any, name: str | None = No
     return t
 
 
+def ensure_ui_after_pump(widget: Any) -> None:
+    """Call once from widget's __init__ (guaranteed main-thread context)
+    before any background thread calls ui_after(widget, ...).
+
+    Calling widget.after() directly from a non-main thread does not reliably
+    wake Tcl's event loop — Tcl/Tk's cross-thread `after` scheduling isn't
+    guaranteed thread-safe, and in practice a callback queued that way can
+    simply never fire, silently hanging whatever was waiting on it
+    (confirmed: this is exactly what caused Export/model-download/
+    update-check to hang forever with no error, every time). The reliable
+    pattern already used for live transcription segments is a
+    background-safe queue drained by a main-thread-owned recurring
+    self.after() poll — this sets up that same pump for any widget that
+    wants to use ui_after(). Idempotent; safe to call more than once.
+    """
+    if getattr(widget, "_trareon_ui_after_queue", None) is not None:
+        return
+    q: queue.Queue[Callable[[], None]] = queue.Queue()
+    widget._trareon_ui_after_queue = q
+
+    def _drain() -> None:
+        for _ in range(64):
+            try:
+                cb = q.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                cb()
+            except Exception:
+                pass
+        try:
+            widget.after(25, _drain)
+        except Exception:
+            pass
+
+    widget.after(25, _drain)
+
+
 def ui_after(widget: Any, fn: Callable[[], None], delay_ms: int = 0) -> None:
-    """Schedule on Tk main loop; no-op if widget already destroyed / no mainloop."""
-    try:
-        widget.after(delay_ms, fn)
-    except RuntimeError:
-        pass
+    """Queue fn to run on the Tk main loop — thread-safe, never calls
+    widget.after() directly (see ensure_ui_after_pump for why). Requires
+    ensure_ui_after_pump(widget) to have been called from __init__; falls
+    back to a direct (unreliable cross-thread) widget.after() call if not,
+    rather than silently dropping fn."""
+    q = getattr(widget, "_trareon_ui_after_queue", None)
+    if q is None:
+        try:
+            widget.after(delay_ms, fn)
+        except Exception:
+            pass
+        return
+    if delay_ms <= 0:
+        q.put(fn)
+    else:
+        threading.Timer(delay_ms / 1000, lambda: q.put(fn)).start()

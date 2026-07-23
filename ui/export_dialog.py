@@ -25,7 +25,7 @@ from ui.theme import (
     primary_button,
     styled_entry,
 )
-from util.threading_helpers import run_in_thread, ui_after
+from util.threading_helpers import ensure_ui_after_pump, run_in_thread, ui_after
 
 log = logging.getLogger("trareon.export_dialog")
 
@@ -42,6 +42,7 @@ class ExportDialog(ctk.CTkToplevel):
         set_window_icon(self)
         self.transient(master)
         self.grab_set()
+        ensure_ui_after_pump(self)
 
         self.title_var = ctk.StringVar(value=title or session.meta.title)
         self.md = ctk.BooleanVar(value=True)
