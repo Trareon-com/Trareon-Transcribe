@@ -243,6 +243,8 @@ def sync_responsive(win: Any, *, pad: int = 48, min_wrap: int = 160) -> None:
     for w in _walk_widgets(win):
         if type(w).__name__ not in _WRAP_TYPES:
             continue
+        if getattr(w, "_trareon_no_wrap", False):
+            continue
         try:
             aw = int(w.winfo_width())
         except Exception:

@@ -125,7 +125,7 @@ class MainWindow(ctk.CTk):
         return ghost_button(parent, text, command, self.colors, width=width)
 
     def _nav_link(self, parent: ctk.CTkFrame, text: str, command, *, width: int = 88) -> ctk.CTkButton:  # noqa: ANN001
-        """Text+icon style nav — matches mock (no heavy bordered chips)."""
+        """Bordered nav button — visibly clickable, matches ghost_button styling."""
         c = self.colors
         return ctk.CTkButton(
             parent,
@@ -134,11 +134,12 @@ class MainWindow(ctk.CTk):
             width=width,
             height=28,
             corner_radius=8,
-            fg_color="transparent",
+            fg_color=c["panel"],
             hover_color=c["row"],
-            text_color=c["muted"],
+            text_color=c["text"],
             font=ctk.CTkFont(size=12),
-            border_width=0,
+            border_width=1,
+            border_color=c["border"],
         )
 
     def _build(self) -> None:
@@ -182,6 +183,8 @@ class MainWindow(ctk.CTk):
             text_color=c["hud_fg"],
         )
         self.rec_label.pack(padx=16, pady=6)
+        # Compact single-line status — never word-wrap this into two lines.
+        self.rec_label._trareon_no_wrap = True
 
         nav = ctk.CTkFrame(header, fg_color="transparent")
         nav.pack(side="right")
@@ -189,13 +192,16 @@ class MainWindow(ctk.CTk):
         self._nav_link(nav, f"{theme_glyph}  Theme", self._toggle_theme, width=92).pack(side="right", padx=(2, 0))
         self._nav_link(nav, "⚙  Settings", self._open_settings, width=96).pack(side="right", padx=2)
         self._nav_link(nav, "📁  Library", self._open_library, width=92).pack(side="right", padx=2)
-        ctk.CTkLabel(
+        self.res_label = ctk.CTkLabel(
             header,
             textvariable=self.res_var,
             font=ctk.CTkFont(size=11),
             text_color=c["muted"],
             anchor="e",
-        ).pack(side="right", padx=(12, 10))
+        )
+        self.res_label.pack(side="right", padx=(12, 10))
+        # Compact single-line stat readout — never word-wrap this into two lines.
+        self.res_label._trareon_no_wrap = True
 
         # —— 2. Toolbar: title (full width) · mode pills (full width) · controls row ——
         # One fixed vertical layout at every window size — no width-based mode
@@ -510,6 +516,18 @@ class MainWindow(ctk.CTk):
         sync_responsive(self)
         if not hasattr(self, "_toolbar"):
             return
+        if hasattr(self, "res_label"):
+            # Below this width the header (brand + HUD pill + Library/Settings/
+            # Theme buttons) has no room left for the CPU/RAM/GPU readout —
+            # hide it rather than let it clip to an unreadable fragment.
+            try:
+                shown = bool(self.res_label.winfo_ismapped())
+                if w < 900 and shown:
+                    self.res_label.pack_forget()
+                elif w >= 900 and not shown:
+                    self.res_label.pack(side="right", padx=(12, 10))
+            except (tk.TclError, RuntimeError):
+                pass
         if hasattr(self, "foot_hint"):
             try:
                 self.foot_hint.configure(
