@@ -10,8 +10,17 @@ def test_stale_pid_lock_is_reclaimed(monkeypatch, tmp_path):
     lock.write_text("99999999", encoding="utf-8")  # unlikely live pid
     monkeypatch.setattr(instance_lock, "instance_lock_file", lambda: lock)
     assert instance_lock.acquire_instance_lock() is True
-    assert lock.read_text(encoding="utf-8").strip() == str(os.getpid())
-    instance_lock.release_instance_lock()
+    try:
+        # Read back through the SAME handle acquire_instance_lock opened,
+        # not a fresh Path.read_text() (which opens its own handle):
+        # msvcrt.locking() on Windows enforces mandatory locking on the
+        # locked byte range, so a second handle to that file gets
+        # PermissionError while the original is still open — fcntl.flock on
+        # POSIX is advisory only and never hit this.
+        instance_lock._lock_fh.seek(0)
+        assert instance_lock._lock_fh.read().strip() == str(os.getpid())
+    finally:
+        instance_lock.release_instance_lock()
 
 
 @pytest.mark.parametrize("exc", [ProcessLookupError, PermissionError])
