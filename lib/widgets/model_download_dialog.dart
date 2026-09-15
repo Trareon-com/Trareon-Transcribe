@@ -42,22 +42,54 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  bool _started = false;
-  String _status = '';
+  String _status = 'Mengunduh...';
+  double _progress = 0.0;
+  Stream<double>? _progressStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownload();
+  }
 
   Future<void> _startDownload() async {
-    if (_downloading || _started) return;
     setState(() {
       _downloading = true;
-      _started = true;
       _status = 'Mengunduh ${widget.displayName}...';
     });
 
     try {
-      await widget.bridge.downloadModel(
+      // Start download in background
+      final downloadFuture = widget.bridge.downloadModel(
         widget.modelsDir,
         widget.modelId,
       );
+
+      // Listen to progress stream
+      _progressStream = widget.bridge.downloadProgress();
+      _progressStream!.listen(
+        (progress) {
+          if (mounted) {
+            setState(() {
+              _progress = progress;
+              _status = 'Mengunduh ${widget.displayName}... ${(progress * 100).toInt()}%';
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _downloading = false;
+              _status = 'Gagal mengunduh: $error';
+            });
+          }
+        },
+        onDone: () {
+          // Progress stream completed, download should be done
+        },
+      );
+
+      await downloadFuture;
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -85,14 +117,16 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _downloading
-                ? 'Mengunduh ${widget.displayName}...'
-                : '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
+            '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
             const SizedBox(height: 16),
-            const LinearProgressIndicator(),
+            LinearProgressIndicator(
+              value: _progress,
+              backgroundColor: colors.border,
+              valueColor: AlwaysStoppedAnimation(colors.primary),
+            ),
             const SizedBox(height: 8),
             Text(_status, style: TextStyle(color: colors.textTertiary, fontSize: 12)),
           ],
@@ -100,7 +134,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: _downloading ? null : () => Navigator.of(context).pop(false),
           child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
         ),
         if (!_downloading)

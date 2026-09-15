@@ -1,7 +1,7 @@
 # TODO — Trareon Transcribe Development Roadmap
 
 > Status: Aktif. Clone kerja: `/home/kali/workspace/transcribe`
-> Blueprint: `~/Trascribe-Docs/TRASCRIBE-BLUEPRINT.md`
+> Blueprint: `~/Trareon-Transcribe-Docs/TRAREON-TRANSCRIBE-BLUEPRINT.md`
 > Skill: `flutter-rust-desktop-master`, `flutter-rust-architecture`, `flutter-rust-desktop`
 
 ---

@@ -106,8 +106,8 @@ User klik Start
 
 FRB codegen sudah terverifikasi end-to-end. Real `.dylib`/`.so`/`.dll` terkoneksi. Dua fix yang sudah diterapkan:
 
-1. `TrascribeResult<T>` tidak bisa di-resolve FRB — setiap fungsi publik harus `Result<T, TrascribeError>`
-2. `TrascribeError::Io` pake `String` bukan `std::io::Error` (tidak ada FFI codec untuk `std::io::Error`)
+1. `TrareonTranscribeResult<T>` tidak bisa di-resolve FRB — setiap fungsi publik harus `Result<T, TrareonTranscribeError>`
+2. `TrareonTranscribeError::Io` pake `String` bukan `std::io::Error` (tidak ada FFI codec untuk `std::io::Error`)
 
 ---
 
@@ -134,32 +134,32 @@ FRB codegen sudah terverifikasi end-to-end. Real `.dylib`/`.so`/`.dll` terkoneks
 
 ```rust
 // Device
-pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, TrascribeError>
-pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TrascribeError>
+pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, TrareonTranscribeError>
+pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TrareonTranscribeError>
 
 // Session
-pub fn start_session(config: SessionConfig) -> Result<String, TrascribeError>
-pub fn stop_session(session_id: String) -> Result<(), TrascribeError>
-pub fn toggle_mic/speaker(session_id, enabled) -> Result<(), TrascribeError>
-pub fn set_session_mode(session_id, mode: SessionMode) -> Result<(), TrascribeError>
-pub fn get_session_status(session_id) -> Result<SessionStatus, TrascribeError>
-pub fn poll_session_events(session_id) -> Result<Vec<SessionEvent>, TrascribeError>
+pub fn start_session(config: SessionConfig) -> Result<String, TrareonTranscribeError>
+pub fn stop_session(session_id: String) -> Result<(), TrareonTranscribeError>
+pub fn toggle_mic/speaker(session_id, enabled) -> Result<(), TrareonTranscribeError>
+pub fn set_session_mode(session_id, mode: SessionMode) -> Result<(), TrareonTranscribeError>
+pub fn get_session_status(session_id) -> Result<SessionStatus, TrareonTranscribeError>
+pub fn poll_session_events(session_id) -> Result<Vec<SessionEvent>, TrareonTranscribeError>
 
 // Recovery
-pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, TrascribeError>
-pub fn recover_session(snapshot) -> Result<String, TrascribeError>
+pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, TrareonTranscribeError>
+pub fn recover_session(snapshot) -> Result<String, TrareonTranscribeError>
 
 // Model
 pub fn list_available_models(models_dir: String) -> Vec<ModelInfo>
 pub fn is_model_downloaded(models_dir, model_id) -> bool
-pub async fn download_model(models_dir, model_id) -> Result<(), TrascribeError>
+pub async fn download_model(models_dir, model_id) -> Result<(), TrareonTranscribeError>
 
 // Export
 pub fn export_session(segments, formats, output_dir, title)
-    -> Result<Vec<ExportedFile>, TrascribeError>
+    -> Result<Vec<ExportedFile>, TrareonTranscribeError>
 
 // File transcribe
-pub fn transcribe_file(path, model_path) -> Result<Vec<Segment>, TrascribeError>
+pub fn transcribe_file(path, model_path) -> Result<Vec<Segment>, TrareonTranscribeError>
 ```
 
 ### 3.3 Session Auto-Split
@@ -481,7 +481,7 @@ Aktif untuk Rust + GitHub Actions.
 | Gap | Prioritas | Catatan |
 |-----|:---------:|---------|
 | Live audio hardware test | P0 | Belum divalidasi di hardware asli |
-| Naming "Trascribe" masih di pubspec & kode | P0 | `pubspec.yaml` masih `name: trascribe` |
+| Naming "Trareon Transcribe" masih di pubspec & kode | P0 | `pubspec.yaml` masih `name: trascribe` |
 | Lynk.ID page | P1 | DISTRIBUTION.md sudah ada checklist |
 | Linux AppImage build | P1 | Script belum dibuat |
 | Auto-update | P2 | Manual download |
@@ -491,7 +491,7 @@ Aktif untuk Rust + GitHub Actions.
 
 ### 11.3 Naming Issues
 
-File yang masih pake "Trascribe":
+File yang masih pake "Trareon Transcribe":
 
 | File | Yang perlu diubah |
 |------|-------------------|
@@ -499,7 +499,7 @@ File yang masih pake "Trascribe":
 | `README.md` | Header, badges |
 | `DISTRIBUTION.md` | Judul halaman |
 | `PUBLISH_GUIDE.md` | Produk name |
-| `lib/main.dart` | Class `TrascribeApp`, string |
+| `lib/main.dart` | Class `TrareonTranscribeApp`, string |
 | `Cargo.toml` | `name = "rust_core"`, `description` |
 | `AGENTS.md` | Header |
 
@@ -511,7 +511,7 @@ File yang masih pake "Trascribe":
 
 | Task | Effort | File |
 |------|:------:|------|
-| Rename "Trascribe" ke "Trareon Transcribe" | 1 jam | pubspec.yaml, README, main.dart |
+| Rename "Trareon Transcribe" ke "Trareon Transcribe" | 1 jam | pubspec.yaml, README, main.dart |
 | Live audio hardware test (macOS + Windows) | 4 jam | Manual |
 | Export 7 format — validasi file output | 1 jam | Manual |
 | Model download progress di UI | 4 jam | Flutter screen |
