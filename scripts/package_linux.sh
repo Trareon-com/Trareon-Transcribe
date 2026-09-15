@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 
 VERSION="${1:-$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d+ -f1)}"
 APP_NAME="Trareon Transcribe"
-APP_BINARY="trareon_transcribe"
+APP_BINARY="transcribe"
 BUILD_DIR="build/linux/x64/release/bundle"
 DIST_DIR="dist"
 APPIMAGE_NAME="trareon-transcribe-${VERSION}-linux-x86_64"
@@ -65,7 +65,13 @@ mkdir -p "$APPDIR/usr/share/applications"
 mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
 # Copy binary and libraries
-cp -r "$BUILD_DIR/"* "$APPDIR/usr/bin/"
+cp -r "$BUILD_DIR/"* "$APPDIR/usr/bin/" 2>/dev/null || true
+# Copy individual files, not directories that would cause recursive copy
+for item in "$BUILD_DIR/"*; do
+  if [ -f "$item" ]; then
+    cp "$item" "$APPDIR/usr/bin/"
+  fi
+done
 chmod +x "$APPDIR/usr/bin/$APP_BINARY"
 
 # Create .desktop file
@@ -81,10 +87,12 @@ Keywords=transcribe;meeting;offline;whisper;
 EOF
 
 # Copy icon (if exists)
-if [ -f assets/icon.png ]; then
-  cp assets/icon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/trareon-transcribe.png"
-elif [ -f assets/icon_256.png ]; then
-  cp assets/icon_256.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/trareon-transcribe.png"
+if [ -f assets/logo.png ]; then
+  cp assets/logo.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/trareon-transcribe.png"
+  cp assets/logo.png "$APPDIR/trareon-transcribe.png"
+elif [ -f assets/tray_icon.png ]; then
+  cp assets/tray_icon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/trareon-transcribe.png"
+  cp assets/tray_icon.png "$APPDIR/trareon-transcribe.png"
 else
   echo "    ⚠️  No icon found — AppImage may not have icon"
 fi
