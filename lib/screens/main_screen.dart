@@ -33,6 +33,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
   bool _isStoppingSession = false;
+  bool _isStartingSession = false;
   final _titleController = TextEditingController();
 
   @override
@@ -134,11 +135,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await _handleBerhentiPressed(context, ref);
       return;
     }
+    // start() can hang for a long time with zero other feedback while
+    // waiting on a native macOS permission dialog (e.g. first-ever Webinar/
+    // system-audio capture) — without this the record button just looks
+    // unresponsive to a click that's actually still in flight.
+    setState(() => _isStartingSession = true);
     try {
       await ref.read(sessionProvider.notifier).start();
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, '$e');
+    } finally {
+      if (mounted) setState(() => _isStartingSession = false);
     }
   }
 
@@ -380,7 +388,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 titleController: _titleController,
                 onStartBerhenti: () => _toggleStartBerhenti(context, ref),
                 onEkspor: () => _onEkspor(context),
-                isStoppingSession: _isStoppingSession,
+                isBusy: _isStoppingSession || _isStartingSession,
+                busyLabel: _isStartingSession ? 'Memulai...' : 'Menyimpan...',
               ),
 
               // Transcript
@@ -433,7 +442,8 @@ class _ControlBar extends StatelessWidget {
   final TextEditingController titleController;
   final VoidCallback onStartBerhenti;
   final VoidCallback onEkspor;
-  final bool isStoppingSession;
+  final bool isBusy;
+  final String busyLabel;
 
   const _ControlBar({
     required this.session,
@@ -445,7 +455,8 @@ class _ControlBar extends StatelessWidget {
     required this.titleController,
     required this.onStartBerhenti,
     required this.onEkspor,
-    required this.isStoppingSession,
+    required this.isBusy,
+    required this.busyLabel,
   });
 
   @override
@@ -584,7 +595,8 @@ class _ControlBar extends StatelessWidget {
                 isRecording: isActive,
                 isPaused: isPaused,
                 onPressed: onStartBerhenti,
-                isBusy: isStoppingSession,
+                isBusy: isBusy,
+                busyLabel: busyLabel,
               ),
             ],
           ),

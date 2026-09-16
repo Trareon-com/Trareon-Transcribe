@@ -5,17 +5,20 @@ class AnimatedRecordButton extends StatefulWidget {
   final bool isRecording;
   final bool isPaused;
   final VoidCallback onPressed;
-  // True while stop() is awaiting the save — without this the button just
-  // sits there with no feedback (still says "Berhenti", no spinner) for
-  // however long the export takes, which reads as a frozen app on a
-  // session with a large pending-transcription backlog.
+  // True while start()/stop() is in flight — without this the button just
+  // sits there with no feedback (still says "Mulai"/"Berhenti", no spinner)
+  // for however long that takes: a large pending-transcription backlog on
+  // stop, or an unanswered native permission dialog (e.g. first-ever
+  // Webinar/system-audio capture) on start, which can hang indefinitely.
   final bool isBusy;
+  final String busyLabel;
   const AnimatedRecordButton({
     super.key,
     required this.isRecording,
     required this.isPaused,
     required this.onPressed,
     this.isBusy = false,
+    this.busyLabel = 'Menyimpan...',
   });
   @override State<AnimatedRecordButton> createState() => _AnimatedRecordButtonState();
 }
@@ -63,7 +66,7 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton> with Single
               else
                 Icon(isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic, color: Colors.white, size: 16),
               const SizedBox(width: 6),
-              Text(widget.isBusy ? 'Menyimpan...' : (isActive ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti') : 'Mulai'),
+              Text(widget.isBusy ? widget.busyLabel : (isActive ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti') : 'Mulai'),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
             ])))),
     ));
