@@ -166,6 +166,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Future<void> recoverFromSnapshot(
     rust_session.SessionRecoverySnapshot snapshot,
   ) async {
+    // Same guard as start(): without it, recovering while a session is
+    // already recording (e.g. a previous recovery, or the user pressing
+    // Mulai first) silently orphans that session's Rust-side capture —
+    // its registry entry and audio threads keep running with nothing left
+    // to stop them — while this one clobbers the visible state.
+    if (state.lifecycle == SessionLifecycle.recording ||
+        state.lifecycle == SessionLifecycle.paused) {
+      return;
+    }
     seedRecovery(snapshot);
     final id = await _bridge.recoverSession(snapshot);
     state = state.copyWith(

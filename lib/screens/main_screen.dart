@@ -273,7 +273,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           child: const Text('Abaikan'),
                         ),
                         FilledButton(
-                          onPressed: () => _recoverSession(context, ref, _recoverableSessions.first),
+                          // A session is already recording (possibly a
+                          // just-recovered one) — recovering another would
+                          // silently orphan this one's Rust-side capture
+                          // with nothing left to stop it. Session lifecycle
+                          // here is single-active, so make that visible
+                          // instead of a no-op tap.
+                          onPressed: isActive
+                              ? null
+                              : () => _recoverSession(context, ref, _recoverableSessions.first),
                           child: const Text('Pulihkan'),
                         ),
                       ],

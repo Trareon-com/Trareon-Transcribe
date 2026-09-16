@@ -7,6 +7,7 @@ import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 import 'package:transcribe/state/settings_model.dart';
+import 'package:transcribe/src/rust/audio.dart' as rust_audio;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
@@ -269,5 +270,40 @@ void main() {
     expect(session.config.modelPath,
         '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin');
     expect(session.config.refineModelPath, isNull);
+  });
+
+  test('recoverFromSnapshot is a no-op while a session is already active', () async {
+    final notifier = SessionNotifier(
+      _NoopBridge(),
+      SessionMode.online,
+      modelPathForId('tiny'),
+    );
+    // Simulate an already-recording session (e.g. a prior recovery, or the
+    // user pressing Mulai) — recovering another must not clobber it.
+    notifier.state = notifier.state.copyWith(
+      lifecycle: SessionLifecycle.recording,
+      sessionId: 'already-recording-session',
+    );
+
+    final snapshot = rust_session.SessionRecoverySnapshot(
+      sessionId: 'orphan-candidate',
+      config: const rust_audio.SessionConfig(
+        micEnabled: true,
+        speakerEnabled: false,
+        mode: rust_audio.SessionMode.offline,
+        modelPath: 'ggml-base.bin',
+        hptMode: rust_audio.HptMode.auto,
+        vadEnabled: false,
+        sampleRate: 16000,
+        chunkDurationSecs: 30,
+      ),
+      startedAtUnixMs: BigInt.zero,
+      lastSplitAtUnixMs: BigInt.zero,
+      segmentsCount: 0,
+    );
+
+    await notifier.recoverFromSnapshot(snapshot);
+
+    expect(notifier.state.sessionId, 'already-recording-session');
   });
 }
