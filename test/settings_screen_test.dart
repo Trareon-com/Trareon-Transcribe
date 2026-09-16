@@ -69,6 +69,12 @@ class _TestBridge implements RustBridge {
     ],
   }) async {}
   @override
+  Future<void> exportSessionAudio({
+    required String sessionId,
+    required String outputDir,
+    required String title,
+  }) async {}
+  @override
   void pauseSession(String sessionId) {}
   @override
   void resumeSession(String sessionId) {}

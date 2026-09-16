@@ -62,6 +62,18 @@ abstract class RustBridge {
     ],
   });
 
+  /// Writes the raw mic/speaker audio captured during [sessionId]'s live
+  /// recording as `mic.wav`/`speaker.wav` into the same session folder
+  /// [exportSession] uses for this `outputDir`/`title`. Call once, after
+  /// [stopSession] — the audio is only retained until the first call for a
+  /// given session. Returns an empty list (not an error) when there was no
+  /// live capture to save, e.g. a batch-file transcription.
+  Future<void> exportSessionAudio({
+    required String sessionId,
+    required String outputDir,
+    required String title,
+  });
+
   /// Prevents transcript and VU events from being forwarded to the Dart
   /// stream controllers during a pause. The Rust-side poll keeps draining the
   /// mpsc channel (preventing overflow) but events are silently discarded.
@@ -225,6 +237,13 @@ class RustBridgeMock implements RustBridge {
       rust_export.ExportFormat.txt,
       rust_export.ExportFormat.json,
     ],
+  }) async {}
+
+  @override
+  Future<void> exportSessionAudio({
+    required String sessionId,
+    required String outputDir,
+    required String title,
   }) async {}
 
   @override
@@ -442,6 +461,19 @@ class RustEngineBridge implements RustBridge {
           )
           .toList(),
       formats: formats,
+      outputDir: outputDir,
+      title: title,
+    );
+  }
+
+  @override
+  Future<void> exportSessionAudio({
+    required String sessionId,
+    required String outputDir,
+    required String title,
+  }) async {
+    await rust_api.exportSessionAudio(
+      sessionId: sessionId,
       outputDir: outputDir,
       title: title,
     );

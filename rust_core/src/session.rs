@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{mpsc, Mutex, OnceLock};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -71,6 +71,33 @@ struct CaptureChannel {
     _capture: AudioCapture,
     _worker: LiveWorker,
     events_rx: mpsc::Receiver<LiveEvent>,
+    /// Raw 16kHz mono samples for this source, retained for WAV export
+    /// (blueprint §7.1: per-track mic.wav + speaker.wav) — filled by the
+    /// tee thread in `start_capture`, independent of the STT worker.
+    raw_audio: Arc<Mutex<Vec<f32>>>,
+}
+
+/// Raw audio retained after a session stops, so the caller (Dart, via
+/// `api::export_session_audio`) can write mic.wav/speaker.wav once it
+/// knows the final output directory and title — both only known at stop
+/// time, same as the transcript export. Cleared on export or session
+/// removal so long-running sessions don't leak this buffer forever.
+type RawAudioBySource = (Option<Vec<f32>>, Option<Vec<f32>>);
+
+fn audio_registry() -> &'static Mutex<HashMap<String, RawAudioBySource>> {
+    static REGISTRY: OnceLock<Mutex<HashMap<String, RawAudioBySource>>> = OnceLock::new();
+    REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Takes (removes) the raw mic/speaker audio retained for `session_id`, if
+/// any. Returns `(None, None)` if the session had no live capture (e.g. it
+/// was never started, or was a batch-file transcription) or if this was
+/// already called for this session.
+pub fn take_raw_audio(session_id: &str) -> RawAudioBySource {
+    audio_registry()
+        .lock()
+        .map(|mut reg| reg.remove(session_id).unwrap_or((None, None)))
+        .unwrap_or((None, None))
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
@@ -131,13 +158,14 @@ fn start_capture(
     if !enabled {
         return Ok(None);
     }
+    let (raw_tx, raw_rx) = mpsc::channel();
     let (samples_tx, samples_rx) = mpsc::channel();
     // Speaker (loopback) uses platform-specific capture (WASAPI / CoreAudio
     // Process Tap / PulseAudio monitor). Mic uses the standard cpal input path.
     let capture = match if source == "spk" {
-        crate::audio::loopback::start_loopback(device_name, samples_tx)
+        crate::audio::loopback::start_loopback(device_name, raw_tx)
     } else {
-        AudioCapture::start(device_name, samples_tx)
+        AudioCapture::start(device_name, raw_tx)
     } {
         Ok(c) => c,
         Err(e) => {
@@ -145,6 +173,25 @@ fn start_capture(
             return Ok(None);
         }
     };
+
+    let raw_audio: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+    let raw_audio_writer = Arc::clone(&raw_audio);
+    // Tee: every chunk forwarded to the STT worker (unchanged) is also
+    // accumulated here for later WAV export. Isolated to its own thread so
+    // the live transcription pipeline (samples_rx consumer) is untouched —
+    // this thread simply exits once `raw_tx` (owned by AudioCapture) is
+    // dropped, i.e. when capture stops.
+    std::thread::spawn(move || {
+        while let Ok(chunk) = raw_rx.recv() {
+            if let Ok(mut buf) = raw_audio_writer.lock() {
+                buf.extend_from_slice(&chunk);
+            }
+            if samples_tx.send(chunk).is_err() {
+                break;
+            }
+        }
+    });
+
     let (events_tx, events_rx) = mpsc::channel();
     // A failure to load/init the STT pipeline (e.g. missing or corrupt model
     // file) MUST propagate so the caller surfaces it to the user instead of
@@ -159,6 +206,7 @@ fn start_capture(
         _capture: capture,
         _worker: worker,
         events_rx,
+        raw_audio,
     }))
 }
 
@@ -166,8 +214,27 @@ pub fn stop_session(session_id: &str) -> Result<(), TranscribeError> {
     let mut reg = registry()
         .lock()
         .map_err(|_| TranscribeError::Transcription("session registry lock poisoned".into()))?;
-    reg.remove(session_id)
+    let state = reg
+        .remove(session_id)
         .ok_or_else(|| TranscribeError::SessionNotFound(session_id.to_string()))?;
+    drop(reg);
+
+    let mic_audio = state
+        .mic_capture
+        .as_ref()
+        .and_then(|c| c.raw_audio.lock().ok().map(|buf| buf.clone()))
+        .filter(|buf| !buf.is_empty());
+    let speaker_audio = state
+        .speaker_capture
+        .as_ref()
+        .and_then(|c| c.raw_audio.lock().ok().map(|buf| buf.clone()))
+        .filter(|buf| !buf.is_empty());
+    if mic_audio.is_some() || speaker_audio.is_some() {
+        if let Ok(mut audio_reg) = audio_registry().lock() {
+            audio_reg.insert(session_id.to_string(), (mic_audio, speaker_audio));
+        }
+    }
+
     remove_snapshot_file(session_id)?;
     Ok(())
 }

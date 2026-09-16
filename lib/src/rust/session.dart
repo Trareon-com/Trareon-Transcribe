@@ -11,9 +11,17 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'session.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `collect_worker_events`, `load_snapshot_file`, `persist_session_snapshot`, `recovery_dir`, `recovery_path`, `registry`, `remove_snapshot_file`, `should_split`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
+// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `audio_registry`, `collect_worker_events`, `load_snapshot_file`, `persist_session_snapshot`, `recovery_dir`, `recovery_path`, `registry`, `remove_snapshot_file`, `should_split`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CaptureChannel`, `SessionState`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
+
+/// Takes (removes) the raw mic/speaker audio retained for `session_id`, if
+/// any. Returns `(None, None)` if the session had no live capture (e.g. it
+/// was never started, or was a batch-file transcription) or if this was
+/// already called for this session.
+Future<(Float32List?, Float32List?)> takeRawAudio({
+  required String sessionId,
+}) => RustLib.instance.api.crateSessionTakeRawAudio(sessionId: sessionId);
 
 Future<String> startSession({required SessionConfig config}) =>
     RustLib.instance.api.crateSessionStartSession(config: config);

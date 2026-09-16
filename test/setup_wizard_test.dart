@@ -91,6 +91,12 @@ class _FakeBridge implements RustBridge {
     List<rust_export.ExportFormat> formats = const [],
   }) async {}
   @override
+  Future<void> exportSessionAudio({
+    required String sessionId,
+    required String outputDir,
+    required String title,
+  }) async {}
+  @override
   Future<void> pauseSession(String sessionId) async {}
   @override
   Future<void> resumeSession(String sessionId) async {}

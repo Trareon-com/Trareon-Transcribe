@@ -166,10 +166,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
 
   @protected
+  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
+
+  @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
 
   @protected
   (bool, bool) dco_decode_record_bool_bool(dynamic raw);
+
+  @protected
+  (Float32List?, Float32List?)
+  dco_decode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
+    dynamic raw,
+  );
 
   @protected
   (String, String) dco_decode_record_string_string(dynamic raw);
@@ -382,12 +391,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  Float32List? sse_decode_opt_list_prim_f_32_strict(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ProgressiveFileResult sse_decode_progressive_file_result(
     SseDeserializer deserializer,
   );
 
   @protected
   (bool, bool) sse_decode_record_bool_bool(SseDeserializer deserializer);
+
+  @protected
+  (Float32List?, Float32List?)
+  sse_decode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
+    SseDeserializer deserializer,
+  );
 
   @protected
   (String, String) sse_decode_record_string_string(
@@ -642,6 +662,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_prim_f_32_strict(
+    Float32List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_progressive_file_result(
     ProgressiveFileResult self,
     SseSerializer serializer,
@@ -649,6 +675,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_record_bool_bool((bool, bool) self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
+    (Float32List?, Float32List?) self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_record_string_string(

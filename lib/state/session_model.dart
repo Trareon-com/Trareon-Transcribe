@@ -296,6 +296,16 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
           'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
         );
       }
+      // Best-effort: the transcript (the primary artifact) already saved
+      // successfully above, so a raw-audio export failure here shouldn't
+      // surface as a save error to the user — swallow it.
+      try {
+        await _bridge.exportSessionAudio(
+          sessionId: id,
+          outputDir: outputDir,
+          title: title,
+        );
+      } catch (_) {}
     }
   }
 

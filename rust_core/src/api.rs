@@ -170,6 +170,26 @@ pub fn export_session(
     crate::export::export_segments(&segments, &formats, &PathBuf::from(output_dir), &title)
 }
 
+/// Writes the raw mic/speaker audio captured during `session_id`'s live
+/// recording as WAV files into the same session folder `export_session`
+/// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after
+/// `stop_session` — the raw audio is only retained until the first call for
+/// a given session. Returns an empty list (not an error) when there was no
+/// live capture to save, e.g. a batch-file transcription.
+pub fn export_session_audio(
+    session_id: String,
+    output_dir: String,
+    title: String,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    let (mic, speaker) = crate::session::take_raw_audio(&session_id);
+    crate::export::export_session_audio(
+        mic.as_deref(),
+        speaker.as_deref(),
+        &PathBuf::from(output_dir),
+        &title,
+    )
+}
+
 /// Sanitize a candidate filename so it is safe to use on all target
 /// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
 /// input would otherwise be empty after stripping.

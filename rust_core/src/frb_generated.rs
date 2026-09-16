@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -653160074;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1374276253;
 
 // Section: executor
 
@@ -409,6 +409,45 @@ fn wire__crate__api__export_session_impl(
                     let output_ok = crate::api::export_session(
                         api_segments,
                         api_formats,
+                        api_output_dir,
+                        api_title,
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__export_session_audio_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_session_audio",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            let api_output_dir = <String>::sse_decode(&mut deserializer);
+            let api_title = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::TranscribeError>((move || {
+                    let output_ok = crate::api::export_session_audio(
+                        api_session_id,
                         api_output_dir,
                         api_title,
                     )?;
@@ -2207,6 +2246,40 @@ fn wire__crate__session__stop_session_impl(
         },
     )
 }
+fn wire__crate__session__take_raw_audio_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "take_raw_audio",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::session::take_raw_audio(&api_session_id))?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__toggle_mic_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2851,6 +2924,17 @@ impl SseDecode for Option<(u64, u64)> {
     }
 }
 
+impl SseDecode for Option<Vec<f32>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<f32>>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for crate::api::ProgressiveFileResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2872,6 +2956,15 @@ impl SseDecode for (bool, bool) {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_field0 = <bool>::sse_decode(deserializer);
         let mut var_field1 = <bool>::sse_decode(deserializer);
+        return (var_field0, var_field1);
+    }
+}
+
+impl SseDecode for (Option<Vec<f32>>, Option<Vec<f32>>) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field0 = <Option<Vec<f32>>>::sse_decode(deserializer);
+        let mut var_field1 = <Option<Vec<f32>>>::sse_decode(deserializer);
         return (var_field0, var_field1);
     }
 }
@@ -3157,83 +3250,85 @@ fn pde_ffi_dispatcher_primary_impl(
         9 => wire__crate__api__engine_version_impl(port, ptr, rust_vec_len, data_len),
         10 => wire__crate__api__export_sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
         11 => wire__crate__api__export_session_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__get_app_config_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__get_loopback_device_impl(port, ptr, rust_vec_len, data_len),
-        25 => {
+        12 => wire__crate__api__export_session_audio_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__get_app_config_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__get_loopback_device_impl(port, ptr, rust_vec_len, data_len),
+        26 => {
             wire__crate__audio__device__get_loopback_device_impl(port, ptr, rust_vec_len, data_len)
         }
-        26 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__session__get_status_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__audio__hpt_mode_default_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__is_another_instance_running_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
-        36 => {
+        27 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__session__get_status_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__audio__hpt_mode_default_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__is_another_instance_running_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
+        37 => {
             wire__crate__audio__device__list_input_devices_impl(port, ptr, rust_vec_len, data_len)
         }
-        37 => {
+        38 => {
             wire__crate__audio__device__list_output_devices_impl(port, ptr, rust_vec_len, data_len)
         }
-        38 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
-        39 => {
+        39 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
+        40 => {
             wire__crate__session__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len)
         }
-        40 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__session__mark_split_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__session__poll_events_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__session__record_segment_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__session__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__release_instance_lock_impl(port, ptr, rust_vec_len, data_len),
-        50 => {
+        41 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__session__mark_split_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__session__poll_events_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__session__record_segment_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__session__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__release_instance_lock_impl(port, ptr, rust_vec_len, data_len),
+        51 => {
             wire__crate__api__resume_pending_transcriptions_impl(port, ptr, rust_vec_len, data_len)
         }
-        51 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__export__sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__audio__session_config_for_mode_impl(port, ptr, rust_vec_len, data_len),
-        56 => {
+        52 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__export__sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__audio__session_config_for_mode_impl(port, ptr, rust_vec_len, data_len),
+        57 => {
             wire__crate__audio__session_config_hpt_enabled_impl(port, ptr, rust_vec_len, data_len)
         }
-        57 => {
+        58 => {
             wire__crate__audio__session_mode_default_toggles_impl(port, ptr, rust_vec_len, data_len)
         }
-        58 => wire__crate__audio__session_mode_echo_dedupe_enabled_impl(
+        59 => wire__crate__audio__session_mode_echo_dedupe_enabled_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        59 => wire__crate__api__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__session__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__session__start_session_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__session__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__session__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__session__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__session__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__session__start_session_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__session__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__session__take_raw_audio_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__session__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__session__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -4108,6 +4203,16 @@ impl SseEncode for Option<(u64, u64)> {
     }
 }
 
+impl SseEncode for Option<Vec<f32>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<f32>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::api::ProgressiveFileResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4123,6 +4228,14 @@ impl SseEncode for (bool, bool) {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.0, serializer);
         <bool>::sse_encode(self.1, serializer);
+    }
+}
+
+impl SseEncode for (Option<Vec<f32>>, Option<Vec<f32>>) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<Vec<f32>>>::sse_encode(self.0, serializer);
+        <Option<Vec<f32>>>::sse_encode(self.1, serializer);
     }
 }
 
