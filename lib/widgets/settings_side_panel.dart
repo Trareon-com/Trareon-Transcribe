@@ -333,7 +333,13 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             trailing: const Icon(Icons.chevron_right, size: 18),
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => UsageDashboardScreen(),
+                                // Without libraryPath the screen can't scan
+                                // any session folder and always shows the
+                                // "belum ada data" empty state, even with
+                                // real completed sessions on disk.
+                                builder: (_) => UsageDashboardScreen(
+                                  libraryPath: resolveTilde(settings.libraryPath),
+                                ),
                               ),
                             ),
                           ),

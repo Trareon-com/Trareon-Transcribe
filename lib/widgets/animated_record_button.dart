@@ -5,7 +5,18 @@ class AnimatedRecordButton extends StatefulWidget {
   final bool isRecording;
   final bool isPaused;
   final VoidCallback onPressed;
-  const AnimatedRecordButton({super.key, required this.isRecording, required this.isPaused, required this.onPressed});
+  // True while stop() is awaiting the save — without this the button just
+  // sits there with no feedback (still says "Berhenti", no spinner) for
+  // however long the export takes, which reads as a frozen app on a
+  // session with a large pending-transcription backlog.
+  final bool isBusy;
+  const AnimatedRecordButton({
+    super.key,
+    required this.isRecording,
+    required this.isPaused,
+    required this.onPressed,
+    this.isBusy = false,
+  });
   @override State<AnimatedRecordButton> createState() => _AnimatedRecordButtonState();
 }
 
@@ -40,12 +51,19 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton> with Single
         boxShadow: isActive ? [BoxShadow(color: AppColors.recordingDot.withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 2)] : null,
       ),
       child: Material(color: Colors.transparent, borderRadius: BorderRadius.circular(10),
-        child: InkWell(borderRadius: BorderRadius.circular(10), onTap: widget.onPressed,
+        child: InkWell(borderRadius: BorderRadius.circular(10), onTap: widget.isBusy ? null : widget.onPressed,
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic, color: Colors.white, size: 16),
+              if (widget.isBusy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              else
+                Icon(isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic, color: Colors.white, size: 16),
               const SizedBox(width: 6),
-              Text(isActive ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti') : 'Mulai',
+              Text(widget.isBusy ? 'Menyimpan...' : (isActive ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti') : 'Mulai'),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
             ])))),
     ));

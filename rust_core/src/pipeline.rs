@@ -385,7 +385,7 @@ impl<'a> LivePipeline<'a> {
 
         let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
         let mut has_speech = false;
-        for frame in samples.chunks_exact(FRAME_SAMPLES_10MS) {
+        for frame in samples.as_chunks::<FRAME_SAMPLES_10MS>().0 {
             fill_i16_slice(frame, &mut frame_buf);
             if self.vad.is_speech(&frame_buf)? {
                 has_speech = true;
@@ -472,7 +472,7 @@ impl<'a> LivePipelineHpt<'a> {
 
         let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
         let mut has_speech = false;
-        for frame in samples.chunks_exact(FRAME_SAMPLES_10MS) {
+        for frame in samples.as_chunks::<FRAME_SAMPLES_10MS>().0 {
             fill_i16_slice(frame, &mut frame_buf);
             if self.vad.is_speech(&frame_buf)? {
                 has_speech = true;

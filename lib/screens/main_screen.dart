@@ -32,6 +32,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   List<rust_session.SessionRecoverySnapshot> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
+  bool _isStoppingSession = false;
   final _titleController = TextEditingController();
 
   @override
@@ -102,6 +103,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (confirmed != true) return;
     }
     if (!context.mounted) return;
+    setState(() => _isStoppingSession = true);
     try {
       await ref.read(sessionProvider.notifier).stop();
       if (segments.isNotEmpty && context.mounted) {
@@ -119,6 +121,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (context.mounted) {
         AppToast.show(context, 'Gagal menghentikan sesi: $e', type: ToastType.error);
       }
+    } finally {
+      if (mounted) setState(() => _isStoppingSession = false);
     }
   }
 
@@ -368,6 +372,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 titleController: _titleController,
                 onStartBerhenti: () => _toggleStartBerhenti(context, ref),
                 onEkspor: () => _onEkspor(context),
+                isStoppingSession: _isStoppingSession,
               ),
 
               // Transcript
@@ -420,6 +425,7 @@ class _ControlBar extends StatelessWidget {
   final TextEditingController titleController;
   final VoidCallback onStartBerhenti;
   final VoidCallback onEkspor;
+  final bool isStoppingSession;
 
   const _ControlBar({
     required this.session,
@@ -431,6 +437,7 @@ class _ControlBar extends StatelessWidget {
     required this.titleController,
     required this.onStartBerhenti,
     required this.onEkspor,
+    required this.isStoppingSession,
   });
 
   @override
@@ -569,6 +576,7 @@ class _ControlBar extends StatelessWidget {
                 isRecording: isActive,
                 isPaused: isPaused,
                 onPressed: onStartBerhenti,
+                isBusy: isStoppingSession,
               ),
             ],
           ),
