@@ -24,6 +24,69 @@ class UsageStats {
       );
 }
 
+String _sourceModeLabel(String source) => switch (source) {
+      'mic' => 'Rapat Offline',
+      'spk' => 'Webinar',
+      _ => 'Rapat Online',
+    };
+
+/// Scans `libraryPath` for session folders (one `.json` transcript per
+/// folder) and aggregates them into [UsageStats]. Pulled out as a plain
+/// top-level function — separate from the widget's `_loadStats()` — so it
+/// can be unit-tested with a plain `test()` instead of `testWidgets()`.
+Future<UsageStats> scanUsageStats(String libraryPath) async {
+  final resolved = libraryPath.startsWith('~/')
+      ? '${Platform.environment['HOME'] ?? ''}${libraryPath.substring(1)}'
+      : libraryPath;
+  final dir = Directory(resolved);
+
+  if (!dir.existsSync()) {
+    return UsageStats.empty();
+  }
+
+  var totalSessions = 0;
+  var totalMinutes = 0.0;
+  var totalSegments = 0;
+  final byMode = <String, int>{};
+
+  try {
+    for (final entry in dir.listSync()) {
+      if (entry is! Directory) continue;
+      final files = entry.listSync().whereType<File>().toList();
+      final jsonFile = files.where((f) => f.path.endsWith('.json')).firstOrNull;
+      if (jsonFile == null) continue;
+      try {
+        final raw = await jsonFile.readAsString();
+        final list = jsonDecode(raw);
+        if (list is! List || list.isEmpty) continue;
+
+        totalSessions++;
+        totalSegments += list.length;
+
+        final last = list.last as Map<String, dynamic>;
+        final lastTs = (last['timestamp'] as num?)?.toDouble() ?? 0;
+        final lastDur = (last['duration'] as num?)?.toDouble() ?? 0;
+        totalMinutes += (lastTs + lastDur) / 60;
+
+        // Source field ('mic'/'spk') approximates mode
+        final first = list.first as Map<String, dynamic>;
+        final source = (first['source'] as String?) ?? 'mic';
+        final modeLabel = _sourceModeLabel(source);
+        byMode[modeLabel] = (byMode[modeLabel] ?? 0) + 1;
+      } catch (_) {
+        continue;
+      }
+    }
+  } catch (_) {}
+
+  return UsageStats(
+    totalSessions: totalSessions,
+    totalMinutesTranscribed: totalMinutes,
+    totalSegments: totalSegments,
+    sessionsByMode: byMode,
+  );
+}
+
 /// Loads and displays real usage statistics by scanning the library directory.
 class UsageDashboardScreen extends StatefulWidget {
   /// Optional library path to scan. When null and [stats] is null, shows empty state.
@@ -63,74 +126,14 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
       return;
     }
 
-    final resolved = rawPath.startsWith('~/')
-        ? '${Platform.environment['HOME'] ?? ''}${rawPath.substring(1)}'
-        : rawPath;
-    final dir = Directory(resolved);
-
-    if (!dir.existsSync()) {
-      setState(() {
-        _stats = UsageStats.empty();
-        _loading = false;
-      });
-      return;
-    }
-
-    var totalSessions = 0;
-    var totalMinutes = 0.0;
-    var totalSegments = 0;
-    final byMode = <String, int>{};
-
-    try {
-      for (final entry in dir.listSync()) {
-        if (entry is! Directory) continue;
-        final files = entry.listSync().whereType<File>().toList();
-        final jsonFile = files
-            .where((f) => f.path.endsWith('.json'))
-            .firstOrNull;
-        if (jsonFile == null) continue;
-        try {
-          final raw = await jsonFile.readAsString();
-          final list = jsonDecode(raw);
-          if (list is! List || list.isEmpty) continue;
-
-          totalSessions++;
-          totalSegments += list.length;
-
-          final last = list.last as Map<String, dynamic>;
-          final lastTs = (last['timestamp'] as num?)?.toDouble() ?? 0;
-          final lastDur = (last['duration'] as num?)?.toDouble() ?? 0;
-          totalMinutes += (lastTs + lastDur) / 60;
-
-          // Source field ('mic'/'spk') approximates mode
-          final first = list.first as Map<String, dynamic>;
-          final source = (first['source'] as String?) ?? 'mic';
-          final modeLabel = _sourceModeLabel(source);
-          byMode[modeLabel] = (byMode[modeLabel] ?? 0) + 1;
-        } catch (_) {
-          continue;
-        }
-      }
-    } catch (_) {}
-
+    final stats = await scanUsageStats(rawPath);
     if (mounted) {
       setState(() {
-        _stats = UsageStats(
-          totalSessions: totalSessions,
-          totalMinutesTranscribed: totalMinutes,
-          totalSegments: totalSegments,
-          sessionsByMode: byMode,
-        );
+        _stats = stats;
         _loading = false;
       });
     }
   }
-
-  String _sourceModeLabel(String source) => switch (source) {
-        'mic' => 'Rapat Offline',
-        'spk' => 'Webinar',
-        _ => 'Rapat Online',
-      };
 
   @override
   Widget build(BuildContext context) {
