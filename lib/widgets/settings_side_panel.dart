@@ -152,11 +152,18 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             icon: Icons.psychology_outlined,
                             label: 'Model default',
                             trailing: _CompactDropdown<String>(
-                              value: settings.defaultModel,
-                              items: const [
-                                'base',
-                                'large-v3-turbo-q5',
-                              ],
+                              // settings.defaultModel can be an older/power-user
+                              // model (e.g. 'tiny') that's still available on
+                              // disk but outside the 2-model catalog this
+                              // dropdown offers — feeding that straight in as
+                              // `value` trips DropdownButton's "exactly one
+                              // matching item" assertion. Clamp for display
+                              // only; the real setting is untouched unless the
+                              // user picks something here.
+                              value: kKnownModelIds.contains(settings.defaultModel)
+                                  ? settings.defaultModel
+                                  : kKnownModelIds.first,
+                              items: kKnownModelIds,
                               labelBuilder: modelDisplayLabel,
                               onChanged: (modelId) {
                                 if (!isModelAvailable(modelId,

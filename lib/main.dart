@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'widgets/model_download_card.dart' show DownloadStatus;
 import 'services/rust_library_loader.dart';
 import 'services/tray_service.dart';
 import 'src/rust/api.dart' as rust_api;
 import 'src/rust/frb_generated.dart';
 import 'state/models.dart';
+import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_theme.dart';
 
@@ -66,12 +66,13 @@ class _AlreadyRunningApp extends StatelessWidget {
   }
 }
 
-/// True if both required models exist on disk (Whisper large-v3-turbo + Qwen2.5-7B).
-/// Read once at startup; the onboarding screen flips it after the user finishes.
+/// True if the default STT model ('base') exists on disk. Read once at
+/// startup; the onboarding screen flips it to true when download completes.
+/// Without this check, first-launch users (and anyone whose cached model
+/// was removed) would land straight on MainScreen with no model to
+/// transcribe with, instead of the download flow.
 final modelsReadyProvider = StateProvider<bool>((ref) {
-  // Lazy read — assume ready unless onboarding has been seen and the check failed.
-  // The onboarding screen sets this to true when download completes.
-  return true;
+  return isModelAvailable('base');
 });
 
 class TranscribeApp extends ConsumerWidget {
@@ -95,28 +96,44 @@ class TranscribeApp extends ConsumerWidget {
       themeAnimationDuration: const Duration(milliseconds: 300),
       themeAnimationCurve: Curves.easeInOut,
       // First-launch routing: when models aren't downloaded yet, show the
-      // dedicated onboarding/download screen (Task 22). The legacy
-      // SetupWizardScreen remains reachable from Settings for power users.
-      home: modelsReady
-          ? const MainScreen()
-          : OnboardingScreen(
-              asrStatus: DownloadStatus.idle,
-              asrProgress: 0,
-              asrTitle: 'Model Pengenalan Suara',
-              asrSubtitle:
-                  'Mengubah gelombang suara menjadi teks bahasa Indonesia',
-              asrSize: '~1,5 GB',
-              llmStatus: DownloadStatus.idle,
-              llmProgress: 0,
-              llmTitle: 'Model Bahasa Indonesia',
-              llmSubtitle:
-                  'Memperbaiki teks hasil transkrip dan membuat ringkasan',
-              llmSize: '~4,5 GB',
-              allReady: false,
-              onContinue: () {},
-              onRetryAsr: () {},
-              onRetryLlm: () {},
-            ),
+      // dedicated onboarding/download screen. The legacy SetupWizardScreen
+      // remains reachable from Settings for power users.
+      home: modelsReady ? const MainScreen() : const _OnboardingRoute(),
+    );
+  }
+}
+
+/// Hosts [OnboardingScreen], kicks off the real model downloads via
+/// [onboardingProvider], and flips [modelsReadyProvider] once the user
+/// confirms both models are ready.
+class _OnboardingRoute extends ConsumerStatefulWidget {
+  const _OnboardingRoute();
+
+  @override
+  ConsumerState<_OnboardingRoute> createState() => _OnboardingRouteState();
+}
+
+class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
+  @override
+  void initState() {
+    super.initState();
+    // Deferred to post-frame so the screen paints before the download
+    // kicks off. OnboardingNotifier.start() is idempotent/self-guarding,
+    // so this is safe even if the widget rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(onboardingProvider.notifier).start();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(onboardingProvider);
+    final notifier = ref.read(onboardingProvider.notifier);
+    return OnboardingScreen(
+      state: state,
+      onContinue: () => ref.read(modelsReadyProvider.notifier).state = true,
+      onRetryQuick: notifier.retryQuick,
+      onRetryAccurate: notifier.retryAccurate,
     );
   }
 }

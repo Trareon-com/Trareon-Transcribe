@@ -22,6 +22,13 @@ String _modelFileName(String modelId) => switch (modelId) {
   _ => 'ggml-$modelId.bin',
 };
 
+/// The only model ids the current 2-model bundle exposes in the UI (Settings
+/// dropdown, setup wizard). A model id can still have a cached file on disk
+/// after being dropped from this list (e.g. `tiny` from an earlier release)
+/// — [isModelAvailable] alone doesn't catch that, so callers that need a
+/// UI-selectable default (not just a playable file) must also check this.
+const List<String> kKnownModelIds = ['base', 'large-v3-turbo-q5'];
+
 /// Resolves a model id to an absolute file path. The bare relative path
 /// `models/ggml-*.bin` only resolves by coincidence when a process happens
 /// to have the repo root as its CWD (e.g. a shell-launched `cargo run`) — a
@@ -82,6 +89,24 @@ bool isModelAvailable(String modelId, {String? libraryPath}) {
     ..._devTreePaths(fileName),
   ];
   return candidates.any((c) => File(c).existsSync());
+}
+
+/// Directory downloaded models are saved into when the user hasn't picked a
+/// custom library path. Matches the "Known macOS/Windows model cache
+/// location" candidates [isModelAvailable] and [modelPathForId] already
+/// check unconditionally, so a model downloaded here is found on the very
+/// next app launch — before `AppSettings` (and its `libraryPath`) finish
+/// loading from disk.
+String defaultModelsCacheDir() {
+  final localAppData = Platform.environment['LOCALAPPDATA'];
+  if (localAppData != null && Platform.isWindows) {
+    return '$localAppData\\TrareonTranscribe\\models';
+  }
+  final home = Platform.environment['HOME'];
+  if (home != null) {
+    return '$home/Library/Caches/TrareonTranscribe/models';
+  }
+  return 'models';
 }
 
 String _bundledResourcesPath(String fileName) {
@@ -240,8 +265,10 @@ enum AppThemeMode { light, dark, system }
 enum HptMode {
   /// Benchmark q5 RTF; direct if fast, dual-pass if slow (default).
   auto,
+
   /// Force base quick → q5 refine dual-pass.
   forceDual,
+
   /// Force q5 single-pass (skip base entirely).
   forceDirect,
 }

@@ -116,6 +116,9 @@ class _ToastWidgetState extends State<_ToastWidget>
               borderRadius: BorderRadius.circular(10),
               color: widget.colors.surfaceElevated,
               child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: (MediaQuery.of(context).size.width - 64).clamp(200, 480),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
@@ -123,14 +126,17 @@ class _ToastWidgetState extends State<_ToastWidget>
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(iconData, size: 16, color: iconColor),
                     const SizedBox(width: 8),
-                    Text(
-                      widget.message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: widget.colors.text,
+                    Flexible(
+                      child: Text(
+                        widget.message,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: widget.colors.text,
+                        ),
                       ),
                     ),
                   ],

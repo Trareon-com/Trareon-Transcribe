@@ -135,6 +135,12 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
         std::fs::create_dir_all(parent).map_err(TranscribeError::from)?;
     }
 
+    // Progress is a single global slot (see model.rs), shared across every
+    // call — without resetting here, a caller downloading models back to
+    // back (onboarding) would briefly read the *previous* download's 100%
+    // before the first progress callback for this one lands.
+    crate::model::reset_download_progress();
+
     crate::model::download_with_resume(&info.url, &dest_path, |progress| {
         crate::model::set_download_progress(progress.bytes_downloaded, progress.total_bytes);
     })
@@ -376,7 +382,9 @@ mod tests {
 
     #[test]
     fn session_lifecycle_through_api() {
-        let config = SessionConfig::for_mode(SessionMode::Offline, "tiny".into());
+        let mut config = SessionConfig::for_mode(SessionMode::Offline, "tiny".into());
+        config.mic_enabled = false;
+        config.speaker_enabled = false;
         let id = start_session(config).unwrap();
         assert!(get_session_status(id.clone()).is_ok());
         toggle_mic(id.clone(), false).unwrap();

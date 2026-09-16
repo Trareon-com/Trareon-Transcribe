@@ -24,11 +24,19 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    // Initialize the Rust bridge (loads librust_core via FRB)
+    // Initialize the Rust bridge. The macOS app bundles librust_core.dylib
+    // into Contents/Frameworks during the integration-test build. Resolve it
+    // from the test host's own executable (Platform.resolvedExecutable) so
+    // the path stays inside the app bundle — the sandbox blocks dlopen() on
+    // anything outside it (verified: "file system sandbox blocked open()").
+    final exe = File(Platform.resolvedExecutable).absolute;
+    final bundleRoot = exe.path
+        .split(Platform.pathSeparator)
+        .takeWhile((s) => s != 'Contents')
+        .join(Platform.pathSeparator);
+    final dylib = '$bundleRoot/Contents/Frameworks/librust_core.dylib';
     await RustLib.init(
-      externalLibrary: ExternalLibrary.open(
-        'rust_core/target/release/librust_core.dylib',
-      ),
+      externalLibrary: ExternalLibrary.open(dylib),
     );
   });
 

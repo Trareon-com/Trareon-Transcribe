@@ -64,6 +64,9 @@ void main() {
         h == 'services/bridge_service.dart' ||
             h.startsWith('screens/setup_wizard') ||
             h.startsWith('widgets/model_download_dialog') ||
+            h.startsWith(
+              'state/onboarding_model',
+            ) || // first-launch download flow
             h.startsWith('src/rust/'), // generated FRB bindings — allowed
         isTrue,
         reason: 'unexpected downloadModel call site: $h',
@@ -84,7 +87,10 @@ void main() {
       }
     });
 
-    expect(hits, ['state/privacy_report_model.dart'],
-        reason: 'counter must only be defined, never incremented while bundled');
+    expect(
+      hits,
+      ['state/privacy_report_model.dart'],
+      reason: 'counter must only be defined, never incremented while bundled',
+    );
   });
 }

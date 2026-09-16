@@ -74,9 +74,19 @@ pub fn export_segments(
     title: &str,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
     let safe_title = sanitize_filename(title);
-    // Prepend today's date in YYYYMMDD format per blueprint §5.4
+    // Prepend today's date in YYYYMMDD format per blueprint §5.4, unless the
+    // session title already starts with a YYYYMMDD prefix (session titles are
+    // generated as "{timestamp}-{name}", so prepending again would produce a
+    // doubled prefix like "20260807-20260807-test_speech").
+    let has_date_prefix = safe_title
+        .get(..8)
+        .is_some_and(|head| head.chars().all(|c| c.is_ascii_digit()));
     let date_prefix = chrono::Local::now().format("%Y%m%d").to_string();
-    let session_dir = output_dir.join(format!("{date_prefix}-{safe_title}"));
+    let session_dir = if has_date_prefix {
+        output_dir.join(&safe_title)
+    } else {
+        output_dir.join(format!("{date_prefix}-{safe_title}"))
+    };
     fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
 
     // PARALLEL EXPORT: spawn a thread per format so that e.g. Markdown
@@ -383,6 +393,31 @@ mod tests {
             assert!(Path::new(&f.path).exists());
             assert!(f.size_bytes > 0);
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_title_with_date_prefix_does_not_double_prefix() {
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_export_date_{}", uuid::Uuid::new_v4()));
+        let segments = sample_segments();
+        let files = export_segments(
+            &segments,
+            &[ExportFormat::Txt],
+            &dir,
+            "20260807-test_speech",
+        )
+        .unwrap();
+        // Session titles already carry a YYYYMMDD prefix — the export folder
+        // must NOT become "20260807-20260807-test_speech".
+        let written = Path::new(&files[0].path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(written, "20260807-test_speech");
         let _ = fs::remove_dir_all(&dir);
     }
 

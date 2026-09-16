@@ -42,17 +42,14 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  String _status = 'Mengunduh...';
-
-  @override
-  void initState() {
-    super.initState();
-    _startDownload();
-  }
+  bool _started = false;
+  String _status = '';
 
   Future<void> _startDownload() async {
+    if (_downloading || _started) return;
     setState(() {
       _downloading = true;
+      _started = true;
       _status = 'Mengunduh ${widget.displayName}...';
     });
 
@@ -88,7 +85,9 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
+            _downloading
+                ? 'Mengunduh ${widget.displayName}...'
+                : '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
@@ -101,7 +100,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _downloading ? null : () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(false),
           child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
         ),
         if (!_downloading)

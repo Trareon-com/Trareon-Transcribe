@@ -1,0 +1,17 @@
+# macOS: cargo test binaries and cdylib link Swift-compiled code transitively
+# (whisper.cpp + ggml + Metal) and need a runpath to Xcode's Swift runtime to
+# find libswift_Concurrency.dylib at launch. Without this, dyld crashes on:
+#   Library not loaded: @rpath/libswift_Concurrency.dylib
+#   Referenced from: <cargo test binary>
+# Harmless on systems without Xcode at this path: the rpath just won't resolve.
+# Harmless on non-macOS: the target triples below do not apply.
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx",
+]

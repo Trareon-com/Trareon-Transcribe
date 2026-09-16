@@ -146,25 +146,14 @@ fn start_capture(
         }
     };
     let (events_tx, events_rx) = mpsc::channel();
+    // A failure to load/init the STT pipeline (e.g. missing or corrupt model
+    // file) MUST propagate so the caller surfaces it to the user instead of
+    // silently starting a session that never transcribes anything.
     let worker = match refine_model_path {
-        Some(refine) => {
-            match LiveWorker::spawn_adaptive(
-                model_path, refine, hpt_mode, source, language, samples_rx, events_tx,
-            ) {
-                Ok(w) => w,
-                Err(e) => {
-                    tracing::warn!(source, %e, "skipping capture — hpt pipeline init failed");
-                    return Ok(None);
-                }
-            }
-        }
-        None => match LiveWorker::spawn(model_path, source, language, samples_rx, events_tx) {
-            Ok(w) => w,
-            Err(e) => {
-                tracing::warn!(source, %e, "skipping capture — pipeline init failed");
-                return Ok(None);
-            }
-        },
+        Some(refine) => LiveWorker::spawn_adaptive(
+            model_path, refine, hpt_mode, source, language, samples_rx, events_tx,
+        )?,
+        None => LiveWorker::spawn(model_path, source, language, samples_rx, events_tx)?,
     };
     Ok(Some(CaptureChannel {
         _capture: capture,
@@ -527,7 +516,12 @@ mod tests {
     use super::*;
 
     fn test_config() -> SessionConfig {
-        SessionConfig::for_mode(SessionMode::Online, "tiny".into())
+        // Capture disabled: these tests exercise the session registry /
+        // lifecycle, not the STT pipeline, so no model file is required.
+        let mut cfg = SessionConfig::for_mode(SessionMode::Online, "tiny".into());
+        cfg.mic_enabled = false;
+        cfg.speaker_enabled = false;
+        cfg
     }
 
     #[test]
