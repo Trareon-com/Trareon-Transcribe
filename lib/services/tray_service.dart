@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -19,6 +22,11 @@ class TrayService with TrayListener, WindowListener {
 
     try {
       await windowManager.ensureInitialized();
+      // macOS secure state restoration restores the saved (possibly
+      // off-screen) window frame after launch. Poll for the first
+      // seconds of runtime and recenter whenever the frame lands
+      // outside the visible area (restoration can settle late).
+      _watchWindowFrame();
       await windowManager.setPreventClose(true);
       windowManager.addListener(this);
 
@@ -73,5 +81,50 @@ class TrayService with TrayListener, WindowListener {
   Future<void> _showWindow() async {
     await windowManager.show();
     await windowManager.focus();
+  }
+
+  /// Keeps the window on a visible display.
+  ///
+  /// macOS may restore a saved (possibly off-screen) frame at launch AND
+  /// again when the window is re-shown from the dock/tray, defeating
+  /// single-shot centering. We recenter whenever the frame ends up with
+  /// no visible intersection on the primary display — both via the
+  /// window-moved event and a short launch-time poll.
+  void _watchWindowFrame() {
+    var checks = 0;
+    Timer.periodic(const Duration(milliseconds: 800), (timer) async {
+      checks++;
+      if (checks > 10) {
+        timer.cancel();
+        return;
+      }
+      await _recenterIfOffScreen();
+    });
+  }
+
+  @override
+  void onWindowMoved() {
+    _recenterIfOffScreen();
+  }
+
+  Future<void> _recenterIfOffScreen() async {
+    try {
+      final primary = await screenRetriever.getPrimaryDisplay();
+      final vp = primary.visiblePosition ?? const Offset(0, 0);
+      final vs = primary.visibleSize ?? primary.size;
+      final bounds = await windowManager.getBounds();
+      final intersects = bounds.left < vp.dx + vs.width &&
+          bounds.top < vp.dy + vs.height &&
+          bounds.left + bounds.width > vp.dx &&
+          bounds.top + bounds.height > vp.dy;
+      if (!intersects) {
+        final size = await windowManager.getSize();
+        final dx = vp.dx + ((vs.width - size.width) / 2);
+        final dy = vp.dy + ((vs.height - size.height) / 2);
+        await windowManager.setPosition(Offset(dx, dy));
+      }
+    } catch (_) {
+      // Window not ready yet — keep polling.
+    }
   }
 }

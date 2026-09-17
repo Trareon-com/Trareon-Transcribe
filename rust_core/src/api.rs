@@ -135,6 +135,12 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
         std::fs::create_dir_all(parent).map_err(TranscribeError::from)?;
     }
 
+    // Progress is a single global slot (see model.rs), shared across every
+    // call — without resetting here, a caller downloading models back to
+    // back (onboarding) would briefly read the *previous* download's 100%
+    // before the first progress callback for this one lands.
+    crate::model::reset_download_progress();
+
     crate::model::download_with_resume(&info.url, &dest_path, |progress| {
         crate::model::set_download_progress(progress.bytes_downloaded, progress.total_bytes);
     })
@@ -162,6 +168,26 @@ pub fn export_session(
     title: String,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
     crate::export::export_segments(&segments, &formats, &PathBuf::from(output_dir), &title)
+}
+
+/// Writes the raw mic/speaker audio captured during `session_id`'s live
+/// recording as WAV files into the same session folder `export_session`
+/// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after
+/// `stop_session` — the raw audio is only retained until the first call for
+/// a given session. Returns an empty list (not an error) when there was no
+/// live capture to save, e.g. a batch-file transcription.
+pub fn export_session_audio(
+    session_id: String,
+    output_dir: String,
+    title: String,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    let (mic, speaker) = crate::session::take_raw_audio(&session_id);
+    crate::export::export_session_audio(
+        mic.as_deref(),
+        speaker.as_deref(),
+        &PathBuf::from(output_dir),
+        &title,
+    )
 }
 
 /// Sanitize a candidate filename so it is safe to use on all target
@@ -376,7 +402,9 @@ mod tests {
 
     #[test]
     fn session_lifecycle_through_api() {
-        let config = SessionConfig::for_mode(SessionMode::Offline, "tiny".into());
+        let mut config = SessionConfig::for_mode(SessionMode::Offline, "tiny".into());
+        config.mic_enabled = false;
+        config.speaker_enabled = false;
         let id = start_session(config).unwrap();
         assert!(get_session_status(id.clone()).is_ok());
         toggle_mic(id.clone(), false).unwrap();

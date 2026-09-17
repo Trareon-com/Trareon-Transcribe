@@ -134,6 +134,22 @@ Future<List<ExportedFile>> exportSession({
   title: title,
 );
 
+/// Writes the raw mic/speaker audio captured during `session_id`'s live
+/// recording as WAV files into the same session folder `export_session`
+/// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after
+/// `stop_session` — the raw audio is only retained until the first call for
+/// a given session. Returns an empty list (not an error) when there was no
+/// live capture to save, e.g. a batch-file transcription.
+Future<List<ExportedFile>> exportSessionAudio({
+  required String sessionId,
+  required String outputDir,
+  required String title,
+}) => RustLib.instance.api.crateApiExportSessionAudio(
+  sessionId: sessionId,
+  outputDir: outputDir,
+  title: title,
+);
+
 /// Sanitize a candidate filename so it is safe to use on all target
 /// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
 /// input would otherwise be empty after stripping.

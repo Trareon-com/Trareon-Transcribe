@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/global_hotkey_service.dart';
 import '../state/audio_stream_model.dart';
+import '../state/audio_watchdog_model.dart';
 import '../state/models.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
@@ -31,6 +32,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   List<rust_session.SessionRecoverySnapshot> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
+  bool _isStoppingSession = false;
+  bool _isStartingSession = false;
   final _titleController = TextEditingController();
 
   @override
@@ -100,8 +103,27 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
       if (confirmed != true) return;
     }
-    if (context.mounted) {
+    if (!context.mounted) return;
+    setState(() => _isStoppingSession = true);
+    try {
       await ref.read(sessionProvider.notifier).stop();
+      if (segments.isNotEmpty && context.mounted) {
+        AppToast.show(
+          context,
+          'Sesi tersimpan (${segments.length} segmen).',
+          type: ToastType.success,
+        );
+      }
+    } on TranscribeSaveError catch (e) {
+      if (context.mounted) {
+        AppToast.show(context, '$e', type: ToastType.error);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.show(context, 'Gagal menghentikan sesi: $e', type: ToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _isStoppingSession = false);
     }
   }
 
@@ -113,11 +135,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await _handleBerhentiPressed(context, ref);
       return;
     }
+    // start() can hang for a long time with zero other feedback while
+    // waiting on a native macOS permission dialog (e.g. first-ever Webinar/
+    // system-audio capture) — without this the record button just looks
+    // unresponsive to a click that's actually still in flight.
+    setState(() => _isStartingSession = true);
     try {
       await ref.read(sessionProvider.notifier).start();
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, '$e');
+    } finally {
+      if (mounted) setState(() => _isStartingSession = false);
     }
   }
 
@@ -173,6 +202,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         _titleController.selection =
             TextSelection.fromPosition(TextPosition(offset: next.length));
       }
+    });
+
+    // No-audio watchdog: warns once if recording has been running for a
+    // while with zero signal on any enabled source (see
+    // audio_watchdog_model.dart for why this can happen silently).
+    ref.listen(audioWatchdogProvider, (_, warning) {
+      if (warning == null) return;
+      AppToast.show(context, warning, type: ToastType.error);
+      ref.read(audioWatchdogProvider.notifier).acknowledge();
     });
 
     return CallbackShortcuts(
@@ -243,7 +281,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           child: const Text('Abaikan'),
                         ),
                         FilledButton(
-                          onPressed: () => _recoverSession(context, ref, _recoverableSessions.first),
+                          // A session is already recording (possibly a
+                          // just-recovered one) — recovering another would
+                          // silently orphan this one's Rust-side capture
+                          // with nothing left to stop it. Session lifecycle
+                          // here is single-active, so make that visible
+                          // instead of a no-op tap.
+                          onPressed: isActive
+                              ? null
+                              : () => _recoverSession(context, ref, _recoverableSessions.first),
                           child: const Text('Pulihkan'),
                         ),
                       ],
@@ -342,6 +388,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 titleController: _titleController,
                 onStartBerhenti: () => _toggleStartBerhenti(context, ref),
                 onEkspor: () => _onEkspor(context),
+                isBusy: _isStoppingSession || _isStartingSession,
+                busyLabel: _isStartingSession ? 'Memulai...' : 'Menyimpan...',
               ),
 
               // Transcript
@@ -394,6 +442,8 @@ class _ControlBar extends StatelessWidget {
   final TextEditingController titleController;
   final VoidCallback onStartBerhenti;
   final VoidCallback onEkspor;
+  final bool isBusy;
+  final String busyLabel;
 
   const _ControlBar({
     required this.session,
@@ -405,6 +455,8 @@ class _ControlBar extends StatelessWidget {
     required this.titleController,
     required this.onStartBerhenti,
     required this.onEkspor,
+    required this.isBusy,
+    required this.busyLabel,
   });
 
   @override
@@ -473,39 +525,54 @@ class _ControlBar extends StatelessWidget {
             const SizedBox(height: 8),
           ],
 
-          // Row 3: action buttons
+          // Row 3: action buttons. The mode selector + stream toggles are
+          // wrapped in a horizontal scroll view and Ekspor/record are kept
+          // outside of it — at narrow window widths (Row's un-scrollable
+          // content used to overflow off the right edge of the window,
+          // silently clipping the record button so clicking where it used
+          // to be did nothing) this guarantees Ekspor and the record button
+          // stay on-screen and clickable no matter how narrow the window is.
           Row(
             children: [
-              // Mode selector — disabled while a session is active
-              IgnorePointer(
-                ignoring: isActive,
-                child: Opacity(
-                  opacity: isActive ? 0.5 : 1.0,
-                  child: ModeSelector(
-                    selected: session.config.mode,
-                    onChanged: notifier.setMode,
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Mode selector — disabled while a session is active
+                      IgnorePointer(
+                        ignoring: isActive,
+                        child: Opacity(
+                          opacity: isActive ? 0.5 : 1.0,
+                          child: ModeSelector(
+                            selected: session.config.mode,
+                            onChanged: notifier.setMode,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // MIC toggle interaktif
+                      StreamToggle(
+                        label: 'Mikrofon',
+                        enabled: session.config.micEnabled,
+                        accent: colors.primary,
+                        onChanged: (enabled) => notifier.toggleMic(enabled),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // SPK toggle interaktif
+                      StreamToggle(
+                        label: 'Pengeras Suara',
+                        enabled: session.config.speakerEnabled,
+                        accent: colors.primary,
+                        onChanged: (enabled) => notifier.toggleSpeaker(enabled),
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-
-              // MIC toggle interaktif
-              StreamToggle(
-                label: 'Mikrofon',
-                enabled: session.config.micEnabled,
-                accent: colors.primary,
-                onChanged: (enabled) => notifier.toggleMic(enabled),
-              ),
-              const SizedBox(width: 8),
-
-              // SPK toggle interaktif
-              StreamToggle(
-                label: 'Pengeras Suara',
-                enabled: session.config.speakerEnabled,
-                accent: colors.primary,
-                onChanged: (enabled) => notifier.toggleSpeaker(enabled),
-              ),
-              const Spacer(),
 
               // Ekspor button
               SizedBox(
@@ -528,6 +595,8 @@ class _ControlBar extends StatelessWidget {
                 isRecording: isActive,
                 isPaused: isPaused,
                 onPressed: onStartBerhenti,
+                isBusy: isBusy,
+                busyLabel: busyLabel,
               ),
             ],
           ),
@@ -766,16 +835,20 @@ class _ShortcutRow extends StatelessWidget {
   }
 }
 
-/// Toggle kualitas: ⚡ Cepat (base) / 🎯 Akurat (large-v3-turbo)
+/// Toggle kualitas: ⚡ Cepat (base) / 🎯 Akurat (large-v3-turbo-q5)
 class _QualityToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final isAkurat = settings.defaultModel == 'large-v3-turbo';
+    final isAkurat = settings.defaultModel == 'large-v3-turbo-q5';
 
-    final targetModel = isAkurat ? 'base' : 'large-v3-turbo';
+    // 'large-v3-turbo' (unquantized) is a real KNOWN_MODELS entry but has no
+    // pinned SHA256 yet — verify_checksum() hard-refuses any download without
+    // a pin, so targeting it here would always fail. The bundled, downloadable
+    // "accurate" model is the q5-quantized variant.
+    final targetModel = isAkurat ? 'base' : 'large-v3-turbo-q5';
     final targetAvailable = isModelAvailable(targetModel, libraryPath: settings.libraryPath);
 
     return GestureDetector(

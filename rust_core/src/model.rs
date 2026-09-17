@@ -211,7 +211,7 @@ pub async fn download_with_resume(
     let urls = vec![
         url.to_string(),
         format!("https://huggingface.co/ggerganov/whisper.cpp/raw/main/{filename}"),
-        format!("https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.1/{filename}"),
+        format!("https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/{filename}"),
     ];
 
     let mut last_error = None;

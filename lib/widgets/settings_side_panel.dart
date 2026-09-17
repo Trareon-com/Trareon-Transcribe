@@ -12,6 +12,7 @@ import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
 import '../screens/privacy_report_screen.dart';
 import '../screens/usage_dashboard_screen.dart';
+import 'app_toast.dart';
 
 /// OBS-style side panel settings that slides in from the right
 class SettingsSidePanel extends ConsumerStatefulWidget {
@@ -152,11 +153,18 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             icon: Icons.psychology_outlined,
                             label: 'Model default',
                             trailing: _CompactDropdown<String>(
-                              value: settings.defaultModel,
-                              items: const [
-                                'base',
-                                'large-v3-turbo-q5',
-                              ],
+                              // settings.defaultModel can be an older/power-user
+                              // model (e.g. 'tiny') that's still available on
+                              // disk but outside the 2-model catalog this
+                              // dropdown offers — feeding that straight in as
+                              // `value` trips DropdownButton's "exactly one
+                              // matching item" assertion. Clamp for display
+                              // only; the real setting is untouched unless the
+                              // user picks something here.
+                              value: kKnownModelIds.contains(settings.defaultModel)
+                                  ? settings.defaultModel
+                                  : kKnownModelIds.first,
+                              items: kKnownModelIds,
                               labelBuilder: modelDisplayLabel,
                               onChanged: (modelId) {
                                 if (!isModelAvailable(modelId,
@@ -326,7 +334,13 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             trailing: const Icon(Icons.chevron_right, size: 18),
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => UsageDashboardScreen(),
+                                // Without libraryPath the screen can't scan
+                                // any session folder and always shows the
+                                // "belum ada data" empty state, even with
+                                // real completed sessions on disk.
+                                builder: (_) => UsageDashboardScreen(
+                                  libraryPath: resolveTilde(settings.libraryPath),
+                                ),
                               ),
                             ),
                           ),
@@ -337,35 +351,53 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             trailing: const Icon(Icons.chevron_right, size: 18),
                             onTap: () async {
                               final update = UpdateChecker();
-                              final info = await update.checkForUpdate();
-                              if (!context.mounted) return;
-                              if (info.isUpdateAvailable) {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    title: const Text('Pembaruan Tersedia'),
-                                    content: Text(
-                                      'Versi ${info.latestVersion} tersedia (saat ini ${info.currentVersion}).',
+                              // Previously uncaught: checkForUpdate() throws
+                              // UpdateCheckException on any network failure
+                              // (no internet, timeout, DNS, ...), which was
+                              // never caught here — the tap just did nothing
+                              // visible at all. Also switched the "no
+                              // update" branch from ScaffoldMessenger's
+                              // SnackBar (no Scaffold ancestor here, so it
+                              // never actually showed) to the app's own
+                              // AppToast overlay, matching every other
+                              // notification in the app.
+                              try {
+                                final info = await update.checkForUpdate();
+                                if (!context.mounted) return;
+                                if (info.isUpdateAvailable) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text('Pembaruan Tersedia'),
+                                      content: Text(
+                                        'Versi ${info.latestVersion} tersedia (saat ini ${info.currentVersion}).',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: const Text('Nanti'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            // Open release page
+                                          },
+                                          child: const Text('Lihat Rilis'),
+                                        ),
+                                      ],
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Nanti'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          // Open release page
-                                        },
-                                        child: const Text('Lihat Rilis'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Sudah versi terbaru')),
-                                );
+                                  );
+                                } else {
+                                  AppToast.show(context, 'Sudah versi terbaru.', type: ToastType.success);
+                                }
+                              } on UpdateCheckException catch (e) {
+                                if (context.mounted) {
+                                  AppToast.show(context, '$e', type: ToastType.error);
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  AppToast.show(context, 'Gagal memeriksa pembaruan: $e', type: ToastType.error);
+                                }
                               }
                             },
                           ),

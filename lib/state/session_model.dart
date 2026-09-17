@@ -10,6 +10,17 @@ import 'settings_model.dart';
 
 enum SessionLifecycle { idle, recording, paused, stopped }
 
+/// Thrown by [SessionNotifier.stop] when the session stopped cleanly but
+/// the transcript failed to export — distinct from other stop() failures
+/// so the UI can show a save-specific message instead of a generic one.
+class TranscribeSaveError implements Exception {
+  TranscribeSaveError(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class SessionUiState {
   final SessionLifecycle lifecycle;
   final String? sessionId;
@@ -155,6 +166,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Future<void> recoverFromSnapshot(
     rust_session.SessionRecoverySnapshot snapshot,
   ) async {
+    // Same guard as start(): without it, recovering while a session is
+    // already recording (e.g. a previous recovery, or the user pressing
+    // Mulai first) silently orphans that session's Rust-side capture —
+    // its registry entry and audio threads keep running with nothing left
+    // to stop them — while this one clobbers the visible state.
+    if (state.lifecycle == SessionLifecycle.recording ||
+        state.lifecycle == SessionLifecycle.paused) {
+      return;
+    }
     seedRecovery(snapshot);
     final id = await _bridge.recoverSession(snapshot);
     state = state.copyWith(
@@ -208,7 +228,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     if (micDeviceId == null && config.micEnabled) {
       final inputs = await _bridge.listAudioDevices();
       if (inputs.isNotEmpty) {
-        micDeviceId = inputs.first.name;
+        // Prefer the OS-reported default input device. Falling back to
+        // inputs.first (as this used to) picks whatever the audio host
+        // happens to enumerate first — on a machine with a virtual/loopback
+        // input installed (e.g. BlackHole, common with meeting/recording
+        // tools), that can silently outrank the user's real microphone,
+        // capturing total silence with no error.
+        micDeviceId = inputs
+            .firstWhere((d) => d.isDefault, orElse: () => inputs.first)
+            .name;
       }
     }
     if (speakerDeviceId == null && config.speakerEnabled) {
@@ -262,11 +290,31 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
           ? state.sessionTitle
           : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
       final outputDir = resolveTilde(_libraryPath);
-      await _bridge.exportSession(
-        segments: segments,
-        outputDir: outputDir,
-        title: title,
-      );
+      // Rethrown (not swallowed) so the caller can tell the user their
+      // transcript failed to save — previously a failed auto-save here was
+      // silently lost with zero feedback, leaving the user unable to tell
+      // a real save from a failed one.
+      try {
+        await _bridge.exportSession(
+          segments: segments,
+          outputDir: outputDir,
+          title: title,
+        );
+      } catch (e) {
+        throw TranscribeSaveError(
+          'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
+        );
+      }
+      // Best-effort: the transcript (the primary artifact) already saved
+      // successfully above, so a raw-audio export failure here shouldn't
+      // surface as a save error to the user — swallow it.
+      try {
+        await _bridge.exportSessionAudio(
+          sessionId: id,
+          outputDir: outputDir,
+          title: title,
+        );
+      } catch (_) {}
     }
   }
 

@@ -5,51 +5,31 @@ import '../widgets/model_download_card.dart';
 
 /// First-launch onboarding — model download screen.
 ///
-/// Shows progress for the two required models (Indonesian ASR + Indonesian LLM).
-/// No model identifiers exposed; only Indonesian descriptions:
-///   - "Model Pengenalan Suara" (Whisper large-v3-turbo, ~1.5 GB)
-///   - "Model Bahasa Indonesia" (Qwen2.5-7B-Instruct 4-bit, ~4.5 GB)
+/// Shows progress for the two bundled Whisper models the app actually
+/// ships with (see `rust_core/src/model.rs` KNOWN_MODELS, both
+/// `is_bundled: true`): `base` (142 MB, used for fast/progressive
+/// transcription) and `large-v3-turbo-q5` (548 MB, used for the accurate
+/// refine pass). No model identifiers exposed; only Indonesian descriptions.
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({
     super.key,
-    required this.asrStatus,
-    required this.asrProgress,
-    required this.asrTitle,
-    required this.asrSubtitle,
-    required this.asrSize,
-    this.asrError,
-    required this.llmStatus,
-    required this.llmProgress,
-    required this.llmTitle,
-    required this.llmSubtitle,
-    required this.llmSize,
-    this.llmError,
-    required this.allReady,
+    required this.state,
     required this.onContinue,
-    required this.onRetryAsr,
-    required this.onRetryLlm,
+    required this.onRetryQuick,
+    required this.onRetryAccurate,
   });
 
-  final DownloadStatus asrStatus;
-  final double asrProgress;
-  final String asrTitle;
-  final String asrSubtitle;
-  final String asrSize;
-  final String? asrError;
-  final DownloadStatus llmStatus;
-  final double llmProgress;
-  final String llmTitle;
-  final String llmSubtitle;
-  final String llmSize;
-  final String? llmError;
-  final bool allReady;
+  final OnboardingState state;
   final VoidCallback onContinue;
-  final VoidCallback onRetryAsr;
-  final VoidCallback onRetryLlm;
+  final VoidCallback onRetryQuick;
+  final VoidCallback onRetryAccurate;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>()!;
+    final quick = state.quick;
+    final accurate = state.accurate;
+    final allReady = state.allReady;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -74,28 +54,33 @@ class OnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               ModelDownloadCard(
-                title: asrTitle,
-                subtitle: asrSubtitle,
-                sizeLabel: asrSize,
-                progress: asrProgress,
-                status: asrStatus,
-                errorText: asrError,
+                title: quick.title,
+                subtitle: quick.subtitle,
+                sizeLabel: quick.size,
+                progress: quick.progress,
+                status: quick.status,
+                errorText: quick.error,
               ),
               const SizedBox(height: 12),
               ModelDownloadCard(
-                title: llmTitle,
-                subtitle: llmSubtitle,
-                sizeLabel: llmSize,
-                progress: llmProgress,
-                status: llmStatus,
-                errorText: llmError,
+                title: accurate.title,
+                subtitle: accurate.subtitle,
+                sizeLabel: accurate.size,
+                progress: accurate.progress,
+                status: accurate.status,
+                errorText: accurate.error,
               ),
               const Spacer(),
-              if (asrStatus == DownloadStatus.error || llmStatus == DownloadStatus.error)
+              if (quick.status == DownloadStatus.error ||
+                  accurate.status == DownloadStatus.error)
                 TextButton.icon(
                   onPressed: () {
-                    if (asrStatus == DownloadStatus.error) onRetryAsr();
-                    if (llmStatus == DownloadStatus.error) onRetryLlm();
+                    if (quick.status == DownloadStatus.error) {
+                      onRetryQuick();
+                    }
+                    if (accurate.status == DownloadStatus.error) {
+                      onRetryAccurate();
+                    }
                   },
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('Coba lagi'),
@@ -130,31 +115,34 @@ class OnboardingScreen extends StatelessWidget {
 /// Pure-data state object for the screen above; lets the state holder be a
 /// Riverpod `Notifier` without leaking UI imports.
 class OnboardingState {
-  const OnboardingState({
-    required this.asr,
-    required this.llm,
-  });
+  const OnboardingState({required this.quick, required this.accurate});
 
-  final DownloadProgress asr;
-  final DownloadProgress llm;
+  /// Progress for the `base` model — used for the fast/progressive pass.
+  final DownloadProgress quick;
+
+  /// Progress for the `large-v3-turbo-q5` model — used for the accurate
+  /// refine pass.
+  final DownloadProgress accurate;
 
   bool get allReady =>
-      asr.status == DownloadStatus.ready && llm.status == DownloadStatus.ready;
+      quick.status == DownloadStatus.ready &&
+      accurate.status == DownloadStatus.ready;
 
   static const empty = OnboardingState(
-    asr: DownloadProgress(
+    quick: DownloadProgress(
       status: DownloadStatus.idle,
       progress: 0.0,
-      title: 'Model Pengenalan Suara',
-      subtitle: 'Mengubah gelombang suara menjadi teks bahasa Indonesia',
-      size: '~1,5 GB',
+      title: 'Model Cepat',
+      subtitle: 'Transkripsi cepat, akurasi Bahasa Indonesia maksimal',
+      size: '142 MB',
     ),
-    llm: DownloadProgress(
+    accurate: DownloadProgress(
       status: DownloadStatus.idle,
       progress: 0.0,
-      title: 'Model Bahasa Indonesia',
-      subtitle: 'Memperbaiki teks hasil transkrip dan membuat ringkasan',
-      size: '~4,5 GB',
+      title: 'Model Akurat',
+      subtitle:
+          'Menyempurnakan transkrip di latar belakang, akurasi global terbaik',
+      size: '548 MB',
     ),
   );
 }
@@ -175,4 +163,22 @@ class DownloadProgress {
   final String subtitle;
   final String size;
   final String? error;
+
+  DownloadProgress copyWith({
+    DownloadStatus? status,
+    double? progress,
+    String? title,
+    String? subtitle,
+    String? size,
+    String? error,
+  }) {
+    return DownloadProgress(
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      size: size ?? this.size,
+      error: error,
+    );
+  }
 }

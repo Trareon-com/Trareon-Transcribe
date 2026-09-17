@@ -65,6 +65,58 @@ pub fn sanitize_filename(raw: &str) -> String {
     }
 }
 
+/// Computes the same per-session subfolder that `export_segments` writes
+/// into, from `output_dir` + `title` alone — shared with
+/// `export_session_audio` so a transcript export and its raw-audio export
+/// always land in the same folder (blueprint §7.2 naming convention) even
+/// though they're separate FRB calls made at different times.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn session_dir_for(output_dir: &Path, title: &str) -> PathBuf {
+    let safe_title = sanitize_filename(title);
+    // Prepend today's date in YYYYMMDD format per blueprint §5.4, unless the
+    // session title already starts with a YYYYMMDD prefix (session titles are
+    // generated as "{timestamp}-{name}", so prepending again would produce a
+    // doubled prefix like "20260807-20260807-test_speech").
+    let has_date_prefix = safe_title
+        .get(..8)
+        .is_some_and(|head| head.chars().all(|c| c.is_ascii_digit()));
+    let date_prefix = chrono::Local::now().format("%Y%m%d").to_string();
+    if has_date_prefix {
+        output_dir.join(&safe_title)
+    } else {
+        output_dir.join(format!("{date_prefix}-{safe_title}"))
+    }
+}
+
+/// Writes the raw mic/speaker audio retained for a live session as
+/// per-track WAV files (blueprint §7.1: `mic.wav` + `speaker.wav`) into the
+/// same session folder `export_segments` uses for this `output_dir`/`title`.
+/// Not FRB-exposed directly (takes `&Path`); see `api::export_session_audio`.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn export_session_audio(
+    mic_samples: Option<&[f32]>,
+    speaker_samples: Option<&[f32]>,
+    output_dir: &Path,
+    title: &str,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    let session_dir = session_dir_for(output_dir, title);
+    fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
+
+    let mut results = Vec::new();
+    for (filename, samples) in [("mic.wav", mic_samples), ("speaker.wav", speaker_samples)] {
+        let Some(samples) = samples else { continue };
+        let path = session_dir.join(filename);
+        write_wav(samples, 16_000, &path)?;
+        let size_bytes = fs::metadata(&path).map_err(TranscribeError::from)?.len();
+        results.push(ExportedFile {
+            filename: filename.to_string(),
+            path: path.to_string_lossy().to_string(),
+            size_bytes,
+        });
+    }
+    Ok(results)
+}
+
 /// Not FRB-exposed directly (takes `&Path`); see `api::export_session`.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn export_segments(
@@ -74,9 +126,7 @@ pub fn export_segments(
     title: &str,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
     let safe_title = sanitize_filename(title);
-    // Prepend today's date in YYYYMMDD format per blueprint §5.4
-    let date_prefix = chrono::Local::now().format("%Y%m%d").to_string();
-    let session_dir = output_dir.join(format!("{date_prefix}-{safe_title}"));
+    let session_dir = session_dir_for(output_dir, title);
     fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
 
     // PARALLEL EXPORT: spawn a thread per format so that e.g. Markdown
@@ -387,6 +437,31 @@ mod tests {
     }
 
     #[test]
+    fn export_title_with_date_prefix_does_not_double_prefix() {
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_export_date_{}", uuid::Uuid::new_v4()));
+        let segments = sample_segments();
+        let files = export_segments(
+            &segments,
+            &[ExportFormat::Txt],
+            &dir,
+            "20260807-test_speech",
+        )
+        .unwrap();
+        // Session titles already carry a YYYYMMDD prefix — the export folder
+        // must NOT become "20260807-20260807-test_speech".
+        let written = Path::new(&files[0].path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(written, "20260807-test_speech");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn html_export_escapes_and_contains_text() {
         let segments = vec![Segment {
             source: "mic".into(),
@@ -438,6 +513,51 @@ mod tests {
         assert_eq!(reader.spec().sample_rate, 16_000);
         assert_eq!(reader.len(), samples.len() as u32);
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn export_session_audio_writes_per_track_wav_in_same_dir_as_transcript() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_export_audio_test_{}",
+            uuid::Uuid::new_v4()
+        ));
+        let segments = sample_segments();
+        // Transcript export first (as the app does on stop()), audio second
+        // — both must resolve to the same session folder.
+        let transcript_files =
+            export_segments(&segments, &[ExportFormat::Txt], &dir, "Rapat Q3").unwrap();
+        let mic = vec![0.1f32, 0.2, -0.2];
+        let speaker = vec![0.3f32, -0.3];
+        let audio_files =
+            export_session_audio(Some(&mic), Some(&speaker), &dir, "Rapat Q3").unwrap();
+
+        let transcript_dir = Path::new(&transcript_files[0].path).parent().unwrap();
+        assert_eq!(audio_files.len(), 2);
+        for f in &audio_files {
+            assert_eq!(Path::new(&f.path).parent().unwrap(), transcript_dir);
+        }
+        assert!(audio_files.iter().any(|f| f.filename == "mic.wav"));
+        assert!(audio_files.iter().any(|f| f.filename == "speaker.wav"));
+
+        let reader = hound::WavReader::open(transcript_dir.join("mic.wav")).unwrap();
+        assert_eq!(reader.len(), mic.len() as u32);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_session_audio_skips_missing_tracks() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_export_audio_skip_test_{}",
+            uuid::Uuid::new_v4()
+        ));
+        let mic = vec![0.1f32, 0.2];
+        // No speaker track (e.g. mic-only session) — must not write a
+        // speaker.wav placeholder.
+        let files = export_session_audio(Some(&mic), None, &dir, "Rapat Q3").unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "mic.wav");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

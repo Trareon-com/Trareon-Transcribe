@@ -49,8 +49,10 @@ Future<void> logError({
     frb.flightLogError(sessionId: sessionId, source: source, message: message);
 
 /// Auto-stop fired after inactivity.
-Future<void> logAutoStop({required String sessionId, required BigInt minutes}) =>
-    frb.flightLogAutoStop(sessionId: sessionId, minutes: minutes);
+Future<void> logAutoStop({
+  required String sessionId,
+  required BigInt minutes,
+}) => frb.flightLogAutoStop(sessionId: sessionId, minutes: minutes);
 
 /// Generic system event with optional key/value details (no PII).
 Future<void> logSystem(String event, {Map<String, String>? details}) =>
@@ -63,5 +65,4 @@ Future<String> readLog() => frb.flightReadLog();
 Future<void> clearLog() => frb.flightClearLog();
 
 /// Number of entries currently in the log.
-Future<int> entryCount() async =>
-    (await frb.flightEntryCount()).toInt();
+Future<int> entryCount() async => (await frb.flightEntryCount()).toInt();
