@@ -80,7 +80,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await ref.read(sessionProvider.notifier).recoverFromSnapshot(snapshot);
     } catch (e) {
       if (!context.mounted) return;
-      AppToast.show(context, 'Gagal memulihkan sesi: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        'Gagal memulihkan sesi: $e',
+        type: ToastType.error,
+      );
       return;
     }
     if (!context.mounted) return;
@@ -89,10 +93,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           .where((item) => item.sessionId != snapshot.sessionId)
           .toList(growable: false);
     });
-    AppToast.show(context, 'Sesi ${snapshot.sessionId} dipulihkan.', type: ToastType.success);
+    AppToast.show(
+      context,
+      'Sesi ${snapshot.sessionId} dipulihkan.',
+      type: ToastType.success,
+    );
   }
 
-  Future<void> _handleBerhentiPressed(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleBerhentiPressed(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final segments = ref.read(sessionProvider).segments;
     if (segments.isNotEmpty) {
       final confirmed = await showDialog<bool>(
@@ -134,7 +145,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.show(context, 'Gagal menghentikan sesi: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          'Gagal menghentikan sesi: $e',
+          type: ToastType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _isStoppingSession = false);
@@ -144,7 +159,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
     final lifecycle = ref.read(sessionProvider).lifecycle;
     final isActive =
-        lifecycle == SessionLifecycle.recording || lifecycle == SessionLifecycle.paused;
+        lifecycle == SessionLifecycle.recording ||
+        lifecycle == SessionLifecycle.paused;
     if (isActive) {
       await _handleBerhentiPressed(context, ref);
       return;
@@ -189,7 +205,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         title: title,
       );
       if (!context.mounted) return;
-      AppToast.show(context, 'Ekspor berhasil ke: $selectedDir', type: ToastType.success);
+      AppToast.show(
+        context,
+        'Ekspor berhasil ke: $selectedDir',
+        type: ToastType.success,
+      );
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, 'Ekspor gagal: $e', type: ToastType.error);
@@ -202,9 +222,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final notifier = ref.read(sessionProvider.notifier);
     final lifecycle = session.lifecycle;
     final isActive =
-        lifecycle == SessionLifecycle.recording || lifecycle == SessionLifecycle.paused;
+        lifecycle == SessionLifecycle.recording ||
+        lifecycle == SessionLifecycle.paused;
     final isPaused = lifecycle == SessionLifecycle.paused;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
 
@@ -213,8 +235,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen(sessionProvider.select((s) => s.sessionTitle), (_, next) {
       if (_titleController.text != next) {
         _titleController.text = next;
-        _titleController.selection =
-            TextSelection.fromPosition(TextPosition(offset: next.length));
+        _titleController.selection = TextSelection.fromPosition(
+          TextPosition(offset: next.length),
+        );
       }
     });
 
@@ -248,19 +271,31 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           }
         },
         SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) {
-              final lp = ref.read(settingsProvider).libraryPath;
-              return LibraryScreen(libraryPath: resolveTilde(lp));
-            })),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (ctx) {
+                  final lp = ref.read(settingsProvider).libraryPath;
+                  return LibraryScreen(libraryPath: resolveTilde(lp));
+                },
+              ),
+            ),
         SingleActivator(LogicalKeyboardKey.keyL, control: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) {
-              final lp = ref.read(settingsProvider).libraryPath;
-              return LibraryScreen(libraryPath: resolveTilde(lp));
-            })),
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (ctx) {
+                  final lp = ref.read(settingsProvider).libraryPath;
+                  return LibraryScreen(libraryPath: resolveTilde(lp));
+                },
+              ),
+            ),
         SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
         SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
         SingleActivator(LogicalKeyboardKey.slash, meta: true): () =>
             setState(() => _showShortcuts = !_showShortcuts),
         SingleActivator(LogicalKeyboardKey.slash, control: true): () =>
@@ -279,7 +314,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 Material(
                   color: colors.chipBackground,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         Icon(Icons.restore_outlined, color: colors.primary),
@@ -291,7 +329,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () => setState(() => _recoverableSessions = const []),
+                          onPressed: () =>
+                              setState(() => _recoverableSessions = const []),
                           child: const Text('Abaikan'),
                         ),
                         FilledButton(
@@ -303,7 +342,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           // instead of a no-op tap.
                           onPressed: isActive
                               ? null
-                              : () => _recoverSession(context, ref, _recoverableSessions.first),
+                              : () => _recoverSession(
+                                  context,
+                                  ref,
+                                  _recoverableSessions.first,
+                                ),
                           child: const Text('Pulihkan'),
                         ),
                       ],
@@ -317,12 +360,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: colors.headerBackground,
-                  border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
+                  border: Border(
+                    bottom: BorderSide(color: colors.divider, width: 0.5),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Image.asset('assets/logo.png', width: 20, height: 20,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                    Image.asset(
+                      'assets/logo.png',
+                      width: 20,
+                      height: 20,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Trareon Transcribe',
@@ -345,7 +394,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         ),
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       color: colors.textSecondary,
                     ),
                     IconButton(
@@ -360,22 +412,32 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         ),
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       color: colors.textSecondary,
                     ),
                     IconButton(
                       icon: Icon(Icons.settings_outlined, size: 18),
                       tooltip: 'Pengaturan',
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       color: colors.textSecondary,
                     ),
                     IconButton(
                       icon: Icon(
-                        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                        isDark
+                            ? Icons.light_mode_outlined
+                            : Icons.dark_mode_outlined,
                         size: 18,
                       ),
                       tooltip: isDark ? 'Mode Terang' : 'Mode Gelap',
@@ -384,7 +446,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         notifier.toggleTheme();
                       },
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       color: colors.textSecondary,
                     ),
                   ],
@@ -410,13 +475,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               Expanded(
                 child: Stack(
                   children: [
-                    TranscriptView(
-                      segments: session.segments,
-                      onRenameSpeaker: (oldLabel, newLabel) {
-                        ref
-                            .read(sessionProvider.notifier)
-                            .renameSpeaker(oldLabel, newLabel);
-                      },
+                    // Cap the transcript to a centered reading column so text
+                    // doesn't sprawl edge-to-edge on a wide window.
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 820),
+                        child: TranscriptView(
+                          segments: session.segments,
+                          onRenameSpeaker: (oldLabel, newLabel) {
+                            ref
+                                .read(sessionProvider.notifier)
+                                .renameSpeaker(oldLabel, newLabel);
+                          },
+                        ),
+                      ),
                     ),
                     if (_showShortcuts)
                       Positioned(
@@ -475,7 +547,8 @@ class _ControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -500,7 +573,11 @@ class _ControlBar extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.edit_outlined, color: colors.textTertiary, size: 16),
+                      Icon(
+                        Icons.edit_outlined,
+                        color: colors.textTertiary,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
@@ -510,7 +587,10 @@ class _ControlBar extends StatelessWidget {
                           style: TextStyle(color: colors.text, fontSize: 13),
                           decoration: InputDecoration.collapsed(
                             hintText: 'Judul sesi...',
-                            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
+                            hintStyle: TextStyle(
+                              color: colors.textTertiary,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ),
@@ -583,12 +663,18 @@ class _ControlBar extends StatelessWidget {
                 height: 36,
                 child: OutlinedButton.icon(
                   onPressed: onEkspor,
-                  icon: Icon(Icons.download_outlined, size: 16, color: colors.text),
+                  icon: Icon(
+                    Icons.download_outlined,
+                    size: 16,
+                    color: colors.text,
+                  ),
                   label: Text('Ekspor', style: TextStyle(color: colors.text)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: colors.border),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -617,7 +703,8 @@ class _VuMeterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -630,13 +717,19 @@ class _VuMeterRow extends StatelessWidget {
           Icon(Icons.mic, size: 14, color: colors.textSecondary),
           const SizedBox(width: 8),
           Expanded(
-            child: _AudioLevelBar(level: micLevel, color: const Color(0xFF2E7D32)),
+            child: _AudioLevelBar(
+              level: micLevel,
+              color: const Color(0xFF2E7D32),
+            ),
           ),
           const SizedBox(width: 16),
           Icon(Icons.volume_up, size: 14, color: colors.textSecondary),
           const SizedBox(width: 8),
           Expanded(
-            child: _AudioLevelBar(level: speakerLevel, color: const Color(0xFFE65100)),
+            child: _AudioLevelBar(
+              level: speakerLevel,
+              color: const Color(0xFFE65100),
+            ),
           ),
         ],
       ),
@@ -652,7 +745,8 @@ class _AudioLevelBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
       child: TweenAnimationBuilder<double>(
@@ -688,13 +782,16 @@ class _FooterBar extends StatelessWidget {
     final h = (secs / 3600).floor();
     final m = ((secs % 3600) / 60).floor();
     final s = (secs % 60).floor();
-    if (h > 0) return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    if (h > 0) {
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final isRecording = lifecycle == SessionLifecycle.recording;
     final isPaused = lifecycle == SessionLifecycle.paused;
 
@@ -715,7 +812,13 @@ class _FooterBar extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: isRecording ? AppColors.statusActive : Colors.orange,
                 boxShadow: isRecording
-                    ? [BoxShadow(color: AppColors.statusActive.withValues(alpha: 0.5), blurRadius: 4, spreadRadius: 1)]
+                    ? [
+                        BoxShadow(
+                          color: AppColors.statusActive.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
                     : null,
               ),
             ),
@@ -734,11 +837,19 @@ class _FooterBar extends StatelessWidget {
 
           // Segments
           if (segmentsCount > 0) ...[
-            Icon(Icons.chat_bubble_outline, size: 14, color: colors.textTertiary),
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 14,
+              color: colors.textTertiary,
+            ),
             const SizedBox(width: 4),
             Text(
               '$segmentsCount',
-              style: TextStyle(color: colors.textTertiary, fontSize: 12, fontFamily: 'monospace'),
+              style: TextStyle(
+                color: colors.textTertiary,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
             ),
             const SizedBox(width: 16),
           ],
@@ -758,7 +869,8 @@ class _ShortcutsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -813,13 +925,17 @@ class _ShortcutRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: TextStyle(color: colors.text, fontSize: 13)),
+            child: Text(
+              label,
+              style: TextStyle(color: colors.text, fontSize: 13),
+            ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -829,7 +945,11 @@ class _ShortcutRow extends StatelessWidget {
             ),
             child: Text(
               shortcut,
-              style: TextStyle(color: colors.textSecondary, fontSize: 12, fontFamily: 'monospace'),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
         ],
@@ -844,7 +964,8 @@ class _QualityToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final isAkurat = settings.defaultModel == 'large-v3-turbo-q5';
 
     // 'large-v3-turbo' (unquantized) is a real KNOWN_MODELS entry but has no
@@ -852,7 +973,10 @@ class _QualityToggle extends ConsumerWidget {
     // a pin, so targeting it here would always fail. The bundled, downloadable
     // "accurate" model is the q5-quantized variant.
     final targetModel = isAkurat ? 'base' : 'large-v3-turbo-q5';
-    final targetAvailable = isModelAvailable(targetModel, libraryPath: settings.libraryPath);
+    final targetAvailable = isModelAvailable(
+      targetModel,
+      libraryPath: settings.libraryPath,
+    );
 
     return GestureDetector(
       onTap: () async {

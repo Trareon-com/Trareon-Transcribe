@@ -15,6 +15,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      visualDensity: VisualDensity.compact,
       extensions: [colors],
       scaffoldBackgroundColor: colors.background,
       colorScheme: ColorScheme(
@@ -23,7 +24,7 @@ class AppTheme {
         onPrimary: colors.onPrimary,
         secondary: AppColors.micAccent,
         onSecondary: Colors.white,
-        error: AppColors.warning,
+        error: AppColors.statusError,
         onError: Colors.white,
         surface: colors.surface,
         onSurface: colors.text,
@@ -40,14 +41,42 @@ class AppTheme {
         color: colors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: colors.border),
         ),
       ),
-      textTheme: Typography.blackMountainView.apply(
-        bodyColor: colors.text,
-        displayColor: colors.text,
-      ),
+      // Desktop-tuned type scale (13pt UI base, denser than the mobile
+      // default) layered over the platform default so every unset style still
+      // resolves. See the redesign spec's type scale.
+      textTheme:
+          (isDark ? Typography.whiteMountainView : Typography.blackMountainView)
+              .copyWith(
+                titleLarge: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                  letterSpacing: -0.2,
+                ),
+                titleMedium: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.33,
+                ),
+                bodyLarge: const TextStyle(fontSize: 15, height: 1.5),
+                bodyMedium: const TextStyle(fontSize: 13, height: 1.4),
+                bodySmall: const TextStyle(fontSize: 11.5, height: 1.35),
+                labelLarge: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.1,
+                ),
+                labelMedium: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              )
+              .apply(bodyColor: colors.text, displayColor: colors.text),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return colors.primary;
@@ -83,9 +112,7 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -93,17 +120,13 @@ class AppTheme {
           foregroundColor: colors.text,
           side: BorderSide(color: colors.border),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colors.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -128,9 +151,7 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: TextStyle(
           color: colors.text,
           fontSize: 16,
@@ -147,14 +168,16 @@ class AppTheme {
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          foregroundColor: WidgetStateProperty.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                  ? colors.onPrimary
-                  : colors.textSecondary),
-          backgroundColor: WidgetStateProperty.resolveWith((states) =>
-              states.contains(WidgetState.selected)
-                  ? colors.primary
-                  : Colors.transparent),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? colors.onPrimary
+                : colors.textSecondary,
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? colors.primary
+                : Colors.transparent,
+          ),
           side: WidgetStatePropertyAll(BorderSide(color: colors.border)),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

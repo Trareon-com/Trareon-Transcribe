@@ -19,11 +19,7 @@ class SettingsSidePanel extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
   final bool embedded;
 
-  const SettingsSidePanel({
-    super.key,
-    this.onClose,
-    this.embedded = false,
-  });
+  const SettingsSidePanel({super.key, this.onClose, this.embedded = false});
 
   @override
   ConsumerState<SettingsSidePanel> createState() => _SettingsSidePanelState();
@@ -42,20 +38,16 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
     _animationController.forward();
   }
 
@@ -74,8 +66,368 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
+    final panelBody = Column(
+      children: [
+        // Header (hidden when embedded)
+        if (!widget.embedded)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: colors.headerBackground,
+              border: Border(
+                bottom: BorderSide(color: colors.divider, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.settings, size: 24),
+                const SizedBox(width: 12),
+                const Text(
+                  'Pengaturan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: _close,
+                  tooltip: 'Tutup',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+        // Content
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            children: [
+              _SettingsSection(
+                title: 'Tampilan',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.palette_outlined,
+                    label: 'Tema',
+                    trailing: _CompactDropdown<AppThemeMode>(
+                      value: settings.theme,
+                      items: AppThemeMode.values,
+                      labelBuilder: _themeLabel,
+                      onChanged: notifier.setTheme,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SettingsSection(
+                title: 'Model & Mode',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.psychology_outlined,
+                    label: 'Model default',
+                    trailing: _CompactDropdown<String>(
+                      // settings.defaultModel can be an older/power-user
+                      // model (e.g. 'tiny') that's still available on
+                      // disk but outside the 2-model catalog this
+                      // dropdown offers — feeding that straight in as
+                      // `value` trips DropdownButton's "exactly one
+                      // matching item" assertion. Clamp for display
+                      // only; the real setting is untouched unless the
+                      // user picks something here.
+                      value: kKnownModelIds.contains(settings.defaultModel)
+                          ? settings.defaultModel
+                          : kKnownModelIds.first,
+                      items: kKnownModelIds,
+                      labelBuilder: modelDisplayLabel,
+                      onChanged: (modelId) {
+                        if (!isModelAvailable(
+                          modelId,
+                          libraryPath: settings.libraryPath,
+                        )) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                'Model pilihan belum tersedia. Selesaikan Setup Wizard terlebih dahulu.',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+                        notifier.setDefaultModel(modelId);
+                      },
+                    ),
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsSwitch(
+                    icon: Icons.speed_outlined,
+                    label: 'Progressive Mode',
+                    subtitle: settings.progressiveEnabled
+                        ? 'Mulai cepat → sempurnakan jadi akurat di latar belakang'
+                        : 'Gunakan satu model saja (lebih cepat)',
+                    value: settings.progressiveEnabled,
+                    onChanged: notifier.setProgressiveEnabled,
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.meeting_room_outlined,
+                    label: 'Mode default',
+                    trailing: _CompactDropdown<SessionMode>(
+                      value: settings.defaultMode,
+                      items: SessionMode.values,
+                      labelBuilder: (m) => m.label,
+                      onChanged: notifier.setDefaultMode,
+                    ),
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.translate_outlined,
+                    label: 'Bahasa',
+                    trailing: _CompactDropdown<String?>(
+                      value: settings.language,
+                      items: const [null, 'id', 'en'],
+                      labelBuilder: (s) => s == null
+                          ? 'Auto-detect'
+                          : (s == 'id' ? 'Indonesia' : 'English'),
+                      onChanged: notifier.setLanguage,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SettingsSection(
+                title: 'Audio & Suara',
+                children: [
+                  _SettingsSwitch(
+                    icon: Icons.graphic_eq_outlined,
+                    label: 'VAD (deteksi suara)',
+                    subtitle:
+                        'Filter noise sekitar, hanya rekam saat ada suara. Berlaku mulai sesi berikutnya.',
+                    value: settings.vadEnabled,
+                    onChanged: notifier.setVadEnabled,
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.spatial_audio_outlined,
+                    label: 'Echo Dedupe',
+                    subtitle:
+                        'Cegah duplikasi transkrip dari MIC dan SPK — aktif otomatis di mode Rapat Online',
+                    trailing: _InfoBadge(
+                      message:
+                          'Membandingkan kemiripan audio dari mikrofon dan speaker, lalu menghapus duplikat.',
+                    ),
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsSwitch(
+                    icon: Icons.timer_outlined,
+                    label: 'Auto-Stop saat diam',
+                    subtitle: settings.autoStopMinutes != null
+                        ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara'
+                        : 'Nonaktifkan untuk rekaman manual penuh',
+                    value: settings.autoStopMinutes != null,
+                    onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
+                  ),
+                  if (settings.autoStopMinutes != null) ...[
+                    const _SettingsDivider(),
+                    _SettingsTile(
+                      icon: Icons.timer_10_outlined,
+                      label: 'Durasi diam',
+                      trailing: _CompactDropdown<int>(
+                        value: settings.autoStopMinutes!,
+                        items: const [1, 2, 3, 5, 10, 15],
+                        labelBuilder: (m) => '$m menit',
+                        onChanged: notifier.setAutoStopMinutes,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SettingsSection(
+                title: 'Output & Penyimpanan',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.folder_outlined,
+                    label: 'Folder output',
+                    subtitle: settings.libraryPath,
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: colors.textTertiary,
+                      size: 18,
+                    ),
+                    onTap: () async {
+                      final dir = await FilePicker.platform.getDirectoryPath(
+                        dialogTitle: 'Pilih folder output',
+                        initialDirectory: settings.libraryPath,
+                      );
+                      if (dir != null && dir != settings.libraryPath) {
+                        notifier.setLibraryPath(dir);
+                      }
+                    },
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.save_alt_outlined,
+                    label: 'Format ekspor default',
+                    trailing: _CompactDropdown<String>(
+                      value: settings.defaultExportFormat,
+                      items: const [
+                        'markdown',
+                        'txt',
+                        'json',
+                        'srt',
+                        'vtt',
+                        'html',
+                        'docx',
+                      ],
+                      labelBuilder: (f) => f,
+                      onChanged: notifier.setDefaultExportFormat,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SettingsSection(
+                title: 'Transkripsi',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.speed_outlined,
+                    label: 'Perbandingan Kecepatan',
+                    subtitle:
+                        'Bahasa Indonesia: ringan 3s · cepat 10s · akurat 56s per 1 menit audio.\n'
+                        'Model akurat disarankan untuk meeting & wawancara.',
+                    trailing: const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SettingsSection(
+                title: 'Lainnya',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.privacy_tip_outlined,
+                    label: 'Laporan Privasi',
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => PrivacyReportScreen()),
+                    ),
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.analytics_outlined,
+                    label: 'Dasbor Penggunaan',
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        // Without libraryPath the screen can't scan
+                        // any session folder and always shows the
+                        // "belum ada data" empty state, even with
+                        // real completed sessions on disk.
+                        builder: (_) => UsageDashboardScreen(
+                          libraryPath: resolveTilde(settings.libraryPath),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.system_update_alt_outlined,
+                    label: 'Cek Pembaruan',
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: () async {
+                      final update = UpdateChecker();
+                      // Previously uncaught: checkForUpdate() throws
+                      // UpdateCheckException on any network failure
+                      // (no internet, timeout, DNS, ...), which was
+                      // never caught here — the tap just did nothing
+                      // visible at all. Also switched the "no
+                      // update" branch from ScaffoldMessenger's
+                      // SnackBar (no Scaffold ancestor here, so it
+                      // never actually showed) to the app's own
+                      // AppToast overlay, matching every other
+                      // notification in the app.
+                      try {
+                        final info = await update.checkForUpdate();
+                        if (!context.mounted) return;
+                        if (info.isUpdateAvailable) {
+                          showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('Pembaruan Tersedia'),
+                              content: Text(
+                                'Versi ${info.latestVersion} tersedia (saat ini ${info.currentVersion}).',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Nanti'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    // Open release page
+                                  },
+                                  child: const Text('Lihat Rilis'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          AppToast.show(
+                            context,
+                            'Sudah versi terbaru.',
+                            type: ToastType.success,
+                          );
+                        }
+                      } on UpdateCheckException catch (e) {
+                        if (context.mounted) {
+                          AppToast.show(context, '$e', type: ToastType.error);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          AppToast.show(
+                            context,
+                            'Gagal memeriksa pembaruan: $e',
+                            type: ToastType.error,
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  const _SettingsDivider(),
+                  _SettingsTile(
+                    icon: Icons.info_outlined,
+                    label: 'Tentang',
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: () => _showAboutDialog(context, colors),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (widget.embedded) {
+      // Full settings SCREEN: a centered, width-capped reading column that
+      // fills the window — replaces the fixed 380px panel that used to leave
+      // the right half of a wide window an empty void.
+      return LayoutBuilder(
+        builder: (ctx, c) => Container(
+          color: colors.background,
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: c.maxWidth < 700 ? c.maxWidth : 700.0,
+            child: panelBody,
+          ),
+        ),
+      );
+    }
+
+    // In-session OBS-style side panel: fixed-width sliding shell.
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
@@ -87,334 +439,9 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
             width: 380,
             decoration: BoxDecoration(
               color: colors.surface,
-              border: Border(
-                left: BorderSide(color: colors.divider, width: 1),
-              ),
+              border: Border(left: BorderSide(color: colors.divider, width: 1)),
             ),
-            child: Column(
-              children: [
-                // Header (hidden when embedded)
-                if (!widget.embedded)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    decoration: BoxDecoration(
-                      color: colors.headerBackground,
-                      border: Border(
-                        bottom: BorderSide(color: colors.divider, width: 1),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.settings, size: 24),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Pengaturan',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: _close,
-                          tooltip: 'Tutup',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Content
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                    children: [
-                      _SettingsSection(
-                        title: 'Tampilan',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.palette_outlined,
-                            label: 'Tema',
-                            trailing: _CompactDropdown<AppThemeMode>(
-                              value: settings.theme,
-                              items: AppThemeMode.values,
-                              labelBuilder: _themeLabel,
-                              onChanged: notifier.setTheme,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsSection(
-                        title: 'Model & Mode',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.psychology_outlined,
-                            label: 'Model default',
-                            trailing: _CompactDropdown<String>(
-                              // settings.defaultModel can be an older/power-user
-                              // model (e.g. 'tiny') that's still available on
-                              // disk but outside the 2-model catalog this
-                              // dropdown offers — feeding that straight in as
-                              // `value` trips DropdownButton's "exactly one
-                              // matching item" assertion. Clamp for display
-                              // only; the real setting is untouched unless the
-                              // user picks something here.
-                              value: kKnownModelIds.contains(settings.defaultModel)
-                                  ? settings.defaultModel
-                                  : kKnownModelIds.first,
-                              items: kKnownModelIds,
-                              labelBuilder: modelDisplayLabel,
-                              onChanged: (modelId) {
-                                if (!isModelAvailable(modelId,
-                                    libraryPath: settings.libraryPath)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                          'Model pilihan belum tersedia. Selesaikan Setup Wizard terlebih dahulu.'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                notifier.setDefaultModel(modelId);
-                              },
-                            ),
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsSwitch(
-                            icon: Icons.speed_outlined,
-                            label: 'Progressive Mode',
-                            subtitle: settings.progressiveEnabled
-                                ? 'Mulai cepat → sempurnakan jadi akurat di latar belakang'
-                                : 'Gunakan satu model saja (lebih cepat)',
-                            value: settings.progressiveEnabled,
-                            onChanged: notifier.setProgressiveEnabled,
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.meeting_room_outlined,
-                            label: 'Mode default',
-                            trailing: _CompactDropdown<SessionMode>(
-                              value: settings.defaultMode,
-                              items: SessionMode.values,
-                              labelBuilder: (m) => m.label,
-                              onChanged: notifier.setDefaultMode,
-                            ),
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.translate_outlined,
-                            label: 'Bahasa',
-                            trailing: _CompactDropdown<String?>(
-                              value: settings.language,
-                              items: const [null, 'id', 'en'],
-                              labelBuilder: (s) =>
-                                  s == null ? 'Auto-detect' : (s == 'id' ? 'Indonesia' : 'English'),
-                              onChanged: notifier.setLanguage,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsSection(
-                        title: 'Audio & Suara',
-                        children: [
-                          _SettingsSwitch(
-                            icon: Icons.graphic_eq_outlined,
-                            label: 'VAD (deteksi suara)',
-                            subtitle:
-                                'Filter noise sekitar, hanya rekam saat ada suara. Berlaku mulai sesi berikutnya.',
-                            value: settings.vadEnabled,
-                            onChanged: notifier.setVadEnabled,
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.spatial_audio_outlined,
-                            label: 'Echo Dedupe',
-                            subtitle:
-                                'Cegah duplikasi transkrip dari MIC dan SPK — aktif otomatis di mode Rapat Online',
-                            trailing: _InfoBadge(
-                              message:
-                                  'Membandingkan kemiripan audio dari mikrofon dan speaker, lalu menghapus duplikat.',
-                            ),
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsSwitch(
-                            icon: Icons.timer_outlined,
-                            label: 'Auto-Stop saat diam',
-                            subtitle: settings.autoStopMinutes != null
-                                ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara'
-                                : 'Nonaktifkan untuk rekaman manual penuh',
-                            value: settings.autoStopMinutes != null,
-                            onChanged: (v) =>
-                                notifier.setAutoStopMinutes(v ? 5 : null),
-                          ),
-                          if (settings.autoStopMinutes != null) ...[
-                            const _SettingsDivider(),
-                            _SettingsTile(
-                              icon: Icons.timer_10_outlined,
-                              label: 'Durasi diam',
-                              trailing: _CompactDropdown<int>(
-                                value: settings.autoStopMinutes!,
-                                items: const [1, 2, 3, 5, 10, 15],
-                                labelBuilder: (m) => '$m menit',
-                                onChanged: notifier.setAutoStopMinutes,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsSection(
-                        title: 'Output & Penyimpanan',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.folder_outlined,
-                            label: 'Folder output',
-                            subtitle: settings.libraryPath,
-                            trailing: Icon(Icons.chevron_right,
-                                color: colors.textTertiary, size: 18),
-                            onTap: () async {
-                              final dir = await FilePicker.platform.getDirectoryPath(
-                                dialogTitle: 'Pilih folder output',
-                                initialDirectory: settings.libraryPath,
-                              );
-                              if (dir != null && dir != settings.libraryPath) {
-                                notifier.setLibraryPath(dir);
-                              }
-                            },
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.save_alt_outlined,
-                            label: 'Format ekspor default',
-                            trailing: _CompactDropdown<String>(
-                              value: settings.defaultExportFormat,
-                              items: const ['markdown', 'txt', 'json', 'srt', 'vtt', 'html', 'docx'],
-                              labelBuilder: (f) => f,
-                              onChanged: notifier.setDefaultExportFormat,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsSection(
-                        title: 'Transkripsi',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.speed_outlined,
-                            label: 'Perbandingan Kecepatan',
-                            subtitle:
-                                'Bahasa Indonesia: ringan 3s · cepat 10s · akurat 56s per 1 menit audio.\n'
-                                'Model akurat disarankan untuk meeting & wawancara.',
-                            trailing: const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _SettingsSection(
-                        title: 'Lainnya',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.privacy_tip_outlined,
-                            label: 'Laporan Privasi',
-                            trailing: const Icon(Icons.chevron_right, size: 18),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PrivacyReportScreen(),
-                              ),
-                            ),
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.analytics_outlined,
-                            label: 'Dasbor Penggunaan',
-                            trailing: const Icon(Icons.chevron_right, size: 18),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                // Without libraryPath the screen can't scan
-                                // any session folder and always shows the
-                                // "belum ada data" empty state, even with
-                                // real completed sessions on disk.
-                                builder: (_) => UsageDashboardScreen(
-                                  libraryPath: resolveTilde(settings.libraryPath),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.system_update_alt_outlined,
-                            label: 'Cek Pembaruan',
-                            trailing: const Icon(Icons.chevron_right, size: 18),
-                            onTap: () async {
-                              final update = UpdateChecker();
-                              // Previously uncaught: checkForUpdate() throws
-                              // UpdateCheckException on any network failure
-                              // (no internet, timeout, DNS, ...), which was
-                              // never caught here — the tap just did nothing
-                              // visible at all. Also switched the "no
-                              // update" branch from ScaffoldMessenger's
-                              // SnackBar (no Scaffold ancestor here, so it
-                              // never actually showed) to the app's own
-                              // AppToast overlay, matching every other
-                              // notification in the app.
-                              try {
-                                final info = await update.checkForUpdate();
-                                if (!context.mounted) return;
-                                if (info.isUpdateAvailable) {
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => AlertDialog(
-                                      title: const Text('Pembaruan Tersedia'),
-                                      content: Text(
-                                        'Versi ${info.latestVersion} tersedia (saat ini ${info.currentVersion}).',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          child: const Text('Nanti'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            // Open release page
-                                          },
-                                          child: const Text('Lihat Rilis'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                } else {
-                                  AppToast.show(context, 'Sudah versi terbaru.', type: ToastType.success);
-                                }
-                              } on UpdateCheckException catch (e) {
-                                if (context.mounted) {
-                                  AppToast.show(context, '$e', type: ToastType.error);
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  AppToast.show(context, 'Gagal memeriksa pembaruan: $e', type: ToastType.error);
-                                }
-                              }
-                            },
-                          ),
-                          const _SettingsDivider(),
-                          _SettingsTile(
-                            icon: Icons.info_outlined,
-                            label: 'Tentang',
-                            trailing: const Icon(Icons.chevron_right, size: 18),
-                            onTap: () => _showAboutDialog(context, colors),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: panelBody,
           ),
         ),
       ),
@@ -459,7 +486,8 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -493,7 +521,8 @@ class _SettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Divider(
       height: 1,
       thickness: 1,
@@ -521,7 +550,8 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -557,10 +587,7 @@ class _SettingsTile extends StatelessWidget {
                 ],
               ),
             ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: trailing,
-            ),
+            Flexible(fit: FlexFit.loose, child: trailing),
           ],
         ),
       ),
@@ -585,7 +612,8 @@ class _SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -645,7 +673,8 @@ class _CompactDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
@@ -659,23 +688,26 @@ class _CompactDropdown<T> extends StatelessWidget {
           isExpanded: true,
           isDense: true,
           items: items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(
-                      labelBuilder(item),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.text,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ))
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    labelBuilder(item),
+                    style: TextStyle(fontSize: 13, color: colors.text),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (newValue) {
             if (newValue != null) onChanged(newValue);
           },
           dropdownColor: colors.surface,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: colors.textSecondary),
+          icon: Icon(
+            Icons.keyboard_arrow_down,
+            size: 18,
+            color: colors.textSecondary,
+          ),
           style: TextStyle(fontSize: 13, color: colors.text),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -691,7 +723,8 @@ class _InfoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: () => _showInfoDialog(context, colors),
       borderRadius: BorderRadius.circular(12),
@@ -746,7 +779,9 @@ class _InfoBadge extends StatelessWidget {
 bool isModelAvailable(String modelId, {required String libraryPath}) {
   final modelsDir = Directory(libraryPath);
   if (!modelsDir.existsSync()) return false;
-  return modelsDir.listSync().any((f) =>
-      f.path.endsWith('.bin') &&
-      f.uri.pathSegments.last.toLowerCase().contains(modelId.toLowerCase()));
+  return modelsDir.listSync().any(
+    (f) =>
+        f.path.endsWith('.bin') &&
+        f.uri.pathSegments.last.toLowerCase().contains(modelId.toLowerCase()),
+  );
 }
