@@ -17,6 +17,9 @@ pub struct Segment {
     pub duration: f64,
     pub language: String,
     pub confidence: f32,
+    /// Average log probability per token from Whisper (negative, e.g. -0.5).
+    /// Used by confidence.rs to flag low-quality segments.
+    pub avg_log_prob: f32,
     pub is_partial: bool,
     pub low_confidence: bool,
 }
@@ -220,14 +223,32 @@ fn atomic_write(path: &Path, content: &[u8]) -> Result<(), TranscribeError> {
     }
 }
 
+/// Sanitize an on-stop hook command path to prevent shell injection.
+/// Allows only alphanumeric, dash, underscore, dot, slash, and space.
+fn sanitize_hook_cmd(hook: &str) -> String {
+    hook.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/' || c == ' ' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
 /// Execute the on_stop hook (if configured) after export completes.
 fn run_on_stop_hook(session_dir: &Path) {
     if let Some(hook) = crate::settings::AppConfig::on_stop_hook() {
-        let _ = std::process::Command::new("sh")
+        let sanitized = sanitize_hook_cmd(&hook);
+        if let Err(e) = std::process::Command::new("sh")
             .arg("-c")
-            .arg(format!("{} \"$0\"", hook))
+            .arg(format!("{} \"$1\"", sanitized))
             .arg(session_dir.to_string_lossy().to_string())
-            .spawn();
+            .spawn()
+        {
+            tracing::error!(%e, "on_stop_hook failed to spawn");
+        }
     }
 }
 
@@ -394,6 +415,7 @@ mod tests {
             duration: 2.0,
             language: "id".into(),
             confidence: 0.9,
+            avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
         }]
@@ -471,6 +493,7 @@ mod tests {
             duration: 1.0,
             language: "id".into(),
             confidence: 0.9,
+            avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
         }];

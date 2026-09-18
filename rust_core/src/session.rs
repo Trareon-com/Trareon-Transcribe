@@ -722,6 +722,7 @@ mod tests {
             duration: 0.0,
             language: "auto".to_string(),
             confidence: 1.0,
+            avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
         }

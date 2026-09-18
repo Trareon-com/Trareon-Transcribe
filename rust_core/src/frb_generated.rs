@@ -2997,6 +2997,7 @@ impl SseDecode for crate::export::Segment {
         let mut var_duration = <f64>::sse_decode(deserializer);
         let mut var_language = <String>::sse_decode(deserializer);
         let mut var_confidence = <f32>::sse_decode(deserializer);
+        let mut var_avgLogProb = <f32>::sse_decode(deserializer);
         let mut var_isPartial = <bool>::sse_decode(deserializer);
         let mut var_lowConfidence = <bool>::sse_decode(deserializer);
         return crate::export::Segment {
@@ -3007,6 +3008,7 @@ impl SseDecode for crate::export::Segment {
             duration: var_duration,
             language: var_language,
             confidence: var_confidence,
+            avg_log_prob: var_avgLogProb,
             is_partial: var_isPartial,
             low_confidence: var_lowConfidence,
         };
@@ -3607,6 +3609,7 @@ impl flutter_rust_bridge::IntoDart for crate::export::Segment {
             self.duration.into_into_dart().into_dart(),
             self.language.into_into_dart().into_dart(),
             self.confidence.into_into_dart().into_dart(),
+            self.avg_log_prob.into_into_dart().into_dart(),
             self.is_partial.into_into_dart().into_dart(),
             self.low_confidence.into_into_dart().into_dart(),
         ]

@@ -401,6 +401,7 @@ class RustEngineBridge implements RustBridge {
       language: segment.language,
       confidence: segment.confidence,
       isPartial: segment.isPartial,
+      lowConfidence: segment.lowConfidence,
     );
   }
 

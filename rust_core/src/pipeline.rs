@@ -587,6 +587,7 @@ mod tests {
             duration: 5.0,
             language: "id".into(),
             confidence: 0.9,
+            avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
         }
