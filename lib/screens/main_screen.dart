@@ -539,54 +539,44 @@ class _ControlBar extends StatelessWidget {
             const SizedBox(height: 8),
           ],
 
-          // Row 3: action buttons. The mode selector + stream toggles are
-          // wrapped in a horizontal scroll view and Ekspor/record are kept
-          // outside of it — at narrow window widths (Row's un-scrollable
-          // content used to overflow off the right edge of the window,
-          // silently clipping the record button so clicking where it used
-          // to be did nothing) this guarantees Ekspor and the record button
-          // stay on-screen and clickable no matter how narrow the window is.
-          Row(
+          // Row 3: mode selector + stream toggles + Ekspor + record button.
+          // A Wrap (not a fixed Row + horizontal scroll) so the controls flow
+          // onto a second line when the window is narrow instead of
+          // overflowing/clipping off the right edge — every control stays
+          // visible and clickable at any width. spacing/runSpacing replace the
+          // manual SizedBox gaps.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Mode selector — disabled while a session is active
-                      IgnorePointer(
-                        ignoring: isActive,
-                        child: Opacity(
-                          opacity: isActive ? 0.5 : 1.0,
-                          child: ModeSelector(
-                            selected: session.config.mode,
-                            onChanged: notifier.setMode,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // MIC toggle interaktif
-                      StreamToggle(
-                        label: 'Mikrofon',
-                        enabled: session.config.micEnabled,
-                        accent: colors.primary,
-                        onChanged: (enabled) => notifier.toggleMic(enabled),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // SPK toggle interaktif
-                      StreamToggle(
-                        label: 'Pengeras Suara',
-                        enabled: session.config.speakerEnabled,
-                        accent: colors.primary,
-                        onChanged: (enabled) => notifier.toggleSpeaker(enabled),
-                      ),
-                    ],
+              // Mode selector — disabled while a session is active
+              IgnorePointer(
+                ignoring: isActive,
+                child: Opacity(
+                  opacity: isActive ? 0.5 : 1.0,
+                  child: ModeSelector(
+                    selected: session.config.mode,
+                    onChanged: notifier.setMode,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+
+              // MIC toggle interaktif
+              StreamToggle(
+                label: 'Mikrofon',
+                enabled: session.config.micEnabled,
+                accent: colors.primary,
+                onChanged: (enabled) => notifier.toggleMic(enabled),
+              ),
+
+              // SPK toggle interaktif
+              StreamToggle(
+                label: 'Pengeras Suara',
+                enabled: session.config.speakerEnabled,
+                accent: colors.primary,
+                onChanged: (enabled) => notifier.toggleSpeaker(enabled),
+              ),
 
               // Ekspor button
               SizedBox(
@@ -602,7 +592,6 @@ class _ControlBar extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
 
               // Animated record button
               AnimatedRecordButton(
