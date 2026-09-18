@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -737,16 +735,4 @@ class _InfoBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Model availability helper
-// ──────────────────────────────────────────────────────────────────────────
-
-bool isModelAvailable(String modelId, {required String libraryPath}) {
-  final modelsDir = Directory(libraryPath);
-  if (!modelsDir.existsSync()) return false;
-  return modelsDir.listSync().any((f) =>
-      f.path.endsWith('.bin') &&
-      f.uri.pathSegments.last.toLowerCase().contains(modelId.toLowerCase()));
 }
