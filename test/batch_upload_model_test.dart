@@ -5,6 +5,7 @@ import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
+import 'package:transcribe/src/rust/model.dart' as rust_model;
 import 'package:transcribe/state/batch_upload_model.dart';
 import 'package:transcribe/state/models.dart';
 
@@ -138,6 +139,10 @@ class _NoopBridge implements RustBridge {
   Future<void> saveSettings(AppSettings settings) async {}
   @override
   Future<void> downloadModel(String modelsDir, String modelId) async {}
+  @override
+  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  @override
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => [];
   @override
