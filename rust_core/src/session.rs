@@ -474,6 +474,16 @@ fn remove_snapshot_file(session_id: &str) -> Result<(), TranscribeError> {
 }
 
 fn load_snapshot_file(path: &Path) -> Result<SessionRecoverySnapshot, TranscribeError> {
+    const MAX_SNAPSHOT_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
+    let metadata = fs::metadata(path).map_err(TranscribeError::from)?;
+    if metadata.len() > MAX_SNAPSHOT_SIZE {
+        return Err(TranscribeError::InvalidInput(format!(
+            "snapshot file too large ({} bytes, max {}): {}",
+            metadata.len(),
+            MAX_SNAPSHOT_SIZE,
+            path.display()
+        )));
+    }
     let content = fs::read_to_string(path).map_err(TranscribeError::from)?;
     serde_json::from_str(&content).map_err(|e| TranscribeError::InvalidInput(e.to_string()))
 }

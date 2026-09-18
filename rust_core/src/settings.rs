@@ -66,7 +66,13 @@ fn load_settings_from(path: &Option<PathBuf>) -> AppSettings {
         return AppSettings::default();
     };
     match fs::read_to_string(path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Ok(content) => match serde_json::from_str::<AppSettings>(&content) {
+            Ok(settings) => settings,
+            Err(e) => {
+                tracing::warn!(path = %path.display(), %e, "settings file corrupted; falling back to defaults");
+                AppSettings::default()
+            }
+        },
         Err(_) => AppSettings::default(),
     }
 }

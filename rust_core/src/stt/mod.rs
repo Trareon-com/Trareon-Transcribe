@@ -4,7 +4,7 @@
 //! through a single inference thread/queue (see api.rs session handling).
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
@@ -48,24 +48,30 @@ fn best_backend() -> &'static str {
     }
 }
 
+/// Cached result of Apple Silicon detection — computed once, reused forever.
+static APPLE_SILICON_CACHE: OnceLock<bool> = OnceLock::new();
+
 /// Probe CPU brand/vendor string for known Apple Silicon identifiers.
+/// Result is cached after first call using OnceLock.
 #[cfg(target_os = "macos")]
 fn is_apple_silicon() -> bool {
-    use std::process::Command;
-    let output = Command::new("sysctl")
-        .args(["-n", "machdep.cpu.brand_string"])
-        .output()
-        .ok();
-    output
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| {
-            s.contains("Apple")
-                || s.contains("M1")
-                || s.contains("M2")
-                || s.contains("M3")
-                || s.contains("M4")
-        })
-        .unwrap_or(false)
+    *APPLE_SILICON_CACHE.get_or_init(|| {
+        use std::process::Command;
+        let output = Command::new("sysctl")
+            .args(["-n", "machdep.cpu.brand_string"])
+            .output()
+            .ok();
+        output
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| {
+                s.contains("Apple")
+                    || s.contains("M1")
+                    || s.contains("M2")
+                    || s.contains("M3")
+                    || s.contains("M4")
+            })
+            .unwrap_or(false)
+    })
 }
 
 /// Detect and return the recommended backend name for diagnostics.

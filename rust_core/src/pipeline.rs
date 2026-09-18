@@ -29,6 +29,8 @@
 //! once both channels' segments have actually converged.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 
 use crate::audio::{HptMode, RingBuffer};
 use crate::diarization::Diarizer;
@@ -58,6 +60,11 @@ pub enum LiveEvent {
 pub struct LiveWorker {
     stop_tx: Option<std::sync::mpsc::Sender<()>>,
     thread: Option<std::thread::JoinHandle<()>>,
+    /// Set by the worker thread when it exits. Used by `stop()` to wait
+    /// with a bounded timeout instead of blocking indefinitely on `join()`.
+    finished: Arc<AtomicBool>,
+    finished_mutex: Arc<Mutex<()>>,
+    finished_cvar: Arc<Condvar>,
 }
 
 impl LiveWorker {
@@ -99,6 +106,12 @@ impl LiveWorker {
     ) -> Result<Self, TranscribeError> {
         let source = source.into();
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+        let finished = Arc::new(AtomicBool::new(false));
+        let finished_mutex = Arc::new(Mutex::new(()));
+        let finished_cvar = Arc::new(Condvar::new());
+        let finished_thread = Arc::clone(&finished);
+        let finished_cvar_thread = Arc::clone(&finished_cvar);
+        let _finished_mutex_thread = Arc::clone(&finished_mutex);
         let thread = std::thread::spawn(move || {
             let mut pipeline = match LivePipeline::new(
                 &engine,
@@ -109,6 +122,8 @@ impl LiveWorker {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
                     tracing::error!(source = %source, %error, "live pipeline initialization failed");
+                    finished_thread.store(true, Ordering::SeqCst);
+                    finished_cvar_thread.notify_one();
                     return;
                 }
             };
@@ -133,10 +148,15 @@ impl LiveWorker {
                     Err(error) => tracing::error!(source = %source, %error, "live pipeline failed"),
                 }
             }
+            finished_thread.store(true, Ordering::SeqCst);
+            finished_cvar_thread.notify_one();
         });
         Ok(Self {
             stop_tx: Some(stop_tx),
             thread: Some(thread),
+            finished,
+            finished_mutex,
+            finished_cvar,
         })
     }
 
@@ -145,7 +165,46 @@ impl LiveWorker {
             let _ = stop_tx.send(());
         }
         if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+            // Wait up to 5 seconds for the thread to finish, then leak it if still running.
+            let timeout = std::time::Duration::from_secs(5);
+            let guard = match self.finished_mutex.lock() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let timed_out = {
+                let mut g = guard;
+                let start = std::time::Instant::now();
+                loop {
+                    if self.finished.load(Ordering::SeqCst) {
+                        break false;
+                    }
+                    let elapsed = start.elapsed();
+                    if elapsed >= timeout {
+                        break true;
+                    }
+                    let remaining = timeout - elapsed;
+                    let result = self.finished_cvar.wait_timeout(g, remaining).ok();
+                    match result {
+                        Some((new_g, wait_result)) => {
+                            g = new_g;
+                            if wait_result.timed_out() {
+                                break true;
+                            }
+                        }
+                        None => {
+                            // Condvar error — treat as timed out
+                            break true;
+                        }
+                    }
+                }
+            };
+            if timed_out {
+                tracing::warn!("LiveWorker thread did not exit within 5s; leaking thread handle");
+                // Leak the JoinHandle so the thread continues but we no longer block.
+                std::mem::forget(thread);
+            } else {
+                let _ = thread.join();
+            }
         }
     }
 
@@ -171,6 +230,12 @@ impl LiveWorker {
         )?;
         let source = source.into();
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+        let finished = Arc::new(AtomicBool::new(false));
+        let finished_mutex = Arc::new(Mutex::new(()));
+        let finished_cvar = Arc::new(Condvar::new());
+        let finished_thread = Arc::clone(&finished);
+        let finished_cvar_thread = Arc::clone(&finished_cvar);
+        let _finished_mutex_thread = Arc::clone(&finished_mutex);
         let thread = std::thread::spawn(move || {
             let mut pipeline = match LivePipelineHpt::new(
                 &engine,
@@ -181,6 +246,8 @@ impl LiveWorker {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
                     tracing::error!(source = %source, %error, "hpt live pipeline initialization failed");
+                    finished_thread.store(true, Ordering::SeqCst);
+                    finished_cvar_thread.notify_one();
                     return;
                 }
             };
@@ -212,10 +279,15 @@ impl LiveWorker {
                     }
                 }
             }
+            finished_thread.store(true, Ordering::SeqCst);
+            finished_cvar_thread.notify_one();
         });
         Ok(Self {
             stop_tx: Some(stop_tx),
             thread: Some(thread),
+            finished,
+            finished_mutex,
+            finished_cvar,
         })
     }
 

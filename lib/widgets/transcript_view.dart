@@ -436,6 +436,28 @@ class _SegmentTile extends StatelessWidget {
                               ],
                             ),
                           ],
+                          if (segment.lowConfidence) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 12,
+                                  color: const Color(0xFFD97706),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Kepercayaan rendah',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: const Color(0xFFD97706),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
