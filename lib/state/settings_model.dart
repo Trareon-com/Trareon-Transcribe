@@ -31,7 +31,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       defaultExportFormat: DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
       micDeviceId: DartPrefs.instance.getString('micDeviceId'),
       speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
-      progressiveEnabled: DartPrefs.instance.getBool('progressiveEnabled') ?? true,
+      progressiveEnabled: loaded.progressiveEnabled,
       rtfScore: DartPrefs.instance.getDouble('rtfScore') ?? 0.0,
       hptMode: (() {
         final raw = DartPrefs.instance.getInt('hptMode');
