@@ -66,7 +66,15 @@ pub(crate) mod macos {
                     return Ok(capture);
                 }
                 Err(e) => {
-                    tracing::warn!("ScreenCaptureKit unavailable: {e}, falling back");
+                    // wants_sck is only true when the user chose NO explicit
+                    // device, so the fallbacks below are BlackHole-by-name
+                    // (usually not installed) and ffmpeg `-i :default`, which
+                    // records the MICROPHONE, not system audio. Silently
+                    // recording the mic — even when the user turned it off — is
+                    // wrong for a privacy-first app, so surface the actionable
+                    // SCK error (typically: grant Screen & System Audio
+                    // Recording permission) instead of falling through to it.
+                    return Err(e);
                 }
             }
         }
@@ -142,10 +150,17 @@ pub(crate) mod macos {
                 },
                 SCStreamOutputType::Audio,
             )
-            .map_or(Ok(()), |e| {
-                Err(TranscribeError::AudioDevice(format!(
-                    "ScreenCaptureKit: add handler failed: {e}"
-                )))
+            // add_output_handler returns Option<usize>: Some(handler_id) on
+            // success, None on failure. The previous `.map_or(Ok(()), |e| Err(..))`
+            // had it exactly backwards — it turned the Some(handler_id) success
+            // into an Err (so SCK "failed" on every good registration and the
+            // code fell through to the BlackHole/ffmpeg fallback every time) and
+            // turned a genuine None failure into Ok (starting a handler-less
+            // stream that captured silence). Fail only when it is actually None.
+            .ok_or_else(|| {
+                TranscribeError::AudioDevice(
+                    "ScreenCaptureKit: failed to register audio output handler".into(),
+                )
             })?;
 
         stream.start_capture().map_err(|e| {

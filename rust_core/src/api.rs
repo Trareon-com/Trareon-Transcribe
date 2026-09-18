@@ -63,6 +63,10 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
     crate::audio::list_input_devices()
 }
 
+pub fn list_output_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
+    crate::audio::device::list_output_devices()
+}
+
 pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TranscribeError> {
     crate::audio::get_loopback_device(&name_hint)
 }
@@ -147,7 +151,15 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
     .await?;
 
     if !info.sha256.is_empty() {
-        crate::model::verify_checksum(&dest_path, &info.sha256)?;
+        if let Err(e) = crate::model::verify_checksum(&dest_path, &info.sha256) {
+            // A file that fails checksum is corrupt/partial. Leaving it on disk
+            // makes the model read as "installed" and lets a later
+            // download_with_resume append onto the bad bytes (poisoned resume),
+            // so it can never self-heal. Remove it so the next attempt
+            // re-downloads from scratch.
+            let _ = std::fs::remove_file(&dest_path);
+            return Err(e);
+        }
     }
 
     Ok(())

@@ -109,10 +109,22 @@ pub struct SessionRecoverySnapshot {
     pub segments_count: u32,
 }
 
+/// Minimum gap between successive memory-pressure splits. `poll_events` is
+/// called on every UI poll tick (roughly every 100-200ms) and re-reads
+/// system memory each time — without this cooldown, a session that stays
+/// under memory pressure re-triggers "auto-split" (log line, dedupe-window
+/// clear, snapshot rewrite) on essentially every poll for as long as the
+/// pressure lasts, instead of once. Well below AUTO_SPLIT_INTERVAL_SECS so
+/// a genuinely pressured session still splits promptly rather than waiting
+/// out the full hour.
+const MEMORY_SPLIT_COOLDOWN_SECS: u64 = 5;
+
 /// Pure decision logic — trivially unit-testable without real timers or a
 /// real memory read.
 fn should_split(elapsed_since_last_split_secs: u64, memory_ratio: f32) -> Option<AutoSplitReason> {
-    if memory::is_under_memory_pressure(memory_ratio) {
+    if memory::is_under_memory_pressure(memory_ratio)
+        && elapsed_since_last_split_secs >= MEMORY_SPLIT_COOLDOWN_SECS
+    {
         Some(AutoSplitReason::MemoryPressure)
     } else if elapsed_since_last_split_secs >= AUTO_SPLIT_INTERVAL_SECS {
         Some(AutoSplitReason::TimeBoundary)
@@ -169,8 +181,16 @@ fn start_capture(
     } {
         Ok(c) => c,
         Err(e) => {
-            tracing::warn!(source, %e, "skipping capture — device unavailable");
-            return Ok(None);
+            // A source the user ENABLED failed to start. Previously this was
+            // swallowed (return Ok(None)), so e.g. Webinar mode with Screen
+            // Recording permission denied produced a session that silently
+            // recorded and transcribed NOTHING, with no hint why. Propagate so
+            // start_session fails and the UI surfaces the actionable message
+            // (main_screen catches start() errors into an AppToast). A sibling
+            // capture already started (e.g. mic in Online mode) is dropped on
+            // this early return, which stops it cleanly.
+            tracing::warn!(source, %e, "capture failed to start");
+            return Err(e);
         }
     };
 
@@ -343,7 +363,12 @@ pub fn poll_events(session_id: &str) -> Result<Vec<SessionEvent>, TranscribeErro
     }
 
     drop(reg);
-    persist_session_snapshot(session_id)?;
+    // Best-effort snapshot ONLY: `events` were already removed from
+    // pending_events via mem::take above, so propagating a persist error with
+    // `?` here would silently drop user-visible transcript + VU events that
+    // will never be re-delivered. get_status() uses `let _ =` for exactly this
+    // reason — snapshotting is crash-recovery, never worth losing live events.
+    let _ = persist_session_snapshot(session_id);
     Ok(events)
 }
 
@@ -363,7 +388,12 @@ pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, Trans
             out.push(snapshot);
         }
     }
-    out.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+    // Most-recently-interrupted session first: the UI's "Pulihkan" button
+    // always recovers out[0] (lib/screens/main_screen.dart), so sorting by
+    // session_id (a random UUID) previously handed back an arbitrary
+    // snapshot — observed recovering a session from days earlier over one
+    // from seconds ago.
+    out.sort_by_key(|s| std::cmp::Reverse(s.started_at_unix_ms));
     Ok(out)
 }
 
@@ -620,6 +650,43 @@ mod tests {
     }
 
     #[test]
+    fn recoverable_sessions_are_most_recent_first() {
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_recovery_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::remove_dir_all(&dir);
+        set_recovery_dir_override(Some(dir.clone()));
+
+        // session_id chosen to sort alphabetically BEFORE "zzz-newer" — the
+        // old `sort_by(session_id)` would have put this one first despite
+        // being the older snapshot, which is exactly the bug: the UI's
+        // "Pulihkan" button always recovers out[0].
+        let older = SessionRecoverySnapshot {
+            session_id: "aaa-older".into(),
+            config: test_config(),
+            started_at_unix_ms: 1_000,
+            last_split_at_unix_ms: 1_000,
+            segments_count: 0,
+        };
+        let newer = SessionRecoverySnapshot {
+            session_id: "zzz-newer".into(),
+            config: test_config(),
+            started_at_unix_ms: 2_000,
+            last_split_at_unix_ms: 2_000,
+            segments_count: 0,
+        };
+        write_snapshot_file(&older).unwrap();
+        write_snapshot_file(&newer).unwrap();
+
+        let snapshots = list_recoverable_sessions().unwrap();
+        assert_eq!(snapshots.len(), 2);
+        assert_eq!(snapshots[0].session_id, "zzz-newer");
+        assert_eq!(snapshots[1].session_id, "aaa-older");
+
+        let _ = std::fs::remove_dir_all(&dir);
+        set_recovery_dir_override(None);
+    }
+
+    #[test]
     fn stop_unknown_session_errors() {
         assert!(stop_session("not-a-real-session-id").is_err());
     }
@@ -686,6 +753,15 @@ mod tests {
             should_split(10, 0.85),
             Some(AutoSplitReason::MemoryPressure)
         );
+    }
+
+    #[test]
+    fn memory_pressure_does_not_resplit_on_the_very_next_poll() {
+        // poll_events() is called on every UI tick (~100-200ms) and resets
+        // last_split_at on every trigger — without a cooldown, sustained
+        // memory pressure would re-trigger a split on essentially every
+        // single poll instead of once per MEMORY_SPLIT_COOLDOWN_SECS.
+        assert_eq!(should_split(0, 0.95), None);
     }
 
     #[test]

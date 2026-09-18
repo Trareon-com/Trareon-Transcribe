@@ -282,9 +282,16 @@ class RustEngineBridge implements RustBridge {
     _pollTimers.remove(sessionId)?.cancel();
     _polling.remove(sessionId);
     _pausedSessions.remove(sessionId);
-    await rust_api.stopSession(sessionId: sessionId);
-    await _transcriptControllers.remove(sessionId)?.close();
-    await _vuControllers.remove(sessionId)?.close();
+    // Tear down the controllers even if the Rust stop throws. Previously an
+    // exception from rust_api.stopSession left both StreamControllers open and
+    // still registered in their maps (a leak) and the UI session stuck/unsaved.
+    // finally guarantees teardown regardless of how the Rust call ends.
+    try {
+      await rust_api.stopSession(sessionId: sessionId);
+    } finally {
+      await _transcriptControllers.remove(sessionId)?.close();
+      await _vuControllers.remove(sessionId)?.close();
+    }
   }
 
   @override
@@ -320,8 +327,18 @@ class RustEngineBridge implements RustBridge {
       rust_api.listRecoverableSessions();
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) =>
-      rust_api.recoverSession(snapshot: snapshot);
+  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async {
+    final id = await rust_api.recoverSession(snapshot: snapshot);
+    // Same wiring as startSession() — without it, the recovered session
+    // captures and transcribes for real on the Rust side (confirmed: mic
+    // opens, whisper runs) but nothing ever polls for its events, so
+    // transcriptStream/vuMeterStream stay on Stream.empty() forever and
+    // the UI never shows a single segment.
+    _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
+    _vuControllers[id] = StreamController<VuLevel>.broadcast();
+    _pollTimers[id] = Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
+    return id;
+  }
 
   Future<void> _poll(String sessionId) async {
     if (!_polling.add(sessionId)) return;
@@ -368,6 +385,10 @@ class RustEngineBridge implements RustBridge {
       language: segment.language,
       confidence: segment.confidence,
       isPartial: segment.isPartial,
+      // Propagate the Rust-computed low-confidence flag (confidence routing).
+      // Dropping it here defaulted every live segment to lowConfidence:false,
+      // so the flag never reached the UI or the saved transcript.
+      lowConfidence: segment.lowConfidence,
     );
   }
 
@@ -391,7 +412,7 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() =>
-      rust_api.listAudioDevices();
+      rust_api.listOutputAudioDevices();
 
   /// Detects the frontmost window title on macOS by calling osascript.
   /// Gracefully returns empty string on failure or non-macOS platforms.
@@ -404,18 +425,35 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Stream<double> downloadProgress() {
-    final controller = StreamController<double>();
-    Timer.periodic(const Duration(milliseconds: 200), (timer) async {
+    // The polling Timer must die when the consumer stops listening or the
+    // controller closes — otherwise a cancelled/failed/stalled download
+    // (getDownloadProgress() returning null forever, or ratio never reaching
+    // 1.0) leaves Timer.periodic running for the life of the app with the
+    // StreamController never closed. onCancel handles the subscription being
+    // cancelled; the isClosed guards stop polling/adding once it is closed.
+    late final StreamController<double> controller;
+    Timer? timer;
+    controller = StreamController<double>(
+      onCancel: () => timer?.cancel(),
+    );
+    timer = Timer.periodic(const Duration(milliseconds: 200), (t) async {
+      if (controller.isClosed) {
+        t.cancel();
+        return;
+      }
       final progress = await rust_api.getDownloadProgress();
       if (progress == null) return;
-      final downloaded = progress.$1;
       final total = progress.$2;
       if (total == BigInt.zero) return;
-      final ratio = downloaded.toDouble() / total.toDouble();
+      final ratio = progress.$1.toDouble() / total.toDouble();
+      if (controller.isClosed) {
+        t.cancel();
+        return;
+      }
       controller.add(ratio);
       if (ratio >= 1.0) {
-        timer.cancel();
-        controller.close();
+        t.cancel();
+        await controller.close();
       }
     });
     return controller.stream;

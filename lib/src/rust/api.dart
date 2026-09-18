@@ -47,6 +47,9 @@ Future<bool> healthCheck() => RustLib.instance.api.crateApiHealthCheck();
 Future<List<AudioDeviceInfo>> listAudioDevices() =>
     RustLib.instance.api.crateApiListAudioDevices();
 
+Future<List<AudioDeviceInfo>> listOutputAudioDevices() =>
+    RustLib.instance.api.crateApiListOutputAudioDevices();
+
 Future<AudioDeviceInfo> getLoopbackDevice({required String nameHint}) =>
     RustLib.instance.api.crateApiGetLoopbackDevice(nameHint: nameHint);
 

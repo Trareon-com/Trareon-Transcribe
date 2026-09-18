@@ -72,6 +72,11 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Timer? _elapsedTimer;
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
+  // Synchronous re-entrancy guard for start()/recoverFromSnapshot(): lifecycle
+  // only flips to `recording` AFTER their awaits, so without this a second call
+  // arriving during that gap would pass the lifecycle check and spawn a second
+  // live Rust session, orphaning the first.
+  bool _launching = false;
   String _libraryPath = '~/Documents/TrareonTranscribe';
 
   SessionNotifier(
@@ -171,51 +176,67 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     // Mulai first) silently orphans that session's Rust-side capture —
     // its registry entry and audio threads keep running with nothing left
     // to stop them — while this one clobbers the visible state.
-    if (state.lifecycle == SessionLifecycle.recording ||
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return;
     }
-    seedRecovery(snapshot);
-    final id = await _bridge.recoverSession(snapshot);
-    state = state.copyWith(
-      lifecycle: SessionLifecycle.recording,
-      sessionId: id,
-      segments: [],
-    );
-    _subscribeToLiveStreams(id);
-    _resetAutoStopTimer();
+    _launching = true;
+    try {
+      seedRecovery(snapshot);
+      final id = await _bridge.recoverSession(snapshot);
+      state = state.copyWith(
+        lifecycle: SessionLifecycle.recording,
+        sessionId: id,
+        segments: [],
+      );
+      _subscribeToLiveStreams(id);
+      _resetAutoStopTimer();
+    } finally {
+      _launching = false;
+    }
   }
 
   Future<void> start() async {
-    // Guard against double-start: if already recording/paused, ignore.
-    if (state.lifecycle == SessionLifecycle.recording ||
+    // Guard against double-start. The lifecycle check alone is insufficient:
+    // lifecycle only flips to `recording` after the awaits below, so a second
+    // call arriving in that gap (double-click / ⌘R spam) would pass the check
+    // and spawn a second live Rust session. The synchronous _launching flag
+    // closes that window.
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return;
     }
-    // Model existence is checked by the Rust side's own resolve_model_path(),
-    // which handles tilde expansion, sandbox paths, and multiple search
-    // locations. The old File.existsSync() check here was unreliable because
-    // modelPath can be a relative path (fallback from modelPathForId) that
-    // doesn't resolve against the Flutter app bundle's CWD, or contain an
-    // unexpanded '~' in the library path — producing false-positive "model
-    // tidak ditemukan" errors even when the model file exists.
-    // Auto-detect frontmost window title as default session name.
-    final detected = await _bridge.detectFrontmostWindowTitle();
-    // start_capture() on the Rust side treats a null device id as "setup not
-    // completed" and skips spawning the capture thread entirely — so a
-    // concrete device name must be resolved here, or mic/speaker audio is
-    // silently never captured regardless of the mic/speaker toggles.
-    final configWithDevices = await _resolveDevices(state.config);
-    state = state.copyWith(config: configWithDevices);
-    final id = await _bridge.startSession(state.config);
-    state = state.copyWith(
-      lifecycle: SessionLifecycle.recording,
-      sessionId: id,
-      segments: [],
-      sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
-    );
-    _subscribeToLiveStreams(id);
-    _resetAutoStopTimer();
+    _launching = true;
+    try {
+      // Model existence is checked by the Rust side's own resolve_model_path(),
+      // which handles tilde expansion, sandbox paths, and multiple search
+      // locations. The old File.existsSync() check here was unreliable because
+      // modelPath can be a relative path (fallback from modelPathForId) that
+      // doesn't resolve against the Flutter app bundle's CWD, or contain an
+      // unexpanded '~' in the library path — producing false-positive "model
+      // tidak ditemukan" errors even when the model file exists.
+      // Auto-detect frontmost window title as default session name.
+      final detected = await _bridge.detectFrontmostWindowTitle();
+      // start_capture() on the Rust side treats a null device id as "setup not
+      // completed" and skips spawning the capture thread entirely — so a
+      // concrete device name must be resolved here, or mic/speaker audio is
+      // silently never captured regardless of the mic/speaker toggles.
+      final configWithDevices = await _resolveDevices(state.config);
+      state = state.copyWith(config: configWithDevices);
+      final id = await _bridge.startSession(state.config);
+      state = state.copyWith(
+        lifecycle: SessionLifecycle.recording,
+        sessionId: id,
+        segments: [],
+        sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
+      );
+      _subscribeToLiveStreams(id);
+      _resetAutoStopTimer();
+    } finally {
+      _launching = false;
+    }
   }
 
   /// Resolves concrete mic/speaker device names when the config doesn't
@@ -239,33 +260,17 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
             .name;
       }
     }
-    if (speakerDeviceId == null && config.speakerEnabled) {
-      final outputs = await _bridge.listOutputAudioDevices();
-      if (outputs.isNotEmpty) {
-        speakerDeviceId = outputs
-            .firstWhere(
-              (d) =>
-                  d.name.toLowerCase().contains('blackhole') ||
-                  d.name.toLowerCase().contains('loopback'),
-              orElse: () => outputs.first,
-            )
-            .name;
-      }
-      // Fallback: search listAudioDevices() for BlackHole/loopback too
-      if (speakerDeviceId == null) {
-        final inputs = await _bridge.listAudioDevices();
-        if (inputs.isNotEmpty) {
-          speakerDeviceId = inputs
-              .firstWhere(
-                (d) =>
-                    d.name.toLowerCase().contains('blackhole') ||
-                    d.name.toLowerCase().contains('loopback'),
-                orElse: () => inputs.first,
-              )
-              .name;
-        }
-      }
-    }
+    // Deliberately left null when the user hasn't picked a device (the
+    // wizard's audio-setup step writes a concrete one into settings if they
+    // did): a null/empty hint is what makes the Rust side's
+    // capture_loopback() try ScreenCaptureKit's zero-setup system-audio
+    // capture first. Eagerly resolving to a concrete device here — even a
+    // present BlackHole install — used to skip straight past that and into
+    // the BlackHole/cpal fallback, which opens fine but captures silence
+    // unless the user has separately routed system audio into BlackHole.
+    // Windows/Linux ignore this hint entirely (loopback there is always the
+    // OS default render/monitor device), so leaving it null doesn't affect
+    // them.
     return config.copyWith(
       micDeviceId: micDeviceId,
       speakerDeviceId: speakerDeviceId,

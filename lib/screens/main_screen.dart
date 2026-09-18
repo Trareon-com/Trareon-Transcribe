@@ -55,7 +55,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Future<void> _loadRecoveries() async {
     final bridge = ref.read(rustBridgeProvider);
-    final recoveries = await bridge.listRecoverableSessions();
+    List<rust_session.SessionRecoverySnapshot> recoveries = const [];
+    try {
+      recoveries = await bridge.listRecoverableSessions();
+    } catch (_) {
+      // A throw here (corrupt snapshot dir, bridge failure) previously left
+      // _loadingRecoveries true forever — a permanent loading bar that also
+      // hid the recovery banner entirely. Fall through with an empty list so
+      // the loading state clears.
+    }
     if (!mounted) return;
     setState(() {
       _recoverableSessions = recoveries;
@@ -68,7 +76,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetRef ref,
     rust_session.SessionRecoverySnapshot snapshot,
   ) async {
-    await ref.read(sessionProvider.notifier).recoverFromSnapshot(snapshot);
+    try {
+      await ref.read(sessionProvider.notifier).recoverFromSnapshot(snapshot);
+    } catch (e) {
+      if (!context.mounted) return;
+      AppToast.show(context, 'Gagal memulihkan sesi: $e', type: ToastType.error);
+      return;
+    }
     if (!context.mounted) return;
     setState(() {
       _recoverableSessions = _recoverableSessions
