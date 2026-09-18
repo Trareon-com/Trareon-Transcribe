@@ -6,6 +6,7 @@ import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../src/rust/export.dart' as rust_export;
+import '../src/rust/model.dart' as rust_model;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
 import '../src/rust/stt/file.dart' as rust_stt_file;
@@ -27,6 +28,13 @@ abstract class RustBridge {
   Future<AppSettings> loadSettings();
   Future<void> saveSettings(AppSettings settings);
   Future<void> downloadModel(String modelsDir, String modelId);
+
+  /// The pinned Whisper model catalog. Each entry's `sizeBytes` reflects the
+  /// file's current on-disk size under [modelsDir] (0 if not yet downloaded).
+  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir);
+
+  /// Whether [modelId]'s file already exists under [modelsDir].
+  Future<bool> isModelDownloaded(String modelsDir, String modelId);
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices();
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices();
 
@@ -183,6 +191,31 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<void> downloadModel(String modelsDir, String modelId) async {}
+
+  @override
+  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [
+        rust_model.ModelInfo(
+          id: 'base',
+          name: 'base (ggml-base.bin)',
+          url: '',
+          sha256: '',
+          sizeBytes: BigInt.from(148897024),
+          minRamGb: 1,
+          isBundled: true,
+        ),
+        rust_model.ModelInfo(
+          id: 'large-v3-turbo-q5',
+          name: 'large-v3-turbo-q5 (ggml-large-v3-turbo-q5_0.bin)',
+          url: '',
+          sha256: '',
+          sizeBytes: BigInt.from(574619648),
+          minRamGb: 4,
+          isBundled: true,
+        ),
+      ];
+
+  @override
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
 
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => [
@@ -385,6 +418,14 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<void> downloadModel(String modelsDir, String modelId) =>
       rust_api.downloadModel(modelsDir: modelsDir, modelId: modelId);
+
+  @override
+  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) =>
+      rust_api.listAvailableModels(modelsDir: modelsDir);
+
+  @override
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) =>
+      rust_api.isModelDownloaded(modelsDir: modelsDir, modelId: modelId);
 
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() => rust_api.listAudioDevices();

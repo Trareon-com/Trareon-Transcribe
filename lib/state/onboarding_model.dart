@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../screens/onboarding_screen.dart';
 import '../services/bridge_service.dart';
+import '../src/rust/model.dart' as rust_model;
 import '../widgets/model_download_card.dart';
 import 'models.dart';
 import 'settings_model.dart';
@@ -10,6 +11,13 @@ final onboardingProvider =
     StateNotifierProvider<OnboardingNotifier, OnboardingState>((ref) {
       return OnboardingNotifier(ref.watch(rustBridgeProvider));
     });
+
+/// Which two catalog entries onboarding downloads — `base` for the
+/// fast/progressive pass, `large-v3-turbo-q5` for the accurate refine pass.
+/// This choice is a product decision, not catalog data; everything else
+/// about these models (size, availability) comes from the Rust catalog.
+const _quickModelId = 'base';
+const _accurateModelId = 'large-v3-turbo-q5';
 
 /// Drives the two bundled-model downloads (`base` then `large-v3-turbo-q5`)
 /// shown on [OnboardingScreen]. Sequential, not parallel: the underlying
@@ -25,9 +33,13 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     if (_running) return;
     _running = true;
     try {
+      final modelsDir = defaultModelsCacheDir();
+      _applyCatalogSizes(await _bridge.listAvailableModels(modelsDir));
+
       if (state.quick.status != DownloadStatus.ready) {
-        await _download(
-          modelId: 'base',
+        await _ensureDownloaded(
+          modelId: _quickModelId,
+          modelsDir: modelsDir,
           slot: () => state.quick,
           apply: (p) =>
               state = OnboardingState(quick: p, accurate: state.accurate),
@@ -35,8 +47,9 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       }
       if (state.quick.status == DownloadStatus.ready &&
           state.accurate.status != DownloadStatus.ready) {
-        await _download(
-          modelId: 'large-v3-turbo-q5',
+        await _ensureDownloaded(
+          modelId: _accurateModelId,
+          modelsDir: modelsDir,
           slot: () => state.accurate,
           apply: (p) =>
               state = OnboardingState(quick: state.quick, accurate: p),
@@ -45,6 +58,43 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     } finally {
       _running = false;
     }
+  }
+
+  /// Fills in each card's size label from the catalog's on-disk sizes, once
+  /// known (a not-yet-downloaded model reports 0 bytes and is left as-is).
+  void _applyCatalogSizes(List<rust_model.ModelInfo> catalog) {
+    final quickSize = _sizeLabelFor(catalog, _quickModelId);
+    final accurateSize = _sizeLabelFor(catalog, _accurateModelId);
+    state = OnboardingState(
+      quick: quickSize == null ? state.quick : state.quick.copyWith(size: quickSize),
+      accurate: accurateSize == null
+          ? state.accurate
+          : state.accurate.copyWith(size: accurateSize),
+    );
+  }
+
+  String? _sizeLabelFor(List<rust_model.ModelInfo> catalog, String modelId) {
+    for (final model in catalog) {
+      if (model.id == modelId && model.sizeBytes > BigInt.zero) {
+        return _formatBytes(model.sizeBytes);
+      }
+    }
+    return null;
+  }
+
+  /// Skips the download entirely when the catalog already has the file on
+  /// disk (e.g. a previous run completed it), instead of re-downloading.
+  Future<void> _ensureDownloaded({
+    required String modelId,
+    required String modelsDir,
+    required DownloadProgress Function() slot,
+    required void Function(DownloadProgress) apply,
+  }) async {
+    if (await _bridge.isModelDownloaded(modelsDir, modelId)) {
+      apply(slot().copyWith(status: DownloadStatus.ready, progress: 1.0));
+      return;
+    }
+    await _download(modelId: modelId, slot: slot, apply: apply);
   }
 
   Future<void> retryQuick() async {
@@ -102,4 +152,15 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       await subscription.cancel();
     }
   }
+}
+
+/// Formats a byte count from the catalog as a whole-number MB/GB label
+/// (e.g. `142 MB`), matching the style of the labels this replaces.
+String _formatBytes(BigInt bytes) {
+  const bytesPerMb = 1024 * 1024;
+  final megabytes = bytes.toDouble() / bytesPerMb;
+  if (megabytes >= 1024) {
+    return '${(megabytes / 1024).toStringAsFixed(1)} GB';
+  }
+  return '${megabytes.toStringAsFixed(0)} MB';
 }
