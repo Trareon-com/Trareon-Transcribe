@@ -6,6 +6,7 @@ import 'screens/onboarding_screen.dart';
 import 'services/rust_library_loader.dart';
 import 'services/tray_service.dart';
 import 'src/rust/api.dart' as rust_api;
+import 'src/rust/error.dart' show TranscribeError_InvalidInput;
 import 'src/rust/frb_generated.dart';
 import 'state/models.dart';
 import 'state/onboarding_model.dart';
@@ -19,12 +20,20 @@ void main() async {
 
   try {
     await rust_api.acquireInstanceLock();
-  } catch (_) {
-    runApp(const _AlreadyRunningApp());
-    return;
+  } on TranscribeError_InvalidInput catch (e) {
+    if (e.field0.contains('already running')) {
+      runApp(const _AlreadyRunningApp());
+      return;
+    }
+    rethrow;
   }
 
-  await TrayService.instance.init();
+  try {
+    await TrayService.instance.init();
+  } catch (_) {
+    // Tray icon is a non-essential convenience; failing to init it
+    // (e.g. no system tray available) shouldn't block app startup.
+  }
 
   runApp(const ProviderScope(child: TranscribeApp()));
 }

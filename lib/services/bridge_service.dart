@@ -300,6 +300,8 @@ class RustEngineBridge implements RustBridge {
   final Map<String, Timer> _pollTimers = {};
   final Set<String> _polling = {};
   final Set<String> _pausedSessions = {};
+  final Map<String, double> _lastMicLevels = {};
+  final Map<String, double> _lastSpeakerLevels = {};
 
   @override
   Future<String> startSession(SessionConfig config) async {
@@ -318,6 +320,8 @@ class RustEngineBridge implements RustBridge {
     await rust_api.stopSession(sessionId: sessionId);
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
+    _lastMicLevels.remove(sessionId);
+    _lastSpeakerLevels.remove(sessionId);
   }
 
   @override
@@ -364,8 +368,6 @@ class RustEngineBridge implements RustBridge {
       // channel from filling up and blocking capture threads. Events are
       // simply not forwarded to the Dart stream controllers.
       final paused = _pausedSessions.contains(sessionId);
-      var micLevel = 0.0;
-      var speakerLevel = 0.0;
       var hasVu = false;
       for (final event in events) {
         event.when(
@@ -375,14 +377,17 @@ class RustEngineBridge implements RustBridge {
           vu: (source, level) {
             if (!paused) {
               hasVu = true;
-              if (source == 'mic') { micLevel = level; }
-              else if (source == 'spk') { speakerLevel = level; }
+              if (source == 'mic') { _lastMicLevels[sessionId] = level; }
+              else if (source == 'spk') { _lastSpeakerLevels[sessionId] = level; }
             }
           },
         );
       }
       if (hasVu) {
-        _vuControllers[sessionId]?.add(VuLevel(micLevel: micLevel, speakerLevel: speakerLevel));
+        _vuControllers[sessionId]?.add(VuLevel(
+          micLevel: _lastMicLevels[sessionId] ?? 0.0,
+          speakerLevel: _lastSpeakerLevels[sessionId] ?? 0.0,
+        ));
       }
     } on Object catch (_) {
       // Session shutdown races with the 200ms poll timer are expected.
@@ -446,8 +451,12 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Stream<double> downloadProgress() {
-    final controller = StreamController<double>();
-    Timer.periodic(const Duration(milliseconds: 200), (timer) async {
+    late final StreamController<double> controller;
+    Timer? timer;
+    controller = StreamController<double>(
+      onCancel: () => timer?.cancel(),
+    );
+    timer = Timer.periodic(const Duration(milliseconds: 200), (t) async {
       final progress = await rust_api.getDownloadProgress();
       if (progress == null) return;
       final downloaded = progress.$1;
@@ -456,7 +465,7 @@ class RustEngineBridge implements RustBridge {
       final ratio = downloaded.toDouble() / total.toDouble();
       controller.add(ratio);
       if (ratio >= 1.0) {
-        timer.cancel();
+        t.cancel();
         controller.close();
       }
     });

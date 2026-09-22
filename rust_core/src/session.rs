@@ -321,27 +321,6 @@ pub fn poll_events(session_id: &str) -> Result<Vec<SessionEvent>, TranscribeErro
         std::mem::take(&mut state.pending_events)
     };
 
-    // Check auto-split: long sessions >4h or memory pressure
-    if let Some(state) = reg.get(session_id) {
-        let elapsed = state.started_at.elapsed().as_secs();
-        let since_last_split = state.last_split_at.elapsed().as_secs();
-        let memory_ratio = crate::memory::system_memory_usage_ratio();
-        if let Some(reason) = should_split(since_last_split, memory_ratio) {
-            // Borrow dari reg.get() di atas ends here — get_mut available
-            if let Some(state) = reg.get_mut(session_id) {
-                state.last_split_at = std::time::Instant::now();
-                tracing::info!(
-                    session = %session_id,
-                    elapsed_secs = elapsed,
-                    ?reason,
-                    "auto-split triggered"
-                );
-                // Reset recent_emitted to avoid cross-split dedupe
-                state.recent_emitted.clear();
-            }
-        }
-    }
-
     drop(reg);
     persist_session_snapshot(session_id)?;
     Ok(events)

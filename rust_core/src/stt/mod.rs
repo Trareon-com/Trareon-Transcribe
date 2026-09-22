@@ -215,9 +215,7 @@ impl WhisperEngine {
                 / 100.0;
 
             // Compute average log probability from token data for confidence routing.
-            let n_tokens = state
-                .full_n_tokens(i)
-                .unwrap_or(0);
+            let n_tokens = state.full_n_tokens(i).unwrap_or(0);
             let mut log_probs = Vec::with_capacity(n_tokens as usize);
             for tok in 0..n_tokens {
                 if let Ok(token_data) = state.full_get_token_data(i, tok) {
@@ -231,7 +229,8 @@ impl WhisperEngine {
             };
             // Whisper confidence: convert from log probability (typically -1.0 to 0.0)
             // to a 0..1 scale where 1.0 = high confidence.
-            let confidence = ((-avg_log_prob).max(0.0) / 1.0).min(1.0);
+            let confidence = (1.0 + avg_log_prob).clamp(0.0, 1.0);
+            let low_confidence = confidence < 0.5;
 
             out.push(Segment {
                 source: source.to_string(),
@@ -243,7 +242,7 @@ impl WhisperEngine {
                 confidence,
                 avg_log_prob,
                 is_partial: false,
-                low_confidence: false,
+                low_confidence,
             });
         }
 
