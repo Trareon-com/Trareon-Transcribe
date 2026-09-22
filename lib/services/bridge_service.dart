@@ -58,8 +58,10 @@ abstract class RustBridge {
 
   /// Writes [segments] to `outputDir/<sanitized title>/` in the requested
   /// [formats]. Each format is a member of [rust_export.ExportFormat].
-  /// Defaults to [markdown, txt, json] when empty.
-  Future<void> exportSession({
+  /// Defaults to [markdown, txt, json] when empty. Returns the files that
+  /// were actually written, whose paths reveal the real (date-prefixed,
+  /// sanitized) session directory the Rust side created.
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
@@ -261,7 +263,7 @@ class RustBridgeMock implements RustBridge {
   }) async => []; // Mock: returns empty results
 
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
@@ -270,7 +272,7 @@ class RustBridgeMock implements RustBridge {
       rust_export.ExportFormat.txt,
       rust_export.ExportFormat.json,
     ],
-  }) async {}
+  }) async => [];
 
   @override
   Future<void> exportSessionAudio({
@@ -485,7 +487,7 @@ class RustEngineBridge implements RustBridge {
       );
 
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
@@ -494,8 +496,8 @@ class RustEngineBridge implements RustBridge {
       rust_export.ExportFormat.txt,
       rust_export.ExportFormat.json,
     ],
-  }) async {
-    await rust_api.exportSession(
+  }) {
+    return rust_api.exportSession(
       segments: segments
           .map(
             (s) => rust_export.Segment(

@@ -100,29 +100,33 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           files: [path],
           language: language,
         );
-        if (results.isNotEmpty) {
+        if (results.isNotEmpty && results.first.segments.isNotEmpty) {
           final result = results.first;
+          final title = result.filename.replaceFirst(RegExp(r'\.[^.]+$'), '');
+          final exportedFiles = await bridge.exportSession(
+            segments: result.segments.map((segment) {
+              return TranscriptSegment(
+                source: segment.source,
+                speaker: segment.speaker,
+                text: segment.text,
+                timestamp: segment.timestamp,
+                duration: segment.duration,
+                language: segment.language,
+                confidence: segment.confidence,
+                isPartial: segment.isPartial,
+              );
+            }).toList(),
+            outputDir: resolveTilde(outputDir),
+            title: title.isEmpty ? result.filename : title,
+          );
           updateStatus(path, BatchFileStatus.done);
-          if (result.segments.isNotEmpty) {
-            final title = result.filename.replaceFirst(RegExp(r'\.[^.]+$'), '');
-            final sessionDir = Directory('${resolveTilde(outputDir)}/$title');
-            await bridge.exportSession(
-              segments: result.segments.map((segment) {
-                return TranscriptSegment(
-                  source: segment.source,
-                  speaker: segment.speaker,
-                  text: segment.text,
-                  timestamp: segment.timestamp,
-                  duration: segment.duration,
-                  language: segment.language,
-                  confidence: segment.confidence,
-                  isPartial: segment.isPartial,
-                );
-              }).toList(),
-              outputDir: resolveTilde(outputDir),
-              title: title.isEmpty ? result.filename : title,
-            );
+          if (exportedFiles.isNotEmpty) {
             try {
+              // The Rust export writes into a date-prefixed, sanitized
+              // subfolder that doesn't match a naively-computed path, so the
+              // audio copy must land next to the files the export actually
+              // wrote.
+              final sessionDir = File(exportedFiles.first.path).parent;
               await sessionDir.create(recursive: true);
               final sourceAudio = File(path);
               if (await sourceAudio.exists()) {
