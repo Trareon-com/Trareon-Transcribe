@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Resolves the compiled `rust_core` native library.
@@ -31,7 +32,9 @@ ExternalLibrary? tryLoadRustCoreLibrary() {
 
   final candidates = <String>[
     _bundledFrameworksPath(libraryFileName),
-    ..._devBuildOutputPaths(libraryFileName),
+    // Dev build output paths can't exist in a release bundle, so skip the
+    // disk-check sweep entirely there.
+    if (!kReleaseMode) ..._devBuildOutputPaths(libraryFileName),
   ];
 
   for (final path in candidates) {

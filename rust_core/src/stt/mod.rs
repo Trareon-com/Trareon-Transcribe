@@ -251,16 +251,15 @@ impl WhisperEngine {
 }
 
 impl WhisperEngine {
-    /// Contrastive decoding transcription — two-pass approach for reduced hallucinations.
+    /// Contrastive decoding transcription — currently a passthrough to
+    /// `transcribe_chunk`.
     ///
-    /// Pass 1: normal forward pass on original audio.
-    /// Pass 2: forward pass on time-shifted audio (silence prepended, audio shifted right).
-    /// Combine logits: `adjusted = positive - alpha * negative`.
-    ///
-    /// The shifted negative pass makes the model "less certain" on real tokens
-    /// while preserving hallucination artifacts — subtracting them suppresses false positives.
-    ///
-    /// `alpha` — CD weight (default 0.5). Lower = faster/looser, higher = stricter.
+    /// True contrastive decoding (combining logits from a normal pass and a
+    /// shifted-negative pass via `adjusted = positive - alpha * negative`)
+    /// requires whisper-rs `full_with_logits` exposure via FRB, which isn't
+    /// available yet. Running the shifted-negative pass without consuming
+    /// its result would just double inference cost for no benefit, so this
+    /// stays a thin wrapper until that API lands.
     pub fn transcribe_chunk_cd(
         &self,
         samples: &[f32],
@@ -270,39 +269,8 @@ impl WhisperEngine {
         initial_prompt: Option<&str>,
         alpha_: f32,
     ) -> TranscribeResult<Vec<Segment>> {
-        use crate::stt::whisper_cd::{apply_cd_logits, generate_shifted_negative};
         let _ = alpha_; // CD alpha — used when full logits API is wired
-
-        if samples.is_empty() {
-            return Err(TranscribeError::InvalidInput(
-                "cannot transcribe empty audio buffer".into(),
-            ));
-        }
-
-        let processed = crate::preprocess::preprocess(samples);
-
-        // Pass 1: normal transcription
-        let segments =
-            self.transcribe_chunk(samples, source, chunk_start_secs, language, initial_prompt)?;
-
-        // Pass 2: shifted negative audio — shift by 1 second
-        let sample_rate = crate::decode::TARGET_SAMPLE_RATE as usize;
-        let shift_samples = sample_rate; // 1 second at 16kHz
-        let negative_audio = generate_shifted_negative(&processed, shift_samples);
-        let _ = self.transcribe_chunk(
-            &negative_audio,
-            source,
-            chunk_start_secs,
-            language,
-            initial_prompt,
-        )?;
-
-        // Full logits combination requires whisper-rs `full_with_logits` exposure
-        // via FRB — wire this up once the API is available.
-        // For now, return the positive-pass result.
-        let _ = (alpha_, apply_cd_logits);
-
-        Ok(segments)
+        self.transcribe_chunk(samples, source, chunk_start_secs, language, initial_prompt)
     }
 }
 
@@ -334,7 +302,7 @@ fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
     const ID_KEYWORDS: &[&str] = &[
         "terima", "kasih", "bisa", "gak", "nggak", "kirim", "saya", "kamu", "itu", "halo", "bro",
         "di", "dari", "akan", "sudah", "udah", "ada", "aja", "juga", "ya", "dong", "deh", "tuhan",
-        "lho", "tolong", "bukan", "ini", "itu", "ya", "makasih",
+        "lho", "tolong", "bukan", "ini", "makasih",
     ];
     let words: Vec<&str> = text
         .split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
