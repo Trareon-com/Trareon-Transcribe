@@ -10,7 +10,7 @@ class _FailingExportBridge extends NoopBridge {
   bool exportCalled = false;
 
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,

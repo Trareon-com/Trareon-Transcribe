@@ -84,7 +84,7 @@ class NoopBridge implements RustBridge {
   }) async => [];
 
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
@@ -93,7 +93,7 @@ class NoopBridge implements RustBridge {
       rust_export.ExportFormat.txt,
       rust_export.ExportFormat.json,
     ],
-  }) async {}
+  }) async => [];
 
   @override
   Future<void> exportSessionAudio({

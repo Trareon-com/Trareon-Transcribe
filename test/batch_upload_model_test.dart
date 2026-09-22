@@ -158,12 +158,12 @@ class _NoopBridge implements RustBridge {
     String? language,
   }) async => [];
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
     List<rust_export.ExportFormat> formats = const [],
-  }) async {}
+  }) async => [];
   @override
   Future<void> exportSessionAudio({
     required String sessionId,
@@ -208,13 +208,14 @@ class _TestBridge extends _NoopBridge {
   }
 
   @override
-  Future<void> exportSession({
+  Future<List<rust_export.ExportedFile>> exportSession({
     required List<TranscriptSegment> segments,
     required String outputDir,
     required String title,
     List<rust_export.ExportFormat> formats = const [],
   }) async {
     exportedTitles.add(title);
+    return [];
   }
 }
 
