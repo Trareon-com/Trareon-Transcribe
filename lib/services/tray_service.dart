@@ -60,13 +60,13 @@ class TrayService with TrayListener, WindowListener {
   }
 
   @override
-  void onTrayMenuItemClick(MenuItem menuItem) {
+  void onTrayMenuItemClick(MenuItem menuItem) async {
     switch (menuItem.key) {
       case 'show':
         _showWindow();
       case 'quit':
-        windowManager.setPreventClose(false);
-        windowManager.close();
+        await windowManager.setPreventClose(false);
+        await windowManager.close();
     }
   }
 

@@ -74,4 +74,6 @@ class DartPrefs {
   }
 
   void setInt(String key, int value) => _data[key] = value;
+
+  void remove(String key) => _data.remove(key);
 }

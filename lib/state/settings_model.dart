@@ -157,7 +157,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setMicDeviceName(String? name) async {
     _userActed = true;
     state = state.copyWith(micDeviceId: name);
-    if (name != null) DartPrefs.instance.setString('micDeviceId', name);
+    if (name != null) {
+      DartPrefs.instance.setString('micDeviceId', name);
+    } else {
+      DartPrefs.instance.remove('micDeviceId');
+    }
     await DartPrefs.instance.save();
     await _bridge.saveSettings(state);
   }
@@ -165,7 +169,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setSpeakerDeviceName(String? name) async {
     _userActed = true;
     state = state.copyWith(speakerDeviceId: name);
-    if (name != null) DartPrefs.instance.setString('speakerDeviceId', name);
+    if (name != null) {
+      DartPrefs.instance.setString('speakerDeviceId', name);
+    } else {
+      DartPrefs.instance.remove('speakerDeviceId');
+    }
     await DartPrefs.instance.save();
     await _bridge.saveSettings(state);
   }

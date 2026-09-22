@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/bridge_service.dart';
@@ -45,11 +47,18 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   String _status = 'Mengunduh...';
   double _progress = 0.0;
   Stream<double>? _progressStream;
+  StreamSubscription<double>? _progressSubscription;
 
   @override
   void initState() {
     super.initState();
     _startDownload();
+  }
+
+  @override
+  void dispose() {
+    _progressSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _startDownload() async {
@@ -67,7 +76,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
 
       // Listen to progress stream
       _progressStream = widget.bridge.downloadProgress();
-      _progressStream!.listen(
+      _progressSubscription = _progressStream!.listen(
         (progress) {
           if (mounted) {
             setState(() {

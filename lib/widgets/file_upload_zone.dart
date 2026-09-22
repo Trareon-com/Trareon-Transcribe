@@ -139,7 +139,7 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
               ),
             ],
           ),
-          ...queue.map((entry) => _QueueTile(entry: entry)),
+          ...queue.map((entry) => _QueueTile(key: ValueKey(entry.path), entry: entry)),
         ],
       ],
     );

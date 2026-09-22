@@ -832,8 +832,12 @@ class _ToneTestStepState extends State<_ToneTestStep> {
     } catch (_) {
       // Playback failure — still mark tested so the user can proceed
     } finally {
-      await player.dispose();
       if (_player == player) _player = null;
+      try {
+        await player.dispose();
+      } catch (_) {
+        // Already disposed elsewhere (e.g. widget disposed mid-test)
+      }
     }
 
     if (mounted) {
@@ -846,7 +850,9 @@ class _ToneTestStepState extends State<_ToneTestStep> {
 
   @override
   void dispose() {
-    _player?.dispose();
+    final player = _player;
+    _player = null;
+    player?.dispose();
     super.dispose();
   }
 

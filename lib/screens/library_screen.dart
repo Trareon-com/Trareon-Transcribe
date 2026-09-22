@@ -109,6 +109,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       }
       sessions.sort((a, b) => b.date.compareTo(a.date));
     } catch (e) { debugPrint("LibraryScreen: sort error: $e"); }
+    if (!mounted) return;
     setState(() {
       _sessions = sessions;
       _loading = false;

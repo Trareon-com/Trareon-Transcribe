@@ -26,7 +26,7 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>()!;
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final quick = state.quick;
     final accurate = state.accurate;
     final allReady = state.allReady;

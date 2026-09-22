@@ -414,6 +414,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         modelPath: quickPath,
         refineModelPath: refinePath,
         vadEnabled: settings.vadEnabled,
+        micDeviceId: settings.micDeviceId,
+        speakerDeviceId: settings.speakerDeviceId,
       ),
     );
   }

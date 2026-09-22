@@ -1,14 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
 
-class PrivacyReportScreen extends ConsumerWidget {
+class PrivacyReportScreen extends ConsumerStatefulWidget {
   const PrivacyReportScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PrivacyReportScreen> createState() => _PrivacyReportScreenState();
+}
+
+class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final report = ref.watch(privacyReportProvider);
     final elapsed = DateTime.now().difference(report.launchedAt);
     final isClean = report.networkCallCount == 0;

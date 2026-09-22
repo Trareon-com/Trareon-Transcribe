@@ -63,7 +63,8 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       await _player.setVolume(1.0);
       await _player.setPlaybackRate(_speed);
       await _player.setSourceDeviceFile(widget.audioPath!);
-      _duration = await _player.getDuration();
+      final duration = await _player.getDuration();
+      if (mounted) setState(() { _duration = duration; });
       _positionSub = _player.onPositionChanged.listen((position) {
         if (!mounted) return;
         setState(() {
@@ -363,7 +364,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     final defaultDir = Platform.isMacOS
         ? '$home/Documents/TrareonTranscribe'
         : Platform.isWindows
-            ? '${Platform.environment['USERPROFILE']}\\Documents\\TrareonTranscribe'
+            ? '$home\\Documents\\TrareonTranscribe'
             : '$home/Documents/TrareonTranscribe';
 
     final bridge = ref.read(rustBridgeProvider);
