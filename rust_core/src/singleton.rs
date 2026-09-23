@@ -74,8 +74,22 @@ fn pid_is_alive(pid: u32) -> bool {
         if handle == 0 {
             return false;
         }
+        // A handle can still be opened for a process that has already
+        // exited but hasn't been fully reaped yet (e.g. another handle
+        // is still referencing it) — OpenProcess succeeding is NOT
+        // sufficient proof of liveness on Windows. GetExitCodeProcess
+        // + STILL_ACTIVE (259) is the correct liveness check; without
+        // it, a lock file left behind by a killed/crashed process is
+        // permanently treated as "still running" and the app can never
+        // be relaunched until the user manually deletes the lock file.
+        const STILL_ACTIVE: u32 = 259;
+        let mut exit_code: u32 = 0;
+        let ok = windows_sys::Win32::System::Threading::GetExitCodeProcess(
+            handle,
+            &mut exit_code as *mut u32,
+        );
         windows_sys::Win32::Foundation::CloseHandle(handle);
-        true
+        ok != 0 && exit_code == STILL_ACTIVE
     }
 }
 

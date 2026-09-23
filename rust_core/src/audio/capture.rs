@@ -53,13 +53,31 @@ impl AudioCapture {
             let _ = ready_tx.send(outcome);
         });
 
-        match ready_rx.recv() {
+        // A hard timeout here is deliberate: on some Windows machines
+        // (observed with Intel Smart Sound Technology audio drivers),
+        // `cpal::Device::build_input_stream()` — specifically the
+        // underlying WASAPI `IAudioClient::Initialize()` call — can hang
+        // indefinitely at the OS/driver level with no error returned.
+        // Without a timeout, the UI's "Mulai" button would spin forever
+        // with no way to cancel. The spawned thread stays blocked forever
+        // in that case (a blocking Win32 call can't be safely interrupted
+        // from Rust), but it does nothing else and the caller is freed to
+        // show an actionable error instead of hanging.
+        match ready_rx.recv_timeout(std::time::Duration::from_secs(8)) {
             Ok(Ok(())) => Ok(Self {
                 stop_tx: Some(stop_tx),
                 thread: Some(thread),
             }),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(TranscribeError::AudioDevice(
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(TranscribeError::AudioDevice(
+                "Audio input device did not respond within 8 seconds. This is a known \
+                 issue with some audio drivers (e.g. Intel Smart Sound Technology) where \
+                 Windows' WASAPI initialization hangs. Try restarting the Windows Audio \
+                 service, updating your audio driver, or selecting a different \
+                 microphone in Settings."
+                    .into(),
+            )),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(TranscribeError::AudioDevice(
                 "capture thread exited before signaling readiness".into(),
             )),
         }

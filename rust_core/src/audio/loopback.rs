@@ -280,10 +280,18 @@ pub(crate) mod windows {
             let _ = ready_tx.send(result);
         });
 
-        match ready_rx.recv() {
+        match ready_rx.recv_timeout(std::time::Duration::from_secs(8)) {
             Ok(Ok(())) => Ok(AudioCapture::new(stop_tx, thread)),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(TranscribeError::AudioDevice("WASAPI thread failed".into())),
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(TranscribeError::AudioDevice(
+                "WASAPI loopback did not respond within 8 seconds (IAudioClient::Initialize \
+                 hang, a known issue with some audio drivers). Try restarting the Windows \
+                 Audio service or updating your audio driver."
+                    .into(),
+            )),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(TranscribeError::AudioDevice("WASAPI thread failed".into()))
+            }
         }
     }
 
@@ -402,10 +410,13 @@ pub(crate) mod linux {
             let _ = ready_tx.send(result);
         });
 
-        match ready_rx.recv() {
+        match ready_rx.recv_timeout(std::time::Duration::from_secs(8)) {
             Ok(Ok(())) => Ok(AudioCapture::new(stop_tx, thread)),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(TranscribeError::AudioDevice(
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(TranscribeError::AudioDevice(
+                "Linux loopback (ffmpeg/parec) did not respond within 8 seconds.".into(),
+            )),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(TranscribeError::AudioDevice(
                 "Linux loopback thread failed".into(),
             )),
         }
