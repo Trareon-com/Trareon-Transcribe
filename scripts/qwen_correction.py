@@ -9,10 +9,15 @@ Writes JSON to stdout:
 
 Backend selection:
 - macOS Apple Silicon: MLX-LM (faster, ~55 tok/s).
-- Other platforms: llama.cpp via subprocess.
+- Other platforms: llama.cpp via subprocess (local GGUF, optionally GPU-offloaded).
+- Custom: any OpenAI-chat-compatible HTTP endpoint (Ollama, Groq, OpenRouter,
+  self-hosted llama-server, ...), opt-in via TRAEON_LLM_ENDPOINT.
 - Fallback: pass-through (returns input transcript unchanged).
 
-This script is intentionally offline — no network calls.
+Offline by default: unless TRAEON_LLM_BACKEND=custom (or TRAEON_LLM_ENDPOINT is
+set), this script makes zero network calls — both mlx and llama.cpp backends
+run entirely on-device. The custom-endpoint backend is opt-in only and is the
+sole path that can leave the machine; it never activates on its own.
 """
 from __future__ import annotations
 
@@ -56,7 +61,12 @@ def run_mlx(prompt: str) -> str:
 
 
 def run_llama_cpp(prompt: str) -> str:
-    """Run Qwen2.5-7B via llama.cpp subprocess."""
+    """Run Qwen2.5-7B via llama.cpp subprocess.
+
+    Honors TRAEON_LLAMA_NGL to offload layers to GPU (Vulkan/CUDA/Metal —
+    whichever backend the llama.cpp binary was built with). Defaults to 0
+    (CPU-only) so behavior is unchanged unless the caller opts in.
+    """
     import os
     import subprocess
     binary = os.environ.get("TRAEON_LLAMA_CPP", "llama-cli")
@@ -64,15 +74,72 @@ def run_llama_cpp(prompt: str) -> str:
         "TRAEON_QWEN_MODEL_GGUF",
         os.path.expanduser("~/Models/qwen2.5-7b-instruct-q4_k_m.gguf"),
     )
+    ngl = os.environ.get("TRAEON_LLAMA_NGL", "0")
     try:
         result = subprocess.run(
-            [binary, "-m", model, "-p", prompt, "-n", "512", "--temp", "0.2"],
+            [
+                binary,
+                "-m", model,
+                "-p", prompt,
+                "-n", "512",
+                "--temp", "0.2",
+                "-ngl", ngl,
+                "--single-turn",
+                "--simple-io",
+                "--no-display-prompt",
+                "--no-warmup",
+            ],
             capture_output=True,
             text=True,
             timeout=120,
         )
         return result.stdout.strip()
     except Exception:
+        return ""
+
+
+def run_custom_endpoint(prompt: str) -> str:
+    """Run correction via any OpenAI-chat-compatible HTTP endpoint.
+
+    Mirrors Meetily's "bring your own provider" flexibility: point
+    TRAEON_LLM_ENDPOINT at Ollama, Groq, OpenRouter, or any self-hosted
+    OpenAI-compatible server (llama-server included) without recompiling.
+
+    Required env:
+        TRAEON_LLM_ENDPOINT   e.g. http://localhost:11434/v1/chat/completions
+        TRAEON_LLM_MODEL      model name as the endpoint expects it
+    Optional env:
+        TRAEON_LLM_API_KEY    sent as "Authorization: Bearer <key>" if set
+    """
+    import os
+    import urllib.request
+    import urllib.error
+
+    endpoint = os.environ.get("TRAEON_LLM_ENDPOINT")
+    if not endpoint:
+        return ""
+    model = os.environ.get("TRAEON_LLM_MODEL", "qwen2.5-7b-instruct")
+    api_key = os.environ.get("TRAEON_LLM_API_KEY")
+
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "max_tokens": 512,
+        }
+    ).encode("utf-8")
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    req = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data["choices"][0]["message"]["content"].strip()
+    except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError):
         return ""
 
 
@@ -91,6 +158,12 @@ def parse_qwen_output(text: str) -> tuple[str, list[str]]:
             continue
         if s.upper().startswith("RINGKASAN"):
             section = "ringkasan"
+            # Reset: llama-cli echoes the input prompt before the real
+            # completion, and our prompt itself contains a RINGKASAN
+            # placeholder block as a formatting example. Keep only the
+            # LAST RINGKASAN section encountered (the actual answer),
+            # discarding any bullets accumulated from the echoed prompt.
+            bullets = []
             continue
         if section == "koreksi" and corrected == "" and s:
             corrected = s
@@ -126,7 +199,9 @@ def main() -> int:
     import os
     backend = os.environ.get("TRAEON_LLM_BACKEND")
     if backend is None:
-        if platform.system() == "Darwin" and platform.machine().startswith("arm"):
+        if os.environ.get("TRAEON_LLM_ENDPOINT"):
+            backend = "custom"
+        elif platform.system() == "Darwin" and platform.machine().startswith("arm"):
             backend = "mlx"
         else:
             backend = "llama.cpp"
@@ -135,6 +210,8 @@ def main() -> int:
         raw = run_mlx(prompt)
     elif backend == "llama.cpp":
         raw = run_llama_cpp(prompt)
+    elif backend == "custom":
+        raw = run_custom_endpoint(prompt)
     else:
         raw = ""
 
