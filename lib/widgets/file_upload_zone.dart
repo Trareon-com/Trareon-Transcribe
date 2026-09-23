@@ -149,7 +149,7 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
 class _QueueTile extends StatefulWidget {
   final BatchFileEntry entry;
 
-  const _QueueTile({required this.entry});
+  const _QueueTile({super.key, required this.entry});
 
   @override
   State<_QueueTile> createState() => _QueueTileState();

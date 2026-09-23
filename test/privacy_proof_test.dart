@@ -50,7 +50,12 @@ void main() {
       final lines = f.readAsStringSync().split('\n');
       for (final line in lines) {
         if (!line.trim().startsWith('//') && line.contains('downloadModel(')) {
-          hits.add(f.path.replaceAll('${lib.path}/', ''));
+          hits.add(
+            f.path
+                .replaceAll('${lib.path}/', '')
+                .replaceAll('${lib.path}\\', '')
+                .replaceAll('\\', '/'),
+          );
         }
       }
     });
@@ -82,7 +87,12 @@ void main() {
       final lines = f.readAsStringSync().split('\n');
       for (final line in lines) {
         if (line.contains('recordModelDownload')) {
-          hits.add(f.path.replaceAll('${lib.path}/', ''));
+          hits.add(
+            f.path
+                .replaceAll('${lib.path}/', '')
+                .replaceAll('${lib.path}\\', '')
+                .replaceAll('\\', '/'),
+          );
         }
       }
     });

@@ -15,9 +15,6 @@
 //! contrastive decoding logic lives in `WhisperEngine::transcribe_chunk_cd`
 //! in `stt/mod.rs`.
 
-/// Shift duration in seconds for negative audio generation.
-const SHIFT_SECS: f64 = 1.0;
-
 /// Generate "negative" audio for contrastive decoding: prepend silence, shift
 /// audio forward by `shift_samples`, effectively misaligning the waveform with
 /// the acoustic model and making the model "less certain".

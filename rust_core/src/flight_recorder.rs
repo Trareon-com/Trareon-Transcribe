@@ -530,6 +530,7 @@ mod tests {
         let dir = temp_dir("ro");
         let file = dir.join(FILE_NAME);
         fs::write(&file, "").unwrap();
+        #[allow(unused_mut)]
         let mut perms = fs::metadata(&file).unwrap().permissions();
         #[cfg(unix)]
         {

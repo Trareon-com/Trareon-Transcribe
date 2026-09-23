@@ -4,7 +4,9 @@
 //! through a single inference thread/queue (see api.rs session handling).
 
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
+#[cfg(target_os = "macos")]
+use std::sync::OnceLock;
 
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
@@ -49,6 +51,7 @@ fn best_backend() -> &'static str {
 }
 
 /// Cached result of Apple Silicon detection — computed once, reused forever.
+#[cfg(target_os = "macos")]
 static APPLE_SILICON_CACHE: OnceLock<bool> = OnceLock::new();
 
 /// Probe CPU brand/vendor string for known Apple Silicon identifiers.
@@ -194,32 +197,25 @@ impl WhisperEngine {
             .full(params, &processed)
             .map_err(|e| TranscribeError::Transcription(format!("inference failed: {e}")))?;
 
-        let num_segments = state
-            .full_n_segments()
-            .map_err(|e| TranscribeError::Transcription(e.to_string()))?;
+        let num_segments = state.full_n_segments();
 
         let mut out = Vec::with_capacity(num_segments as usize);
         for i in 0..num_segments {
-            let text = state
-                .full_get_segment_text(i)
+            let seg = state
+                .get_segment(i)
+                .ok_or_else(|| TranscribeError::Transcription(format!("segment {i} not found")))?;
+            let text = seg
+                .to_str()
                 .map_err(|e| TranscribeError::Transcription(e.to_string()))?;
-            let t0 = state
-                .full_get_segment_t0(i)
-                .map_err(|e| TranscribeError::Transcription(e.to_string()))?
-                as f64
-                / 100.0;
-            let t1 = state
-                .full_get_segment_t1(i)
-                .map_err(|e| TranscribeError::Transcription(e.to_string()))?
-                as f64
-                / 100.0;
+            let t0 = seg.start_timestamp() as f64 / 100.0;
+            let t1 = seg.end_timestamp() as f64 / 100.0;
 
             // Compute average log probability from token data for confidence routing.
-            let n_tokens = state.full_n_tokens(i).unwrap_or(0);
-            let mut log_probs = Vec::with_capacity(n_tokens as usize);
+            let n_tokens = seg.n_tokens();
+            let mut log_probs = Vec::with_capacity(n_tokens.max(0) as usize);
             for tok in 0..n_tokens {
-                if let Ok(token_data) = state.full_get_token_data(i, tok) {
-                    log_probs.push(token_data.plog);
+                if let Some(token) = seg.get_token(tok) {
+                    log_probs.push(token.token_data().plog);
                 }
             }
             let avg_log_prob = if log_probs.is_empty() {
@@ -238,7 +234,7 @@ impl WhisperEngine {
                 text: text.trim().to_string(),
                 timestamp: chunk_start_secs + t0,
                 duration: (t1 - t0).max(0.0),
-                language: segment_language(&text, language).to_string(),
+                language: segment_language(text, language).to_string(),
                 confidence,
                 avg_log_prob,
                 is_partial: false,
