@@ -83,6 +83,8 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     String modelPath, {
     required String outputDir,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async {
     final paths = state
         .where((e) => e.status == BatchFileStatus.queued)
@@ -99,6 +101,8 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           modelPath: modelPath,
           files: [path],
           language: language,
+          gpuEnabled: gpuEnabled,
+          gpuDevice: gpuDevice,
         );
         if (results.isNotEmpty && results.first.segments.isNotEmpty) {
           final result = results.first;

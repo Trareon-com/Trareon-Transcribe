@@ -88,8 +88,10 @@ impl LiveWorker {
         language: Option<String>,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
+        gpu_enabled: bool,
+        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
-        let engine = WhisperEngine::load(model_path.as_ref())?;
+        let engine = WhisperEngine::load_with_gpu(model_path.as_ref(), gpu_enabled, gpu_device)?;
         Self::spawn_with_engine(engine, source, language, samples_rx, events_tx)
     }
 
@@ -214,6 +216,10 @@ impl LiveWorker {
     /// so the UI renders text within the 3-5s latency budget, then refined
     /// segments (`is_partial = false`) with the same `(source, timestamp)`
     /// keys replace them on the Dart side.
+    // gpu_enabled/gpu_device push this 1 arg over clippy's default limit;
+    // bundling into a config struct isn't warranted for two primitives that
+    // are just a pass-through to WhisperEngine::load_with_gpu.
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn_hpt(
         quick_model_path: impl AsRef<std::path::Path>,
         refine_model_path: impl AsRef<std::path::Path>,
@@ -221,12 +227,14 @@ impl LiveWorker {
         language: Option<String>,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
+        gpu_enabled: bool,
+        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
         let engine = ProgressiveEngine::load(
             quick_model_path.as_ref(),
             refine_model_path.as_ref(),
-            false,
-            0,
+            gpu_enabled,
+            gpu_device,
         )?;
         let source = source.into();
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
@@ -302,6 +310,10 @@ impl LiveWorker {
     ///
     /// The benchmark itself is a no-network local inference probe over a 5s
     /// synthetic sine wave, so no user audio ever leaves the device for it.
+    // gpu_enabled/gpu_device push this 2 args over clippy's default limit;
+    // bundling into a config struct isn't warranted for two primitives that
+    // are just a pass-through to WhisperEngine::load_with_gpu.
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn_adaptive(
         quick_model_path: impl AsRef<std::path::Path>,
         refine_model_path: impl AsRef<std::path::Path>,
@@ -310,10 +322,13 @@ impl LiveWorker {
         language: Option<String>,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
+        gpu_enabled: bool,
+        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
         // Load refine model ONCE — used for both the benchmark and (when
         // direct is chosen) the actual transcription engine.
-        let engine = WhisperEngine::load(refine_model_path.as_ref())?;
+        let engine =
+            WhisperEngine::load_with_gpu(refine_model_path.as_ref(), gpu_enabled, gpu_device)?;
         let rtf = crate::benchmark::benchmark_rtf(&engine);
         tracing::info!(rtf, mode = ?mode, "adaptive hpt benchmark");
 
@@ -334,6 +349,8 @@ impl LiveWorker {
                 language,
                 samples_rx,
                 events_tx,
+                gpu_enabled,
+                gpu_device,
             )
         }
     }

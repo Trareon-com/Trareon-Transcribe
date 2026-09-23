@@ -27,6 +27,8 @@ fn main() {
         vad_enabled: false,
         sample_rate: 16_000,
         chunk_duration_secs: 30,
+        gpu_enabled: false,
+        gpu_device: 0,
     };
 
     let session_id = rust_core::api::start_session(config).expect("start_session");

@@ -156,6 +156,8 @@ class _NoopBridge implements RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async => [];
   @override
   Future<List<rust_export.ExportedFile>> exportSession({
@@ -184,6 +186,8 @@ class _TestBridge extends _NoopBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async {
     return [
       rust_stt_file.TranscribeFileResult(
@@ -200,6 +204,7 @@ class _TestBridge extends _NoopBridge {
             confidence: 0.9,
             isPartial: false,
             lowConfidence: false,
+            avgLogProb: -0.2,
           ),
         ],
         language: 'id',
@@ -225,6 +230,8 @@ class _ErrorBridge extends _NoopBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async {
     throw Exception('engine failure');
   }

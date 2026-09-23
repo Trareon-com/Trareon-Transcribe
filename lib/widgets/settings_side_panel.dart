@@ -191,6 +191,16 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             onChanged: notifier.setProgressiveEnabled,
                           ),
                           const _SettingsDivider(),
+                          _SettingsSwitch(
+                            icon: Icons.memory_outlined,
+                            label: 'Akselerasi GPU',
+                            subtitle: settings.gpuEnabled
+                                ? 'Transkripsi menggunakan GPU (Vulkan/CUDA/Metal) — lebih cepat'
+                                : 'Transkripsi menggunakan CPU saja',
+                            value: settings.gpuEnabled,
+                            onChanged: notifier.setGpuEnabled,
+                          ),
+                          const _SettingsDivider(),
                           _SettingsTile(
                             icon: Icons.meeting_room_outlined,
                             label: 'Mode default',

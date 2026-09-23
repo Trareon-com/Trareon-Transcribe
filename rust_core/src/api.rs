@@ -226,12 +226,14 @@ pub fn progressive_transcribe_file(
     refine_model_path: String,
     path: String,
     language: Option<String>,
+    gpu_enabled: bool,
+    gpu_device: i32,
 ) -> Result<ProgressiveFileResult, TranscribeError> {
     let engine = crate::progressive::ProgressiveEngine::load(
         std::path::Path::new(&quick_model_path),
         std::path::Path::new(&refine_model_path),
-        false,
-        0,
+        gpu_enabled,
+        gpu_device,
     )?;
     let audio = crate::decode::decode_audio_file(std::path::Path::new(&path))?;
 
@@ -287,8 +289,14 @@ pub fn transcribe_files_batch(
     model_path: String,
     files: Vec<String>,
     language: Option<String>,
+    gpu_enabled: bool,
+    gpu_device: i32,
 ) -> Result<Vec<crate::stt::file::TranscribeFileResult>, TranscribeError> {
-    let engine = crate::stt::WhisperEngine::load(&PathBuf::from(&model_path))?;
+    let engine = crate::stt::WhisperEngine::load_with_gpu(
+        &PathBuf::from(&model_path),
+        gpu_enabled,
+        gpu_device,
+    )?;
     let file_paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
     let mut results = Vec::new();
 

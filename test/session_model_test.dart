@@ -79,6 +79,8 @@ class _NoopBridge implements RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async => [];
 
   @override
@@ -300,6 +302,8 @@ void main() {
         mode: rust_audio.SessionMode.offline,
         modelPath: 'ggml-base.bin',
         hptMode: rust_audio.HptMode.auto,
+        gpuEnabled: false,
+        gpuDevice: 0,
         vadEnabled: false,
         sampleRate: 16000,
         chunkDurationSecs: 30,

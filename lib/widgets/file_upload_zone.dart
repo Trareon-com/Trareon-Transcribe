@@ -51,6 +51,8 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
       modelPathForId(settings.defaultModel, libraryPath: settings.libraryPath),
       outputDir: settings.libraryPath,
       language: settings.language,
+      gpuEnabled: settings.gpuEnabled,
+      gpuDevice: settings.gpuDevice,
     );
     if (mounted) {
       await widget.onProcessed?.call();

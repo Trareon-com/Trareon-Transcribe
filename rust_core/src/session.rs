@@ -146,6 +146,10 @@ pub fn recover_session(snapshot: SessionRecoverySnapshot) -> Result<String, Tran
     start_session_with_id(snapshot.session_id, snapshot.config)
 }
 
+// gpu_enabled/gpu_device push this 2 args over clippy's default limit;
+// bundling into a config struct isn't warranted for two primitives that
+// are just a pass-through to LiveWorker::spawn/spawn_adaptive.
+#[allow(clippy::too_many_arguments)]
 fn start_capture(
     enabled: bool,
     device_name: Option<String>,
@@ -154,6 +158,8 @@ fn start_capture(
     hpt_mode: crate::audio::HptMode,
     source: &str,
     language: Option<String>,
+    gpu_enabled: bool,
+    gpu_device: i32,
 ) -> Result<Option<CaptureChannel>, TranscribeError> {
     if !enabled {
         return Ok(None);
@@ -198,9 +204,25 @@ fn start_capture(
     // silently starting a session that never transcribes anything.
     let worker = match refine_model_path {
         Some(refine) => LiveWorker::spawn_adaptive(
-            model_path, refine, hpt_mode, source, language, samples_rx, events_tx,
+            model_path,
+            refine,
+            hpt_mode,
+            source,
+            language,
+            samples_rx,
+            events_tx,
+            gpu_enabled,
+            gpu_device,
         )?,
-        None => LiveWorker::spawn(model_path, source, language, samples_rx, events_tx)?,
+        None => LiveWorker::spawn(
+            model_path,
+            source,
+            language,
+            samples_rx,
+            events_tx,
+            gpu_enabled,
+            gpu_device,
+        )?,
     };
     Ok(Some(CaptureChannel {
         _capture: capture,
@@ -362,6 +384,8 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
         config.hpt_mode,
         "mic",
         language.clone(),
+        config.gpu_enabled,
+        config.gpu_device,
     )?;
     let speaker_capture = start_capture(
         config.speaker_enabled,
@@ -371,6 +395,8 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
         config.hpt_mode,
         "spk",
         language,
+        config.gpu_enabled,
+        config.gpu_device,
     )?;
     let state = SessionState {
         session_id: id.clone(),

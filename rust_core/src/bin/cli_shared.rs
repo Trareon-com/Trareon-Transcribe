@@ -30,6 +30,16 @@ pub struct Args {
     /// Force a language (ISO-639-1) instead of auto-detect
     #[arg(long)]
     pub language: Option<String>,
+
+    /// Enable GPU acceleration (Vulkan/CUDA/Metal, whichever backend the
+    /// binary was compiled with). Falls back to CPU if no GPU backend was
+    /// compiled in or no compatible device is found at runtime.
+    #[arg(long, default_value_t = false)]
+    pub gpu: bool,
+
+    /// GPU device index to use when --gpu is set (0 = default/first device)
+    #[arg(long, default_value_t = 0)]
+    pub gpu_device: i32,
 }
 
 pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
@@ -61,7 +71,11 @@ pub fn run(args: Args) -> i32 {
         return 1;
     }
 
-    let engine = match WhisperEngine::load(std::path::Path::new(&args.model)) {
+    let engine = match WhisperEngine::load_with_gpu(
+        std::path::Path::new(&args.model),
+        args.gpu,
+        args.gpu_device,
+    ) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("failed to load model '{}': {e}", args.model);

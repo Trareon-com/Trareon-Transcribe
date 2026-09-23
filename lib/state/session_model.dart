@@ -416,6 +416,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         vadEnabled: settings.vadEnabled,
         micDeviceId: settings.micDeviceId,
         speakerDeviceId: settings.speakerDeviceId,
+        gpuEnabled: settings.gpuEnabled,
+        gpuDevice: settings.gpuDevice,
       ),
     );
   }

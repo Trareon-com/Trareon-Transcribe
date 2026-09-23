@@ -81,6 +81,8 @@ class NoopBridge implements RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async => [];
 
   @override

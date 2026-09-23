@@ -32,6 +32,8 @@ void main() {
           mode: rust_audio.SessionMode.offline,
           modelPath: 'models/tiny.gguf',
           hptMode: rust_audio.HptMode.auto,
+          gpuEnabled: false,
+          gpuDevice: 0,
           vadEnabled: true,
           sampleRate: 16000,
           chunkDurationSecs: 30,

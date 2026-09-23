@@ -160,6 +160,11 @@ class SessionConfig {
   // quick (base) → refine (q5) and replace partial rows in place.
   final String? refineModelPath;
   final HptMode hptMode;
+  // GPU acceleration (Vulkan/CUDA/Metal — whichever backend the native
+  // build was compiled with). Defaults off; wired from AppSettings by the
+  // caller (see SettingsController / bridge_service._toRustSessionConfig).
+  final bool gpuEnabled;
+  final int gpuDevice;
 
   const SessionConfig({
     required this.micEnabled,
@@ -171,6 +176,8 @@ class SessionConfig {
     this.speakerDeviceId,
     this.refineModelPath,
     this.hptMode = HptMode.auto,
+    this.gpuEnabled = false,
+    this.gpuDevice = 0,
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -192,6 +199,8 @@ class SessionConfig {
     String? speakerDeviceId,
     Object? refineModelPath = _sentinel,
     HptMode? hptMode,
+    bool? gpuEnabled,
+    int? gpuDevice,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -205,6 +214,8 @@ class SessionConfig {
           ? this.refineModelPath
           : refineModelPath as String?,
       hptMode: hptMode ?? this.hptMode,
+      gpuEnabled: gpuEnabled ?? this.gpuEnabled,
+      gpuDevice: gpuDevice ?? this.gpuDevice,
     );
   }
 }
@@ -219,6 +230,10 @@ class TranscriptSegment {
   final double confidence;
   final bool isPartial;
   final bool lowConfidence;
+  /// Average log probability per token from Whisper (negative, e.g. -0.5).
+  /// Mirrors rust_core's Segment.avg_log_prob; not surfaced in the UI today
+  /// but carried through so export round-trips don't silently drop it.
+  final double avgLogProb;
 
   const TranscriptSegment({
     required this.source,
@@ -230,6 +245,7 @@ class TranscriptSegment {
     required this.confidence,
     required this.isPartial,
     this.lowConfidence = false,
+    this.avgLogProb = 0.0,
   });
 
   TranscriptSegment copyWith({String? speaker, String? text}) {
@@ -243,6 +259,7 @@ class TranscriptSegment {
       confidence: confidence,
       isPartial: isPartial,
       lowConfidence: lowConfidence,
+      avgLogProb: avgLogProb,
     );
   }
 
@@ -292,6 +309,12 @@ class AppSettings {
   // 0.0 = not yet benchmarked. ≥1.2 ≈ fast enough for single-pass q5.
   final double rtfScore;
   final HptMode hptMode;
+  // GPU acceleration for whisper inference (Vulkan/CUDA/Metal, whichever
+  // backend the native build was compiled with). Off by default — opt-in,
+  // not auto-detected, since low-VRAM devices can be slower on GPU once
+  // the model doesn't fit and falls back to partial CPU offload.
+  final bool gpuEnabled;
+  final int gpuDevice;
 
   const AppSettings({
     required this.theme,
@@ -307,6 +330,8 @@ class AppSettings {
     this.progressiveEnabled = true,
     this.rtfScore = 0.0,
     this.hptMode = HptMode.auto,
+    this.gpuEnabled = false,
+    this.gpuDevice = 0,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -332,6 +357,8 @@ class AppSettings {
     bool? progressiveEnabled,
     double? rtfScore,
     HptMode? hptMode,
+    bool? gpuEnabled,
+    int? gpuDevice,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -353,6 +380,8 @@ class AppSettings {
       progressiveEnabled: progressiveEnabled ?? this.progressiveEnabled,
       rtfScore: rtfScore ?? this.rtfScore,
       hptMode: hptMode ?? this.hptMode,
+      gpuEnabled: gpuEnabled ?? this.gpuEnabled,
+      gpuDevice: gpuDevice ?? this.gpuDevice,
     );
   }
 }

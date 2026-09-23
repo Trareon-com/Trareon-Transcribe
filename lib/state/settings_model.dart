@@ -33,6 +33,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
       progressiveEnabled: loaded.progressiveEnabled,
       rtfScore: DartPrefs.instance.getDouble('rtfScore') ?? 0.0,
+      gpuEnabled: loaded.gpuEnabled,
+      gpuDevice: loaded.gpuDevice,
       hptMode: (() {
         final raw = DartPrefs.instance.getInt('hptMode');
         if (raw == null) return HptMode.auto;
@@ -92,6 +94,18 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state = state.copyWith(progressiveEnabled: enabled);
     DartPrefs.instance.setBool('progressiveEnabled', enabled);
     await DartPrefs.instance.save();
+    await _bridge.saveSettings(state);
+  }
+
+  Future<void> setGpuEnabled(bool enabled) async {
+    _userActed = true;
+    state = state.copyWith(gpuEnabled: enabled);
+    await _bridge.saveSettings(state);
+  }
+
+  Future<void> setGpuDevice(int device) async {
+    _userActed = true;
+    state = state.copyWith(gpuDevice: device);
     await _bridge.saveSettings(state);
   }
 

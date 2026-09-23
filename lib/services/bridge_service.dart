@@ -54,6 +54,8 @@ abstract class RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   });
 
   /// Writes [segments] to `outputDir/<sanitized title>/` in the requested
@@ -260,6 +262,8 @@ class RustBridgeMock implements RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) async => []; // Mock: returns empty results
 
   @override
@@ -409,6 +413,7 @@ class RustEngineBridge implements RustBridge {
       confidence: segment.confidence,
       isPartial: segment.isPartial,
       lowConfidence: segment.lowConfidence,
+      avgLogProb: segment.avgLogProb,
     );
   }
 
@@ -479,11 +484,15 @@ class RustEngineBridge implements RustBridge {
     required String modelPath,
     required List<String> files,
     String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
   }) =>
       rust_api.transcribeFilesBatch(
         modelPath: modelPath,
         files: files,
         language: language,
+        gpuEnabled: gpuEnabled,
+        gpuDevice: gpuDevice,
       );
 
   @override
@@ -510,6 +519,7 @@ class RustEngineBridge implements RustBridge {
               confidence: s.confidence,
               isPartial: s.isPartial,
               lowConfidence: s.lowConfidence,
+              avgLogProb: s.avgLogProb,
             ),
           )
           .toList(),
@@ -545,6 +555,8 @@ class RustEngineBridge implements RustBridge {
       vadEnabled: config.vadEnabled,
       sampleRate: 16000,
       chunkDurationSecs: 30,
+      gpuEnabled: config.gpuEnabled,
+      gpuDevice: config.gpuDevice,
     );
   }
 
@@ -581,6 +593,8 @@ class RustEngineBridge implements RustBridge {
       libraryPath: settings.libraryPath,
       vadEnabled: settings.vadEnabled,
       language: settings.language,
+      gpuEnabled: settings.gpuEnabled,
+      gpuDevice: settings.gpuDevice,
       // autoStopMinutes is Dart-only; defaults to null (disabled) on load
       autoStopMinutes: null,
     );
@@ -600,6 +614,8 @@ class RustEngineBridge implements RustBridge {
       // echoDedupeEnabled is mode-determined in Rust; always persist true
       echoDedupeEnabled: true,
       language: settings.language,
+      gpuEnabled: settings.gpuEnabled,
+      gpuDevice: settings.gpuDevice,
     );
   }
 }

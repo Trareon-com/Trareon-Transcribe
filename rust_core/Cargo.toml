@@ -59,7 +59,7 @@ docx-rs = { version = "0.4.22", default-features = false }
 clap = { version = "4.6.4", features = ["derive"] }
 glob = "0.3.4"
 sysinfo = "0.39.6"
-flutter_rust_bridge = "=2.12.0"
+flutter_rust_bridge = "=2.13.0"
 whisper-rs = "0.16"
 
 [features]
@@ -67,6 +67,7 @@ default = ["silero-onnx"]
 silero-onnx = ["dep:ort"]  # Enable Silero VAD via ONNX Runtime
 pyannote = []  # Enable pyannote.audio Python integration for neural diarization
 llm = []       # Enable Qwen2.5-7B post-correction + summarization (delegates to scripts/qwen_correction.py)
+gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via Vulkan (NVIDIA/AMD/Intel)
 
 # OpenMP hanya untuk Linux — macOS GitHub Actions runner tidak punya libomp
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies.whisper-rs]

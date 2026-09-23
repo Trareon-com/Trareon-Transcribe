@@ -73,6 +73,14 @@ pub struct SessionConfig {
     pub vad_enabled: bool,
     pub sample_rate: u32,
     pub chunk_duration_secs: u32,
+    /// Enable GPU acceleration for whisper inference (Vulkan/CUDA/Metal).
+    /// Mirrors `AppSettings::gpu_enabled`; the caller is responsible for
+    /// copying the user's setting in when building this config.
+    #[serde(default)]
+    pub gpu_enabled: bool,
+    /// GPU device index to use when `gpu_enabled` is true (0 = default).
+    #[serde(default)]
+    pub gpu_device: i32,
 }
 
 impl SessionConfig {
@@ -90,6 +98,8 @@ impl SessionConfig {
             vad_enabled: true,
             sample_rate: 16_000,
             chunk_duration_secs: 30,
+            gpu_enabled: false,
+            gpu_device: 0,
         }
     }
 

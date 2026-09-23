@@ -26,6 +26,16 @@ pub struct AppSettings {
     pub vad_enabled: bool,
     pub echo_dedupe_enabled: bool,
     pub language: Option<String>,
+    /// Enable GPU acceleration for whisper inference (Vulkan/CUDA/Metal,
+    /// whichever backend the binary was compiled with). Defaults to false
+    /// so behavior is unchanged for existing installs/settings files —
+    /// this is opt-in, not auto-detected, because GPU inference can be
+    /// slower than CPU on low-VRAM devices once model weights don't fit.
+    #[serde(default)]
+    pub gpu_enabled: bool,
+    /// GPU device index to use when `gpu_enabled` is true (0 = default).
+    #[serde(default)]
+    pub gpu_device: i32,
 }
 
 impl Default for AppSettings {
@@ -40,6 +50,8 @@ impl Default for AppSettings {
             vad_enabled: true,
             echo_dedupe_enabled: true,
             language: Some("id".to_string()),
+            gpu_enabled: false,
+            gpu_device: 0,
         }
     }
 }
