@@ -10,14 +10,24 @@ use crate::audio::SessionMode;
 use crate::error::TranscribeError;
 use crate::summary::{SummaryConfig, SummaryProvider, SummaryTemplate};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Appearance preference. `System` follows the OS setting; it is a UI
+/// concept, but it has to be persisted here or it silently degrades to
+/// "Terang" on every restart — which is what it used to do, because the Dart
+/// bridge had nowhere to map it to.
+///
+/// `Default` is `Light` so that a settings file written by an older build
+/// (where the field could be absent) still loads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Theme {
+    #[default]
     Light,
     Dark,
+    System,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
+    #[serde(default)]
     pub theme: Theme,
     pub default_model: String,
     pub default_mode: SessionMode,
@@ -45,6 +55,11 @@ pub struct AppSettings {
     /// Hybrid Progressive Transcription: quick (base) pass then refine (q5).
     #[serde(default = "default_true")]
     pub progressive_enabled: bool,
+    /// Stream captured audio straight to disk instead of buffering it in
+    /// RAM until Stop. On by default; see `audio::SessionConfig` for why
+    /// it is a switch at all.
+    #[serde(default = "default_true")]
+    pub audio_to_disk: bool,
     /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
     #[serde(default)]
     pub summary: SummarySettings,
@@ -121,6 +136,7 @@ impl Default for AppSettings {
             gpu_device: 0,
             auto_stop_minutes: None,
             progressive_enabled: true,
+            audio_to_disk: true,
             summary: SummarySettings::default(),
         }
     }
@@ -208,6 +224,53 @@ mod tests {
         assert_eq!(loaded.default_model, "medium");
         assert!(matches!(loaded.theme, Theme::Dark));
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// "Sistem" used to exist only in Dart: the bridge had no Rust variant to
+    /// map it to, so it was written out as `Light` and came back as "Terang"
+    /// after every restart.
+    #[test]
+    fn system_theme_survives_a_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_theme_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+
+        let saved = AppSettings {
+            theme: Theme::System,
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        assert_eq!(load_settings_from(&Some(path)).theme, Theme::System);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A settings file written before `theme` was serialised must still load
+    /// every other field rather than resetting the whole file to defaults.
+    #[test]
+    fn a_settings_file_without_a_theme_keeps_its_other_fields() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_legacy_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+
+        let mut value =
+            serde_json::to_value(AppSettings::default()).expect("settings serialise to JSON");
+        value
+            .as_object_mut()
+            .expect("settings serialise to a JSON object")
+            .remove("theme");
+        std::fs::write(&path, serde_json::to_string_pretty(&value).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path.clone()));
+        assert_eq!(loaded.theme, Theme::Light, "missing theme falls back");
+        assert_eq!(loaded.default_model, "base", "the rest is not discarded");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

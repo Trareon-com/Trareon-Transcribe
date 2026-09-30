@@ -6,8 +6,6 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`
-
 /// User-chosen strategy for Hybrid Progressive Transcription (HPT).
 ///
 /// * `Auto`      — benchmark q5; direct single-pass on fast devices,
@@ -16,14 +14,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 ///   where the user wants instant partial text).
 /// * `ForceDirect` — skip the base pass, run q5 alone from the start
 ///   (best for fast devices; lower total latency).
-enum HptMode {
-  auto,
-  forceDual,
-  forceDirect;
-
-  static Future<HptMode> default_() =>
-      RustLib.instance.api.crateAudioHptModeDefault();
-}
+enum HptMode { auto, forceDual, forceDirect }
 
 class SessionConfig {
   final bool micEnabled;
@@ -56,6 +47,13 @@ class SessionConfig {
   /// GPU device index to use when `gpu_enabled` is true (0 = default).
   final int gpuDevice;
 
+  /// Stream captured audio to disk as it arrives instead of holding it
+  /// in RAM until Stop. On by default; the switch exists because this
+  /// touches the capture path that was only just stabilised, so a
+  /// release can fall back without a rebuild. `session` keeps a bounded
+  /// RAM buffer as the fallback either way.
+  final bool audioToDisk;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -68,20 +66,8 @@ class SessionConfig {
     required this.vadEnabled,
     required this.gpuEnabled,
     required this.gpuDevice,
+    required this.audioToDisk,
   });
-
-  static Future<SessionConfig> forMode({
-    required SessionMode mode,
-    required String modelPath,
-  }) => RustLib.instance.api.crateAudioSessionConfigForMode(
-    mode: mode,
-    modelPath: modelPath,
-  );
-
-  /// True when HPT is configured (refine model present and distinct from
-  /// the quick model).
-  Future<bool> hptEnabled() =>
-      RustLib.instance.api.crateAudioSessionConfigHptEnabled(that: this);
 
   @override
   int get hashCode =>
@@ -95,7 +81,8 @@ class SessionConfig {
       hptMode.hashCode ^
       vadEnabled.hashCode ^
       gpuEnabled.hashCode ^
-      gpuDevice.hashCode;
+      gpuDevice.hashCode ^
+      audioToDisk.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -112,17 +99,8 @@ class SessionConfig {
           hptMode == other.hptMode &&
           vadEnabled == other.vadEnabled &&
           gpuEnabled == other.gpuEnabled &&
-          gpuDevice == other.gpuDevice;
+          gpuDevice == other.gpuDevice &&
+          audioToDisk == other.audioToDisk;
 }
 
-enum SessionMode {
-  webinar,
-  online,
-  offline;
-
-  Future<(bool, bool)> defaultToggles() =>
-      RustLib.instance.api.crateAudioSessionModeDefaultToggles(that: this);
-
-  Future<bool> echoDedupeEnabled() =>
-      RustLib.instance.api.crateAudioSessionModeEchoDedupeEnabled(that: this);
-}
+enum SessionMode { webinar, online, offline }

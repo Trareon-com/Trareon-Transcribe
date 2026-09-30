@@ -84,7 +84,7 @@ fn check_library_path(settings: &AppSettings) -> Check {
         )
     } else {
         // Writable check: try to create a temp file
-        let probe = path.join(".traeon_write_probe");
+        let probe = path.join(".trareon_write_probe");
         match std::fs::write(&probe, b"") {
             Ok(()) => {
                 let _ = std::fs::remove_file(&probe);
@@ -119,10 +119,10 @@ fn check_model_available(settings: &AppSettings) -> Check {
     }
 }
 
-/// Check that the config directory (~/.config/TraeonTranscribe) is writable.
+/// Check that the config directory (~/.config/TrareonTranscribe) is writable.
 fn check_config_dir_writable() -> Check {
     let dir = match dirs::config_dir() {
-        Some(d) => d.join("TraeonTranscribe"),
+        Some(d) => d.join("TrareonTranscribe"),
         None => {
             return Check::warn(
                 "config_dir",

@@ -53,6 +53,26 @@ abstract class AppColorSet extends ThemeExtension<AppColorSet> {
   Color get headerBackground;
   Color get transcriptBackground;
   Color get primaryDark;
+
+  /// Accent used for the secondary action colour in [ColorScheme]. Paired
+  /// with [onSecondary], which must reach WCAG AA against it — the theme
+  /// previously hardcoded `Colors.white` here, which is only legible over
+  /// the light-mode accent.
+  Color get secondary;
+  Color get onSecondary;
+
+  /// Error/destructive accent. Theme-aware because the single hardcoded
+  /// `AppColors.warning` (#FF3B30) reaches only 3.55:1 on a light surface —
+  /// below AA for the error messages it is used for.
+  Color get error;
+  Color get onError;
+
+  /// Per-speaker accents, used as *text* colour for the speaker name on
+  /// every transcript row — the most repeated text in the app. Theme-aware
+  /// because one fixed palette cannot be legible on both #FFFFFF and
+  /// #1E1E1E: the previous shared palette failed AA on 6 of 8 entries in
+  /// light mode. Every entry is gated by `test/speaker_color_test.dart`.
+  List<Color> get speakerPalette;
 }
 
 class LightColors extends AppColorSet {
@@ -73,8 +93,10 @@ class LightColors extends AppColorSet {
   Color get text => const Color(0xFF333333);
   @override
   Color get textSecondary => const Color(0xFF666666);
+  // #757575 reached only 4.23:1 on the #F5F5F5 app background — below AA for
+  // the hint and metadata text it is used for.
   @override
-  Color get textTertiary => const Color(0xFF757575);
+  Color get textTertiary => const Color(0xFF6B6B6B);
   @override
   Color get divider => const Color(0xFFE0E0E0);
   @override
@@ -87,6 +109,25 @@ class LightColors extends AppColorSet {
   Color get headerBackground => const Color(0xFFFFFFFF);
   @override
   Color get transcriptBackground => const Color(0xFFFFFFFF);
+  @override
+  Color get secondary => const Color(0xFF00796B);
+  @override
+  Color get onSecondary => const Color(0xFFFFFFFF);
+  @override
+  Color get error => const Color(0xFFC62828);
+  @override
+  Color get onError => const Color(0xFFFFFFFF);
+  @override
+  List<Color> get speakerPalette => const [
+    Color(0xFF00695C), // teal
+    Color(0xFFA03400), // deep orange
+    Color(0xFF1565C0), // blue
+    Color(0xFF6A1B9A), // purple
+    Color(0xFF1B5E20), // green
+    Color(0xFFB71C1C), // red
+    Color(0xFFAD1457), // pink
+    Color(0xFF4527A0), // indigo
+  ];
 }
 
 class DarkColors extends AppColorSet {
@@ -121,4 +162,23 @@ class DarkColors extends AppColorSet {
   Color get headerBackground => const Color(0xFF1E1E1E);
   @override
   Color get transcriptBackground => const Color(0xFF1E1E1E);
+  @override
+  Color get secondary => const Color(0xFF4DB6AC);
+  @override
+  Color get onSecondary => const Color(0xFF003D33);
+  @override
+  Color get error => const Color(0xFFFF8A80);
+  @override
+  Color get onError => const Color(0xFF690005);
+  @override
+  List<Color> get speakerPalette => const [
+    Color(0xFF4DB6AC), // teal
+    Color(0xFFFFAB91), // deep orange
+    Color(0xFF90CAF9), // blue
+    Color(0xFFCE93D8), // purple
+    Color(0xFF81C784), // green
+    Color(0xFFEF9A9A), // red
+    Color(0xFFF48FB1), // pink
+    Color(0xFFB39DDB), // indigo
+  ];
 }

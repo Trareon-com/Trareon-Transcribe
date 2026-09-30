@@ -21,10 +21,10 @@ class AppTheme {
         brightness: brightness,
         primary: colors.primary,
         onPrimary: colors.onPrimary,
-        secondary: AppColors.micAccent,
-        onSecondary: Colors.white,
-        error: AppColors.warning,
-        onError: Colors.white,
+        secondary: colors.secondary,
+        onSecondary: colors.onSecondary,
+        error: colors.error,
+        onError: colors.onError,
         surface: colors.surface,
         onSurface: colors.text,
         surfaceContainerHighest: colors.surfaceElevated,
@@ -80,7 +80,9 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colors.primary,
-          foregroundColor: Colors.white,
+          // Not `Colors.white`: the dark-mode primary (#4DB6AC) gives white
+          // only 2.44:1, on every primary button in the app.
+          foregroundColor: colors.onPrimary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(

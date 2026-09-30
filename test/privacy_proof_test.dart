@@ -9,12 +9,15 @@ import 'package:flutter_test/flutter_test.dart';
 /// 2. `downloadModel` (a network-capable bridge method) is only reachable
 ///    from the explicit model-download flow, never from session capture or
 ///    transcription code.
-/// 3. `recordModelDownload` (privacy counter) has exactly one definition
-///    and zero call sites while models are bundled — so the counter stays
-///    0 unless a user-initiated download is wired up.
-/// 4. The AI summary — the only other networked feature — cannot be reached
-///    from the transcription path, and every request it does make is counted
-///    in the Privacy Report.
+/// 3. **Every network call site records itself in the Privacy Report,
+///    before the request leaves.** This replaces an older invariant that
+///    asserted `recordModelDownload` had *zero* call sites — which pinned
+///    the counter at 0 and, worse, was satisfied while the updater
+///    contacted raw.githubusercontent.com on every "Cek Pembaruan" without
+///    recording anything. A counter nobody is allowed to increment is not a
+///    privacy guarantee, it is a guaranteed-wrong number.
+/// 4. The AI summary — the most sensitive networked feature — cannot be
+///    reached from the transcription path.
 void main() {
   test('no network primitives in transcribe hot path (Dart)', () {
     final transcribePath = <String>[
@@ -82,31 +85,143 @@ void main() {
     }
   });
 
-  test('recordModelDownload counter has zero call sites while bundled', () {
-    final lib = Directory('lib');
-    final hits = <String>[];
-    lib.listSync(recursive: true).whereType<File>().forEach((f) {
-      if (!f.path.endsWith('.dart')) return;
-      final lines = f.readAsStringSync().split('\n');
-      for (final line in lines) {
-        // Doc comments referencing the method are not call sites.
-        if (line.trimLeft().startsWith('//')) continue;
-        if (line.contains('recordModelDownload')) {
-          hits.add(
-            f.path
-                .replaceAll('${lib.path}/', '')
-                .replaceAll('${lib.path}\\', '')
-                .replaceAll('\\', '/'),
+  test('the Privacy Report knows about exactly the outbound paths that exist', () {
+    // Anything in lib/ that can put bytes on the wire. Adding a fifth one
+    // means adding a recorder for it and updating the screen copy.
+    const initiators = <String, String>{
+      'downloadModel(': 'recordModelDownload',
+      'generateSummary(': 'recordSummaryRequest',
+      'checkForUpdate(': 'recordUpdateCheck',
+      'launchUrl(': 'recordExternalLink',
+    };
+    final recorders = File(
+      'lib/state/privacy_report_model.dart',
+    ).readAsStringSync();
+    for (final recorder in initiators.values) {
+      expect(
+        recorders,
+        contains('void $recorder('),
+        reason: 'the report must be able to record $recorder',
+      );
+    }
+    // And no recorder exists for an activity that no longer happens.
+    final declared = RegExp(r'void (record\w+)\(')
+        .allMatches(recorders)
+        .map((m) => m.group(1)!)
+        .toSet();
+    expect(declared, unorderedEquals(initiators.values.toSet()));
+  });
+
+  test('every network call site records itself first', () {
+    /// Files that *define* a network-capable operation rather than
+    /// initiating one on the user's behalf. Each is checked separately
+    /// below or is pure plumbing over an already-recorded call.
+    const definitionSites = <String>{
+      'services/bridge_service.dart', // the RustBridge interface + mock
+      'services/update_checker.dart', // checked by its own test below
+    };
+
+    /// `initiating call` -> `recorder that must run before the request`.
+    const mustPrecede = <String, String>{
+      '.downloadModel(': 'recordModelDownload',
+      '.generateSummary(': 'onNetworkRequest',
+      'launchUrl(': 'recordExternalLink',
+    };
+
+    /// `constructor` -> `recorder that must be handed to it`. Ordering is
+    /// meaningless here: the recorder *is* the argument, so what matters is
+    /// that it appears inside the argument list.
+    const mustInject = <String, String>{
+      'UpdateChecker(': 'recordUpdateCheck',
+    };
+
+    /// The argument list starting at the `(` that ends [open], by bracket
+    /// depth — string literals in this codebase never contain unbalanced
+    /// parentheses inside a call, so a depth counter is enough.
+    String argumentList(String source, int openIndex) {
+      var depth = 0;
+      for (var i = openIndex; i < source.length; i++) {
+        if (source[i] == '(') depth++;
+        if (source[i] == ')') {
+          depth--;
+          if (depth == 0) return source.substring(openIndex, i + 1);
+        }
+      }
+      return source.substring(openIndex);
+    }
+
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      final relative = file.path
+          .replaceFirst(RegExp(r'^lib[/\\]'), '')
+          .replaceAll('\\', '/');
+      // Generated FRB bindings mirror whatever api.rs exposes.
+      if (relative.startsWith('src/rust/')) continue;
+      if (definitionSites.contains(relative)) continue;
+
+      final source = file.readAsStringSync();
+      for (final entry in mustPrecede.entries) {
+        final callIndex = source.indexOf(entry.key);
+        if (callIndex < 0) continue;
+        final recordIndex = source.indexOf(entry.value);
+        if (recordIndex < 0) {
+          offenders.add('$relative calls ${entry.key} without ${entry.value}');
+        } else if (recordIndex > callIndex) {
+          offenders.add(
+            '$relative records ${entry.value} only after ${entry.key}',
           );
         }
       }
-    });
+      for (final entry in mustInject.entries) {
+        final callIndex = source.indexOf(entry.key);
+        if (callIndex < 0) continue;
+        final args = argumentList(source, callIndex + entry.key.length - 1);
+        if (!args.contains(entry.value)) {
+          offenders.add(
+            '$relative builds ${entry.key} without passing ${entry.value}',
+          );
+        }
+      }
+    }
 
     expect(
-      hits,
-      ['state/privacy_report_model.dart'],
-      reason: 'counter must only be defined, never incremented while bundled',
+      offenders,
+      isEmpty,
+      reason:
+          'every outbound request must be counted before it leaves:\n'
+          '${offenders.join('\n')}',
     );
+  });
+
+  test('UpdateChecker cannot run without notifying the counter', () {
+    final source = File('lib/services/update_checker.dart').readAsStringSync();
+    // Required, not optional: an omittable callback is one that gets omitted.
+    expect(
+      source,
+      contains('required this.onNetworkRequest'),
+      reason: 'the recorder must not be skippable',
+    );
+    final body = source.substring(source.indexOf('Future<UpdateInfo> checkForUpdate()'));
+    final notifyIndex = body.indexOf('onNetworkRequest(');
+    final requestIndex = body.indexOf('client.getUrl(');
+    expect(notifyIndex, greaterThan(-1));
+    expect(requestIndex, greaterThan(-1));
+    expect(
+      notifyIndex,
+      lessThan(requestIndex),
+      reason: 'the counter must be notified before the socket opens',
+    );
+  });
+
+  test('the version used for update comparison is not hardcoded stale', () {
+    final source = File('lib/services/update_checker.dart').readAsStringSync();
+    expect(
+      source.contains("currentVersion = '0.1.0'"),
+      isFalse,
+      reason: 'the updater compared a hardcoded 0.1.0 against pubspec 1.0.0',
+    );
+    expect(source, contains('this.currentVersion = kAppVersion'));
   });
 
   test('transcription path cannot reach the summary feature', () {

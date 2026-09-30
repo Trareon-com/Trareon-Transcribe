@@ -199,7 +199,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               const SizedBox(height: 12),
               Text(
                 'Tidak ada model terpasang.',
-                style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                style: TextStyle(color: colors.error, fontSize: 12),
               ),
             ],
             if (_running) ...[
@@ -225,7 +225,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                style: TextStyle(color: colors.error, fontSize: 12),
               ),
             ],
           ],

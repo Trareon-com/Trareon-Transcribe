@@ -4,78 +4,134 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'audio.dart';
-import 'error.dart';
 import 'export.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'session.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `audio_registry`, `collect_worker_events`, `decide_start`, `load_snapshot_file`, `persist_session_snapshot`, `recovery_dir`, `recovery_path`, `registry`, `remove_snapshot_file`, `should_split`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CaptureAttempt`, `CaptureChannel`, `SessionState`, `StartDecision`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+/// Snapshot of a running session's capture health.
+class CaptureHealth {
+  final String sessionId;
+  final double elapsedSecs;
+  final int segmentCount;
+  final List<ChannelCapture> channels;
 
-/// Takes (removes) the raw mic/speaker audio retained for `session_id`, if
-/// any. Returns `(None, None)` if the session had no live capture (e.g. it
-/// was never started, or was a batch-file transcription) or if this was
-/// already called for this session.
-Future<(Float32List?, Float32List?)> takeRawAudio({
-  required String sessionId,
-}) => RustLib.instance.api.crateSessionTakeRawAudio(sessionId: sessionId);
+  /// Ready-to-show Indonesian warnings — an expected source that has
+  /// delivered nothing, or one that has gone quiet for a long time.
+  final List<String> warnings;
 
-Future<String> startSession({required SessionConfig config}) =>
-    RustLib.instance.api.crateSessionStartSession(config: config);
+  const CaptureHealth({
+    required this.sessionId,
+    required this.elapsedSecs,
+    required this.segmentCount,
+    required this.channels,
+    required this.warnings,
+  });
 
-Future<String> recoverSession({required SessionRecoverySnapshot snapshot}) =>
-    RustLib.instance.api.crateSessionRecoverSession(snapshot: snapshot);
+  @override
+  int get hashCode =>
+      sessionId.hashCode ^
+      elapsedSecs.hashCode ^
+      segmentCount.hashCode ^
+      channels.hashCode ^
+      warnings.hashCode;
 
-Future<void> stopSession({required String sessionId}) =>
-    RustLib.instance.api.crateSessionStopSession(sessionId: sessionId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CaptureHealth &&
+          runtimeType == other.runtimeType &&
+          sessionId == other.sessionId &&
+          elapsedSecs == other.elapsedSecs &&
+          segmentCount == other.segmentCount &&
+          channels == other.channels &&
+          warnings == other.warnings;
+}
 
-Future<void> toggleMic({required String sessionId, required bool enabled}) =>
-    RustLib.instance.api.crateSessionToggleMic(
-      sessionId: sessionId,
-      enabled: enabled,
-    );
+/// Live capture health for one source. Drives both the "rekaman
+/// terkonfirmasi" indicator during recording and the integrity summary at
+/// Stop, so the two can never disagree.
+class ChannelCapture {
+  /// `"mic"` or `"spk"`.
+  final String source;
 
-Future<void> toggleSpeaker({
-  required String sessionId,
-  required bool enabled,
-}) => RustLib.instance.api.crateSessionToggleSpeaker(
-  sessionId: sessionId,
-  enabled: enabled,
-);
+  /// Whether the user asked for this source at all.
+  final bool expected;
 
-Future<void> setSessionMode({
-  required String sessionId,
-  required SessionMode mode,
-}) => RustLib.instance.api.crateSessionSetSessionMode(
-  sessionId: sessionId,
-  mode: mode,
-);
+  /// Audio above the noise floor has been observed. An open stream that
+  /// has delivered nothing is *not* confirmed — that distinction is the
+  /// whole point.
+  final bool confirmed;
+  final double secondsCaptured;
+  final double secondsVoiced;
+  final double percentSilent;
 
-Future<void> recordSegment({required String sessionId}) =>
-    RustLib.instance.api.crateSessionRecordSegment(sessionId: sessionId);
+  /// How long this source has been below the noise floor.
+  final double silentForSecs;
 
-/// Call periodically (e.g. every minute) from the live capture loop. If it
-/// returns `Some`, the caller should flush the current chunk to disk and
-/// start a new file segment, then call [`mark_split`].
-Future<AutoSplitReason?> checkAutoSplit({required String sessionId}) =>
-    RustLib.instance.api.crateSessionCheckAutoSplit(sessionId: sessionId);
+  /// False when this source fell back to (or was demoted to) RAM.
+  final bool writingToDisk;
 
-Future<void> markSplit({required String sessionId}) =>
-    RustLib.instance.api.crateSessionMarkSplit(sessionId: sessionId);
+  const ChannelCapture({
+    required this.source,
+    required this.expected,
+    required this.confirmed,
+    required this.secondsCaptured,
+    required this.secondsVoiced,
+    required this.percentSilent,
+    required this.silentForSecs,
+    required this.writingToDisk,
+  });
 
-Future<SessionStatus> getStatus({required String sessionId}) =>
-    RustLib.instance.api.crateSessionGetStatus(sessionId: sessionId);
+  @override
+  int get hashCode =>
+      source.hashCode ^
+      expected.hashCode ^
+      confirmed.hashCode ^
+      secondsCaptured.hashCode ^
+      secondsVoiced.hashCode ^
+      percentSilent.hashCode ^
+      silentForSecs.hashCode ^
+      writingToDisk.hashCode;
 
-Future<List<SessionEvent>> pollEvents({required String sessionId}) =>
-    RustLib.instance.api.crateSessionPollEvents(sessionId: sessionId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelCapture &&
+          runtimeType == other.runtimeType &&
+          source == other.source &&
+          expected == other.expected &&
+          confirmed == other.confirmed &&
+          secondsCaptured == other.secondsCaptured &&
+          secondsVoiced == other.secondsVoiced &&
+          percentSilent == other.percentSilent &&
+          silentForSecs == other.silentForSecs &&
+          writingToDisk == other.writingToDisk;
+}
 
-Future<List<SessionRecoverySnapshot>> listRecoverableSessions() =>
-    RustLib.instance.api.crateSessionListRecoverableSessions();
+/// How much audio one source has delivered, and how much of it was above
+/// the noise floor. Persisted so it survives a crash.
+class ChannelCounters {
+  final BigInt totalSamples;
+  final BigInt voicedSamples;
 
-enum AutoSplitReason { timeBoundary, memoryPressure }
+  const ChannelCounters({
+    required this.totalSamples,
+    required this.voicedSamples,
+  });
+
+  @override
+  int get hashCode => totalSamples.hashCode ^ voicedSamples.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelCounters &&
+          runtimeType == other.runtimeType &&
+          totalSamples == other.totalSamples &&
+          voicedSamples == other.voicedSamples;
+}
 
 enum NoticeLevel {
   /// The session is running, but with less than the user asked for.
@@ -83,6 +139,101 @@ enum NoticeLevel {
 
   /// Something the user asked for has stopped working.
   error,
+}
+
+/// One entry in the recovery dialog: the snapshot plus what is actually
+/// on disk for it. Computed at listing time rather than persisted, because
+/// the honest answer to "what can be recovered" is whatever survived the
+/// crash, not whatever the app last claimed.
+class RecoverableSession {
+  final SessionRecoverySnapshot snapshot;
+
+  /// Falls back to the session id when the session was never titled.
+  final String title;
+  final BigInt startedAtUnixMs;
+  final BigInt updatedAtUnixMs;
+  final double durationSecs;
+
+  /// Segments actually present in the journal — not the count the
+  /// snapshot claimed, which is what the old banner reported.
+  final int segmentCount;
+  final double micAudioSecs;
+  final double speakerAudioSecs;
+
+  const RecoverableSession({
+    required this.snapshot,
+    required this.title,
+    required this.startedAtUnixMs,
+    required this.updatedAtUnixMs,
+    required this.durationSecs,
+    required this.segmentCount,
+    required this.micAudioSecs,
+    required this.speakerAudioSecs,
+  });
+
+  @override
+  int get hashCode =>
+      snapshot.hashCode ^
+      title.hashCode ^
+      startedAtUnixMs.hashCode ^
+      updatedAtUnixMs.hashCode ^
+      durationSecs.hashCode ^
+      segmentCount.hashCode ^
+      micAudioSecs.hashCode ^
+      speakerAudioSecs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecoverableSession &&
+          runtimeType == other.runtimeType &&
+          snapshot == other.snapshot &&
+          title == other.title &&
+          startedAtUnixMs == other.startedAtUnixMs &&
+          updatedAtUnixMs == other.updatedAtUnixMs &&
+          durationSecs == other.durationSecs &&
+          segmentCount == other.segmentCount &&
+          micAudioSecs == other.micAudioSecs &&
+          speakerAudioSecs == other.speakerAudioSecs;
+}
+
+/// What [`recover_session`] gives back: the restored session plus the
+/// transcript that used to be silently dropped.
+class RecoveredSession {
+  final String sessionId;
+  final List<Segment> segments;
+
+  /// Where the restored timeline ends; new segments continue from here.
+  final double resumeOffsetSecs;
+  final double micAudioSecs;
+  final double speakerAudioSecs;
+
+  const RecoveredSession({
+    required this.sessionId,
+    required this.segments,
+    required this.resumeOffsetSecs,
+    required this.micAudioSecs,
+    required this.speakerAudioSecs,
+  });
+
+  @override
+  int get hashCode =>
+      sessionId.hashCode ^
+      segments.hashCode ^
+      resumeOffsetSecs.hashCode ^
+      micAudioSecs.hashCode ^
+      speakerAudioSecs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecoveredSession &&
+          runtimeType == other.runtimeType &&
+          sessionId == other.sessionId &&
+          segments == other.segments &&
+          resumeOffsetSecs == other.resumeOffsetSecs &&
+          micAudioSecs == other.micAudioSecs &&
+          speakerAudioSecs == other.speakerAudioSecs;
 }
 
 @freezed
@@ -114,12 +265,37 @@ class SessionRecoverySnapshot {
   final BigInt lastSplitAtUnixMs;
   final int segmentsCount;
 
+  /// User-facing title, so the recovery dialog can name the session.
+  /// Defaulted for snapshots written before it existed.
+  final String title;
+
+  /// Last time this snapshot was rewritten — i.e. roughly when the app
+  /// died. `updated_at - started_at` is the session's duration.
+  final BigInt updatedAtUnixMs;
+
+  /// Seconds of timeline already consumed by earlier runs of this
+  /// session, carried forward so a session recovered twice keeps
+  /// accumulating rather than restarting its clock.
+  final double elapsedSecs;
+
+  /// Capture counters from earlier runs, so the integrity summary of a
+  /// recovered session describes the whole meeting. Without these it
+  /// reports the session's full duration next to only the seconds
+  /// captured since the restart.
+  final ChannelCounters micCounters;
+  final ChannelCounters speakerCounters;
+
   const SessionRecoverySnapshot({
     required this.sessionId,
     required this.config,
     required this.startedAtUnixMs,
     required this.lastSplitAtUnixMs,
     required this.segmentsCount,
+    required this.title,
+    required this.updatedAtUnixMs,
+    required this.elapsedSecs,
+    required this.micCounters,
+    required this.speakerCounters,
   });
 
   @override
@@ -128,7 +304,12 @@ class SessionRecoverySnapshot {
       config.hashCode ^
       startedAtUnixMs.hashCode ^
       lastSplitAtUnixMs.hashCode ^
-      segmentsCount.hashCode;
+      segmentsCount.hashCode ^
+      title.hashCode ^
+      updatedAtUnixMs.hashCode ^
+      elapsedSecs.hashCode ^
+      micCounters.hashCode ^
+      speakerCounters.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -139,7 +320,12 @@ class SessionRecoverySnapshot {
           config == other.config &&
           startedAtUnixMs == other.startedAtUnixMs &&
           lastSplitAtUnixMs == other.lastSplitAtUnixMs &&
-          segmentsCount == other.segmentsCount;
+          segmentsCount == other.segmentsCount &&
+          title == other.title &&
+          updatedAtUnixMs == other.updatedAtUnixMs &&
+          elapsedSecs == other.elapsedSecs &&
+          micCounters == other.micCounters &&
+          speakerCounters == other.speakerCounters;
 }
 
 class SessionStatus {

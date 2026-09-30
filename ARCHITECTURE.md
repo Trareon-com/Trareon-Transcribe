@@ -89,7 +89,7 @@ Regenerate bindings after any FRB-exposed signature changes:
 
 ```bash
 flutter_rust_bridge_codegen generate \
-  --rust-input crate::api,crate::error,crate::audio,crate::decode,crate::export,crate::model,crate::session,crate::settings,crate::summary \
+  --rust-input crate::api,crate::error \
   --rust-root rust_core \
   --dart-output lib/src/rust \
   --dart-entrypoint-class-name RustLib
@@ -105,10 +105,18 @@ cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 ```
 
 `--rust-input` is a whitelist of the *public surface*, not a list of every
-module. Adding a module there exposes everything public in it (e.g. adding
-`crate::stt` pulls in `whisper_cd.dart`); prefer letting FRB reach types
-transitively from `crate::api`. Delete any orphaned files under
-`lib/src/rust/` after narrowing the list.
+module. Adding a module there exposes everything public in it — the list
+used to name nine modules, which generated a duplicate wire function for
+every public item in `session`, `audio`, `settings`, `export`, `model`,
+`decode` and `summary`, none of which Dart called. It is now
+`crate::api,crate::error`: every type Dart uses is reached transitively
+through an `api` signature, so `session.dart`, `audio.dart`,
+`settings.dart` and friends are still generated — with the types and
+without the dead functions.
+
+Delete any orphaned files under `lib/src/rust/` after narrowing the list,
+and note that `lib/src/rust/` must contain *only* generated files: two
+hand-written wrappers had accumulated there and nothing imported either.
 
 Do **not** run `flutter_rust_bridge_codegen integrate` against this repo —
 it overwrites `lib/main.dart` with a demo stub and reformats the whole

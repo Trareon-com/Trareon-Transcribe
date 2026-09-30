@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/bridge_service.dart';
+import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
 
 Future<bool> showModelDownloadDialog({
@@ -68,6 +69,11 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
     });
 
     try {
+      // Counted before the request leaves, so the Privacy Report can never
+      // understate what this dialog did.
+      ref
+          .read(privacyReportProvider.notifier)
+          .recordModelDownload(widget.modelId);
       // Start download in background
       final downloadFuture = widget.bridge.downloadModel(
         widget.modelsDir,

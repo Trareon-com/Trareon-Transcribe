@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
@@ -75,7 +76,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Timer? _elapsedTimer;
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
-  String _libraryPath = '~/Documents/TrareonTranscribe';
+  String _libraryPath = kDefaultLibraryPath;
   // Recorded into the session's metadata sidecar on stop, so the library and
   // "Transkrip Ulang" know what produced the transcript.
   String? _language;
@@ -170,7 +171,13 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     state = state.copyWith(config: recovered);
   }
 
-  Future<void> recoverFromSnapshot(
+  /// Restores a crashed session: its transcript, its audio and its clock.
+  ///
+  /// `segments: []` used to be hardcoded here, which is how a two-hour
+  /// meeting came back empty from a banner promising it could be
+  /// recovered. Returns the recovered session so the caller can tell the
+  /// user what actually came back.
+  Future<rust_session.RecoveredSession?> recoverFromSnapshot(
     rust_session.SessionRecoverySnapshot snapshot,
   ) async {
     // Same guard as start(): without it, recovering while a session is
@@ -180,17 +187,27 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     // to stop them — while this one clobbers the visible state.
     if (state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
-      return;
+      return null;
     }
     seedRecovery(snapshot);
-    final id = await _bridge.recoverSession(snapshot);
+    final recovered = await _bridge.recoverSession(snapshot);
     state = state.copyWith(
       lifecycle: SessionLifecycle.recording,
-      sessionId: id,
-      segments: [],
+      sessionId: recovered.sessionId,
+      segments: recovered.segments.map(fromRustSegment).toList(),
+      sessionTitle: snapshot.title.isNotEmpty
+          ? snapshot.title
+          : state.sessionTitle,
     );
-    _subscribeToLiveStreams(id);
+    // The elapsed timer continues from where the crashed run left off
+    // rather than restarting at 00:00 — the audio and transcript did.
+    _recordingStartedAt = DateTime.now().subtract(
+      Duration(milliseconds: (recovered.resumeOffsetSecs * 1000).round()),
+    );
+    _subscribeToLiveStreams(recovered.sessionId);
+    _mirrorTitleToSnapshot();
     _resetAutoStopTimer();
+    return recovered;
   }
 
   Future<void> start() async {
@@ -222,6 +239,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
     );
     _subscribeToLiveStreams(id);
+    _mirrorTitleToSnapshot();
     _resetAutoStopTimer();
   }
 
@@ -279,6 +297,28 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     );
   }
 
+  /// The session id whose audio is still waiting to be exported. Kept
+  /// after `stop()` so a retried save can still place the WAVs — the
+  /// engine holds them until `exportSessionAudio` claims them.
+  String? _pendingAudioSessionId;
+
+  /// Title the save used, so a retry writes to the same folder.
+  String _pendingTitle = '';
+
+  /// Whether the captured audio has been moved out of the recovery
+  /// directory into a session folder. A retry must not try again once it
+  /// has — the engine hands the audio over exactly once — but it *must*
+  /// try again if the first attempt failed, so "Simpan ke folder lain"
+  /// rescues the recording along with the transcript.
+  bool _audioPlaced = false;
+
+  /// Whether the transcript of the last stopped session is on disk.
+  /// `false` after a failed save, until [retrySave] succeeds.
+  bool get hasUnsavedTranscript =>
+      state.lifecycle == SessionLifecycle.stopped &&
+      state.segments.isNotEmpty &&
+      _pendingAudioSessionId != null;
+
   Future<void> stop() async {
     _autoStopTimer?.cancel();
     _autoStopTimer = null;
@@ -291,54 +331,90 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       lifecycle: SessionLifecycle.stopped,
       elapsedSeconds: 0,
     );
+    _pendingAudioSessionId = id;
+    _audioPlaced = false;
+    _pendingTitle = state.sessionTitle.isNotEmpty
+        ? state.sessionTitle
+        : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
+    await _saveStoppedSession(resolveTilde(_libraryPath));
+  }
+
+  /// Re-runs the save that failed, optionally somewhere else.
+  ///
+  /// A failed save used to be a three-second toast and nothing else: the
+  /// transcript was still in memory, but the only way to get it onto disk
+  /// was to notice the toast and know to press Ekspor. This is what the
+  /// banner's "Coba lagi" / "Simpan ke folder lain" call.
+  Future<void> retrySave({String? outputDir}) async {
+    if (!hasUnsavedTranscript) return;
+    await _saveStoppedSession(outputDir ?? resolveTilde(_libraryPath));
+  }
+
+  Future<void> _saveStoppedSession(String outputDir) async {
     final segments = state.segments;
-    if (segments.isNotEmpty) {
-      final title = state.sessionTitle.isNotEmpty
-          ? state.sessionTitle
-          : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
-      final outputDir = resolveTilde(_libraryPath);
-      // Rethrown (not swallowed) so the caller can tell the user their
-      // transcript failed to save — previously a failed auto-save here was
-      // silently lost with zero feedback, leaving the user unable to tell
-      // a real save from a failed one.
-      final List<rust_export.ExportedFile> exported;
+    final id = _pendingAudioSessionId;
+    final title = _pendingTitle;
+
+    // Audio first, and unconditionally.
+    //
+    // Transcription can lag far behind capture on a slow device, so a
+    // session stopped before Whisper has finalized its first segment is
+    // an ordinary outcome — and it still holds the whole recording. The
+    // audio used to be dropped in exactly that case, which made "stop too
+    // early" a silent data-loss path. Saving it means the user can run
+    // "Transkrip Ulang" over it afterwards.
+    var audio = const <rust_export.ExportedFile>[];
+    if (id != null && !_audioPlaced) {
       try {
-        exported = await _bridge.exportSession(
-          segments: segments,
-          outputDir: outputDir,
-          title: title,
-        );
-      } catch (e) {
-        throw TranscribeSaveError(
-          'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
-        );
-      }
-      // Best-effort from here on: the transcript (the primary artifact) is
-      // already saved, so a failure writing the raw audio or the metadata
-      // sidecar shouldn't surface as a save error to the user.
-      try {
-        await _bridge.exportSessionAudio(
+        audio = await _bridge.exportSessionAudio(
           sessionId: id,
           outputDir: outputDir,
           title: title,
         );
-      } catch (_) {}
-      // The sidecar gives the library the user-facing title (instead of the
-      // date-prefixed folder name) and gives "Transkrip Ulang" the model and
-      // language this session was recorded with.
-      if (exported.isNotEmpty) {
-        try {
-          final sessionDir = File(exported.first.path).parent.path;
-          await writeSessionMeta(
-            sessionDir,
-            SessionMeta(
-              title: title,
-              language: _language,
-              model: _modelId,
-            ),
-          );
-        } catch (_) {}
+        _audioPlaced = true;
+      } catch (e) {
+        debugPrint('exportSessionAudio failed: $e');
       }
+    }
+    if (segments.isEmpty && audio.isEmpty && _audioPlaced) {
+      // Nothing was captured and nothing was transcribed: an empty folder
+      // would just be litter in the library.
+      _pendingAudioSessionId = null;
+      return;
+    }
+
+    // Rethrown (not swallowed) so the caller can tell the user their
+    // transcript failed to save — previously a failed auto-save here was
+    // silently lost with zero feedback, leaving the user unable to tell
+    // a real save from a failed one.
+    final List<rust_export.ExportedFile> exported;
+    try {
+      exported = await _bridge.exportSession(
+        segments: segments,
+        outputDir: outputDir,
+        title: title,
+      );
+    } catch (e) {
+      throw TranscribeSaveError(
+        'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
+      );
+    }
+    // The transcript is on disk; a retry must not write it a second time.
+    _pendingAudioSessionId = null;
+
+    // Best-effort from here on: the transcript (the primary artifact) is
+    // already saved, so a failure writing the metadata sidecar shouldn't
+    // surface as a save error. The sidecar gives the library the
+    // user-facing title (instead of the date-prefixed folder name) and
+    // gives "Transkrip Ulang" the model and language this session used.
+    final anchor = exported.isNotEmpty ? exported.first : audio.firstOrNull;
+    if (anchor != null) {
+      try {
+        await writeSessionMeta(
+          File(anchor.path).parent.path,
+          SessionMeta(title: title, language: _language, model: _modelId),
+        );
+      } catch (_) {}
     }
   }
 
@@ -444,12 +520,32 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         speakerDeviceId: settings.speakerDeviceId,
         gpuEnabled: settings.gpuEnabled,
         gpuDevice: settings.gpuDevice,
+        audioToDisk: settings.audioToDisk,
       ),
     );
   }
 
   void setTitle(String title) {
     state = state.copyWith(sessionTitle: title);
+    if (state.lifecycle == SessionLifecycle.recording) {
+      _mirrorTitleToSnapshot();
+    }
+  }
+
+  /// Pushes the current title into the recovery snapshot, so a crashed
+  /// session shows up under the name the user gave it rather than a UUID.
+  ///
+  /// Called both on edit *and* right after the session starts: the usual
+  /// order is to type the title first and then press Mulai, in which case
+  /// there was no session to mirror into at the time it was typed.
+  ///
+  /// Fire-and-forget: the title field has to stay responsive, and a failed
+  /// mirror costs a label in one dialog.
+  void _mirrorTitleToSnapshot() {
+    final id = state.sessionId;
+    final title = state.sessionTitle;
+    if (id == null || title.isEmpty) return;
+    unawaited(_bridge.setSessionTitle(id, title).catchError((_) {}));
   }
 
   void updateAutoStopMinutes(int? minutes) {

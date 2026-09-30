@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
+import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/model.dart' as rust_model;
 import '../src/rust/session.dart' as rust_session;
@@ -30,8 +31,33 @@ abstract class RustBridge {
   /// not be opened at start, or one that died while recording. Surfaced as a
   /// toast; without it a half-dead session looks identical to a quiet one.
   Stream<SessionNotice> noticeStream(String sessionId);
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions();
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot);
+  /// Sessions left behind by a crash, each with what is actually
+  /// recoverable for it (segment count, audio seconds per source) rather
+  /// than just the configuration the snapshot stored.
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions();
+
+  /// Restores a crashed session and resumes capture into its files.
+  /// Returns the recovered transcript along with the new session id.
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  );
+
+  /// Discards one recoverable session and everything it held.
+  Future<void> deleteRecoverableSession(String sessionId);
+
+  /// How much audio each source has actually delivered, whether it has
+  /// ever been above the noise floor, and how long it has been quiet.
+  /// Drives the live "rekaman terkonfirmasi" indicator and the integrity
+  /// summary shown at Stop.
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId);
+
+  /// Mirrors the session title into the recovery snapshot, so a crashed
+  /// session shows up in the recovery dialog under its name.
+  Future<void> setSessionTitle(String sessionId, String title);
+
+  /// Free space on the volume holding [path], and whether that is enough
+  /// to keep recording. Three hours of "Rapat Online" is ~1.4 GB of WAV.
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path);
   Future<AppSettings> loadSettings();
   Future<void> saveSettings(AppSettings settings);
   Future<void> downloadModel(String modelsDir, String modelId);
@@ -84,13 +110,13 @@ abstract class RustBridge {
     ],
   });
 
-  /// Writes the raw mic/speaker audio captured during [sessionId]'s live
-  /// recording as `mic.wav`/`speaker.wav` into the same session folder
+  /// Places the mic/speaker audio captured during [sessionId]'s live
+  /// recording as `mic.wav`/`speaker.wav` in the same session folder
   /// [exportSession] uses for this `outputDir`/`title`. Call once, after
   /// [stopSession] — the audio is only retained until the first call for a
   /// given session. Returns an empty list (not an error) when there was no
   /// live capture to save, e.g. a batch-file transcription.
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
@@ -172,6 +198,24 @@ rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
   lowConfidence: s.lowConfidence,
   avgLogProb: s.avgLogProb,
 );
+
+/// Appearance preference, Dart -> Rust.
+///
+/// Top-level (like [toRustSegment]) so the mapping is directly testable:
+/// "Sistem" used to collapse to `Light` on the way out and come back as
+/// "Terang" after every restart, and nothing could see that happen.
+rust_settings.Theme toRustTheme(AppThemeMode mode) => switch (mode) {
+  AppThemeMode.light => rust_settings.Theme.light,
+  AppThemeMode.dark => rust_settings.Theme.dark,
+  AppThemeMode.system => rust_settings.Theme.system,
+};
+
+/// Inverse of [toRustTheme].
+AppThemeMode fromRustTheme(rust_settings.Theme theme) => switch (theme) {
+  rust_settings.Theme.light => AppThemeMode.light,
+  rust_settings.Theme.dark => AppThemeMode.dark,
+  rust_settings.Theme.system => AppThemeMode.system,
+};
 
 /// Inverse of [toRustSegment].
 TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
@@ -260,12 +304,40 @@ class RustBridgeMock implements RustBridge {
   }
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async =>
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
       const [];
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async {
-    return startSession(
+  Future<void> deleteRecoverableSession(String sessionId) async {}
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) async =>
+      rust_session.CaptureHealth(
+        sessionId: sessionId,
+        elapsedSecs: 0,
+        segmentCount: 0,
+        channels: const [],
+        warnings: const [],
+      );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  /// The mock never touches the filesystem, so it reports plenty of room
+  /// rather than blocking a UI test on the host machine's free space.
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
+      rust_disk.DiskSpaceStatus(
+        availableBytes: BigInt.from(64 * 1024 * 1024 * 1024),
+        level: rust_disk.DiskSpaceLevel.ok,
+        message: '',
+      );
+
+  @override
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async {
+    final id = await startSession(
       SessionConfig(
         micEnabled: snapshot.config.micEnabled,
         speakerEnabled: snapshot.config.speakerEnabled,
@@ -277,6 +349,13 @@ class RustBridgeMock implements RustBridge {
         modelPath: snapshot.config.modelPath,
         vadEnabled: snapshot.config.vadEnabled,
       ),
+    );
+    return rust_session.RecoveredSession(
+      sessionId: id,
+      segments: const [],
+      resumeOffsetSecs: 0,
+      micAudioSecs: 0,
+      speakerAudioSecs: 0,
     );
   }
 
@@ -374,11 +453,11 @@ class RustBridgeMock implements RustBridge {
   }) async => [];
 
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
 
   @override
   void pauseSession(String sessionId) {}
@@ -460,11 +539,20 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<String> startSession(SessionConfig config) async {
     final id = await rust_api.startSession(config: _toRustSessionConfig(config));
+    _openSessionStreams(id);
+    return id;
+  }
+
+  /// Wires the Dart-side stream controllers and the 200 ms poll for a
+  /// session that is now live. Shared with [recoverSession]: a recovered
+  /// session is a running session, and without this it produced no
+  /// transcript events at all.
+  void _openSessionStreams(String id) {
     _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
     _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
-    _pollTimers[id] = Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
-    return id;
+    _pollTimers[id] =
+        Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
   }
 
   @override
@@ -514,12 +602,33 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() =>
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() =>
       rust_api.listRecoverableSessions();
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) =>
-      rust_api.recoverSession(snapshot: snapshot);
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async {
+    final recovered = await rust_api.recoverSession(snapshot: snapshot);
+    _openSessionStreams(recovered.sessionId);
+    return recovered;
+  }
+
+  @override
+  Future<void> deleteRecoverableSession(String sessionId) =>
+      rust_api.deleteRecoverableSession(sessionId: sessionId);
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) =>
+      rust_api.getCaptureHealth(sessionId: sessionId);
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) =>
+      rust_api.setSessionTitle(sessionId: sessionId, title: title);
+
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) =>
+      rust_api.checkDiskSpace(path: path);
 
   Future<void> _poll(String sessionId) async {
     if (!_polling.add(sessionId)) return;
@@ -597,9 +706,12 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() => rust_api.listAudioDevices();
 
+  /// Playback devices, not capture ones. This used to call
+  /// [listAudioDevices], so the "Pengeras Suara" picker offered the user a
+  /// list of microphones to record the system audio from.
   @override
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() =>
-      rust_api.listAudioDevices();
+      rust_api.listOutputAudioDevices();
 
   /// Detects the frontmost window title on macOS by calling osascript.
   /// Gracefully returns empty string on failure or non-macOS platforms.
@@ -737,17 +849,15 @@ class RustEngineBridge implements RustBridge {
       );
 
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {
-    await rust_api.exportSessionAudio(
-      sessionId: sessionId,
-      outputDir: outputDir,
-      title: title,
-    );
-  }
+  }) => rust_api.exportSessionAudio(
+    sessionId: sessionId,
+    outputDir: outputDir,
+    title: title,
+  );
 
   rust_audio.SessionConfig _toRustSessionConfig(SessionConfig config) {
     return rust_audio.SessionConfig(
@@ -762,6 +872,7 @@ class RustEngineBridge implements RustBridge {
       vadEnabled: config.vadEnabled,
       gpuEnabled: config.gpuEnabled,
       gpuDevice: config.gpuDevice,
+      audioToDisk: config.audioToDisk,
     );
   }
 
@@ -788,11 +899,7 @@ class RustEngineBridge implements RustBridge {
 
   AppSettings _fromRustSettings(rust_settings.AppSettings settings) {
     return AppSettings(
-      // Rust-side Theme has no "system" variant (a UI-only concept);
-      // default to light rather than lose information silently.
-      theme: settings.theme == rust_settings.Theme.dark
-          ? AppThemeMode.dark
-          : AppThemeMode.light,
+      theme: fromRustTheme(settings.theme),
       defaultModel: settings.defaultModel,
       defaultMode: _fromRustSessionMode(settings.defaultMode),
       libraryPath: settings.libraryPath,
@@ -802,15 +909,14 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: settings.gpuDevice,
       autoStopMinutes: settings.autoStopMinutes,
       progressiveEnabled: settings.progressiveEnabled,
+      audioToDisk: settings.audioToDisk,
       summary: settings.summary,
     );
   }
 
   rust_settings.AppSettings _toRustSettings(AppSettings settings) {
     return rust_settings.AppSettings(
-      theme: settings.theme == AppThemeMode.dark
-          ? rust_settings.Theme.dark
-          : rust_settings.Theme.light,
+      theme: toRustTheme(settings.theme),
       defaultModel: settings.defaultModel,
       defaultMode: _toRustSessionMode(settings.defaultMode),
       libraryPath: settings.libraryPath,
@@ -824,6 +930,7 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: settings.gpuDevice,
       autoStopMinutes: settings.autoStopMinutes,
       progressiveEnabled: settings.progressiveEnabled,
+      audioToDisk: settings.audioToDisk,
       summary: settings.summary,
     );
   }

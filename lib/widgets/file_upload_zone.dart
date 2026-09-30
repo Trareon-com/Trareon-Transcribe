@@ -153,7 +153,20 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
               ),
             ],
           ),
-          ...queue.map((entry) => _QueueTile(key: ValueKey(entry.path), entry: entry)),
+          // Scrollable, and lazily built: the queue used to be spread
+          // directly into this Column, so it overflowed off the bottom of
+          // the window after about five files and the tiles below that
+          // could not be reached at all.
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: queue.length,
+              itemBuilder: (context, index) => _QueueTile(
+                key: ValueKey(queue[index].path),
+                entry: queue[index],
+              ),
+            ),
+          ),
         ],
       ],
     );

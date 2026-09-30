@@ -102,7 +102,7 @@ impl LiveWorker {
         let mut pending = Vec::new();
         let sessions = crate::session::list_recoverable_sessions()?;
         for s in sessions {
-            let session_dir = library_path.join(&s.session_id);
+            let session_dir = library_path.join(&s.snapshot.session_id);
             if !session_dir.join("transcript.json").exists() {
                 pending.push(session_dir);
             }

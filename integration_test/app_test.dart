@@ -78,6 +78,7 @@ void main() {
         gpuEnabled: false,
         gpuDevice: 0,
         vadEnabled: true,
+        audioToDisk: true,
       );
       final sessionId = await rust_api.startSession(config: config);
       expect(sessionId, isNotEmpty);

@@ -1,6 +1,30 @@
 //! Session registry: tracks live capture sessions by UUID and their
-//! mic/speaker toggle state. The same module also owns crash-recovery
-//! snapshots so we can restore an interrupted session after restart.
+//! mic/speaker toggle state. The same module owns crash recovery.
+//!
+//! # What survives a crash
+//!
+//! Each live session gets a directory under the OS config dir:
+//!
+//! ```text
+//! <config>/TrareonTranscribe/recovery/<session-id>/
+//!     snapshot.json      session config, timings, title, segment count
+//!     transcript.jsonl   every finalized segment, appended as it is emitted
+//!     mic.wav.part       captured audio, streamed, header fixed up on stop
+//!     speaker.wav.part
+//! ```
+//!
+//! Before this, the snapshot held configuration only — so recovery restored
+//! a session with `segments: []` and no audio, while the UI banner told the
+//! user the session could be recovered. A crash in the second hour of a
+//! meeting lost the meeting.
+//!
+//! Recovery reopens all three: the journal is replayed into the segment
+//! list, the `.part` files are reopened and appended to (so the saved WAV
+//! covers the whole meeting, not just the part after the restart), and new
+//! segments are offset onto the end of the recovered timeline — a restarted
+//! Whisper pipeline counts from zero again, and without the offset its
+//! first segment would collide with the key of one recorded before the
+//! crash.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,12 +36,25 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::audio::sink::{AudioSink, ChannelHealth, ClosedAudio, SILENCE_WARNING_SECS};
+use crate::audio::wav_writer::{self, StreamingWavWriter};
 use crate::audio::{AudioCapture, SessionConfig, SessionMode};
+use crate::decode::TARGET_SAMPLE_RATE;
 use crate::dedupe::is_echo;
 use crate::error::TranscribeError;
 use crate::export::Segment;
+use crate::journal::{self, TranscriptJournal};
 use crate::memory;
 use crate::pipeline::{HptRoute, LiveEvent, LiveWorker, LiveWorkerConfig};
+
+/// Files inside a session's recovery directory.
+const SNAPSHOT_FILE: &str = "snapshot.json";
+const JOURNAL_FILE: &str = "transcript.jsonl";
+const MIC_AUDIO_FILE: &str = "mic.wav";
+const SPEAKER_AUDIO_FILE: &str = "speaker.wav";
+
+/// Captured audio is mono at the STT sample rate throughout.
+const CAPTURE_CHANNELS: u16 = 1;
 
 /// Long sessions (>4h) auto-split per hour to bound memory growth (PP-21).
 pub const AUTO_SPLIT_INTERVAL_SECS: u64 = 3600;
@@ -126,11 +163,25 @@ pub(crate) fn decide_start(mic: &CaptureAttempt, speaker: &CaptureAttempt) -> St
 struct SessionState {
     session_id: String,
     config: SessionConfig,
+    /// User-facing session title, mirrored here so the recovery dialog can
+    /// name a crashed session instead of showing a UUID.
+    title: String,
     started_at: std::time::Instant,
     started_at_unix_ms: u64,
     last_split_at: std::time::Instant,
     last_split_at_unix_ms: u64,
     segments_count: u32,
+    /// Added to every incoming segment timestamp. Non-zero only for a
+    /// recovered session: the pipeline restarts at t=0, and the recovered
+    /// transcript already occupies that part of the timeline.
+    resume_offset_secs: f64,
+    /// Wall-clock the session had already accumulated before it crashed,
+    /// so the elapsed timer continues rather than restarting at 00:00.
+    recovered_elapsed_secs: f64,
+    /// Append-only transcript journal. `None` only when it could not be
+    /// opened at all — the session still records, it is simply not
+    /// crash-recoverable, and that is said out loud via a notice.
+    journal: Option<TranscriptJournal>,
     mic_capture: Option<CaptureChannel>,
     speaker_capture: Option<CaptureChannel>,
     pending_events: Vec<SessionEvent>,
@@ -153,33 +204,62 @@ struct CaptureChannel {
     worker: LiveWorker,
     source: String,
     events_rx: mpsc::Receiver<LiveEvent>,
-    /// Raw 16kHz mono samples for this source, retained for WAV export
-    /// (blueprint §7.1: per-track mic.wav + speaker.wav) — filled by the
-    /// tee thread in `start_capture`, independent of the STT worker.
-    raw_audio: Arc<Mutex<Vec<f32>>>,
+    /// Where this source's samples go: a streaming WAV in the recovery
+    /// directory by default, a bounded RAM buffer when that could not be
+    /// opened. Filled by the tee thread in `start_capture`, independent of
+    /// the STT worker.
+    sink: Arc<Mutex<AudioSink>>,
+    /// How much audio this source has actually delivered, and when it was
+    /// last above the noise floor.
+    health: Arc<ChannelHealth>,
+    /// Problems the tee thread cannot report itself (it has no access to
+    /// the event queue): a disk write that failed, a RAM buffer that hit
+    /// its cap. Drained into notices by `collect_worker_events`.
+    sink_errors: Arc<Mutex<Vec<String>>>,
+    /// Latches once a silence warning has been raised, so a dead source
+    /// produces one notice and not one per poll. Re-armed when audio
+    /// comes back.
+    silence_warned: bool,
 }
 
-/// Raw audio retained after a session stops, so the caller (Dart, via
-/// `api::export_session_audio`) can write mic.wav/speaker.wav once it
-/// knows the final output directory and title — both only known at stop
-/// time, same as the transcript export. Cleared on export or session
-/// removal so long-running sessions don't leak this buffer forever.
-type RawAudioBySource = (Option<Vec<f32>>, Option<Vec<f32>>);
+/// Audio a stopped session left behind, waiting for the caller (Dart, via
+/// `api::export_session_audio`) to place it — the output directory and
+/// title are only known at stop time, same as the transcript export.
+#[derive(Debug, Default)]
+#[flutter_rust_bridge::frb(ignore)]
+pub struct StoppedAudio {
+    /// Finished WAVs in the recovery directory, to be moved into the
+    /// session folder. The common case.
+    pub mic_file: Option<PathBuf>,
+    pub speaker_file: Option<PathBuf>,
+    /// Samples still in memory, from the RAM fallback path.
+    pub mic_samples: Option<Vec<f32>>,
+    pub speaker_samples: Option<Vec<f32>>,
+}
 
-fn audio_registry() -> &'static Mutex<HashMap<String, RawAudioBySource>> {
-    static REGISTRY: OnceLock<Mutex<HashMap<String, RawAudioBySource>>> = OnceLock::new();
+impl StoppedAudio {
+    fn is_empty(&self) -> bool {
+        self.mic_file.is_none()
+            && self.speaker_file.is_none()
+            && self.mic_samples.is_none()
+            && self.speaker_samples.is_none()
+    }
+}
+
+fn audio_registry() -> &'static Mutex<HashMap<String, StoppedAudio>> {
+    static REGISTRY: OnceLock<Mutex<HashMap<String, StoppedAudio>>> = OnceLock::new();
     REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Takes (removes) the raw mic/speaker audio retained for `session_id`, if
-/// any. Returns `(None, None)` if the session had no live capture (e.g. it
-/// was never started, or was a batch-file transcription) or if this was
-/// already called for this session.
-pub fn take_raw_audio(session_id: &str) -> RawAudioBySource {
+/// Takes (removes) the audio retained for `session_id`. Returns an empty
+/// [`StoppedAudio`] if the session had no live capture (never started, or
+/// a batch-file transcription) or if this was already called for it.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn take_session_audio(session_id: &str) -> StoppedAudio {
     audio_registry()
         .lock()
-        .map(|mut reg| reg.remove(session_id).unwrap_or((None, None)))
-        .unwrap_or((None, None))
+        .map(|mut reg| reg.remove(session_id).unwrap_or_default())
+        .unwrap_or_default()
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
@@ -189,6 +269,123 @@ pub struct SessionRecoverySnapshot {
     pub started_at_unix_ms: u64,
     pub last_split_at_unix_ms: u64,
     pub segments_count: u32,
+    /// User-facing title, so the recovery dialog can name the session.
+    /// Defaulted for snapshots written before it existed.
+    #[serde(default)]
+    pub title: String,
+    /// Last time this snapshot was rewritten — i.e. roughly when the app
+    /// died. `updated_at - started_at` is the session's duration.
+    #[serde(default)]
+    pub updated_at_unix_ms: u64,
+    /// Seconds of timeline already consumed by earlier runs of this
+    /// session, carried forward so a session recovered twice keeps
+    /// accumulating rather than restarting its clock.
+    #[serde(default)]
+    pub elapsed_secs: f64,
+    /// Capture counters from earlier runs, so the integrity summary of a
+    /// recovered session describes the whole meeting. Without these it
+    /// reports the session's full duration next to only the seconds
+    /// captured since the restart.
+    #[serde(default)]
+    pub mic_counters: ChannelCounters,
+    #[serde(default)]
+    pub speaker_counters: ChannelCounters,
+}
+
+/// How much audio one source has delivered, and how much of it was above
+/// the noise floor. Persisted so it survives a crash.
+#[derive(Debug, Clone, Copy, Default, Serialize, serde::Deserialize)]
+pub struct ChannelCounters {
+    pub total_samples: u64,
+    pub voiced_samples: u64,
+}
+
+/// One entry in the recovery dialog: the snapshot plus what is actually
+/// on disk for it. Computed at listing time rather than persisted, because
+/// the honest answer to "what can be recovered" is whatever survived the
+/// crash, not whatever the app last claimed.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecoverableSession {
+    pub snapshot: SessionRecoverySnapshot,
+    /// Falls back to the session id when the session was never titled.
+    pub title: String,
+    pub started_at_unix_ms: u64,
+    pub updated_at_unix_ms: u64,
+    pub duration_secs: f64,
+    /// Segments actually present in the journal — not the count the
+    /// snapshot claimed, which is what the old banner reported.
+    pub segment_count: u32,
+    pub mic_audio_secs: f64,
+    pub speaker_audio_secs: f64,
+}
+
+impl RecoverableSession {
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn has_audio(&self) -> bool {
+        self.mic_audio_secs > 0.0 || self.speaker_audio_secs > 0.0
+    }
+
+    /// Nothing worth offering the user: no transcript and no audio. These
+    /// are cleaned up automatically rather than listed.
+    fn is_empty(&self) -> bool {
+        self.segment_count == 0 && !self.has_audio()
+    }
+}
+
+/// What [`recover_session`] gives back: the restored session plus the
+/// transcript that used to be silently dropped.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecoveredSession {
+    pub session_id: String,
+    pub segments: Vec<Segment>,
+    /// Where the restored timeline ends; new segments continue from here.
+    pub resume_offset_secs: f64,
+    pub mic_audio_secs: f64,
+    pub speaker_audio_secs: f64,
+}
+
+/// Live capture health for one source. Drives both the "rekaman
+/// terkonfirmasi" indicator during recording and the integrity summary at
+/// Stop, so the two can never disagree.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChannelCapture {
+    /// `"mic"` or `"spk"`.
+    pub source: String,
+    /// Whether the user asked for this source at all.
+    pub expected: bool,
+    /// Audio above the noise floor has been observed. An open stream that
+    /// has delivered nothing is *not* confirmed — that distinction is the
+    /// whole point.
+    pub confirmed: bool,
+    pub seconds_captured: f64,
+    pub seconds_voiced: f64,
+    pub percent_silent: f64,
+    /// How long this source has been below the noise floor.
+    pub silent_for_secs: f64,
+    /// False when this source fell back to (or was demoted to) RAM.
+    pub writing_to_disk: bool,
+}
+
+/// Snapshot of a running session's capture health.
+#[derive(Debug, Clone, Serialize)]
+pub struct CaptureHealth {
+    pub session_id: String,
+    pub elapsed_secs: f64,
+    pub segment_count: u32,
+    pub channels: Vec<ChannelCapture>,
+    /// Ready-to-show Indonesian warnings — an expected source that has
+    /// delivered nothing, or one that has gone quiet for a long time.
+    pub warnings: Vec<String>,
+}
+
+impl CaptureHealth {
+    /// True once every expected source has delivered real audio. This is
+    /// the "rekaman terkonfirmasi" state.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn all_expected_confirmed(&self) -> bool {
+        let expected: Vec<_> = self.channels.iter().filter(|c| c.expected).collect();
+        !expected.is_empty() && expected.iter().all(|c| c.confirmed)
+    }
 }
 
 /// Pure decision logic — trivially unit-testable without real timers or a
@@ -221,17 +418,58 @@ pub(crate) fn set_recovery_dir_override(path: Option<PathBuf>) {
 
 pub fn start_session(config: SessionConfig) -> Result<String, TranscribeError> {
     let id = Uuid::new_v4().to_string();
-    start_session_with_id(id, config)
+    start_session_with_id(id, config, ResumeState::default())
 }
 
-pub fn recover_session(snapshot: SessionRecoverySnapshot) -> Result<String, TranscribeError> {
-    start_session_with_id(snapshot.session_id, snapshot.config)
+/// Brings a crashed session back: its transcript, its audio, and its clock.
+///
+/// The transcript comes from the journal; the audio from the `.part` files,
+/// which are reopened and appended to so the eventual WAV covers the whole
+/// meeting. New segments are offset onto the end of the recovered timeline
+/// — a restarted pipeline counts from zero, and the recovered transcript
+/// already occupies that stretch, so without the offset the first new
+/// segment would silently replace the first recovered one (they share the
+/// `source@timestamp` merge key).
+///
+/// The offset is taken from the longest recovered audio track when there is
+/// one, because that is how much real time the recording covers; the end of
+/// the last recovered segment is the fallback for a RAM-path session.
+pub fn recover_session(
+    snapshot: SessionRecoverySnapshot,
+) -> Result<RecoveredSession, TranscribeError> {
+    let dir = session_recovery_dir(&snapshot.session_id)?;
+    let segments = journal::replay(&dir.join(JOURNAL_FILE));
+    let mic_audio_secs = recoverable_audio_secs(&dir, MIC_AUDIO_FILE);
+    let speaker_audio_secs = recoverable_audio_secs(&dir, SPEAKER_AUDIO_FILE);
+    let resume_offset_secs = mic_audio_secs
+        .max(speaker_audio_secs)
+        .max(journal::last_segment_end_secs(&segments));
+
+    let resume = ResumeState {
+        title: snapshot.title.clone(),
+        segments: segments.clone(),
+        resume_offset_secs,
+        elapsed_secs: snapshot.elapsed_secs.max(resume_offset_secs),
+        mic_counters: snapshot.mic_counters,
+        speaker_counters: snapshot.speaker_counters,
+    };
+    let session_id = start_session_with_id(snapshot.session_id, snapshot.config, resume)?;
+
+    Ok(RecoveredSession {
+        session_id,
+        segments,
+        resume_offset_secs,
+        mic_audio_secs,
+        speaker_audio_secs,
+    })
 }
 
 fn start_capture(
     enabled: bool,
     device_name: Option<String>,
     worker_config: LiveWorkerConfig,
+    audio_path: Option<PathBuf>,
+    resumed: ChannelCounters,
 ) -> Result<(Option<CaptureChannel>, CaptureAttempt), TranscribeError> {
     if !enabled {
         return Ok((None, CaptureAttempt::Disabled));
@@ -257,17 +495,60 @@ fn start_capture(
         }
     };
 
-    let raw_audio: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
-    let raw_audio_writer = Arc::clone(&raw_audio);
+    // Disk is the default; RAM is the documented fallback for when the
+    // recovery directory can't be written at all (read-only volume, no
+    // space). Falling back is announced, not silent, because it changes
+    // what a crash costs.
+    let mut sink_errors: Vec<String> = Vec::new();
+    let sink = match audio_path {
+        Some(path) => match StreamingWavWriter::open(&path, TARGET_SAMPLE_RATE, CAPTURE_CHANNELS) {
+            Ok(writer) => AudioSink::disk(writer),
+            Err(e) => {
+                tracing::warn!(%source, %e, "audio disk sink unavailable; using RAM fallback");
+                sink_errors.push(format!(
+                    "Audio {} tidak bisa ditulis ke disk ({e}); untuk sementara disimpan di \
+                     memori dan tidak akan selamat dari crash.",
+                    source_label(&source)
+                ));
+                AudioSink::ram()
+            }
+        },
+        None => AudioSink::ram(),
+    };
+    let health = Arc::new(ChannelHealth::resumed(
+        sink.is_disk(),
+        resumed.total_samples,
+        resumed.voiced_samples,
+    ));
+    let sink = Arc::new(Mutex::new(sink));
+    let sink_errors = Arc::new(Mutex::new(sink_errors));
+
+    let sink_writer = Arc::clone(&sink);
+    let health_writer = Arc::clone(&health);
+    let errors_writer = Arc::clone(&sink_errors);
+    let tee_source = source.clone();
     // Tee: every chunk forwarded to the STT worker (unchanged) is also
-    // accumulated here for later WAV export. Isolated to its own thread so
-    // the live transcription pipeline (samples_rx consumer) is untouched —
-    // this thread simply exits once `raw_tx` (owned by AudioCapture) is
-    // dropped, i.e. when capture stops.
+    // written out for later WAV export and folded into the health counters.
+    // Isolated to its own thread so the live transcription pipeline
+    // (samples_rx consumer) is untouched — this thread simply exits once
+    // `raw_tx` (owned by AudioCapture) is dropped, i.e. when capture stops.
     std::thread::spawn(move || {
         while let Ok(chunk) = raw_rx.recv() {
-            if let Ok(mut buf) = raw_audio_writer.lock() {
-                buf.extend_from_slice(&chunk);
+            health_writer.observe(&chunk, unix_ms_now().unwrap_or(0));
+            if let Ok(mut sink) = sink_writer.lock() {
+                if let Err(e) = sink.append(&chunk, TARGET_SAMPLE_RATE) {
+                    // Reported once (the sink latches), never fatal: losing
+                    // the rest of the audio file must not also cost the
+                    // transcript, and what is already on disk stays.
+                    tracing::error!(source = %tee_source, %e, "captured audio could not be stored");
+                    health_writer.note_write_failure();
+                    if let Ok(mut errors) = errors_writer.lock() {
+                        errors.push(format!(
+                            "Audio {} berhenti tersimpan: {e}. Transkrip tetap berjalan.",
+                            source_label(&tee_source)
+                        ));
+                    }
+                }
             }
             if samples_tx.send(chunk).is_err() {
                 break;
@@ -286,39 +567,81 @@ fn start_capture(
             worker,
             source,
             events_rx,
-            raw_audio,
+            sink,
+            health,
+            sink_errors,
+            silence_warned: false,
         }),
         CaptureAttempt::Started,
     ))
+}
+
+/// Indonesian label for a capture source, for user-facing messages.
+fn source_label(source: &str) -> &'static str {
+    if source == "spk" {
+        "audio sistem"
+    } else {
+        "mikrofon"
+    }
 }
 
 pub fn stop_session(session_id: &str) -> Result<(), TranscribeError> {
     let mut reg = registry()
         .lock()
         .map_err(|_| TranscribeError::Transcription("session registry lock poisoned".into()))?;
-    let state = reg
+    let mut state = reg
         .remove(session_id)
         .ok_or_else(|| TranscribeError::SessionNotFound(session_id.to_string()))?;
     drop(reg);
 
-    let mic_audio = state
-        .mic_capture
-        .as_ref()
-        .and_then(|c| c.raw_audio.lock().ok().map(|buf| buf.clone()))
-        .filter(|buf| !buf.is_empty());
-    let speaker_audio = state
-        .speaker_capture
-        .as_ref()
-        .and_then(|c| c.raw_audio.lock().ok().map(|buf| buf.clone()))
-        .filter(|buf| !buf.is_empty());
-    if mic_audio.is_some() || speaker_audio.is_some() {
-        if let Ok(mut audio_reg) = audio_registry().lock() {
-            audio_reg.insert(session_id.to_string(), (mic_audio, speaker_audio));
+    // Last fsync before the journal is closed: everything emitted up to
+    // this moment is on the platter, not merely in the page cache.
+    if let Some(journal) = state.journal.as_mut() {
+        let _ = journal.sync();
+    }
+    state.journal = None;
+
+    let mut audio = StoppedAudio::default();
+    // Dropping the capture first closes `raw_tx`, which ends the tee
+    // thread — otherwise `close()` could race a chunk still in flight and
+    // finalize a header that is already out of date.
+    for (channel, is_mic) in [
+        (state.mic_capture.take(), true),
+        (state.speaker_capture.take(), false),
+    ] {
+        let Some(channel) = channel else { continue };
+        let CaptureChannel {
+            capture,
+            worker,
+            sink,
+            ..
+        } = channel;
+        drop(capture);
+        drop(worker);
+        let Ok(mut guard) = sink.lock() else { continue };
+        // Swap an empty sink in so the writer can be consumed by value.
+        let closed = std::mem::replace(&mut *guard, AudioSink::ram()).close();
+        match closed {
+            Ok(ClosedAudio::File(Some(path))) if is_mic => audio.mic_file = Some(path),
+            Ok(ClosedAudio::File(Some(path))) => audio.speaker_file = Some(path),
+            Ok(ClosedAudio::Samples(samples)) if is_mic => audio.mic_samples = Some(samples),
+            Ok(ClosedAudio::Samples(samples)) => audio.speaker_samples = Some(samples),
+            Ok(ClosedAudio::File(None)) => {}
+            Err(e) => tracing::error!(%e, "failed to finalize captured audio"),
         }
     }
 
-    remove_snapshot_file(session_id)?;
-    Ok(())
+    if !audio.is_empty() {
+        if let Ok(mut audio_reg) = audio_registry().lock() {
+            audio_reg.insert(session_id.to_string(), audio);
+        }
+    }
+
+    // The snapshot and journal go now — the session is no longer
+    // recoverable, it is finished. The finalized WAVs stay put until
+    // `export_session_audio` moves them into the session folder, which
+    // happens after the transcript export and therefore after this call.
+    retire_recovery_state(session_id)
 }
 
 pub fn toggle_mic(session_id: &str, enabled: bool) -> Result<(), TranscribeError> {
@@ -343,6 +666,14 @@ pub fn set_session_mode(session_id: &str, mode: SessionMode) -> Result<(), Trans
 
 pub fn record_segment(session_id: &str) -> Result<(), TranscribeError> {
     with_session_mut(session_id, |s| s.segments_count += 1)?;
+    persist_session_snapshot(session_id)
+}
+
+/// Mirrors the user-entered session title into the recovery snapshot, so a
+/// crashed session shows up in the recovery dialog under the name the user
+/// gave it rather than as a UUID.
+pub fn set_session_title(session_id: &str, title: &str) -> Result<(), TranscribeError> {
+    with_session_mut(session_id, |s| s.title = title.to_string())?;
     persist_session_snapshot(session_id)
 }
 
@@ -380,7 +711,7 @@ pub fn get_status(session_id: &str) -> Result<SessionStatus, TranscribeError> {
     state.collect_worker_events();
     let status = SessionStatus {
         session_id: session_id.to_string(),
-        elapsed_seconds: state.started_at.elapsed().as_secs_f64(),
+        elapsed_seconds: state.elapsed_secs(),
         mic_enabled: state.config.mic_enabled,
         speaker_enabled: state.config.speaker_enabled,
         segments_count: state.segments_count,
@@ -408,27 +739,188 @@ pub fn poll_events(session_id: &str) -> Result<Vec<SessionEvent>, TranscribeErro
     Ok(events)
 }
 
-pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, TranscribeError> {
+/// Everything the recovery dialog needs, newest first.
+///
+/// Snapshots whose session left nothing behind — no journal entries and no
+/// audio — are deleted here rather than listed. They are the residue of a
+/// session that died within seconds of starting, and offering to "recover"
+/// them produces an empty session the user then has to clean up by hand.
+/// Flat `*.inprogress` files from builds before the per-session directory
+/// are removed for the same reason: they carry configuration only, which
+/// is exactly the thing that made recovery useless.
+pub fn list_recoverable_sessions() -> Result<Vec<RecoverableSession>, TranscribeError> {
     let dir = recovery_dir()?;
     let mut out = Vec::new();
     if !dir.exists() {
         return Ok(out);
     }
-    for entry in fs::read_dir(dir).map_err(TranscribeError::from)? {
-        let entry = entry.map_err(TranscribeError::from)?;
+    for entry in fs::read_dir(&dir).map_err(TranscribeError::from)? {
+        let Ok(entry) = entry else { continue };
         let path = entry.path();
-        if path.extension().and_then(|v| v.to_str()) != Some("inprogress") {
+        if path.is_file() {
+            if path.extension().and_then(|v| v.to_str()) == Some("inprogress") {
+                tracing::info!(path = %path.display(), "removing pre-journal recovery snapshot");
+                let _ = fs::remove_file(&path);
+            }
             continue;
         }
-        if let Ok(snapshot) = load_snapshot_file(&path) {
-            out.push(snapshot);
+        if !path.is_dir() {
+            continue;
         }
+        let Ok(snapshot) = load_snapshot_file(&path.join(SNAPSHOT_FILE)) else {
+            // A directory with no readable snapshot is either mid-creation
+            // or the leftovers of a stopped session whose audio was already
+            // exported. Either way there is nothing to offer.
+            remove_dir_if_stale(&path);
+            continue;
+        };
+        // A session already running under this id (the user recovered it
+        // this launch) must not also be offered for recovery.
+        if is_registered(&snapshot.session_id) {
+            continue;
+        }
+        let recoverable = describe_recoverable(snapshot, &path);
+        if recoverable.is_empty() {
+            tracing::info!(id = %recoverable.snapshot.session_id, "discarding empty recovery snapshot");
+            let _ = fs::remove_dir_all(&path);
+            continue;
+        }
+        out.push(recoverable);
     }
-    out.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+    out.sort_by_key(|entry| std::cmp::Reverse(entry.updated_at_unix_ms));
     Ok(out)
 }
 
-fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, TranscribeError> {
+/// Discards a recoverable session and everything it held. Called from the
+/// recovery dialog's per-session "Hapus"; the previous banner could only
+/// dismiss the whole list, leaving the files behind forever.
+pub fn delete_recoverable_session(session_id: &str) -> Result<(), TranscribeError> {
+    let dir = session_recovery_dir(session_id)?;
+    match fs::remove_dir_all(&dir) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(TranscribeError::from(err)),
+    }
+}
+
+fn describe_recoverable(snapshot: SessionRecoverySnapshot, dir: &Path) -> RecoverableSession {
+    let segment_count = journal::replay_count(&dir.join(JOURNAL_FILE));
+    let mic_audio_secs = recoverable_audio_secs(dir, MIC_AUDIO_FILE);
+    let speaker_audio_secs = recoverable_audio_secs(dir, SPEAKER_AUDIO_FILE);
+    let updated_at_unix_ms = if snapshot.updated_at_unix_ms == 0 {
+        snapshot.started_at_unix_ms
+    } else {
+        snapshot.updated_at_unix_ms
+    };
+    let title = if snapshot.title.trim().is_empty() {
+        format!(
+            "Sesi {}",
+            &snapshot.session_id[..8.min(snapshot.session_id.len())]
+        )
+    } else {
+        snapshot.title.clone()
+    };
+    // Prefer the wall clock the session actually accumulated; fall back to
+    // the longest audio track for a snapshot from before that was carried.
+    let duration_secs = snapshot
+        .elapsed_secs
+        .max(updated_at_unix_ms.saturating_sub(snapshot.started_at_unix_ms) as f64 / 1000.0)
+        .max(mic_audio_secs)
+        .max(speaker_audio_secs);
+    RecoverableSession {
+        started_at_unix_ms: snapshot.started_at_unix_ms,
+        updated_at_unix_ms,
+        snapshot,
+        title,
+        duration_secs,
+        segment_count,
+        mic_audio_secs,
+        speaker_audio_secs,
+    }
+}
+
+/// Seconds of audio recoverable for one source, whether it was finalized
+/// (`.wav`) or left mid-write by a crash (`.wav.part`) — the length comes
+/// from the file itself either way.
+fn recoverable_audio_secs(dir: &Path, filename: &str) -> f64 {
+    let final_path = dir.join(filename);
+    let secs = wav_writer::duration_secs(&final_path, TARGET_SAMPLE_RATE, CAPTURE_CHANNELS);
+    if secs > 0.0 {
+        return secs;
+    }
+    wav_writer::duration_secs(
+        &wav_writer::part_path_for(&final_path),
+        TARGET_SAMPLE_RATE,
+        CAPTURE_CHANNELS,
+    )
+}
+
+fn is_registered(session_id: &str) -> bool {
+    registry()
+        .lock()
+        .map(|reg| reg.contains_key(session_id))
+        .unwrap_or(false)
+}
+
+/// Removes a recovery directory that holds nothing recoverable. Guarded on
+/// emptiness rather than age: a directory being created right now already
+/// has its snapshot written (see `start_session_with_id`).
+///
+/// A directory with no snapshot but *with* audio is left alone and logged:
+/// it cannot be recovered (there is no config to resume from) but it holds
+/// a recording, and deleting the user's audio to tidy up is not a trade
+/// this code gets to make. Builds before `stop_session` always claimed the
+/// audio could leave these behind.
+fn remove_dir_if_stale(dir: &Path) {
+    let has_content = [
+        dir.join(JOURNAL_FILE),
+        dir.join(MIC_AUDIO_FILE),
+        dir.join(SPEAKER_AUDIO_FILE),
+        wav_writer::part_path_for(&dir.join(MIC_AUDIO_FILE)),
+        wav_writer::part_path_for(&dir.join(SPEAKER_AUDIO_FILE)),
+    ]
+    .iter()
+    .any(|p| p.exists());
+    if has_content {
+        tracing::warn!(
+            path = %dir.display(),
+            "recovery directory holds audio but no snapshot; keeping it rather \
+             than deleting a recording that cannot be resumed"
+        );
+        return;
+    }
+    let _ = fs::remove_dir_all(dir);
+}
+
+/// Live capture health, used both by the recording UI ("rekaman
+/// terkonfirmasi") and by the integrity summary shown at Stop.
+pub fn get_capture_health(session_id: &str) -> Result<CaptureHealth, TranscribeError> {
+    let reg = registry()
+        .lock()
+        .map_err(|_| TranscribeError::Transcription("session registry lock poisoned".into()))?;
+    let state = reg
+        .get(session_id)
+        .ok_or_else(|| TranscribeError::SessionNotFound(session_id.to_string()))?;
+    Ok(state.capture_health())
+}
+
+/// Everything a resumed session carries over from the run that crashed.
+#[derive(Debug, Default)]
+#[flutter_rust_bridge::frb(ignore)]
+struct ResumeState {
+    title: String,
+    segments: Vec<Segment>,
+    resume_offset_secs: f64,
+    elapsed_secs: f64,
+    mic_counters: ChannelCounters,
+    speaker_counters: ChannelCounters,
+}
+
+fn start_session_with_id(
+    id: String,
+    config: SessionConfig,
+    resume: ResumeState,
+) -> Result<String, TranscribeError> {
     let now = std::time::Instant::now();
     let now_unix_ms = unix_ms_now()?;
     let language = crate::settings::load_settings().language;
@@ -447,15 +939,26 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
         gpu_enabled: config.gpu_enabled,
         gpu_device: config.gpu_device,
     };
+    // Audio-to-disk is the default; the setting exists so one release can
+    // fall back to the RAM path if streaming turns out to destabilise the
+    // capture threads Round 2 just stabilised.
+    let session_dir = session_recovery_dir(&id)?;
+    let audio_path = |filename: &str| -> Option<PathBuf> {
+        config.audio_to_disk.then(|| session_dir.join(filename))
+    };
     let (mic_capture, mic_attempt) = start_capture(
         config.mic_enabled,
         config.mic_device_id.clone(),
         worker_config("mic"),
+        audio_path(MIC_AUDIO_FILE),
+        resume.mic_counters,
     )?;
     let (speaker_capture, speaker_attempt) = start_capture(
         config.speaker_enabled,
         config.speaker_device_id.clone(),
         worker_config("spk"),
+        audio_path(SPEAKER_AUDIO_FILE),
+        resume.speaker_counters,
     )?;
     let mut pending_events = Vec::new();
     match decide_start(&mic_attempt, &speaker_attempt) {
@@ -491,17 +994,45 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
                 .to_string(),
         });
     }
+    // The journal is what makes the difference between "the app crashed"
+    // and "the meeting is gone", so failing to open it is worth telling
+    // the user about — but not worth refusing to record over.
+    let journal = match TranscriptJournal::open_append(&session_dir.join(JOURNAL_FILE)) {
+        Ok(journal) => Some(journal),
+        Err(e) => {
+            tracing::error!(%e, "transcript journal unavailable; session is not crash-recoverable");
+            pending_events.push(SessionEvent::Notice {
+                level: NoticeLevel::Warning,
+                source: "session".to_string(),
+                message: format!(
+                    "Jurnal transkrip tidak bisa dibuka ({e}). Rekaman tetap berjalan, \
+                     tetapi sesi ini tidak akan bisa dipulihkan jika aplikasi berhenti \
+                     mendadak."
+                ),
+            });
+            None
+        }
+    };
+
+    let segments_count = resume.segments.len() as u32;
     let state = SessionState {
         session_id: id.clone(),
         config,
+        title: resume.title,
         started_at: now,
         started_at_unix_ms: now_unix_ms,
         last_split_at: now,
         last_split_at_unix_ms: now_unix_ms,
-        segments_count: 0,
+        segments_count,
+        resume_offset_secs: resume.resume_offset_secs,
+        recovered_elapsed_secs: resume.elapsed_secs,
+        journal,
         mic_capture,
         speaker_capture,
         pending_events,
+        // Seeding the echo window from the recovered tail would compare
+        // new speech against text from before the crash, which is not an
+        // echo of anything currently playing.
         recent_emitted: Vec::new(),
     };
     registry()
@@ -510,6 +1041,15 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
         .insert(id.clone(), state);
     persist_session_snapshot(&id)?;
     Ok(id)
+}
+
+fn counters_of(channel: Option<&CaptureChannel>) -> ChannelCounters {
+    channel
+        .map(|c| ChannelCounters {
+            total_samples: c.health.total_samples(),
+            voiced_samples: c.health.voiced_samples(),
+        })
+        .unwrap_or_default()
 }
 
 fn persist_session_snapshot(session_id: &str) -> Result<(), TranscribeError> {
@@ -526,20 +1066,24 @@ fn persist_session_snapshot(session_id: &str) -> Result<(), TranscribeError> {
             started_at_unix_ms: state.started_at_unix_ms,
             last_split_at_unix_ms: state.last_split_at_unix_ms,
             segments_count: state.segments_count,
+            title: state.title.clone(),
+            updated_at_unix_ms: unix_ms_now().unwrap_or(state.started_at_unix_ms),
+            elapsed_secs: state.elapsed_secs(),
+            mic_counters: counters_of(state.mic_capture.as_ref()),
+            speaker_counters: counters_of(state.speaker_capture.as_ref()),
         }
     };
     write_snapshot_file(&snapshot)
 }
 
-/// Recovery snapshots contain only session configuration metadata
-/// (mode, mic/speaker toggles, model path) — no transcript content.
-/// Stored under the OS app-config directory (not temp), so they persist
-/// across reboots and are isolated per-user.
+/// Root of the crash-recovery area. Under the OS app-config directory
+/// (not temp), so it survives a reboot and is isolated per-user — this
+/// directory holds transcript text and captured audio, so `/tmp`'s
+/// world-readability would be a privacy regression.
 fn recovery_dir() -> Result<PathBuf, TranscribeError> {
     if let Some(path) = RECOVERY_DIR_OVERRIDE.with(|slot| slot.borrow().clone()) {
         return Ok(path);
     }
-    // OS config dir is per-user and not world-readable (unlike /tmp).
     let dir = dirs::config_dir()
         .ok_or_else(|| TranscribeError::InvalidInput("no config dir".into()))?
         .join("TrareonTranscribe")
@@ -547,27 +1091,79 @@ fn recovery_dir() -> Result<PathBuf, TranscribeError> {
     Ok(dir)
 }
 
-fn recovery_path(session_id: &str) -> Result<PathBuf, TranscribeError> {
-    Ok(recovery_dir()?.join(format!("{session_id}.inprogress")))
+/// One directory per session: snapshot, journal and the two `.part` WAVs
+/// live together, so recovering or discarding a session is one operation
+/// on one path rather than five guesses at filenames.
+fn session_recovery_dir(session_id: &str) -> Result<PathBuf, TranscribeError> {
+    Ok(recovery_dir()?.join(sanitize_session_id(session_id)))
+}
+
+/// Session ids are UUIDs, but they arrive from Dart and land in a path.
+/// Anything that isn't UUID-shaped is replaced rather than trusted.
+fn sanitize_session_id(session_id: &str) -> String {
+    let cleaned: String = session_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if cleaned.is_empty() {
+        "unnamed".to_string()
+    } else {
+        cleaned
+    }
 }
 
 fn write_snapshot_file(snapshot: &SessionRecoverySnapshot) -> Result<(), TranscribeError> {
-    let dir = recovery_dir()?;
+    let dir = session_recovery_dir(&snapshot.session_id)?;
     fs::create_dir_all(&dir).map_err(TranscribeError::from)?;
-    let final_path = recovery_path(&snapshot.session_id)?;
-    let tmp_path = final_path.with_extension("inprogress.tmp");
+    let final_path = dir.join(SNAPSHOT_FILE);
+    let tmp_path = dir.join(format!("{SNAPSHOT_FILE}.tmp"));
     let json = serde_json::to_vec_pretty(snapshot)
         .map_err(|e| TranscribeError::InvalidInput(e.to_string()))?;
+    // Temp + rename in the same directory: a snapshot rewritten every poll
+    // must never be observed half-written by the next launch.
     fs::write(&tmp_path, json).map_err(TranscribeError::from)?;
     fs::rename(&tmp_path, &final_path).map_err(TranscribeError::from)
 }
 
-fn remove_snapshot_file(session_id: &str) -> Result<(), TranscribeError> {
-    let path = recovery_path(session_id)?;
-    match fs::remove_file(path) {
-        Ok(_) => Ok(()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(TranscribeError::from(err)),
+/// Drops the parts of a session's recovery state that make it *recoverable*
+/// (snapshot + journal) while leaving the finalized WAVs for
+/// `export_session_audio` to move. Removes the directory outright if
+/// nothing is left in it.
+fn retire_recovery_state(session_id: &str) -> Result<(), TranscribeError> {
+    let dir = session_recovery_dir(session_id)?;
+    if !dir.exists() {
+        return Ok(());
+    }
+    for file in [SNAPSHOT_FILE, JOURNAL_FILE] {
+        match fs::remove_file(dir.join(file)) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(TranscribeError::from(err)),
+        }
+    }
+    release_recovery_dir(session_id);
+    Ok(())
+}
+
+/// Removes a session's recovery directory once it is empty. Called after
+/// the finalized audio has been moved into the session folder — the last
+/// thing that had a claim on it.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn release_recovery_dir(session_id: &str) {
+    let Ok(dir) = session_recovery_dir(session_id) else {
+        return;
+    };
+    let is_empty = fs::read_dir(&dir)
+        .map(|mut entries| entries.next().is_none())
+        .unwrap_or(false);
+    if is_empty {
+        let _ = fs::remove_dir(&dir);
     }
 }
 
@@ -594,8 +1190,15 @@ fn unix_ms_now() -> Result<u64, TranscribeError> {
 }
 
 impl SessionState {
+    /// Wall clock for this session, including time accumulated before a
+    /// crash it was recovered from.
+    fn elapsed_secs(&self) -> f64 {
+        self.recovered_elapsed_secs + self.started_at.elapsed().as_secs_f64()
+    }
+
     fn collect_worker_events(&mut self) {
         let dedupe_enabled = self.config.mode.echo_dedupe_enabled();
+        let offset = self.resume_offset_secs;
 
         // PRIORITY QUEUE: drain ALL mic events entirely before touching
         // speaker events. This ensures mic segments (direct user speech)
@@ -619,17 +1222,36 @@ impl SessionState {
                     message,
                 });
             }
+            // Problems the tee thread could only record, not report:
+            // a failed disk write, a RAM fallback that hit its cap.
+            if let Ok(mut errors) = channel.sink_errors.lock() {
+                for message in errors.drain(..) {
+                    self.pending_events.push(SessionEvent::Notice {
+                        level: NoticeLevel::Error,
+                        source: channel.source.clone(),
+                        message,
+                    });
+                }
+            }
         }
 
-        if let Some(capture) = self.mic_capture.as_ref() {
+        let mut emitted: Vec<Segment> = Vec::new();
+        for capture in [self.mic_capture.as_ref(), self.speaker_capture.as_ref()]
+            .into_iter()
+            .flatten()
+        {
             while let Ok(event) = capture.events_rx.try_recv() {
                 match event {
-                    LiveEvent::Segment(segment) => {
+                    LiveEvent::Segment(mut segment) => {
+                        // A recovered session's pipeline restarts at t=0.
+                        // Shifting here (rather than in the pipeline) keeps
+                        // the offset in one place and off the hot path.
+                        segment.timestamp += offset;
                         if let Some(segment) =
                             accept_or_drop_echo(segment, &mut self.recent_emitted, dedupe_enabled)
                         {
                             self.segments_count = self.segments_count.saturating_add(1);
-                            self.pending_events.push(SessionEvent::Transcript(segment));
+                            emitted.push(segment);
                         }
                     }
                     LiveEvent::Vu { source, level } => {
@@ -638,23 +1260,162 @@ impl SessionState {
                 }
             }
         }
-        if let Some(capture) = self.speaker_capture.as_ref() {
-            while let Ok(event) = capture.events_rx.try_recv() {
-                match event {
-                    LiveEvent::Segment(segment) => {
-                        if let Some(segment) =
-                            accept_or_drop_echo(segment, &mut self.recent_emitted, dedupe_enabled)
-                        {
-                            self.segments_count = self.segments_count.saturating_add(1);
-                            self.pending_events.push(SessionEvent::Transcript(segment));
-                        }
-                    }
-                    LiveEvent::Vu { source, level } => {
-                        self.pending_events.push(SessionEvent::Vu { source, level });
-                    }
+
+        // Journal before dispatch: a segment the UI has seen but the disk
+        // has not is exactly the gap this module exists to close.
+        for segment in emitted {
+            if let Some(journal) = self.journal.as_mut() {
+                if let Err(e) = journal.append(&segment) {
+                    tracing::error!(%e, "transcript journal write failed");
                 }
             }
+            self.pending_events.push(SessionEvent::Transcript(segment));
         }
+
+        self.raise_silence_warnings();
+    }
+
+    /// Tells the user when an expected source has stopped delivering audio.
+    ///
+    /// The failure this catches is the category's most-reported one: a
+    /// microphone that was open the whole meeting and recorded nothing,
+    /// discovered afterwards. Each channel warns once and re-arms when
+    /// sound comes back, so a long pause costs one notice, not one per poll.
+    fn raise_silence_warnings(&mut self) {
+        let Ok(now_unix_ms) = unix_ms_now() else {
+            return;
+        };
+        let elapsed = self.elapsed_secs();
+        let mut notices = Vec::new();
+        for channel in [self.mic_capture.as_mut(), self.speaker_capture.as_mut()]
+            .into_iter()
+            .flatten()
+        {
+            let silent_for = channel.health.silent_for_secs(now_unix_ms, elapsed);
+            if silent_for < SILENCE_WARNING_SECS {
+                // Audio is flowing again: re-arm so a later outage is
+                // reported too.
+                channel.silence_warned = false;
+                continue;
+            }
+            if channel.silence_warned {
+                continue;
+            }
+            channel.silence_warned = true;
+            let label = source_label(&channel.source);
+            let minutes = (silent_for / 60.0).floor() as u64;
+            notices.push((
+                channel.source.clone(),
+                if channel.health.confirmed() {
+                    format!(
+                        "Tidak ada suara dari {label} selama {minutes} menit terakhir. \
+                         Periksa apakah perangkat masih aktif atau ter-mute."
+                    )
+                } else {
+                    format!(
+                        "{} belum merekam suara apa pun sejak sesi dimulai \
+                         ({minutes} menit). Periksa perangkat dan izin mikrofon — \
+                         rekaman ini kemungkinan besar kosong.",
+                        capitalize(label)
+                    )
+                },
+            ));
+        }
+        for (source, message) in notices {
+            tracing::warn!(%source, %message, "capture health warning");
+            self.pending_events.push(SessionEvent::Notice {
+                level: NoticeLevel::Warning,
+                source,
+                message,
+            });
+        }
+    }
+
+    fn capture_health(&self) -> CaptureHealth {
+        let now_unix_ms = unix_ms_now().unwrap_or(0);
+        let elapsed = self.elapsed_secs();
+        let mut channels = Vec::new();
+        let mut warnings = Vec::new();
+
+        for (channel, expected, source) in [
+            (self.mic_capture.as_ref(), self.config.mic_enabled, "mic"),
+            (
+                self.speaker_capture.as_ref(),
+                self.config.speaker_enabled,
+                "spk",
+            ),
+        ] {
+            let Some(channel) = channel else {
+                if expected {
+                    // Asked for but never opened: `decide_start` already
+                    // warned, but the integrity summary must still say the
+                    // track is missing rather than omit it.
+                    channels.push(ChannelCapture {
+                        source: source.to_string(),
+                        expected: true,
+                        confirmed: false,
+                        seconds_captured: 0.0,
+                        seconds_voiced: 0.0,
+                        percent_silent: 100.0,
+                        silent_for_secs: elapsed,
+                        writing_to_disk: false,
+                    });
+                    warnings.push(format!(
+                        "{} tidak pernah berhasil dibuka, jadi tidak ada rekamannya.",
+                        capitalize(source_label(source))
+                    ));
+                }
+                continue;
+            };
+            let health = &channel.health;
+            let capture = ChannelCapture {
+                source: source.to_string(),
+                expected,
+                confirmed: health.confirmed(),
+                seconds_captured: health.seconds_captured(TARGET_SAMPLE_RATE),
+                seconds_voiced: health.seconds_voiced(TARGET_SAMPLE_RATE),
+                percent_silent: health.percent_silent(),
+                silent_for_secs: health.silent_for_secs(now_unix_ms, elapsed),
+                writing_to_disk: health.on_disk(),
+            };
+            if expected && !capture.confirmed {
+                warnings.push(format!(
+                    "{} tidak menghasilkan suara sama sekali ({:.0} detik terekam, \
+                     semuanya senyap).",
+                    capitalize(source_label(source)),
+                    capture.seconds_captured
+                ));
+            } else if expected && capture.silent_for_secs >= SILENCE_WARNING_SECS {
+                warnings.push(format!(
+                    "Tidak ada suara dari {} selama {:.0} menit terakhir.",
+                    source_label(source),
+                    capture.silent_for_secs / 60.0
+                ));
+            }
+            if expected && !capture.writing_to_disk {
+                warnings.push(format!(
+                    "Audio {} tidak ditulis ke disk, jadi tidak akan selamat dari crash.",
+                    source_label(source)
+                ));
+            }
+            channels.push(capture);
+        }
+
+        CaptureHealth {
+            session_id: self.session_id.clone(),
+            elapsed_secs: elapsed,
+            segment_count: self.segments_count,
+            channels,
+            warnings,
+        }
+    }
+}
+
+fn capitalize(text: &str) -> String {
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
     }
 }
 
@@ -847,24 +1608,383 @@ mod tests {
         assert!(get_status(&id).is_err());
     }
 
-    #[test]
-    fn recovery_snapshot_roundtrip_and_cleanup() {
-        let dir =
-            std::env::temp_dir().join(format!("transcribe_recovery_{}", uuid::Uuid::new_v4()));
-        let _ = std::fs::remove_dir_all(&dir);
-        set_recovery_dir_override(Some(dir.clone()));
+    /// Scopes `RECOVERY_DIR_OVERRIDE` (thread-local, so each test gets its
+    /// own) to a fresh temp directory and cleans it up afterwards.
+    struct RecoveryHome(PathBuf);
 
+    impl RecoveryHome {
+        fn new() -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("transcribe_recovery_{}", uuid::Uuid::new_v4()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            set_recovery_dir_override(Some(dir.clone()));
+            Self(dir)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for RecoveryHome {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+            set_recovery_dir_override(None);
+        }
+    }
+
+    /// Lays down the state a `kill -9` would have left: a snapshot, a
+    /// journal with `segment_texts` in it, and (optionally) an unfinalized
+    /// `.part` recording. Nothing here calls `start_session`, because the
+    /// crashed process is precisely the one that is no longer running.
+    fn stage_crashed_session(
+        home: &RecoveryHome,
+        segment_texts: &[&str],
+        mic_seconds: f64,
+    ) -> SessionRecoverySnapshot {
+        let id = Uuid::new_v4().to_string();
+        let dir = home.path().join(&id);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut journal = TranscriptJournal::open_append(&dir.join(JOURNAL_FILE)).unwrap();
+        for (index, text) in segment_texts.iter().enumerate() {
+            journal
+                .append(&seg("mic", text, index as f64 * 3.0))
+                .unwrap();
+        }
+        journal.sync().unwrap();
+
+        if mic_seconds > 0.0 {
+            let mut writer =
+                StreamingWavWriter::open(&dir.join(MIC_AUDIO_FILE), TARGET_SAMPLE_RATE, 1).unwrap();
+            let samples = (TARGET_SAMPLE_RATE as f64 * mic_seconds) as usize;
+            writer.append(&vec![0.25f32; samples]).unwrap();
+            // Deliberately no finalize(): the header still says zero.
+            std::mem::forget(writer);
+        }
+
+        let snapshot = SessionRecoverySnapshot {
+            session_id: id,
+            config: test_config(),
+            started_at_unix_ms: 1_000_000,
+            last_split_at_unix_ms: 1_000_000,
+            segments_count: segment_texts.len() as u32,
+            title: "Rapat Anggaran".to_string(),
+            updated_at_unix_ms: 1_000_000 + 90 * 60 * 1000,
+            elapsed_secs: 90.0 * 60.0,
+            mic_counters: ChannelCounters {
+                total_samples: TARGET_SAMPLE_RATE as u64 * 300,
+                voiced_samples: TARGET_SAMPLE_RATE as u64 * 120,
+            },
+            speaker_counters: ChannelCounters::default(),
+        };
+        std::fs::write(
+            dir.join(SNAPSHOT_FILE),
+            serde_json::to_vec_pretty(&snapshot).unwrap(),
+        )
+        .unwrap();
+        snapshot
+    }
+
+    /// UX-01, end to end: this is the failure the whole sprint is named
+    /// after. A session that crashed ninety minutes in used to come back
+    /// with `segments: []` and no audio.
+    #[test]
+    fn a_crashed_session_is_listed_with_its_real_transcript_and_audio() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu", "dua", "tiga"], 4.0);
+
+        let listed = list_recoverable_sessions().unwrap();
+        assert_eq!(listed.len(), 1);
+        let entry = &listed[0];
+        assert_eq!(entry.snapshot.session_id, staged.session_id);
+        assert_eq!(entry.title, "Rapat Anggaran");
+        assert_eq!(
+            entry.segment_count, 3,
+            "counted from the journal, not from the snapshot's claim"
+        );
+        assert!(entry.has_audio());
+        assert!((entry.mic_audio_secs - 4.0).abs() < 0.01);
+        assert_eq!(entry.speaker_audio_secs, 0.0);
+        assert!((entry.duration_secs - 5400.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn recovering_restores_the_segments_and_resumes_the_timeline() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu", "dua"], 30.0);
+
+        let recovered = recover_session(staged).unwrap();
+        let texts: Vec<_> = recovered.segments.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, ["satu", "dua"]);
+        assert!(
+            (recovered.resume_offset_secs - 30.0).abs() < 0.01,
+            "new segments continue from the end of the recovered audio, \
+             not from zero: {}",
+            recovered.resume_offset_secs
+        );
+        assert!((recovered.mic_audio_secs - 30.0).abs() < 0.01);
+
+        let status = get_status(&recovered.session_id).unwrap();
+        assert_eq!(status.segments_count, 2, "the count is restored too");
+        assert!(
+            status.elapsed_seconds >= 5400.0,
+            "the clock continues rather than restarting at 00:00"
+        );
+
+        // A session that is already running must not also be offered for
+        // recovery — recovering it twice would orphan the first one.
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        stop_session(&recovered.session_id).unwrap();
+    }
+
+    /// The `.part` file is reopened, not replaced: the saved WAV has to
+    /// cover the whole meeting, not just what came after the restart.
+    #[test]
+    fn recovering_keeps_writing_into_the_audio_it_recovered() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 2.0);
+        let id = staged.session_id.clone();
+        let part = wav_writer::part_path_for(&home.path().join(&id).join(MIC_AUDIO_FILE));
+        let bytes_before = std::fs::metadata(&part).unwrap().len();
+
+        let recovered = recover_session(staged).unwrap();
+        // Capture is disabled in test config, so nothing new is appended —
+        // what matters is that the existing samples were not truncated.
+        assert!(part.exists(), "the recording in progress is still there");
+        assert_eq!(std::fs::metadata(&part).unwrap().len(), bytes_before);
+        stop_session(&recovered.session_id).unwrap();
+    }
+
+    /// The integrity summary of a recovered session has to describe the
+    /// whole meeting: it used to report the full duration next to only the
+    /// seconds captured since the restart, because the counters restarted
+    /// with the capture threads while the clock and the audio file did not.
+    /// The counters therefore have to survive in the snapshot; what a
+    /// seeded [`ChannelHealth`] then reports is covered in `audio::sink`.
+    #[test]
+    fn capture_counters_survive_a_crash_in_the_snapshot() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 5.0);
+        let path = home.path().join(&staged.session_id).join(SNAPSHOT_FILE);
+
+        let reloaded = load_snapshot_file(&path).unwrap();
+        assert_eq!(
+            reloaded.mic_counters.total_samples,
+            TARGET_SAMPLE_RATE as u64 * 300
+        );
+        assert_eq!(
+            reloaded.mic_counters.voiced_samples,
+            TARGET_SAMPLE_RATE as u64 * 120
+        );
+        // A source that never ran carries zeroes, not garbage.
+        assert_eq!(reloaded.speaker_counters.total_samples, 0);
+
+        // And the recovered session is seeded from them.
+        let recovered = recover_session(reloaded).unwrap();
+        stop_session(&recovered.session_id).unwrap();
+    }
+
+    /// Snapshots written before the counters existed must still load.
+    #[test]
+    fn a_snapshot_without_counters_loads_with_zeroes() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 0.0);
+        let path = home.path().join(&staged.session_id).join(SNAPSHOT_FILE);
+        let mut value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("mic_counters");
+        object.remove("speaker_counters");
+        std::fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+
+        let reloaded = load_snapshot_file(&path).unwrap();
+        assert_eq!(reloaded.mic_counters.total_samples, 0);
+        assert_eq!(reloaded.segments_count, 1, "the rest still loads");
+    }
+
+    #[test]
+    fn a_snapshot_with_no_transcript_and_no_audio_is_cleaned_up_silently() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &[], 0.0);
+        let dir = home.path().join(&staged.session_id);
+        assert!(dir.exists());
+
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        assert!(!dir.exists(), "nothing to recover, nothing left behind");
+    }
+
+    /// Snapshots from before the journal existed carry configuration only,
+    /// which is exactly what made recovery useless. Offering them would be
+    /// repeating the lie.
+    #[test]
+    fn pre_journal_inprogress_files_are_discarded() {
+        let home = RecoveryHome::new();
+        let legacy = home
+            .path()
+            .join("11111111-2222-3333-4444-555555555555.inprogress");
+        std::fs::write(&legacy, b"{}").unwrap();
+
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        assert!(!legacy.exists());
+    }
+
+    /// Tidying up must never take a recording with it.
+    #[test]
+    fn a_directory_with_audio_but_no_snapshot_is_kept() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &[], 3.0);
+        let dir = home.path().join(&staged.session_id);
+        std::fs::remove_file(dir.join(SNAPSHOT_FILE)).unwrap();
+
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        assert!(
+            dir.exists(),
+            "an unresumable recording is still the user's audio"
+        );
+    }
+
+    #[test]
+    fn deleting_a_recoverable_session_removes_everything_it_held() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 1.0);
+        let dir = home.path().join(&staged.session_id);
+        assert!(dir.exists());
+
+        delete_recoverable_session(&staged.session_id).unwrap();
+        assert!(!dir.exists());
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        // Idempotent: deleting from a stale dialog must not error.
+        delete_recoverable_session(&staged.session_id).unwrap();
+    }
+
+    #[test]
+    fn stopping_clears_the_recovery_state_so_it_is_not_offered_again() {
+        let home = RecoveryHome::new();
         let id = start_session(test_config()).unwrap();
-        let snapshots = list_recoverable_sessions().unwrap();
-        assert_eq!(snapshots.len(), 1);
-        assert_eq!(snapshots[0].session_id, id);
+        let dir = home.path().join(&id);
+        assert!(dir.join(SNAPSHOT_FILE).exists());
+        assert!(dir.join(JOURNAL_FILE).exists());
 
         stop_session(&id).unwrap();
-        let snapshots = list_recoverable_sessions().unwrap();
-        assert!(snapshots.is_empty());
+        assert!(!dir.exists(), "no capture, so nothing is staged for export");
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+    }
 
-        let _ = std::fs::remove_dir_all(&dir);
-        set_recovery_dir_override(None);
+    /// `export_session_audio` runs *after* `stop_session`, so stopping must
+    /// not take the finalized WAVs with it.
+    #[test]
+    fn stopping_leaves_finalized_audio_for_the_export_that_follows() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+        let dir = home.path().join(&id);
+        // Stand in for the tee thread: a finished recording in the session's
+        // recovery directory.
+        let mut writer =
+            StreamingWavWriter::open(&dir.join(MIC_AUDIO_FILE), TARGET_SAMPLE_RATE, 1).unwrap();
+        writer.append(&vec![0.2f32; 16_000]).unwrap();
+        writer.finalize().unwrap().unwrap();
+
+        stop_session(&id).unwrap();
+        assert!(
+            dir.join(MIC_AUDIO_FILE).exists(),
+            "the audio must survive until export_session_audio moves it"
+        );
+        assert!(!dir.join(SNAPSHOT_FILE).exists());
+        assert!(!dir.join(JOURNAL_FILE).exists());
+
+        // ...and the directory goes once the audio has been claimed.
+        std::fs::remove_file(dir.join(MIC_AUDIO_FILE)).unwrap();
+        release_recovery_dir(&id);
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn a_live_session_journals_every_segment_it_emits() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+        let journal_path = home.path().join(&id).join(JOURNAL_FILE);
+
+        with_session_mut(&id, |state| {
+            let journal = state.journal.as_mut().expect("journal is open");
+            journal.append(&seg("mic", "halo", 0.0)).unwrap();
+            journal.append(&seg("spk", "dunia", 3.0)).unwrap();
+        })
+        .unwrap();
+
+        let replayed = journal::replay(&journal_path);
+        assert_eq!(replayed.len(), 2);
+        stop_session(&id).unwrap();
+    }
+
+    #[test]
+    fn a_session_id_can_never_escape_the_recovery_directory() {
+        let home = RecoveryHome::new();
+        let dir = session_recovery_dir("../../etc/passwd").unwrap();
+        assert!(dir.starts_with(home.path()));
+        assert_eq!(dir.file_name().unwrap(), "______etc_passwd");
+        assert_eq!(
+            session_recovery_dir("").unwrap().file_name().unwrap(),
+            "unnamed"
+        );
+    }
+
+    #[test]
+    fn capture_health_reports_a_source_that_was_asked_for_but_never_opened() {
+        let home = RecoveryHome::new();
+        // The config asks for a microphone but no channel exists — the
+        // exact shape of "the mic was never opened and nobody said so".
+        // Reached here via toggle_mic so the test needs no sound card.
+        let id = start_session(test_config()).unwrap();
+        toggle_mic(&id, true).unwrap();
+        let _ = home;
+
+        let health = get_capture_health(&id).unwrap();
+        let mic = health
+            .channels
+            .iter()
+            .find(|c| c.source == "mic")
+            .expect("the expected source is listed even when it never opened");
+        assert!(mic.expected);
+        assert!(!mic.confirmed);
+        assert_eq!(mic.percent_silent, 100.0);
+        assert!(!health.all_expected_confirmed());
+        assert!(
+            health
+                .warnings
+                .iter()
+                .any(|w| w.contains("tidak ada rekamannya")),
+            "the summary must say the track is missing: {:?}",
+            health.warnings
+        );
+        stop_session(&id).unwrap();
+    }
+
+    #[test]
+    fn capture_health_on_a_session_with_nothing_enabled_is_not_confirmed() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+        let _ = home;
+        let health = get_capture_health(&id).unwrap();
+        assert!(health.channels.is_empty());
+        assert!(
+            !health.all_expected_confirmed(),
+            "no expected source means nothing has been confirmed"
+        );
+        assert!(health.warnings.is_empty());
+        stop_session(&id).unwrap();
+    }
+
+    #[test]
+    fn the_session_title_reaches_the_recovery_snapshot() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+        set_session_title(&id, "Rapat Koordinasi").unwrap();
+
+        let snapshot = load_snapshot_file(&home.path().join(&id).join(SNAPSHOT_FILE)).unwrap();
+        assert_eq!(snapshot.title, "Rapat Koordinasi");
+        stop_session(&id).unwrap();
     }
 
     #[test]

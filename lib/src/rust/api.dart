@@ -5,7 +5,7 @@
 
 import 'audio.dart';
 import 'audio/device.dart';
-import 'decode.dart';
+import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
 import 'export.dart';
@@ -19,19 +19,11 @@ import 'summary.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-Future<AppConfig> getAppConfig() => RustLib.instance.api.crateApiGetAppConfig();
-
 Future<List<Check>> runPreflightChecks() =>
     RustLib.instance.api.crateApiRunPreflightChecks();
 
 Future<String> formatPreflightChecks({required List<Check> checks}) =>
     RustLib.instance.api.crateApiFormatPreflightChecks(checks: checks);
-
-Future<List<String>> resumePendingTranscriptions({
-  required String libraryPath,
-}) => RustLib.instance.api.crateApiResumePendingTranscriptions(
-  libraryPath: libraryPath,
-);
 
 /// Installs a `tracing` subscriber writing to stderr. Without this,
 /// every `tracing::error!`/`warn!` call in the engine (session/pipeline
@@ -48,8 +40,15 @@ Future<bool> healthCheck() => RustLib.instance.api.crateApiHealthCheck();
 Future<List<AudioDeviceInfo>> listAudioDevices() =>
     RustLib.instance.api.crateApiListAudioDevices();
 
-Future<AudioDeviceInfo> getLoopbackDevice({required String nameHint}) =>
-    RustLib.instance.api.crateApiGetLoopbackDevice(nameHint: nameHint);
+/// Playback devices — what the "Pengeras Suara" / loopback picker must show.
+///
+/// The speaker picker used to call [`list_audio_devices`], so it offered the
+/// user a list of microphones to record the system audio from. On Linux this
+/// resolves to PulseAudio/PipeWire *sinks* (same source of truth as
+/// `audio::pulse`, which the loopback capture then turns into
+/// `<sink>.monitor`), so what the picker shows and what gets recorded agree.
+Future<List<AudioDeviceInfo>> listOutputAudioDevices() =>
+    RustLib.instance.api.crateApiListOutputAudioDevices();
 
 Future<String> startSession({required SessionConfig config}) =>
     RustLib.instance.api.crateApiStartSession(config: config);
@@ -71,25 +70,51 @@ Future<void> toggleSpeaker({
   enabled: enabled,
 );
 
-Future<void> setSessionMode({
-  required String sessionId,
-  required SessionMode mode,
-}) => RustLib.instance.api.crateApiSetSessionMode(
-  sessionId: sessionId,
-  mode: mode,
-);
-
 Future<SessionStatus> getSessionStatus({required String sessionId}) =>
     RustLib.instance.api.crateApiGetSessionStatus(sessionId: sessionId);
 
 Future<List<SessionEvent>> pollSessionEvents({required String sessionId}) =>
     RustLib.instance.api.crateApiPollSessionEvents(sessionId: sessionId);
 
-Future<List<SessionRecoverySnapshot>> listRecoverableSessions() =>
+/// Sessions left behind by a crash, with what is actually recoverable for
+/// each (segment count, audio duration per source) rather than just the
+/// configuration the old snapshot carried.
+Future<List<RecoverableSession>> listRecoverableSessions() =>
     RustLib.instance.api.crateApiListRecoverableSessions();
 
-Future<String> recoverSession({required SessionRecoverySnapshot snapshot}) =>
-    RustLib.instance.api.crateApiRecoverSession(snapshot: snapshot);
+/// Restores a crashed session: returns its recovered transcript along with
+/// the live session id, and resumes capture into the same audio files.
+Future<RecoveredSession> recoverSession({
+  required SessionRecoverySnapshot snapshot,
+}) => RustLib.instance.api.crateApiRecoverSession(snapshot: snapshot);
+
+/// Discards one recoverable session and everything it held.
+Future<void> deleteRecoverableSession({required String sessionId}) =>
+    RustLib.instance.api.crateApiDeleteRecoverableSession(sessionId: sessionId);
+
+/// Live capture health: how much audio each source has actually delivered,
+/// whether it has ever been above the noise floor ("rekaman terkonfirmasi")
+/// and how long it has been quiet. Drives both the recording indicator and
+/// the integrity summary shown at Stop.
+Future<CaptureHealth> getCaptureHealth({required String sessionId}) =>
+    RustLib.instance.api.crateApiGetCaptureHealth(sessionId: sessionId);
+
+/// Mirrors the user-entered title into the recovery snapshot, so a crashed
+/// session appears in the recovery dialog under its name.
+Future<void> setSessionTitle({
+  required String sessionId,
+  required String title,
+}) => RustLib.instance.api.crateApiSetSessionTitle(
+  sessionId: sessionId,
+  title: title,
+);
+
+/// Free space on the volume holding `path`, plus whether that is enough to
+/// keep recording. Called before a session starts and periodically while
+/// one runs — three hours of "Rapat Online" is ~1.4 GB of WAV, and nothing
+/// used to check.
+Future<DiskSpaceStatus> checkDiskSpace({required String path}) =>
+    RustLib.instance.api.crateApiCheckDiskSpace(path: path);
 
 /// Benchmark a model's realtime factor (seconds of audio transcribed per
 /// second of wall-clock) using a 5s calibration chunk. Used by adaptive
@@ -167,15 +192,6 @@ Future<List<ExportedFile>> exportSessionAudio({
   outputDir: outputDir,
   title: title,
 );
-
-/// Sanitize a candidate filename so it is safe to use on all target
-/// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
-/// input would otherwise be empty after stripping.
-Future<String> exportSanitizeFilename({required String raw}) =>
-    RustLib.instance.api.crateApiExportSanitizeFilename(raw: raw);
-
-Future<AudioBuffer> decodeAudioFile({required String path}) =>
-    RustLib.instance.api.crateApiDecodeAudioFile(path: path);
 
 /// HPT file transcription: quick pass (base) then refine pass
 /// (large-v3-turbo-q5) over the same decoded audio. UI shows
@@ -328,14 +344,8 @@ Future<BigInt> flightEntryCount() =>
 Future<void> flightSetEnabled({required bool enabled}) =>
     RustLib.instance.api.crateApiFlightSetEnabled(enabled: enabled);
 
-Future<bool> isAnotherInstanceRunning() =>
-    RustLib.instance.api.crateApiIsAnotherInstanceRunning();
-
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
-
-Future<void> releaseInstanceLock() =>
-    RustLib.instance.api.crateApiReleaseInstanceLock();
 
 /// Result of an HPT (dual-model) file transcription: the quick pass from
 /// `base` (`is_partial = true`) and the refined pass from

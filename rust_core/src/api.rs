@@ -8,17 +8,16 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::audio::{AudioDeviceInfo, SessionConfig, SessionMode};
+use crate::audio::{AudioDeviceInfo, SessionConfig};
 use crate::doctor::{format_checks, run_checks, Check};
 use crate::error::TranscribeError;
 use crate::export::{ExportFormat, ExportedFile, Segment};
 use crate::model::ModelInfo;
-use crate::session::{SessionEvent, SessionRecoverySnapshot, SessionStatus};
-use crate::settings::{AppConfig, AppSettings};
-
-pub fn get_app_config() -> AppConfig {
-    AppConfig::load().unwrap_or_default()
-}
+use crate::session::{
+    CaptureHealth, RecoverableSession, RecoveredSession, SessionEvent, SessionRecoverySnapshot,
+    SessionStatus,
+};
+use crate::settings::AppSettings;
 
 pub fn run_preflight_checks() -> Vec<Check> {
     let settings = crate::settings::load_settings();
@@ -27,16 +26,6 @@ pub fn run_preflight_checks() -> Vec<Check> {
 
 pub fn format_preflight_checks(checks: Vec<Check>) -> String {
     format_checks(&checks)
-}
-
-pub fn resume_pending_transcriptions(library_path: String) -> Result<Vec<String>, TranscribeError> {
-    let paths = crate::pipeline::LiveWorker::resume_pending_transcriptions(std::path::Path::new(
-        &library_path,
-    ))?;
-    Ok(paths
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect())
 }
 
 /// Installs a `tracing` subscriber writing to stderr. Without this,
@@ -63,8 +52,15 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
     crate::audio::list_input_devices()
 }
 
-pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TranscribeError> {
-    crate::audio::get_loopback_device(&name_hint)
+/// Playback devices — what the "Pengeras Suara" / loopback picker must show.
+///
+/// The speaker picker used to call [`list_audio_devices`], so it offered the
+/// user a list of microphones to record the system audio from. On Linux this
+/// resolves to PulseAudio/PipeWire *sinks* (same source of truth as
+/// `audio::pulse`, which the loopback capture then turns into
+/// `<sink>.monitor`), so what the picker shows and what gets recorded agree.
+pub fn list_output_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
+    crate::audio::list_output_devices()
 }
 
 // --- Session control -----------------------------------------------------
@@ -85,10 +81,6 @@ pub fn toggle_speaker(session_id: String, enabled: bool) -> Result<(), Transcrib
     crate::session::toggle_speaker(&session_id, enabled)
 }
 
-pub fn set_session_mode(session_id: String, mode: SessionMode) -> Result<(), TranscribeError> {
-    crate::session::set_session_mode(&session_id, mode)
-}
-
 pub fn get_session_status(session_id: String) -> Result<SessionStatus, TranscribeError> {
     crate::session::get_status(&session_id)
 }
@@ -97,12 +89,48 @@ pub fn poll_session_events(session_id: String) -> Result<Vec<SessionEvent>, Tran
     crate::session::poll_events(&session_id)
 }
 
-pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, TranscribeError> {
+/// Sessions left behind by a crash, with what is actually recoverable for
+/// each (segment count, audio duration per source) rather than just the
+/// configuration the old snapshot carried.
+pub fn list_recoverable_sessions() -> Result<Vec<RecoverableSession>, TranscribeError> {
     crate::session::list_recoverable_sessions()
 }
 
-pub fn recover_session(snapshot: SessionRecoverySnapshot) -> Result<String, TranscribeError> {
+/// Restores a crashed session: returns its recovered transcript along with
+/// the live session id, and resumes capture into the same audio files.
+pub fn recover_session(
+    snapshot: SessionRecoverySnapshot,
+) -> Result<RecoveredSession, TranscribeError> {
     crate::session::recover_session(snapshot)
+}
+
+/// Discards one recoverable session and everything it held.
+pub fn delete_recoverable_session(session_id: String) -> Result<(), TranscribeError> {
+    crate::session::delete_recoverable_session(&session_id)
+}
+
+/// Live capture health: how much audio each source has actually delivered,
+/// whether it has ever been above the noise floor ("rekaman terkonfirmasi")
+/// and how long it has been quiet. Drives both the recording indicator and
+/// the integrity summary shown at Stop.
+pub fn get_capture_health(session_id: String) -> Result<CaptureHealth, TranscribeError> {
+    crate::session::get_capture_health(&session_id)
+}
+
+/// Mirrors the user-entered title into the recovery snapshot, so a crashed
+/// session appears in the recovery dialog under its name.
+pub fn set_session_title(session_id: String, title: String) -> Result<(), TranscribeError> {
+    crate::session::set_session_title(&session_id, &title)
+}
+
+// --- Disk space -----------------------------------------------------
+
+/// Free space on the volume holding `path`, plus whether that is enough to
+/// keep recording. Called before a session starts and periodically while
+/// one runs — three hours of "Rapat Online" is ~1.4 GB of WAV, and nothing
+/// used to check.
+pub fn check_disk_space(path: String) -> crate::disk::DiskSpaceStatus {
+    crate::disk::status_for(std::path::Path::new(&path))
 }
 
 // --- Model management -----------------------------------------------------
@@ -200,26 +228,24 @@ pub fn export_session_audio(
     output_dir: String,
     title: String,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
-    let (mic, speaker) = crate::session::take_raw_audio(&session_id);
-    crate::export::export_session_audio(
-        mic.as_deref(),
-        speaker.as_deref(),
-        &PathBuf::from(output_dir),
-        &title,
-    )
-}
-
-/// Sanitize a candidate filename so it is safe to use on all target
-/// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
-/// input would otherwise be empty after stripping.
-pub fn export_sanitize_filename(raw: String) -> String {
-    crate::export::sanitize_filename(&raw)
-}
-
-// --- File transcription -----------------------------------------------------
-
-pub fn decode_audio_file(path: String) -> Result<crate::decode::AudioBuffer, TranscribeError> {
-    crate::decode::decode_audio_file(std::path::Path::new(&path))
+    use crate::export::CapturedTrack;
+    let audio = crate::session::take_session_audio(&session_id);
+    let mic = audio
+        .mic_file
+        .as_deref()
+        .map(CapturedTrack::File)
+        .or_else(|| audio.mic_samples.as_deref().map(CapturedTrack::Samples));
+    let speaker = audio
+        .speaker_file
+        .as_deref()
+        .map(CapturedTrack::File)
+        .or_else(|| audio.speaker_samples.as_deref().map(CapturedTrack::Samples));
+    let exported =
+        crate::export::export_session_audio(mic, speaker, &PathBuf::from(output_dir), &title)?;
+    // The staged WAVs were the last thing holding the session's recovery
+    // directory open.
+    crate::session::release_recovery_dir(&session_id);
+    Ok(exported)
 }
 
 // --- Hybrid Progressive Transcription (HPT) --------------------------------------
@@ -482,21 +508,14 @@ pub fn flight_set_enabled(enabled: bool) {
 
 // --- Singleton instance lock -----------------------------------------------------
 
-pub fn is_another_instance_running() -> Result<bool, TranscribeError> {
-    crate::singleton::is_another_instance_running()
-}
-
 pub fn acquire_instance_lock() -> Result<(), TranscribeError> {
     crate::singleton::acquire_lock()
-}
-
-pub fn release_instance_lock() -> Result<(), TranscribeError> {
-    crate::singleton::release_lock()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::SessionMode;
 
     #[test]
     fn version_is_not_empty() {

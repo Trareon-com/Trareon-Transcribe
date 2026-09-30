@@ -19,8 +19,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../state/models.dart';
+import '../utils/atomic_file.dart';
 
 const String kMetaFilename = 'trareon-session.json';
+
+/// Copy of the transcript taken immediately before "Transkrip Ulang"
+/// replaces it. An hour of hand corrections used to be destroyed by one
+/// button with no backup and no undo.
+const String kTranscriptBackupFilename = 'trareon-transkrip-cadangan.json';
 
 /// Audio container extensions recognised when locating a session's playable
 /// source file.
@@ -219,11 +225,17 @@ Future<SessionMeta> readSessionMeta(String dirPath) async {
 
 /// Writes the sidecar for [dirPath], creating the directory if needed.
 /// Throws on failure so callers can tell the user their edit wasn't saved.
+///
+/// Atomic: the sidecar holds the only copy of the summary, so a write
+/// interrupted halfway used to destroy it outright.
 Future<void> writeSessionMeta(String dirPath, SessionMeta meta) async {
   final dir = Directory(dirPath);
   if (!await dir.exists()) await dir.create(recursive: true);
   final file = File('$dirPath${Platform.pathSeparator}$kMetaFilename');
-  await file.writeAsString(const JsonEncoder.withIndent('  ').convert(meta.toJson()));
+  await writeStringAtomic(
+    file,
+    const JsonEncoder.withIndent('  ').convert(meta.toJson()),
+  );
 }
 
 /// Parses the exported transcript JSON (a bare segment array) into segments.
@@ -267,9 +279,16 @@ String encodeTranscriptJson(List<TranscriptSegment> segments) {
   ]);
 }
 
+/// Every JSON file in a session directory that is not the transcript: the
+/// sidecar (which carries the only copy of the summary) and the
+/// re-transcribe backup. Picking either as "the transcript" would make a
+/// session look empty, or silently restore stale text.
+const Set<String> _nonTranscriptJson = {
+  kMetaFilename,
+  kTranscriptBackupFilename,
+};
+
 /// The transcript JSON file inside a session directory, or `null` if absent.
-/// Skips [kMetaFilename] — the sidecar is JSON too, and picking it as the
-/// transcript would make every session look empty.
 File? transcriptFileIn(Directory sessionDir) {
   try {
     return sessionDir
@@ -278,9 +297,39 @@ File? transcriptFileIn(Directory sessionDir) {
         .where(
           (f) =>
               f.path.endsWith('.json') &&
-              f.uri.pathSegments.last != kMetaFilename,
+              !_nonTranscriptJson.contains(f.uri.pathSegments.last),
         )
         .firstOrNull;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// The re-transcribe backup for [dirPath], or `null` when there is none.
+File? transcriptBackupIn(String dirPath) {
+  final file = File('$dirPath${Platform.pathSeparator}$kTranscriptBackupFilename');
+  return file.existsSync() ? file : null;
+}
+
+/// Copies the current transcript aside before something destructive
+/// replaces it. Throws if the backup cannot be written — a "Transkrip
+/// Ulang" that silently skipped its backup would be the original bug with
+/// extra steps.
+Future<void> backupTranscript(String dirPath, List<TranscriptSegment> segments) {
+  return writeStringAtomic(
+    File('$dirPath${Platform.pathSeparator}$kTranscriptBackupFilename'),
+    encodeTranscriptJson(segments),
+  );
+}
+
+/// Reads back a [backupTranscript] copy. Returns `null` when there is no
+/// backup or it cannot be parsed.
+Future<List<TranscriptSegment>?> readTranscriptBackup(String dirPath) async {
+  final file = transcriptBackupIn(dirPath);
+  if (file == null) return null;
+  try {
+    final segments = parseTranscriptJson(await file.readAsString());
+    return segments.isEmpty ? null : segments;
   } catch (_) {
     return null;
   }

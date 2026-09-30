@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
+import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -134,9 +135,43 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => [];
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
+      const [];
+
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async => '';
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async => rust_session.RecoveredSession(
+    sessionId: 'test-session',
+    segments: const [],
+    resumeOffsetSecs: 0,
+    micAudioSecs: 0,
+    speakerAudioSecs: 0,
+  );
+
+  @override
+  Future<void> deleteRecoverableSession(String sessionId) async {}
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) async =>
+      rust_session.CaptureHealth(
+        sessionId: sessionId,
+        elapsedSecs: 0,
+        segmentCount: 0,
+        channels: const [],
+        warnings: const [],
+      );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
+      rust_disk.DiskSpaceStatus(
+        availableBytes: BigInt.from(64 * 1024 * 1024 * 1024),
+        level: rust_disk.DiskSpaceLevel.ok,
+        message: '',
+      );
   @override
   Future<AppSettings> loadSettings() async => AppSettings.defaults();
   @override
@@ -171,11 +206,11 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     List<rust_export.ExportFormat> formats = const [],
   }) async => [];
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
   @override
   Future<void> pauseSession(String sessionId) async {}
   @override

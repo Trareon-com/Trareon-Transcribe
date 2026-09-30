@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import '../services/session_store.dart';
+import '../utils/atomic_file.dart';
 import '../utils/model_labels.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -58,6 +60,15 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   String? _error;
   Timer? _persistDebounce;
 
+  /// Set when saving an edit failed. Persistent, with a retry: this used
+  /// to be a `debugPrint`, so an edit the user watched appear on screen
+  /// was silently never written.
+  String? _saveError;
+  bool _retryingSave = false;
+
+  /// Whether a pre-"Transkrip Ulang" copy exists to restore from.
+  bool _hasBackup = false;
+
   /// Latest saved summary, kept here so "Ekspor" can lead the Markdown/DOCX
   /// with it without re-reading the sidecar.
   late String _summary;
@@ -69,7 +80,19 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     super.initState();
     _segments = List.of(widget.segments);
     _summary = widget.meta.summary;
+    _refreshBackupAvailability();
     _initPlayer();
+  }
+
+  void _refreshBackupAvailability() {
+    final dirPath = _sessionDirPath;
+    final hasBackup = dirPath != null && transcriptBackupIn(dirPath) != null;
+    if (hasBackup == _hasBackup) return;
+    if (mounted) {
+      setState(() => _hasBackup = hasBackup);
+    } else {
+      _hasBackup = hasBackup;
+    }
   }
 
   Future<void> _initPlayer() async {
@@ -132,19 +155,56 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       widget.sessionDirPath ??
       (widget.audioPath != null ? File(widget.audioPath!).parent.path : null);
 
-  Future<void> _persistSegments() async {
-    final dirPath = _sessionDirPath;
+  /// Writes the edited transcript back over the exported `*.json`.
+  ///
+  /// Atomic (temp + rename in the same directory): this fires on a 400 ms
+  /// debounce after every keystroke-driven edit, so an interrupted write
+  /// used to be able to truncate the file the edit was improving. A
+  /// failure is surfaced, not `debugPrint`ed.
+  Future<void> _persistSegments({String? toDirectory}) async {
+    final dirPath = toDirectory ?? _sessionDirPath;
     if (dirPath == null) return;
     try {
       final sessionDir = Directory(dirPath);
-      // transcriptFileIn() skips the metadata sidecar — it is also JSON, and
-      // overwriting it with a segment array would drop the saved summary.
-      final jsonFile =
-          transcriptFileIn(sessionDir) ??
+      // transcriptFileIn() skips the metadata sidecar and the re-transcribe
+      // backup — both are JSON too, and overwriting either would cost the
+      // saved summary or the undo copy.
+      final jsonFile = (toDirectory == null ? transcriptFileIn(sessionDir) : null) ??
           File('${sessionDir.path}${Platform.pathSeparator}transcript.json');
-      await jsonFile.writeAsString(encodeTranscriptJson(_segments));
+      await writeStringAtomic(jsonFile, encodeTranscriptJson(_segments));
+      if (mounted && _saveError != null) setState(() => _saveError = null);
     } catch (e) {
-      debugPrint('_persistSegments error: $e');
+      if (!mounted) {
+        debugPrint('_persistSegments error: $e');
+        return;
+      }
+      setState(
+        () => _saveError = 'Perubahan transkrip gagal disimpan ke $dirPath: $e',
+      );
+    }
+  }
+
+  Future<void> _retrySave({bool elsewhere = false}) async {
+    String? directory;
+    if (elsewhere) {
+      directory = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Simpan transkrip ke folder lain',
+        initialDirectory: _sessionDirPath,
+      );
+      if (directory == null) return;
+    }
+    if (!mounted) return;
+    setState(() => _retryingSave = true);
+    await _persistSegments(toDirectory: directory);
+    if (!mounted) return;
+    setState(() => _retryingSave = false);
+    if (_saveError == null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transkrip tersimpan.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -152,6 +212,10 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// it. The summary is deliberately left alone: it may have been edited by
   /// hand, and silently discarding it would be worse than letting the user
   /// press "Buat Ulang" themselves.
+  ///
+  /// The current transcript is copied aside first. Re-transcribing used to
+  /// overwrite hand corrections outright — an hour of careful editing
+  /// destroyed by one button, with no undo and no backup.
   Future<void> _retranscribe() async {
     final audioPath = widget.audioPath;
     final dirPath = _sessionDirPath;
@@ -164,6 +228,22 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       currentLanguage: widget.meta.language,
     );
     if (result == null || !mounted) return;
+
+    // Before anything is replaced. A backup that fails must stop the
+    // replacement, not proceed without it.
+    try {
+      await backupTranscript(dirPath, _segments);
+    } catch (e) {
+      if (!mounted) return;
+      setState(
+        () => _saveError =
+            'Transkrip lama gagal dicadangkan ($e), jadi transkrip ulang '
+            'dibatalkan. Transkrip Anda tidak diubah.',
+      );
+      return;
+    }
+    if (!mounted) return;
+    _refreshBackupAvailability();
 
     setState(() => _segments = result.segments);
     widget.onSegmentsChanged?.call(List.unmodifiable(_segments));
@@ -182,8 +262,36 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       SnackBar(
         content: Text(
           'Transkrip diperbarui: ${result.segments.length} segmen '
-          '(${modelDisplayLabel(result.modelId)}).',
+          '(${modelDisplayLabel(result.modelId)}). Versi sebelumnya '
+          'dicadangkan.',
         ),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Pulihkan',
+          onPressed: _restoreBackup,
+        ),
+      ),
+    );
+  }
+
+  /// Puts back the transcript "Transkrip Ulang" replaced.
+  Future<void> _restoreBackup() async {
+    final dirPath = _sessionDirPath;
+    if (dirPath == null) return;
+    final restored = await readTranscriptBackup(dirPath);
+    if (!mounted) return;
+    if (restored == null) {
+      setState(() => _saveError = 'Cadangan transkrip tidak bisa dibaca.');
+      return;
+    }
+    setState(() => _segments = restored);
+    widget.onSegmentsChanged?.call(List.unmodifiable(_segments));
+    await _persistSegments();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Transkrip sebelum transkrip ulang dipulihkan '
+            '(${restored.length} segmen).'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -263,6 +371,41 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       ),
       body: Column(
         children: [
+          if (_saveError != null)
+            Material(
+              color: colors.error.withValues(alpha: 0.12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: colors.error, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _saveError!,
+                          style: TextStyle(color: colors.text, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _retryingSave
+                          ? null
+                          : () => _retrySave(elsewhere: true),
+                      child: const Text('Simpan ke folder lain'),
+                    ),
+                    FilledButton(
+                      onPressed: _retryingSave ? null : () => _retrySave(),
+                      child: Text(_retryingSave ? 'Menyimpan…' : 'Coba lagi'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (_sessionDirPath != null)
             SummaryPanel(
               sessionDirPath: _sessionDirPath!,
@@ -295,7 +438,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                      style: TextStyle(color: colors.error, fontSize: 12),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -386,6 +529,28 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (_hasBackup) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.undo, size: 16),
+                        label: const Text(
+                          'Pulihkan cadangan',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        onPressed: _restoreBackup,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.textSecondary,
+                          side: BorderSide(color: colors.border),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     if (widget.audioPath != null && _sessionDirPath != null) ...[
                       OutlinedButton.icon(
                         icon: const Icon(Icons.refresh, size: 16),

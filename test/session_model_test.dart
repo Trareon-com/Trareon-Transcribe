@@ -7,6 +7,7 @@ import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 import 'package:transcribe/state/settings_model.dart';
+import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/audio.dart' as rust_audio;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -45,11 +46,43 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
+      const [];
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async =>
-      'test-session';
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async => rust_session.RecoveredSession(
+    sessionId: 'test-session',
+    segments: const [],
+    resumeOffsetSecs: 0,
+    micAudioSecs: 0,
+    speakerAudioSecs: 0,
+  );
+
+  @override
+  Future<void> deleteRecoverableSession(String sessionId) async {}
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) async =>
+      rust_session.CaptureHealth(
+        sessionId: sessionId,
+        elapsedSecs: 0,
+        segmentCount: 0,
+        channels: const [],
+        warnings: const [],
+      );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
+      rust_disk.DiskSpaceStatus(
+        availableBytes: BigInt.from(64 * 1024 * 1024 * 1024),
+        level: rust_disk.DiskSpaceLevel.ok,
+        message: '',
+      );
 
   @override
   Future<AppSettings> loadSettings() async => settings;
@@ -95,11 +128,11 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     List<rust_export.ExportFormat> formats = const [],
   }) async => [];
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
   @override
   Future<void> pauseSession(String sessionId) async {}
   @override
@@ -309,14 +342,161 @@ void main() {
         gpuEnabled: false,
         gpuDevice: 0,
         vadEnabled: false,
+        audioToDisk: true,
       ),
       startedAtUnixMs: BigInt.zero,
       lastSplitAtUnixMs: BigInt.zero,
       segmentsCount: 0,
+      title: 'orphan-candidate',
+      updatedAtUnixMs: BigInt.zero,
+      elapsedSecs: 0,
+      micCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
+      speakerCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
     );
 
     await notifier.recoverFromSnapshot(snapshot);
 
     expect(notifier.state.sessionId, 'already-recording-session');
   });
+
+  test('recoverFromSnapshot restores the recovered transcript', () async {
+    // UX-01: `segments: []` was hardcoded here, so a crash in the second
+    // hour of a meeting restored a session with nothing in it.
+    final bridge = _RecoveringBridge();
+    final notifier = SessionNotifier(
+      bridge,
+      SessionMode.online,
+      modelPathForId('tiny'),
+    );
+    addTearDown(notifier.dispose);
+
+    final recovered = await notifier.recoverFromSnapshot(
+      _snapshot('crash-1', title: 'Rapat Anggaran'),
+    );
+
+    expect(recovered, isNotNull);
+    expect(notifier.state.lifecycle, SessionLifecycle.recording);
+    expect(notifier.state.sessionId, 'crash-1');
+    expect(notifier.state.segments.map((s) => s.text), ['satu', 'dua']);
+    expect(notifier.state.sessionTitle, 'Rapat Anggaran');
+  });
+
+  test('a recovered session keeps its title out of the snapshot', () async {
+    final bridge = _RecoveringBridge();
+    final notifier = SessionNotifier(
+      bridge,
+      SessionMode.online,
+      modelPathForId('tiny'),
+    );
+    addTearDown(notifier.dispose);
+
+    await notifier.recoverFromSnapshot(_snapshot('crash-1', title: ''));
+
+    expect(
+      notifier.state.sessionTitle,
+      isEmpty,
+      reason: 'an untitled crashed session must not invent a title',
+    );
+  });
+
+  test('setTitle mirrors the title into the recovery snapshot', () async {
+    final bridge = _RecoveringBridge();
+    final notifier = SessionNotifier(
+      bridge,
+      SessionMode.online,
+      modelPathForId('tiny'),
+    );
+    addTearDown(notifier.dispose);
+
+    // Not recording yet: there is no session to mirror into.
+    notifier.setTitle('sebelum mulai');
+    expect(bridge.titles, isEmpty);
+
+    await notifier.recoverFromSnapshot(_snapshot('crash-1', title: 'awal'));
+    await Future<void>.delayed(Duration.zero);
+    // The title is pushed once the session exists, not only on the next
+    // keystroke — the usual order is to type a title and then press Mulai,
+    // which left the snapshot nameless.
+    expect(bridge.titles, [('crash-1', 'awal')]);
+
+    notifier.setTitle('Rapat Koordinasi');
+    await Future<void>.delayed(Duration.zero);
+    expect(bridge.titles.last, ('crash-1', 'Rapat Koordinasi'));
+  });
+}
+
+rust_session.SessionRecoverySnapshot _snapshot(
+  String id, {
+  required String title,
+}) {
+  return rust_session.SessionRecoverySnapshot(
+    sessionId: id,
+    config: const rust_audio.SessionConfig(
+      micEnabled: true,
+      speakerEnabled: false,
+      mode: rust_audio.SessionMode.offline,
+      modelPath: 'ggml-base.bin',
+      hptMode: rust_audio.HptMode.auto,
+      gpuEnabled: false,
+      gpuDevice: 0,
+      vadEnabled: false,
+      audioToDisk: true,
+    ),
+    startedAtUnixMs: BigInt.zero,
+    lastSplitAtUnixMs: BigInt.zero,
+    segmentsCount: 2,
+    title: title,
+    updatedAtUnixMs: BigInt.zero,
+    elapsedSecs: 5400,
+    micCounters: rust_session.ChannelCounters(
+      totalSamples: BigInt.zero,
+      voicedSamples: BigInt.zero,
+    ),
+    speakerCounters: rust_session.ChannelCounters(
+      totalSamples: BigInt.zero,
+      voicedSamples: BigInt.zero,
+    ),
+  );
+}
+
+rust_export.Segment _rustSegment(String text, double timestamp) =>
+    rust_export.Segment(
+      source: 'mic',
+      speaker: 'MIC',
+      text: text,
+      timestamp: timestamp,
+      duration: 2,
+      language: 'id',
+      confidence: 0.9,
+      avgLogProb: -0.3,
+      isPartial: false,
+      lowConfidence: false,
+    );
+
+/// Returns a recovered session carrying a real transcript, and records the
+/// titles pushed back down to Rust.
+class _RecoveringBridge extends _NoopBridge {
+  final List<(String, String)> titles = [];
+
+  @override
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async => rust_session.RecoveredSession(
+    sessionId: snapshot.sessionId,
+    segments: [_rustSegment('satu', 0), _rustSegment('dua', 3)],
+    resumeOffsetSecs: 5400,
+    micAudioSecs: 5400,
+    speakerAudioSecs: 0,
+  );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {
+    titles.add((sessionId, title));
+  }
 }

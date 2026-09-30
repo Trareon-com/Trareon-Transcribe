@@ -14,12 +14,17 @@ pub mod loopback;
 /// itself is a proc macro on a file module, which is still unstable.
 pub mod pulse;
 pub mod ring_buffer;
+/// Capture destination (disk or bounded RAM) plus per-source health
+/// counters. Driven from `session`.
+pub mod sink;
 pub mod stream_error;
+/// Crash-survivable streaming WAV writer. Driven from `session`.
+pub mod wav_writer;
 
 use serde::{Deserialize, Serialize};
 
 pub use capture::AudioCapture;
-pub use device::{get_loopback_device, list_input_devices, AudioDeviceInfo};
+pub use device::{get_loopback_device, list_input_devices, list_output_devices, AudioDeviceInfo};
 pub use ring_buffer::RingBuffer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,6 +94,17 @@ pub struct SessionConfig {
     /// GPU device index to use when `gpu_enabled` is true (0 = default).
     #[serde(default)]
     pub gpu_device: i32,
+    /// Stream captured audio to disk as it arrives instead of holding it
+    /// in RAM until Stop. On by default; the switch exists because this
+    /// touches the capture path that was only just stabilised, so a
+    /// release can fall back without a rebuild. `session` keeps a bounded
+    /// RAM buffer as the fallback either way.
+    #[serde(default = "default_audio_to_disk")]
+    pub audio_to_disk: bool,
+}
+
+fn default_audio_to_disk() -> bool {
+    true
 }
 
 impl SessionConfig {
@@ -106,6 +122,7 @@ impl SessionConfig {
             vad_enabled: true,
             gpu_enabled: false,
             gpu_device: 0,
+            audio_to_disk: true,
         }
     }
 

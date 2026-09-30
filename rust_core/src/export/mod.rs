@@ -91,14 +91,30 @@ pub fn session_dir_for(output_dir: &Path, title: &str) -> PathBuf {
     }
 }
 
-/// Writes the raw mic/speaker audio retained for a live session as
-/// per-track WAV files (blueprint §7.1: `mic.wav` + `speaker.wav`) into the
-/// same session folder `export_segments` uses for this `output_dir`/`title`.
+/// One source's captured audio, as a stopped session left it.
+#[flutter_rust_bridge::frb(ignore)]
+pub enum CapturedTrack<'a> {
+    /// Already a finished WAV, streamed during the session. Moved into
+    /// place rather than re-encoded.
+    File(&'a Path),
+    /// Samples from the RAM fallback path, still to be written.
+    Samples(&'a [f32]),
+}
+
+/// Places the mic/speaker audio of a live session as per-track WAV files
+/// (blueprint §7.1: `mic.wav` + `speaker.wav`) in the same session folder
+/// `export_segments` uses for this `output_dir`/`title`.
+///
+/// A [`CapturedTrack::File`] is *moved* (with a copy fallback across
+/// filesystems), not re-encoded: it is already the exact bytes
+/// [`write_wav`] would produce, and re-reading 700 MB to write it back out
+/// would double both the I/O and the peak memory this path exists to
+/// avoid.
 /// Not FRB-exposed directly (takes `&Path`); see `api::export_session_audio`.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn export_session_audio(
-    mic_samples: Option<&[f32]>,
-    speaker_samples: Option<&[f32]>,
+    mic: Option<CapturedTrack<'_>>,
+    speaker: Option<CapturedTrack<'_>>,
     output_dir: &Path,
     title: &str,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
@@ -106,10 +122,13 @@ pub fn export_session_audio(
     fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
 
     let mut results = Vec::new();
-    for (filename, samples) in [("mic.wav", mic_samples), ("speaker.wav", speaker_samples)] {
-        let Some(samples) = samples else { continue };
+    for (filename, track) in [("mic.wav", mic), ("speaker.wav", speaker)] {
+        let Some(track) = track else { continue };
         let path = session_dir.join(filename);
-        write_wav(samples, 16_000, &path)?;
+        match track {
+            CapturedTrack::Samples(samples) => write_wav(samples, 16_000, &path)?,
+            CapturedTrack::File(source) => move_file(source, &path)?,
+        }
         let size_bytes = fs::metadata(&path).map_err(TranscribeError::from)?.len();
         results.push(ExportedFile {
             filename: filename.to_string(),
@@ -118,6 +137,22 @@ pub fn export_session_audio(
         });
     }
     Ok(results)
+}
+
+/// `rename`, falling back to copy+delete when source and destination are
+/// on different filesystems (the recovery directory lives under the OS
+/// config dir; the library can be anywhere, including a mounted share).
+fn move_file(source: &Path, destination: &Path) -> Result<(), TranscribeError> {
+    if fs::rename(source, destination).is_ok() {
+        return Ok(());
+    }
+    fs::copy(source, destination).map_err(TranscribeError::from)?;
+    if let Err(e) = fs::remove_file(source) {
+        // The audio is safely in the library; a leftover in the recovery
+        // directory is cleaned up by the next `list_recoverable_sessions`.
+        tracing::warn!(path = %source.display(), %e, "could not remove staged audio");
+    }
+    Ok(())
 }
 
 /// Not FRB-exposed directly (takes `&Path`); see `api::export_session`.
@@ -681,8 +716,13 @@ mod tests {
             export_segments(&segments, &[ExportFormat::Txt], &dir, "Rapat Q3").unwrap();
         let mic = vec![0.1f32, 0.2, -0.2];
         let speaker = vec![0.3f32, -0.3];
-        let audio_files =
-            export_session_audio(Some(&mic), Some(&speaker), &dir, "Rapat Q3").unwrap();
+        let audio_files = export_session_audio(
+            Some(CapturedTrack::Samples(&mic)),
+            Some(CapturedTrack::Samples(&speaker)),
+            &dir,
+            "Rapat Q3",
+        )
+        .unwrap();
 
         let transcript_dir = Path::new(&transcript_files[0].path).parent().unwrap();
         assert_eq!(audio_files.len(), 2);
@@ -707,7 +747,9 @@ mod tests {
         let mic = vec![0.1f32, 0.2];
         // No speaker track (e.g. mic-only session) — must not write a
         // speaker.wav placeholder.
-        let files = export_session_audio(Some(&mic), None, &dir, "Rapat Q3").unwrap();
+        let files =
+            export_session_audio(Some(CapturedTrack::Samples(&mic)), None, &dir, "Rapat Q3")
+                .unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].filename, "mic.wav");
         let _ = fs::remove_dir_all(&dir);

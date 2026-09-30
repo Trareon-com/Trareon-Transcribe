@@ -9,8 +9,13 @@ pub mod audio;
 pub mod decode;
 pub mod dedupe;
 pub mod diarization;
+/// Free-space checks for the library volume.
+pub mod disk;
 pub mod export;
 pub mod flight_recorder;
+/// Continuous transcript journal (crash recovery). Driven from `session`,
+/// never from Dart.
+pub mod journal;
 pub mod memory;
 pub mod model;
 pub mod pipeline;
