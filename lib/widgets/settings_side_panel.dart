@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../app_version.dart';
 import '../services/update_checker.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
@@ -364,7 +367,12 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             label: 'Cek Pembaruan',
                             trailing: const Icon(Icons.chevron_right, size: 18),
                             onTap: () async {
-                              final update = UpdateChecker();
+                              final privacy = ref.read(
+                                privacyReportProvider.notifier,
+                              );
+                              final update = UpdateChecker(
+                                onNetworkRequest: privacy.recordUpdateCheck,
+                              );
                               // Previously uncaught: checkForUpdate() throws
                               // UpdateCheckException on any network failure
                               // (no internet, timeout, DNS, ...), which was
@@ -394,7 +402,11 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                                         TextButton(
                                           onPressed: () {
                                             Navigator.pop(context);
-                                            // Open release page
+                                            _openReleasePage(
+                                              context,
+                                              info.downloadUrl ?? kReleasesUrl,
+                                              privacy,
+                                            );
                                           },
                                           child: const Text('Lihat Rilis'),
                                         ),
@@ -435,11 +447,33 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
     );
   }
 
+  /// Hands the releases page to the system browser. Recorded in the Privacy
+  /// Report before the handoff: Trareon opens no socket here, but the user's
+  /// machine does, and a report that omitted it would be misleading.
+  Future<void> _openReleasePage(
+    BuildContext context,
+    String url,
+    PrivacyReportNotifier privacy,
+  ) async {
+    privacy.recordExternalLink(url);
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      AppToast.show(
+        context,
+        'Tidak bisa membuka peramban. Buka $url secara manual.',
+        type: ToastType.error,
+      );
+    }
+  }
+
   void _showAboutDialog(BuildContext context, AppColorSet colors) {
     showAboutDialog(
       context: context,
       applicationName: 'Trareon Transcribe',
-      applicationVersion: '1.0.0',
+      applicationVersion: kAppVersion,
       applicationIcon: const Icon(Icons.mic, size: 48, color: Colors.teal),
       children: [
         const Text('Transkripsi offline, privasi terjamin.'),

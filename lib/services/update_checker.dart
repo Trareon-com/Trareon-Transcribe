@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../app_version.dart';
+
 /// Information about an update check result.
 class UpdateInfo {
   /// The currently installed version string.
@@ -59,8 +61,17 @@ class UpdateCheckException implements Exception {
 }
 
 /// Checks for application updates by fetching a version manifest.
+///
+/// This is one of the app's four outbound paths, so [onNetworkRequest] is
+/// **required**, not optional: it is what puts the check into the Privacy
+/// Report. The report used to claim two network activities while this class
+/// silently contacted `raw.githubusercontent.com` on every "Cek Pembaruan",
+/// and a callback that can be omitted is a callback that will be.
 class UpdateChecker {
-  /// Current app version — should match pubspec.yaml.
+  /// Current app version. Defaults to [kAppVersion], which
+  /// `test/app_version_test.dart` keeps in lockstep with `pubspec.yaml` and
+  /// the `VERSION` manifest — it was hardcoded `0.1.0` against a pubspec
+  /// saying `1.0.0`, so the comparison was wrong in both directions.
   final String currentVersion;
 
   /// URL of the version manifest file.
@@ -69,10 +80,13 @@ class UpdateChecker {
   /// Optional network timeout override (defaults to 10 seconds).
   final Duration timeout;
 
+  /// Invoked with [manifestUrl] immediately before the socket is opened.
+  final void Function(String endpoint) onNetworkRequest;
+
   UpdateChecker({
-    this.currentVersion = '0.1.0',
-    this.manifestUrl =
-        'https://raw.githubusercontent.com/Trareon-com/Transcribe/main/VERSION',
+    required this.onNetworkRequest,
+    this.currentVersion = kAppVersion,
+    this.manifestUrl = kVersionManifestUrl,
     this.timeout = const Duration(seconds: 10),
   });
 
@@ -81,6 +95,9 @@ class UpdateChecker {
   ///
   /// Throws [UpdateCheckException] on network errors or bad responses.
   Future<UpdateInfo> checkForUpdate() async {
+    // Before the socket, and before any failure path can skip it: a check
+    // that could not connect is still a check the user should see recorded.
+    onNetworkRequest(manifestUrl);
     final client = HttpClient();
     client.connectionTimeout = timeout;
 
@@ -106,8 +123,7 @@ class UpdateChecker {
       return UpdateInfo(
         currentVersion: currentVersion,
         latestVersion: latestVersion,
-        downloadUrl:
-            'https://github.com/Trareon-com/Transcribe/releases',
+        downloadUrl: kReleasesUrl,
       );
     } on SocketException {
       throw UpdateCheckException(
