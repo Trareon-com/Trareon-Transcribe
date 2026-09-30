@@ -173,6 +173,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ModelInfo dco_decode_model_info(dynamic raw);
 
   @protected
+  NoticeLevel dco_decode_notice_level(dynamic raw);
+
+  @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
 
   @protected
@@ -444,6 +447,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ModelInfo sse_decode_model_info(SseDeserializer deserializer);
+
+  @protected
+  NoticeLevel sse_decode_notice_level(SseDeserializer deserializer);
 
   @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
@@ -776,6 +782,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_Map_String_String_None(

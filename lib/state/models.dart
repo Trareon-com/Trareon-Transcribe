@@ -323,6 +323,35 @@ class VuLevel {
   const VuLevel({required this.micLevel, required this.speakerLevel});
 }
 
+/// Severity of a [SessionNotice].
+enum SessionNoticeLevel {
+  /// The session is running, but with fewer sources than requested.
+  warning,
+
+  /// Something the user asked for has stopped working.
+  error,
+}
+
+/// Something the engine has to tell the user *while* a session runs: a
+/// capture source that couldn't be opened, or one that died mid-recording.
+///
+/// Distinct from the [AudioWatchdogNotifier] warning, which infers trouble
+/// from twelve seconds of silence. These are reported by the engine the
+/// moment they happen, and say which source and why.
+class SessionNotice {
+  final SessionNoticeLevel level;
+
+  /// `'mic'`, `'spk'`, or `'session'` for one that isn't source-specific.
+  final String source;
+  final String message;
+
+  const SessionNotice({
+    required this.level,
+    required this.source,
+    required this.message,
+  });
+}
+
 enum AppThemeMode { light, dark, system }
 
 /// HPT (Hybrid Progressive Transcription) strategy chosen by the user.

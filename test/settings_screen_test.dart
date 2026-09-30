@@ -31,6 +31,9 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
   @override

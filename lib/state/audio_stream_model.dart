@@ -14,3 +14,15 @@ final vuLevelProvider = StreamProvider<VuLevel>((ref) {
   }
   return bridge.vuMeterStream(sessionId);
 });
+
+/// Capture problems the engine reports for the active session (a source that
+/// couldn't be opened, or one that died mid-recording). The UI shows each as
+/// a toast — see `main_screen.dart`.
+final sessionNoticeProvider = StreamProvider<SessionNotice>((ref) {
+  final bridge = ref.watch(rustBridgeProvider);
+  final sessionId = ref.watch(sessionProvider).sessionId;
+  if (sessionId == null) {
+    return const Stream<SessionNotice>.empty();
+  }
+  return bridge.noticeStream(sessionId);
+});

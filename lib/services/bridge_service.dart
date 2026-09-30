@@ -25,6 +25,11 @@ abstract class RustBridge {
   Future<void> toggleSpeaker(String sessionId, bool enabled);
   Stream<TranscriptSegment> transcriptStream(String sessionId);
   Stream<VuLevel> vuMeterStream(String sessionId);
+
+  /// Capture problems the engine reports mid-session — a source that could
+  /// not be opened at start, or one that died while recording. Surfaced as a
+  /// toast; without it a half-dead session looks identical to a quiet one.
+  Stream<SessionNotice> noticeStream(String sessionId);
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions();
   Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot);
   Future<AppSettings> loadSettings();
@@ -186,6 +191,7 @@ class RustBridgeMock implements RustBridge {
   final _random = Random();
   final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
+  final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _timers = {};
   AppSettings _settings = AppSettings.defaults();
 
@@ -196,6 +202,7 @@ class RustBridgeMock implements RustBridge {
     final vuController = StreamController<VuLevel>.broadcast();
     _transcriptControllers[id] = transcriptController;
     _vuControllers[id] = vuController;
+    _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
 
     var elapsed = 0.0;
     _timers[id] = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -228,6 +235,7 @@ class RustBridgeMock implements RustBridge {
     _timers.remove(sessionId)?.cancel();
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
+    await _noticeControllers.remove(sessionId)?.close();
   }
 
   @override
@@ -244,6 +252,11 @@ class RustBridgeMock implements RustBridge {
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) {
     return _vuControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) {
+    return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
   }
 
   @override
@@ -437,6 +450,7 @@ class RustBridgeMock implements RustBridge {
 class RustEngineBridge implements RustBridge {
   final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
+  final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _pollTimers = {};
   final Set<String> _polling = {};
   final Set<String> _pausedSessions = {};
@@ -448,6 +462,7 @@ class RustEngineBridge implements RustBridge {
     final id = await rust_api.startSession(config: _toRustSessionConfig(config));
     _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
+    _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
     _pollTimers[id] = Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
     return id;
   }
@@ -460,6 +475,7 @@ class RustEngineBridge implements RustBridge {
     await rust_api.stopSession(sessionId: sessionId);
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
+    await _noticeControllers.remove(sessionId)?.close();
     _lastMicLevels.remove(sessionId);
     _lastSpeakerLevels.remove(sessionId);
   }
@@ -493,6 +509,11 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
+  Stream<SessionNotice> noticeStream(String sessionId) {
+    return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() =>
       rust_api.listRecoverableSessions();
 
@@ -520,6 +541,17 @@ class RustEngineBridge implements RustBridge {
               if (source == 'mic') { _lastMicLevels[sessionId] = level; }
               else if (source == 'spk') { _lastSpeakerLevels[sessionId] = level; }
             }
+          },
+          // Delivered even while paused: a source that just died is news
+          // regardless, and unlike a segment it cannot be replayed later.
+          notice: (level, source, message) {
+            _noticeControllers[sessionId]?.add(SessionNotice(
+              level: level == rust_session.NoticeLevel.error
+                  ? SessionNoticeLevel.error
+                  : SessionNoticeLevel.warning,
+              source: source,
+              message: message,
+            ));
           },
         );
       }

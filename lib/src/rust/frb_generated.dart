@@ -3234,6 +3234,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NoticeLevel dco_decode_notice_level(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return NoticeLevel.values[raw as int];
+  }
+
+  @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_Map_String_String_None(raw);
@@ -3406,6 +3412,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         return SessionEvent_Vu(
           source: dco_decode_String(raw[1]),
           level: dco_decode_f_32(raw[2]),
+        );
+      case 2:
+        return SessionEvent_Notice(
+          level: dco_decode_notice_level(raw[1]),
+          source: dco_decode_String(raw[2]),
+          message: dco_decode_String(raw[3]),
         );
       default:
         throw Exception("unreachable");
@@ -4081,6 +4093,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NoticeLevel sse_decode_notice_level(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return NoticeLevel.values[inner];
+  }
+
+  @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
     SseDeserializer deserializer,
   ) {
@@ -4314,6 +4333,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_source = sse_decode_String(deserializer);
         var var_level = sse_decode_f_32(deserializer);
         return SessionEvent_Vu(source: var_source, level: var_level);
+      case 2:
+        var var_level = sse_decode_notice_level(deserializer);
+        var var_source = sse_decode_String(deserializer);
+        var var_message = sse_decode_String(deserializer);
+        return SessionEvent_Notice(
+          level: var_level,
+          source: var_source,
+          message: var_message,
+        );
       default:
         throw UnimplementedError('');
     }
@@ -4952,6 +4980,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
   void sse_encode_opt_Map_String_String_None(
     Map<String, String>? self,
     SseSerializer serializer,
@@ -5153,6 +5187,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_32(1, serializer);
         sse_encode_String(source, serializer);
         sse_encode_f_32(level, serializer);
+      case SessionEvent_Notice(
+        level: final level,
+        source: final source,
+        message: final message,
+      ):
+        sse_encode_i_32(2, serializer);
+        sse_encode_notice_level(level, serializer);
+        sse_encode_String(source, serializer);
+        sse_encode_String(message, serializer);
     }
   }
 
