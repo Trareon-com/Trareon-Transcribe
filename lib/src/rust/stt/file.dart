@@ -60,11 +60,15 @@ class BatchProgressSnapshot {
   final String filename;
   final BatchFileStatus status;
 
+  /// How far through *this* file the engine is, in `0.0..=1.0`.
+  final double progress;
+
   const BatchProgressSnapshot({
     required this.fileIndex,
     required this.totalFiles,
     required this.filename,
     required this.status,
+    required this.progress,
   });
 
   @override
@@ -72,7 +76,8 @@ class BatchProgressSnapshot {
       fileIndex.hashCode ^
       totalFiles.hashCode ^
       filename.hashCode ^
-      status.hashCode;
+      status.hashCode ^
+      progress.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -82,7 +87,8 @@ class BatchProgressSnapshot {
           fileIndex == other.fileIndex &&
           totalFiles == other.totalFiles &&
           filename == other.filename &&
-          status == other.status;
+          status == other.status &&
+          progress == other.progress;
 }
 
 class TranscribeFileResult {

@@ -56,11 +56,20 @@ impl Check {
 /// 1. Library path exists and is writable (output directory)
 /// 2. Default model file exists on disk
 /// 3. Config directory is writable (so settings can be saved)
+/// 4. At least one input device is enumerable (no mic = silent recording)
+/// 5. The library volume has room for a recording
+///
+/// Every message and remediation is in Indonesian: these strings are shown
+/// verbatim in the app's "Diagnostik" screen and in the start-up preflight,
+/// and mixing English error text into an Indonesian-first product is how
+/// the audit found the rest of the copy drifting.
 pub fn run_checks(settings: &AppSettings) -> Vec<Check> {
     vec![
         check_library_path(settings),
         check_model_available(settings),
         check_config_dir_writable(),
+        check_audio_input(),
+        check_free_space(settings),
     ]
 }
 
@@ -72,15 +81,15 @@ fn check_library_path(settings: &AppSettings) -> Check {
             Ok(()) => Check::ok("library_path"),
             Err(e) => Check::fail(
                 "library_path",
-                format!("cannot create {}: {}", path.display(), e),
-                "check parent directory permissions",
+                format!("tidak bisa membuat {}: {}", path.display(), e),
+                "Periksa izin folder induknya, atau pilih folder lain di Pengaturan → Folder output.",
             ),
         }
     } else if !path.is_dir() {
         Check::fail(
             "library_path",
-            format!("{} exists but is not a directory", path.display()),
-            "remove or rename the file and try again",
+            format!("{} ada, tapi bukan folder", path.display()),
+            "Hapus atau ganti nama berkas itu, lalu coba lagi.",
         )
     } else {
         // Writable check: try to create a temp file
@@ -92,30 +101,34 @@ fn check_library_path(settings: &AppSettings) -> Check {
             }
             Err(e) => Check::fail(
                 "library_path",
-                format!("{} is not writable: {}", path.display(), e),
-                "check directory permissions",
+                format!("{} tidak bisa ditulis: {}", path.display(), e),
+                "Periksa izin folder, atau pilih folder lain di Pengaturan → Folder output.",
             ),
         }
     }
 }
 /// Check that the default transcription model file exists on disk.
+///
+/// Searches every directory the app itself searches, not just the library
+/// folder: downloaded models land in an OS cache directory, so a
+/// library-folder-only check reported "model tidak ditemukan" on a
+/// perfectly working install.
 fn check_model_available(settings: &AppSettings) -> Check {
-    let model_path = crate::model::resolve_model_path(
-        std::path::Path::new(&settings.library_path),
-        &settings.default_model,
-    )
-    .unwrap_or_else(|_| std::path::PathBuf::from(&settings.library_path));
-    if model_path.exists() {
-        Check::ok("model")
-    } else {
-        Check::warn(
+    let library = std::path::Path::new(&settings.library_path);
+    match crate::model::find_model_file(library, &settings.default_model) {
+        Some(_) => Check::ok("model"),
+        None => Check::warn(
             "model",
             format!(
-                "model \"{}\" not found at {}",
+                "model \"{}\" belum diunduh. Dicari di: {}",
                 settings.default_model,
-                model_path.display()
+                crate::model::model_search_dirs(library)
+                    .iter()
+                    .map(|d| d.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
-        )
+        ),
     }
 }
 
@@ -126,7 +139,7 @@ fn check_config_dir_writable() -> Check {
         None => {
             return Check::warn(
                 "config_dir",
-                "no config directory available (dirs crate returned None)",
+                "Sistem tidak melaporkan folder konfigurasi, jadi pengaturan mungkin tidak tersimpan.",
             );
         }
     };
@@ -140,15 +153,50 @@ fn check_config_dir_writable() -> Check {
                 }
                 Err(e) => Check::fail(
                     "config_dir",
-                    format!("{} is not writable: {}", dir.display(), e),
-                    "check directory permissions",
+                    format!("{} tidak bisa ditulis: {}", dir.display(), e),
+                    "Periksa izin folder konfigurasi; tanpa itu pengaturan tidak akan tersimpan.",
                 ),
             }
         }
         Err(e) => Check::fail(
             "config_dir",
-            format!("cannot create {}: {}", dir.display(), e),
-            "check parent directory permissions",
+            format!("tidak bisa membuat {}: {}", dir.display(), e),
+            "Periksa izin folder induknya.",
+        ),
+    }
+}
+
+/// At least one input device must be enumerable, or a recording captures
+/// silence with no visible error — the failure mode the capture-health
+/// work in Sprint 1 was built around.
+fn check_audio_input() -> Check {
+    match crate::audio::device::list_input_devices() {
+        Ok(devices) if !devices.is_empty() => Check::ok("audio_input"),
+        Ok(_) => Check::fail(
+            "audio_input",
+            "Tidak ada perangkat masukan audio yang terdeteksi.",
+            "Colokkan mikrofon, lalu beri Trareon izin mikrofon di pengaturan sistem.",
+        ),
+        Err(e) => Check::fail(
+            "audio_input",
+            format!("Daftar perangkat audio gagal dibaca: {e}"),
+            "Pastikan layanan audio sistem (PipeWire/PulseAudio/CoreAudio/WASAPI) berjalan.",
+        ),
+    }
+}
+
+/// Free space on the library volume. Three hours of "Rapat Online" is
+/// about 1,4 GB of WAV, and a full disk used to surface as a failed save
+/// at the end of the meeting instead of a warning before it.
+fn check_free_space(settings: &AppSettings) -> Check {
+    let status = crate::disk::status_for(std::path::Path::new(&settings.library_path));
+    match status.level {
+        crate::disk::DiskSpaceLevel::Ok => Check::ok("disk_space"),
+        crate::disk::DiskSpaceLevel::Low => Check::warn("disk_space", status.message),
+        crate::disk::DiskSpaceLevel::Critical => Check::fail(
+            "disk_space",
+            status.message,
+            "Kosongkan ruang disk, atau pindahkan folder output ke volume lain di Pengaturan.",
         ),
     }
 }
@@ -182,14 +230,44 @@ mod doctor_tests {
     use super::*;
 
     #[test]
-    fn run_checks_returns_three_checks() {
+    fn run_checks_covers_every_startup_dependency() {
         let settings = AppSettings::default();
         let checks = run_checks(&settings);
-        assert_eq!(checks.len(), 3);
         let names: Vec<&str> = checks.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.contains(&"library_path"));
-        assert!(names.contains(&"model"));
-        assert!(names.contains(&"config_dir"));
+        assert_eq!(
+            names,
+            [
+                "library_path",
+                "model",
+                "config_dir",
+                "audio_input",
+                "disk_space"
+            ]
+        );
+    }
+
+    /// These strings are shown verbatim in the app, which is
+    /// Indonesian-first. A regression here is an English sentence in front
+    /// of the user, which is exactly what the audit catalogued.
+    #[test]
+    fn every_remediation_is_in_indonesian() {
+        let settings = AppSettings::default();
+        for check in run_checks(&settings) {
+            if let Some(fix) = check.remediation {
+                assert!(
+                    !fix.is_empty() && fix.chars().next().unwrap().is_uppercase(),
+                    "remediation for {} should be a sentence: {fix}",
+                    check.name
+                );
+                for english in ["check ", "permissions", "directory", "try again"] {
+                    assert!(
+                        !fix.to_lowercase().contains(english),
+                        "remediation for {} still reads as English: {fix}",
+                        check.name
+                    );
+                }
+            }
+        }
     }
 
     #[test]

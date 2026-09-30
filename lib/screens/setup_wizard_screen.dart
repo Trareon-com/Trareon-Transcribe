@@ -12,15 +12,23 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
+import '../utils/system_specs.dart';
 
 class WizardSpecs {
   final int cpuCores;
   final int ramMb;
   final String suggestedModel;
+
+  /// True when [ramMb] is the cores-based fallback rather than a reading
+  /// from the OS. Shown to the user: a guess presented as a measurement is
+  /// what the audit flagged (A.6, P2).
+  final bool ramIsEstimate;
+
   const WizardSpecs({
     required this.cpuCores,
     required this.ramMb,
     required this.suggestedModel,
+    this.ramIsEstimate = false,
   });
 }
 
@@ -30,7 +38,16 @@ class SetupWizardScreen extends ConsumerStatefulWidget {
   final VoidCallback onFinished;
   final WizardSpecDetector? detectSpecs;
 
-  const SetupWizardScreen({super.key, required this.onFinished, this.detectSpecs});
+  /// Shown as a "Tutup" affordance when the wizard is re-run from
+  /// Settings rather than driven once at first launch.
+  final VoidCallback? onCancel;
+
+  const SetupWizardScreen({
+    super.key,
+    required this.onFinished,
+    this.detectSpecs,
+    this.onCancel,
+  });
 
   @override
   ConsumerState<SetupWizardScreen> createState() => _SetupWizardScreenState();
@@ -45,6 +62,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   // Spec detection results
   int? _cpuCores;
   int? _ramMb;
+  bool _ramIsEstimate = false;
   String? _suggestedModel;
   bool _specDetected = false;
 
@@ -78,6 +96,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       setState(() {
         _cpuCores = cores;
         _ramMb = ramMb;
+        _ramIsEstimate = specs.ramIsEstimate;
         _suggestedModel = suggested;
         if (shouldAutoApply) {
           _selectedModel = suggested;
@@ -92,39 +111,21 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   Future<WizardSpecs> _runNativeSpecDetection() async {
     final cores = Platform.numberOfProcessors;
-    // Try to read RAM via sysctl on macOS, fallback to estimate
-    int? ramMb;
-    try {
-      if (Platform.isMacOS) {
-        final result = await Process.run('sysctl', ['-n', 'hw.memsize']);
-        if (result.exitCode == 0) {
-          ramMb = ((int.tryParse(result.stdout.toString().trim()) ?? 0) / (1024 * 1024)).round();
-        }
-      }
-    } on Object {
-      // Fallback: use environment-based heuristic
-    }
-
-    ramMb ??= _estimateRamMb(cores);
+    // Real reading on Linux (/proc/meminfo), macOS (sysctl) and Windows
+    // (CIM); only if all three fail does this fall back to a guess, and
+    // then it says so. See utils/system_specs.dart.
+    final ram = await detectTotalRam(coreCount: cores);
     return WizardSpecs(
       cpuCores: cores,
-      ramMb: ramMb,
-      suggestedModel: _suggestModel(ramMb),
+      ramMb: ram.megabytes,
+      suggestedModel: _suggestModel(ram.megabytes),
+      ramIsEstimate: ram.isEstimate,
     );
-  }
-
-  int _estimateRamMb(int cores) {
-    // Rough heuristic: assume 2GB per core for modern Macs
-    final estimated = cores * 2048;
-    // Cap at reasonable values
-    if (estimated > 32768) return 32768;
-    if (estimated < 4096) return 4096;
-    return estimated;
   }
 
   String _suggestModel(int ramMb) {
     if (ramMb >= 8192) return 'large-v3-turbo-q5'; // 8GB+
-    return 'base';                                   // < 8GB
+    return 'base'; // < 8GB
   }
 
   String _availableModel(String preferred) {
@@ -177,6 +178,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
               isLast: _stepIndex == _steps.length - 1,
               onBack: _back,
               onNext: _next,
+              onCancel: widget.onCancel,
             ),
           ],
         ),
@@ -190,6 +192,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         return _SpecDetectStep(
           cpuCores: _cpuCores,
           ramMb: _ramMb,
+          ramIsEstimate: _ramIsEstimate,
           suggestedModel: _suggestedModel,
           detected: _specDetected,
         );
@@ -277,11 +280,16 @@ class _WizardNavigation extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
 
+  /// Present when the wizard was opened from Settings rather than run once
+  /// at first launch, so the user can leave without walking all four steps.
+  final VoidCallback? onCancel;
+
   const _WizardNavigation({
     required this.isFirst,
     required this.isLast,
     required this.onBack,
     required this.onNext,
+    this.onCancel,
   });
 
   @override
@@ -296,13 +304,23 @@ class _WizardNavigation extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton.icon(
-            onPressed: isFirst ? null : onBack,
-            icon: const Icon(Icons.arrow_back_ios_new, size: 14),
-            label: const Text('Kembali'),
-            style: TextButton.styleFrom(
-              foregroundColor: isFirst ? colors.textTertiary : colors.text,
-            ),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: isFirst ? null : onBack,
+                icon: const Icon(Icons.arrow_back_ios_new, size: 14),
+                label: const Text('Kembali'),
+                style: TextButton.styleFrom(
+                  foregroundColor: isFirst ? colors.textTertiary : colors.text,
+                ),
+              ),
+              if (onCancel != null)
+                TextButton(
+                  onPressed: onCancel,
+                  style: TextButton.styleFrom(foregroundColor: colors.textSecondary),
+                  child: const Text('Tutup'),
+                ),
+            ],
           ),
           ElevatedButton(
             onPressed: onNext,
@@ -370,12 +388,14 @@ class _StepContent extends StatelessWidget {
 class _SpecDetectStep extends StatelessWidget {
   final int? cpuCores;
   final int? ramMb;
+  final bool ramIsEstimate;
   final String? suggestedModel;
   final bool detected;
 
   const _SpecDetectStep({
     required this.cpuCores,
     required this.ramMb,
+    required this.ramIsEstimate,
     required this.suggestedModel,
     required this.detected,
   });
@@ -417,14 +437,14 @@ class _SpecDetectStep extends StatelessWidget {
                   const SizedBox(height: 12),
                   _SpecRow(
                     icon: Icons.memory_outlined,
-                    label: 'RAM',
-                    value: _ramLabel(ramMb ?? 8192),
+                    label: ramIsEstimate ? 'RAM (perkiraan)' : 'RAM',
+                    value: ramMb == null ? 'tidak diketahui' : _ramLabel(ramMb!),
                   ),
                   const SizedBox(height: 12),
                   _SpecRow(
                     icon: Icons.psychology,
                     label: 'Model Rekomendasi',
-                    value: _modelLabel(suggestedModel ?? 'tiny'),
+                    value: _modelLabel(suggestedModel ?? 'base'),
                     highlighted: true,
                   ),
                 ],
@@ -458,10 +478,7 @@ class _SpecRow extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: highlighted ? colors.primary : colors.textSecondary),
         const SizedBox(width: 12),
-        Text(
-          label,
-          style: TextStyle(color: colors.textSecondary, fontSize: 13),
-        ),
+        Text(label, style: TextStyle(color: colors.textSecondary, fontSize: 13)),
         const Spacer(),
         Text(
           value,
@@ -483,9 +500,22 @@ class _ModelChoiceStep extends StatelessWidget {
 
   const _ModelChoiceStep({required this.selected, required this.onChanged});
 
+  // No accuracy percentages: nothing in this repository measures them,
+  // and the audit flagged the old "🇮🇩 ID: ~96%" as an unsupported claim
+  // (A.6, P3). Relative speed and size are things we do know.
   static const _models = [
-    ('base', '⚡ Cepat', '142 MB · ✅ Termasuk di aplikasi\n🇮🇩 ID: Sangat baik · 🇬🇧 EN: Baik\nCocok: transkrip cepat & ringan'),
-    ('large-v3-turbo-q5', '🎯 Akurat', '548 MB · ✅ Termasuk di aplikasi\n🇮🇩 ID: ~96% · 🇬🇧 EN: ~97%\n🏆 Akurasi global terbaik — rekomendasi!'),
+    (
+      'base',
+      '⚡ Cepat',
+      '142 MB · termasuk di aplikasi\nTranskrip muncul cepat, cocok untuk '
+          'komputer ringan dan catatan sehari-hari.',
+    ),
+    (
+      'large-v3-turbo-q5',
+      '🎯 Akurat',
+      '548 MB · unduh sekali\nLebih teliti untuk rapat dan wawancara, tapi '
+          'jauh lebih lambat di komputer tanpa GPU.',
+    ),
   ];
 
   @override
@@ -507,7 +537,9 @@ class _ModelChoiceStep extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isSelected ? colors.primary.withValues(alpha: 0.1) : colors.surface,
+                  color: isSelected
+                      ? colors.primary.withValues(alpha: 0.1)
+                      : colors.surface,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected ? colors.primary : colors.border,
@@ -526,15 +558,21 @@ class _ModelChoiceStep extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(m.$2, style: TextStyle(
-                            color: colors.text,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                            fontSize: 14,
-                          )),
-                          Text(m.$3, style: TextStyle(
-                            color: isSelected ? colors.primary : colors.textTertiary,
-                            fontSize: 12,
-                          )),
+                          Text(
+                            m.$2,
+                            style: TextStyle(
+                              color: colors.text,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            m.$3,
+                            style: TextStyle(
+                              color: isSelected ? colors.primary : colors.textTertiary,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -584,25 +622,26 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
       final mic = savedMic != null && inputs.any((d) => d.name == savedMic)
           ? savedMic
           : (inputs.isNotEmpty
-              ? inputs.firstWhere((d) => d.isDefault, orElse: () => inputs.first).name
-              : null);
+                ? inputs.firstWhere((d) => d.isDefault, orElse: () => inputs.first).name
+                : null);
       final speaker = savedSpeaker != null && outputs.any((d) => d.name == savedSpeaker)
           ? savedSpeaker
           : outputs
-              .firstWhere(
-                (d) => d.name.toLowerCase().contains('blackhole') ||
-                    d.name.toLowerCase().contains('loopback'),
-                orElse: () => outputs.isNotEmpty
-                    ? outputs.first
-                    : AudioDeviceInfo(
-                        name: 'Default',
-                        deviceId: '',
-                        isDefault: true,
-                        channels: 2,
-                        sampleRates: Uint32List(0),
-                      ),
-              )
-              .name;
+                .firstWhere(
+                  (d) =>
+                      d.name.toLowerCase().contains('blackhole') ||
+                      d.name.toLowerCase().contains('loopback'),
+                  orElse: () => outputs.isNotEmpty
+                      ? outputs.first
+                      : AudioDeviceInfo(
+                          name: 'Default',
+                          deviceId: '',
+                          isDefault: true,
+                          channels: 2,
+                          sampleRates: Uint32List(0),
+                        ),
+                )
+                .name;
       setState(() {
         _loading = false;
         _inputDevices = inputs;
@@ -617,13 +656,86 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
     }
   }
 
-  bool get _hasBlackHole => _outputDevices.any(
-    (d) => d.name.toLowerCase().contains('blackhole') || d.name.toLowerCase().contains('loopback'),
-  );
+  /// Whether a loopback path for system audio looks available.
+  ///
+  /// What counts differs per platform, and the wizard used to assert the
+  /// macOS answer everywhere: a Linux user was told to `brew install` a
+  /// macOS kernel extension (audit A.6, P1).
+  bool get _loopbackReady {
+    if (Platform.isMacOS) {
+      return _outputDevices.any(
+        (d) =>
+            d.name.toLowerCase().contains('blackhole') ||
+            d.name.toLowerCase().contains('loopback'),
+      );
+    }
+    if (Platform.isLinux) {
+      // PipeWire/PulseAudio expose every sink as a `.monitor` source; the
+      // engine picks one automatically.
+      return _inputDevices.any((d) => d.name.toLowerCase().contains('monitor')) ||
+          _outputDevices.isNotEmpty;
+    }
+    // Windows: WASAPI loopback needs no driver at all, only an output
+    // device to capture from.
+    return _outputDevices.isNotEmpty;
+  }
+
+  String get _loopbackTitle => _loopbackReady
+      ? switch (Platform.operatingSystem) {
+          'macos' => 'Driver audio virtual terdeteksi',
+          'linux' => 'Suara sistem siap direkam',
+          _ => 'Suara sistem siap direkam',
+        }
+      : switch (Platform.operatingSystem) {
+          'macos' => 'Driver audio virtual belum terpasang',
+          'linux' => 'Belum ada perangkat keluaran yang bisa direkam',
+          _ => 'Belum ada perangkat keluaran yang bisa direkam',
+        };
+
+  String get _loopbackBody {
+    if (_loopbackReady) {
+      return switch (Platform.operatingSystem) {
+        'macos' => 'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
+        'linux' =>
+          'Trareon merekam suara sistem lewat monitor sink PipeWire/PulseAudio '
+              '— tidak perlu memasang apa pun.',
+        _ =>
+          'Trareon merekam suara sistem lewat WASAPI loopback — tidak '
+              'perlu memasang apa pun.',
+      };
+    }
+    return switch (Platform.operatingSystem) {
+      'macos' => 'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
+      'linux' =>
+        'Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan '
+            'PipeWire atau PulseAudio berjalan.',
+      _ =>
+        'Pilih perangkat keluaran di atas. Jika daftarnya kosong, '
+            'pastikan perangkat pemutar suara aktif di Windows.',
+    };
+  }
+
+  String get _loopbackGuide => switch (Platform.operatingSystem) {
+    'macos' =>
+      '1. brew install blackhole-2ch\n'
+          '2. Buka Audio MIDI Setup\n'
+          '3. Buat Multi-Output Device\n'
+          '4. Centang speaker Mac Anda + BlackHole 2ch',
+    'linux' =>
+      '1. Pastikan PipeWire atau PulseAudio berjalan\n'
+          '2. Jalankan: pactl list short sources\n'
+          '3. Pilih sumber yang berakhiran .monitor di daftar di atas',
+    _ =>
+      '1. Buka Pengaturan Suara Windows\n'
+          '2. Pastikan ada perangkat keluaran yang aktif\n'
+          '3. Pilih perangkat itu di daftar di atas',
+  };
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final ready = _loopbackReady;
+    final accent = ready ? AppColors.statusActive : const Color(0xFFD97706);
     return _StepContent(
       icon: Icons.speaker_group_outlined,
       title: '3. Setup Audio',
@@ -643,7 +755,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                 ),
                 const SizedBox(height: 12),
                 _AudioDropdown(
-                  label: 'Speaker / Loopback (Output)',
+                  label: 'Pengeras Suara / Suara Sistem (Output)',
                   value: _selectedSpeaker,
                   devices: _outputDevices,
                   onChanged: (v) {
@@ -652,19 +764,12 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                   },
                 ),
                 const SizedBox(height: 16),
-                // BlackHole status
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: _hasBlackHole
-                        ? AppColors.statusActive.withValues(alpha: 0.1)
-                        : Colors.orange.withValues(alpha: 0.1),
+                    color: accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _hasBlackHole
-                          ? AppColors.statusActive.withValues(alpha: 0.3)
-                          : Colors.orange.withValues(alpha: 0.3),
-                    ),
+                    border: Border.all(color: accent.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,18 +777,16 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                       Row(
                         children: [
                           Icon(
-                            _hasBlackHole ? Icons.check_circle_outline : Icons.info_outline,
-                            color: _hasBlackHole ? AppColors.statusActive : Colors.orange,
+                            ready ? Icons.check_circle_outline : Icons.info_outline,
+                            color: accent,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _hasBlackHole
-                                  ? 'BlackHole 2ch terdeteksi!'
-                                  : 'Virtual Audio Driver belum terinstall',
+                              _loopbackTitle,
                               style: TextStyle(
-                                color: _hasBlackHole ? AppColors.statusActive : Colors.orange,
+                                color: accent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -691,17 +794,20 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                           ),
                         ],
                       ),
-                      if (!_hasBlackHole) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Untuk merekam suara dari Zoom/Meet, install BlackHole 2ch.',
-                          style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _loopbackBody,
+                        style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                      ),
+                      if (!ready) ...[
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: () => setState(() => _showGuide = !_showGuide),
-                          icon: Icon(_showGuide ? Icons.expand_less : Icons.help_outline, size: 16),
-                          label: Text(_showGuide ? 'Sembunyikan' : 'Panduan Install'),
+                          icon: Icon(
+                            _showGuide ? Icons.expand_less : Icons.help_outline,
+                            size: 16,
+                          ),
+                          label: Text(_showGuide ? 'Sembunyikan' : 'Panduan'),
                           style: OutlinedButton.styleFrom(foregroundColor: colors.text),
                         ),
                         if (_showGuide) ...[
@@ -712,9 +818,9 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                               color: colors.chipBackground,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              '1. brew install blackhole-2ch\n2. Buka Audio MIDI Setup\n3. Buat Multi-Output Device\n4. Centang MacBook Pro Speakers + BlackHole 2ch',
-                              style: TextStyle(fontSize: 12, height: 1.5),
+                            child: Text(
+                              _loopbackGuide,
+                              style: const TextStyle(fontSize: 12, height: 1.5),
                             ),
                           ),
                         ],
@@ -744,29 +850,60 @@ class _AudioDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.border),
-      ),
-      child: DropdownButton<String>(
-        value: value,
-        isExpanded: true,
-        underline: const SizedBox(),
-        dropdownColor: colors.surface,
-        style: TextStyle(color: colors.text, fontSize: 14),
-        items: devices.isNotEmpty
-            ? devices.map((d) => DropdownMenuItem(value: d.name, child: Text(d.name))).toList()
-            : [DropdownMenuItem(value: value, child: Text(value ?? 'Default'))],
-        onChanged: onChanged,
-      ),
+    // The label used to be a constructor parameter the widget never
+    // rendered, so both pickers were unlabelled dropdowns of device ids.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colors.textSecondary,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colors.border),
+          ),
+          child: DropdownButton<String>(
+            value: value,
+            isExpanded: true,
+            underline: const SizedBox(),
+            dropdownColor: colors.surface,
+            style: TextStyle(color: colors.text, fontSize: 14),
+            items: devices.isNotEmpty
+                ? devices
+                      .map(
+                        (d) => DropdownMenuItem(
+                          value: d.name,
+                          child: Text(d.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList()
+                : [DropdownMenuItem(value: value, child: Text(value ?? 'Bawaan sistem'))],
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Step 5 — Tone test
+/// Step 4 — speaker check.
+///
+/// The old version played a tone, swallowed any playback exception, marked
+/// itself `_tested = true` regardless, and then asserted "Speaker berfungsi
+/// dengan baik" — a false positive on exactly the machine that needed the
+/// warning. It also never asked the only question that makes this a test
+/// (audit A.6, P2).
 class _ToneTestStep extends StatefulWidget {
   const _ToneTestStep();
 
@@ -774,9 +911,16 @@ class _ToneTestStep extends StatefulWidget {
   State<_ToneTestStep> createState() => _ToneTestStepState();
 }
 
+enum _ToneOutcome { untested, heard, notHeard, playbackFailed }
+
 class _ToneTestStepState extends State<_ToneTestStep> {
   bool _isPlaying = false;
-  bool _tested = false;
+
+  /// True once a tone has finished playing and the user has been asked.
+  bool _awaitingAnswer = false;
+
+  _ToneOutcome _outcome = _ToneOutcome.untested;
+  String? _playbackError;
   AudioPlayer? _player;
 
   /// Generates a 440 Hz sine wave as a PCM WAV in memory.
@@ -796,25 +940,27 @@ class _ToneTestStepState extends State<_ToneTestStep> {
       [8, 0x57], [9, 0x41], [10, 0x56], [11, 0x45], // "WAVE"
       [12, 0x66], [13, 0x6D], [14, 0x74], [15, 0x20], // "fmt "
       [36, 0x64], [37, 0x61], [38, 0x74], [39, 0x61], // "data"
-    ]) { wav.setUint8(pair[0], pair[1]); }
+    ]) {
+      wav.setUint8(pair[0], pair[1]);
+    }
     wav.setUint32(4, 36 + dataBytes, Endian.little);
-    wav.setUint32(16, 16, Endian.little);   // fmt chunk size
-    wav.setUint16(20, 1, Endian.little);    // PCM
-    wav.setUint16(22, 1, Endian.little);    // mono
+    wav.setUint32(16, 16, Endian.little); // fmt chunk size
+    wav.setUint16(20, 1, Endian.little); // PCM
+    wav.setUint16(22, 1, Endian.little); // mono
     wav.setUint32(24, sampleRate, Endian.little);
     wav.setUint32(28, sampleRate * 2, Endian.little); // byte rate
-    wav.setUint16(32, 2, Endian.little);    // block align
-    wav.setUint16(34, 16, Endian.little);   // bits/sample
+    wav.setUint16(32, 2, Endian.little); // block align
+    wav.setUint16(34, 16, Endian.little); // bits/sample
     wav.setUint32(40, dataBytes, Endian.little);
 
     for (var i = 0; i < numSamples; i++) {
       double envelope = 1.0;
       if (i < fadeLen) envelope = i / fadeLen;
       if (i > numSamples - fadeLen) envelope = (numSamples - i) / fadeLen;
-      final sample = (amplitude * envelope *
-              math.sin(2 * math.pi * frequency * i / sampleRate))
-          .round()
-          .clamp(-32768, 32767);
+      final sample =
+          (amplitude * envelope * math.sin(2 * math.pi * frequency * i / sampleRate))
+              .round()
+              .clamp(-32768, 32767);
       wav.setInt16(44 + i * 2, sample, Endian.little);
     }
 
@@ -822,15 +968,21 @@ class _ToneTestStepState extends State<_ToneTestStep> {
   }
 
   Future<void> _startToneTest() async {
-    setState(() => _isPlaying = true);
+    setState(() {
+      _isPlaying = true;
+      _playbackError = null;
+      _awaitingAnswer = false;
+      _outcome = _ToneOutcome.untested;
+    });
 
     final player = AudioPlayer();
     _player = player;
+    String? error;
     try {
       await player.play(BytesSource(_generate440HzWav()));
       await player.onPlayerComplete.first;
-    } catch (_) {
-      // Playback failure — still mark tested so the user can proceed
+    } catch (e) {
+      error = '$e';
     } finally {
       if (_player == player) _player = null;
       try {
@@ -840,12 +992,16 @@ class _ToneTestStepState extends State<_ToneTestStep> {
       }
     }
 
-    if (mounted) {
-      setState(() {
-        _isPlaying = false;
-        _tested = true;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isPlaying = false;
+      if (error != null) {
+        _playbackError = error;
+        _outcome = _ToneOutcome.playbackFailed;
+      } else {
+        _awaitingAnswer = true;
+      }
+    });
   }
 
   @override
@@ -856,12 +1012,24 @@ class _ToneTestStepState extends State<_ToneTestStep> {
     super.dispose();
   }
 
+  String get _remediation => switch (Platform.operatingSystem) {
+    'macos' =>
+      'Buka Pengaturan Sistem → Suara, naikkan volume, dan pastikan '
+          'perangkat keluaran yang benar terpilih.',
+    'linux' =>
+      'Periksa volume di pavucontrol atau pengaturan suara desktop Anda, '
+          'lalu pastikan perangkat keluaran yang benar terpilih.',
+    _ =>
+      'Buka Pengaturan Suara Windows, naikkan volume, dan pastikan '
+          'perangkat keluaran yang benar terpilih.',
+  };
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
       icon: Icons.graphic_eq,
-      title: '4. Tone Test',
+      title: '4. Uji Suara',
       description: 'Putar nada 440 Hz untuk memastikan speaker berfungsi.',
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -872,63 +1040,132 @@ class _ToneTestStepState extends State<_ToneTestStep> {
         ),
         child: Column(
           children: [
-            if (_tested) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.statusActive.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.statusActive.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: AppColors.statusActive, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Speaker berfungsi dengan baik',
-                        style: TextStyle(
-                          color: AppColors.statusActive,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
+            if (_awaitingAnswer) ...[
+              Text(
+                'Apakah Anda mendengar nadanya?',
+                style: TextStyle(
+                  color: colors.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colors.chipBackground,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: colors.textSecondary, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Tes mikrofon akan aktif saat sesi dimulai',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FilledButton(
+                    onPressed: () => setState(() {
+                      _awaitingAnswer = false;
+                      _outcome = _ToneOutcome.heard;
+                    }),
+                    child: const Text('Ya, terdengar'),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: () => setState(() {
+                      _awaitingAnswer = false;
+                      _outcome = _ToneOutcome.notHeard;
+                    }),
+                    child: const Text('Tidak terdengar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_outcome == _ToneOutcome.heard) ...[
+              _ToneResultCard(
+                color: AppColors.statusActive,
+                icon: Icons.check_circle,
+                title: 'Speaker berfungsi',
+                body: 'Tes mikrofon akan aktif saat sesi dimulai.',
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_outcome == _ToneOutcome.notHeard) ...[
+              _ToneResultCard(
+                color: const Color(0xFFD97706),
+                icon: Icons.volume_off,
+                title: 'Nada tidak terdengar',
+                body: _remediation,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_outcome == _ToneOutcome.playbackFailed) ...[
+              _ToneResultCard(
+                color: colors.error,
+                icon: Icons.error_outline,
+                title: 'Nada gagal diputar',
+                body: '${_playbackError ?? ''}\n$_remediation',
               ),
               const SizedBox(height: 16),
             ],
             FilledButton.icon(
-              onPressed: _isPlaying ? null : () => _startToneTest(),
+              onPressed: _isPlaying ? null : _startToneTest,
               icon: Icon(_isPlaying ? Icons.graphic_eq : Icons.play_arrow),
-              label: Text(_isPlaying ? 'Memutar...' : (_tested ? 'Putar Ulang' : 'Putar Nada Uji')),
+              label: Text(
+                _isPlaying
+                    ? 'Memutar...'
+                    : (_outcome == _ToneOutcome.untested && !_awaitingAnswer
+                          ? 'Putar Nada Uji'
+                          : 'Putar Ulang'),
+              ),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ToneResultCard extends StatelessWidget {
+  const _ToneResultCard({
+    required this.color,
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(body, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

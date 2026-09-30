@@ -146,30 +146,28 @@ void main() {
       SessionMode.online,
       modelPathForId('tiny'),
     );
-    notifier.state = notifier.state.copyWith(
-        segments: const [
-          TranscriptSegment(
-            source: 'mic',
-            speaker: 'MIC',
-            text: 'satu',
-            timestamp: 0,
-            duration: 1,
-            language: 'id',
-            confidence: 0.9,
-            isPartial: false,
-          ),
-          TranscriptSegment(
-            source: 'spk',
-            speaker: 'SPK',
-            text: 'dua',
-            timestamp: 1,
-            duration: 1,
-            language: 'id',
-            confidence: 0.9,
-            isPartial: false,
-          ),
-        ],
-      );
+    notifier.setSegments(const [
+      TranscriptSegment(
+        source: 'mic',
+        speaker: 'MIC',
+        text: 'satu',
+        timestamp: 0,
+        duration: 1,
+        language: 'id',
+        confidence: 0.9,
+        isPartial: false,
+      ),
+      TranscriptSegment(
+        source: 'spk',
+        speaker: 'SPK',
+        text: 'dua',
+        timestamp: 1,
+        duration: 1,
+        language: 'id',
+        confidence: 0.9,
+        isPartial: false,
+      ),
+    ]);
 
     notifier.editTranscriptSegment(1, 'dua diperbarui');
 

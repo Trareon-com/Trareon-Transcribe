@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -688885376;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1133572290;
 
 // Section: executor
 
@@ -889,6 +889,38 @@ fn wire__crate__api__get_session_status_impl(
             move |context| {
                 transform_result_sse::<_, crate::error::TranscribeError>((move || {
                     let output_ok = crate::api::get_session_status(api_session_id)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__gpu_capability_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "gpu_capability",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::gpu_capability())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1771,11 +1803,13 @@ impl SseDecode for crate::stt::file::BatchProgressSnapshot {
         let mut var_totalFiles = <u32>::sse_decode(deserializer);
         let mut var_filename = <String>::sse_decode(deserializer);
         let mut var_status = <crate::stt::file::BatchFileStatus>::sse_decode(deserializer);
+        let mut var_progress = <f32>::sse_decode(deserializer);
         return crate::stt::file::BatchProgressSnapshot {
             file_index: var_fileIndex,
             total_files: var_totalFiles,
             filename: var_filename,
             status: var_status,
+            progress: var_progress,
         };
     }
 }
@@ -1947,6 +1981,18 @@ impl SseDecode for f64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_f64::<NativeEndian>().unwrap()
+    }
+}
+
+impl SseDecode for crate::api::GpuCapability {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_available = <bool>::sse_decode(deserializer);
+        let mut var_backend = <String>::sse_decode(deserializer);
+        return crate::api::GpuCapability {
+            available: var_available,
+            backend: var_backend,
+        };
     }
 }
 
@@ -2715,28 +2761,29 @@ fn pde_ffi_dispatcher_primary_impl(
         22 => wire__crate__api__get_capture_health_impl(port, ptr, rust_vec_len, data_len),
         23 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
         24 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__gpu_capability_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2865,6 +2912,7 @@ impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchProgressSnapshot {
             self.total_files.into_into_dart().into_dart(),
             self.filename.into_into_dart().into_dart(),
             self.status.into_into_dart().into_dart(),
+            self.progress.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3066,6 +3114,22 @@ impl flutter_rust_bridge::IntoIntoDart<crate::export::ExportedFile>
     for crate::export::ExportedFile
 {
     fn into_into_dart(self) -> crate::export::ExportedFile {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::GpuCapability {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.available.into_into_dart().into_dart(),
+            self.backend.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::GpuCapability {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::GpuCapability> for crate::api::GpuCapability {
+    fn into_into_dart(self) -> crate::api::GpuCapability {
         self
     }
 }
@@ -3620,6 +3684,7 @@ impl SseEncode for crate::stt::file::BatchProgressSnapshot {
         <u32>::sse_encode(self.total_files, serializer);
         <String>::sse_encode(self.filename, serializer);
         <crate::stt::file::BatchFileStatus>::sse_encode(self.status, serializer);
+        <f32>::sse_encode(self.progress, serializer);
     }
 }
 
@@ -3761,6 +3826,14 @@ impl SseEncode for f64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_f64::<NativeEndian>(self).unwrap();
+    }
+}
+
+impl SseEncode for crate::api::GpuCapability {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.available, serializer);
+        <String>::sse_encode(self.backend, serializer);
     }
 }
 

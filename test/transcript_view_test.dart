@@ -27,6 +27,7 @@ void main() {
 
     // Test Search — filter hides non-matching segments
     await tester.enterText(find.byType(TextField), 'Halo');
+    await tester.pump(kTranscriptSearchDebounce);
     await tester.pumpAndSettle();
     expect(find.text('A'), findsNWidgets(2));
     expect(find.text('B'), findsNothing);

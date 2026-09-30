@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -29,7 +30,22 @@ class SessionUiState {
   final SessionLifecycle lifecycle;
   final String? sessionId;
   final SessionConfig config;
+
+  /// Live, unmodifiable view over the notifier's segment list.
+  ///
+  /// Deliberately a *view*, not a copy: at one segment every two seconds a
+  /// three-hour meeting produces 5 000 of them, and copying the whole list
+  /// per arrival made ingestion O(n²) on the UI isolate while Whisper was
+  /// already saturating the CPU (audit A.1-12). Consumers must treat it as
+  /// a snapshot only within a single frame — use [revision] to detect
+  /// changes rather than comparing list identity or length.
   final List<TranscriptSegment> segments;
+
+  /// Bumped on every mutation of [segments], including in-place text
+  /// replacement (a refined HPT pass overwriting its quick pass), which
+  /// changes neither the list identity nor its length.
+  final int revision;
+
   final String sessionTitle;
   final double elapsedSeconds;
 
@@ -38,6 +54,7 @@ class SessionUiState {
     required this.config,
     this.sessionId,
     this.segments = const [],
+    this.revision = 0,
     this.sessionTitle = '',
     this.elapsedSeconds = 0,
   });
@@ -55,6 +72,7 @@ class SessionUiState {
     String? sessionId,
     SessionConfig? config,
     List<TranscriptSegment>? segments,
+    int? revision,
     String? sessionTitle,
     double? elapsedSeconds,
   }) {
@@ -63,6 +81,7 @@ class SessionUiState {
       sessionId: sessionId ?? this.sessionId,
       config: config ?? this.config,
       segments: segments ?? this.segments,
+      revision: revision ?? this.revision,
       sessionTitle: sessionTitle ?? this.sessionTitle,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
     );
@@ -110,22 +129,68 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   static bool _isBlankAudio(TranscriptSegment s) =>
       s.text.trim() == '[BLANK_AUDIO]';
 
+  /// Backing store for [SessionUiState.segments]. Appended to in place; the
+  /// state object publishes an unmodifiable *view* of it.
+  final List<TranscriptSegment> _segments = <TranscriptSegment>[];
+
+  /// `segmentKey → position in [_segments]`. This is what makes ingestion
+  /// O(1): finding the row an HPT refine pass belongs to used to be a
+  /// linear `indexWhere` over every segment received so far, so the cost of
+  /// a meeting grew with its square (audit A.1-12).
+  final Map<String, int> _segmentIndexByKey = <String, int>{};
+
+  int _revision = 0;
+
+  List<TranscriptSegment> get _segmentsView => UnmodifiableListView(_segments);
+
+  /// Publishes [_segments] with a fresh [SessionUiState.revision].
+  void _publishSegments() {
+    _revision++;
+    state = state.copyWith(segments: _segmentsView, revision: _revision);
+  }
+
+  /// Replaces the whole transcript (session start, crash recovery) and
+  /// rebuilds the key index. First-seen position wins on a duplicate key,
+  /// mirroring `journal::replay` on the Rust side.
+  void _loadSegments(Iterable<TranscriptSegment> next) {
+    _segments
+      ..clear()
+      ..addAll(next);
+    _segmentIndexByKey.clear();
+    for (var i = 0; i < _segments.length; i++) {
+      _segmentIndexByKey.putIfAbsent(_segments[i].segmentKey, () => i);
+    }
+    _revision++;
+  }
+
+  /// Replaces the whole transcript.
+  ///
+  /// The notifier owns the segment list now (that is what makes ingestion
+  /// O(1)), so seeding it through `state = state.copyWith(segments: …)`
+  /// would leave the key index empty and the next arriving segment would
+  /// append to nothing. Callers that hydrate a session from outside the
+  /// live stream — and tests — go through here.
+  void setSegments(List<TranscriptSegment> segments) {
+    _loadSegments(segments);
+    state = state.copyWith(segments: _segmentsView, revision: _revision);
+  }
+
   void _onTranscriptSegment(TranscriptSegment segment) {
     if (_isBlankAudio(segment)) return;
-    final segments = state.segments;
     final key = segment.segmentKey;
-    final index = segments.indexWhere((s) => s.segmentKey == key);
-    if (index >= 0) {
+    final index = _segmentIndexByKey[key];
+    if (index != null) {
       // HPT: refined (final) text replaces the partial quick pass. A new
       // partial NEVER overwrites an already-refined row — the accurate
       // pass is authoritative.
-      if (!segment.isPartial || segments[index].isPartial) {
-        final updated = [...segments];
-        updated[index] = segment;
-        state = state.copyWith(segments: updated);
+      if (!segment.isPartial || _segments[index].isPartial) {
+        _segments[index] = segment;
+        _publishSegments();
       }
     } else {
-      state = state.copyWith(segments: [...segments, segment]);
+      _segmentIndexByKey[key] = _segments.length;
+      _segments.add(segment);
+      _publishSegments();
     }
     _resetAutoStopTimer();
   }
@@ -191,10 +256,12 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     }
     seedRecovery(snapshot);
     final recovered = await _bridge.recoverSession(snapshot);
+    _loadSegments(recovered.segments.map(fromRustSegment));
     state = state.copyWith(
       lifecycle: SessionLifecycle.recording,
       sessionId: recovered.sessionId,
-      segments: recovered.segments.map(fromRustSegment).toList(),
+      segments: _segmentsView,
+      revision: _revision,
       sessionTitle: snapshot.title.isNotEmpty
           ? snapshot.title
           : state.sessionTitle,
@@ -232,10 +299,12 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     final configWithDevices = await _resolveDevices(state.config);
     state = state.copyWith(config: configWithDevices);
     final id = await _bridge.startSession(state.config);
+    _loadSegments(const []);
     state = state.copyWith(
       lifecycle: SessionLifecycle.recording,
       sessionId: id,
-      segments: [],
+      segments: _segmentsView,
+      revision: _revision,
       sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
     );
     _subscribeToLiveStreams(id);
@@ -456,19 +525,22 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     if (id != null) await _bridge.toggleSpeaker(id, enabled);
   }
 
+  /// Edits one row in place. The segment key is `(source, timestamp)`, and
+  /// neither changes here, so [_segmentIndexByKey] stays valid.
   void editTranscriptSegment(int index, String newText) {
-    if (index < 0 || index >= state.segments.length) return;
-    final edited = [...state.segments];
-    edited[index] = edited[index].copyWith(text: newText);
-    state = state.copyWith(segments: edited);
+    if (index < 0 || index >= _segments.length) return;
+    _segments[index] = _segments[index].copyWith(text: newText);
+    _publishSegments();
   }
 
   void renameSpeaker(String oldLabel, String newLabel) {
-    state = state.copyWith(
-      segments: state.segments
-          .map((s) => s.speaker == oldLabel ? s.copyWith(speaker: newLabel) : s)
-          .toList(),
-    );
+    var changed = false;
+    for (var i = 0; i < _segments.length; i++) {
+      if (_segments[i].speaker != oldLabel) continue;
+      _segments[i] = _segments[i].copyWith(speaker: newLabel);
+      changed = true;
+    }
+    if (changed) _publishSegments();
   }
 
   void setMode(SessionMode mode) {

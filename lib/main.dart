@@ -15,6 +15,7 @@ import 'state/models.dart';
 import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_theme.dart';
+import 'widgets/setup_overlay.dart';
 
 /// Smallest window the layout is designed to survive. The audit verified
 /// no overflow at 800x600; below that the control bar and the library grid
@@ -127,11 +128,14 @@ class TranscribeApp extends ConsumerWidget {
       themeAnimationDuration: const Duration(milliseconds: 300),
       themeAnimationCurve: Curves.easeInOut,
       // First-launch routing: when models aren't downloaded yet, show the
-      // dedicated onboarding/download screen. (SetupWizardScreen still has
-      // no route into it from anywhere in the app — Sprint 2 either wires
-      // it in or deletes it. It is not "reachable from Settings", which is
-      // what this comment used to claim.)
-      home: modelsReady ? const MainScreen() : const _OnboardingRoute(),
+      // dedicated onboarding/download screen. SetupWizardScreen is reached
+      // from Settings → "Jalankan Ulang Penyiapan".
+      //
+      // SetupOverlay runs doctor.rs after the first frame and only blocks
+      // on a hard failure; warnings become a banner over the app.
+      home: SetupOverlay(
+        child: modelsReady ? const MainScreen() : const _OnboardingRoute(),
+      ),
     );
   }
 }

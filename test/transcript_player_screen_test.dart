@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/transcript_player_screen.dart';
+import 'package:transcribe/widgets/transcript_view.dart';
 import 'package:transcribe/state/models.dart';
 
 /// Find text inside [RichText] widgets which [find.text] does not match.
@@ -169,6 +170,9 @@ void main() {
     expect(findRichText('Agenda kedua adalah roadmap'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).first, 'budgeting');
+    // The search box debounces (kTranscriptSearchDebounce) so a 5 000-segment
+    // transcript is not re-filtered on every keystroke.
+    await tester.pump(kTranscriptSearchDebounce);
     await tester.pumpAndSettle();
 
     expect(findRichText('Agenda pertama adalah budgeting'), findsOneWidget);

@@ -123,6 +123,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_64(dynamic raw);
 
   @protected
+  GpuCapability dco_decode_gpu_capability(dynamic raw);
+
+  @protected
   HptMode dco_decode_hpt_mode(dynamic raw);
 
   @protected
@@ -375,6 +378,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  GpuCapability sse_decode_gpu_capability(SseDeserializer deserializer);
 
   @protected
   HptMode sse_decode_hpt_mode(SseDeserializer deserializer);
@@ -691,6 +697,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_gpu_capability(GpuCapability self, SseSerializer serializer);
 
   @protected
   void sse_encode_hpt_mode(HptMode self, SseSerializer serializer);

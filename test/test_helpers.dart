@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
+import 'package:transcribe/state/library_model.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/theme/app_theme.dart';
@@ -212,6 +213,10 @@ Widget buildTestApp({Widget? child}) {
   return ProviderScope(
     overrides: [
       rustBridgeProvider.overrideWithValue(NoopBridge()),
+      // The sidebar reads the session index off disk; real I/O never
+      // completes inside a widget test's fake-async zone.
+      libraryListProvider
+          .overrideWith((ref) => LibraryListNotifier.seeded(const [])),
     ],
     child: MaterialApp(
       title: 'Trareon Transcribe',
@@ -246,6 +251,8 @@ Widget buildTestAppWithOverrides({
   return ProviderScope(
     overrides: [
       rustBridgeProvider.overrideWithValue(NoopBridge()),
+      libraryListProvider
+          .overrideWith((ref) => LibraryListNotifier.seeded(const [])),
       ...overrides,
     ],
     child: MaterialApp(

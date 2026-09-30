@@ -80,8 +80,54 @@ codesign --verify --verbose "$APP_PATH"
 mkdir -p "$DIST_DIR"
 rm -f "$DMG_PATH"
 
-echo "==> Creating $DMG_PATH"
-hdiutil create -volname "TrareonTranscribe" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+# ── DMG creation ──────────────────────────────────────────────────────
+# `hdiutil create -srcfolder X -format UDZO` is a compound operation: it
+# builds a temporary read/write image, attaches it, copies X in, detaches,
+# then compresses. On CI it failed with `create failed - Resource busy`,
+# which is the detach step losing a race against whatever still holds a
+# file on the freshly mounted volume (Spotlight's `mds` indexing the ~690 MB
+# of models we just bundled is the usual culprit on GitHub runners).
+#
+# Three changes, cheapest first:
+#  1. Stage into $TMPDIR (`/var/folders/...`), which is excluded from
+#     Spotlight indexing, instead of imaging the live Xcode build tree.
+#  2. Split create and compress: build UDRW, then `hdiutil convert` to UDZO.
+#     Each step is simple enough to retry meaningfully.
+#  3. Retry the create a bounded number of times, detaching any volume left
+#     attached by a failed attempt first — otherwise the retry trips over
+#     the previous attempt's mount and fails identically.
+VOLNAME="TrareonTranscribe"
+STAGING="$(mktemp -d "${TMPDIR:-/tmp}/trareon-dmg.XXXXXX")"
+trap 'rm -rf "$STAGING"' EXIT
+
+echo "==> Staging app bundle in $STAGING"
+# ditto (not cp) preserves the code signature we just applied.
+ditto "$APP_PATH" "$STAGING/$APP_NAME.app"
+
+detach_stale_volumes() {
+  hdiutil info | awk -v vol="/Volumes/$VOLNAME" '$0 ~ vol {print $1}' | while read -r dev; do
+    echo "    detaching stale $dev"
+    hdiutil detach "$dev" -force || true
+  done
+}
+
+RW_DMG="$STAGING/$VOLNAME-rw.dmg"
+attempt=1
+max_attempts=3
+until hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING/$APP_NAME.app" \
+  -fs HFS+ -format UDRW -ov "$RW_DMG"; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "error: hdiutil create failed after $max_attempts attempts" >&2
+    exit 1
+  fi
+  echo "    hdiutil create failed (attempt $attempt/$max_attempts) — retrying"
+  detach_stale_volumes
+  sleep 15
+  attempt=$((attempt + 1))
+done
+
+echo "==> Compressing to $DMG_PATH"
+hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -ov -o "$DMG_PATH"
 
 echo "==> Generating checksum"
 shasum -a 256 "$DMG_PATH" > "$DMG_PATH.sha256"
