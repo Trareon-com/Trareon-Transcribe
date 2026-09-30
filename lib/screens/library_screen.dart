@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+
+import '../services/library_index.dart';
 import '../services/session_store.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -16,6 +18,11 @@ import '../widgets/empty_state.dart';
 import 'transcript_player_screen.dart';
 import '../widgets/export_dialog.dart';
 
+/// How long the library search box waits after the last keystroke.
+/// Matching the whole corpus per keystroke was the second half of the
+/// scalability wall (audit A.2-4).
+const Duration kLibrarySearchDebounce = Duration(milliseconds: 250);
+
 class LibraryScreen extends ConsumerStatefulWidget {
   /// Optional seed list used in tests to bypass the async disk load.
   final List<SessionSummary>? sessions;
@@ -24,7 +31,17 @@ class LibraryScreen extends ConsumerStatefulWidget {
   /// the screen shows an empty state without hitting disk.
   final String? libraryPath;
 
-  const LibraryScreen({super.key, this.sessions, this.libraryPath});
+  /// Which tab opens first. The upload zone is reached from its own header
+  /// action, which used to land on the sessions tab and leave the user to
+  /// find the second tab.
+  final int initialTab;
+
+  const LibraryScreen({
+    super.key,
+    this.sessions,
+    this.libraryPath,
+    this.initialTab = 0,
+  });
 
   @override
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
@@ -32,9 +49,19 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
   String _query = '';
-  List<SessionRecord> _sessions = [];
+
+  List<LibraryEntry> _entries = [];
   bool _loading = true;
+
+  /// Deep-search results for [_query], keyed by session directory. Also the
+  /// snippet memo: `matchingSnippet` used to re-walk every segment of every
+  /// matching session inside `itemBuilder`, i.e. on every rebuild.
+  Map<String, String> _deepHits = {};
+  String? _deepQuery;
+  bool _deepSearching = false;
+
   // Soft-delete: timer fires real disk deletion after SnackBar expires.
   // Cancelled immediately if the user taps "Urungkan".
   final Map<String, Timer> _pendingDeletions = {};
@@ -44,17 +71,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.initState();
     final seeded = widget.sessions;
     if (seeded != null) {
-      _sessions = [
+      _entries = [
         for (final s in seeded)
-          SessionRecord(
+          LibraryEntry(
             dirPath: s.id,
             title: s.title,
             date: s.date,
-            segments: s.segments,
             durationSeconds: s.durationSeconds,
+            segmentsCount: s.segmentsCount,
+            snippet: s.segments.isEmpty
+                ? ''
+                : '${s.segments.first.speaker}: ${s.segments.first.text}',
             audioPath: s.audioPath,
-            meta: SessionMeta.empty,
-            seededSegmentsCount: s.segmentsCount,
+            transcriptSize: -1,
+            transcriptModifiedMs: -1,
           ),
       ];
       _loading = false;
@@ -69,16 +99,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       setState(() => _loading = false);
       return;
     }
-    final sessions = await loadSessionLibrary(libraryPath);
+    final load = await loadLibraryIndex(libraryPath);
     if (!mounted) return;
     setState(() {
-      _sessions = sessions;
+      _entries = load.entries;
       _loading = false;
     });
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     // Flush all pending deletions immediately when screen closes
     for (final entry in _pendingDeletions.entries) {
@@ -92,19 +123,91 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.dispose();
   }
 
-  /// Full-text: matches the title, the saved summary, and every segment's
-  /// text. Title-only matching used to make search useless for auto-titled
-  /// sessions, which is most of them.
-  List<SessionRecord> get _filteredSessions =>
-      _sessions.where((s) => sessionMatchesQuery(s, _query)).toList();
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(kLibrarySearchDebounce, () {
+      if (!mounted) return;
+      setState(() => _query = value.trim());
+      _maybeDeepSearch();
+    });
+  }
 
-  void _deleteSession(SessionRecord session) {
-    final index = _sessions.indexOf(session);
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _deepHits = {};
+      _deepQuery = null;
+    });
+  }
+
+  /// Cheap pass: title, first line and summary, all precomputed and
+  /// lowercased at index time.
+  List<LibraryEntry> get _filteredEntries {
+    final q = _query.toLowerCase();
+    if (q.isEmpty) return _entries;
+    return _entries
+        .where((e) => e.haystack.contains(q) || _deepHits.containsKey(e.dirPath))
+        .toList(growable: false);
+  }
+
+  /// Expensive pass, on a background isolate, and only when the cheap one
+  /// came up empty: the words the user is looking for are usually in the
+  /// body of a transcript, not in its auto-generated title.
+  Future<void> _maybeDeepSearch() async {
+    final query = _query;
+    if (query.length < 3 || widget.libraryPath == null) {
+      if (_deepHits.isNotEmpty) setState(() => _deepHits = {});
+      return;
+    }
+    if (_deepQuery == query) return;
+    final q = query.toLowerCase();
+    final unmatched = _entries
+        .where((e) => !e.haystack.contains(q))
+        .map((e) => e.dirPath)
+        .toList(growable: false);
+    if (unmatched.isEmpty) {
+      setState(() {
+        _deepQuery = query;
+        _deepHits = {};
+      });
+      return;
+    }
+    setState(() => _deepSearching = true);
+    List<DeepSearchHit> hits;
+    try {
+      hits = await deepSearchLibrary(unmatched, query);
+    } catch (_) {
+      hits = const [];
+    }
+    if (!mounted || _query != query) return;
+    setState(() {
+      _deepSearching = false;
+      _deepQuery = query;
+      _deepHits = {for (final hit in hits) hit.dirPath: hit.snippet};
+    });
+  }
+
+  /// Snippet shown under a search result. Memoised: the deep search
+  /// already produced the matching line, and an index-level match shows the
+  /// session's stored first line.
+  String? _snippetFor(LibraryEntry entry) {
+    if (_query.isEmpty) return null;
+    final deep = _deepHits[entry.dirPath];
+    if (deep != null) return deep;
+    final q = _query.toLowerCase();
+    return entry.snippet.toLowerCase().contains(q) ? entry.snippet : null;
+  }
+
+  void _deleteSession(LibraryEntry session) {
+    final index = _entries.indexOf(session);
     if (index == -1) return;
 
     // Remove from UI immediately (optimistic). Actual disk deletion is
     // deferred by 5 s so "Urungkan" can cancel it before data is gone.
-    setState(() => _sessions.removeAt(index));
+    setState(() => _entries = [..._entries]..removeAt(index));
+    _persistIndex();
     _pendingDeletions[session.dirPath]?.cancel();
     _pendingDeletions[session.dirPath] = Timer(const Duration(seconds: 5), () {
       _pendingDeletions.remove(session.dirPath);
@@ -122,7 +225,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           onPressed: () {
             _pendingDeletions.remove(session.dirPath)?.cancel();
             if (mounted) {
-              setState(() => _sessions.insert(index.clamp(0, _sessions.length), session));
+              setState(() {
+                final restored = [..._entries];
+                restored.insert(index.clamp(0, restored.length), session);
+                _entries = restored;
+              });
+              _persistIndex();
             }
           },
         ),
@@ -131,12 +239,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// Keeps the on-disk index in step with an in-memory change, so the next
+  /// open does not have to re-derive the whole corpus to notice.
+  void _persistIndex() {
+    final libraryPath = widget.libraryPath;
+    if (libraryPath == null) return;
+    unawaited(saveLibraryIndex(libraryPath, _entries).catchError((_) {}));
+  }
+
   /// Renames a session by writing the new title into its metadata sidecar.
   ///
   /// The directory keeps its original `YYYYMMDD-…` name on purpose: moving it
   /// would invalidate the audio path the player already holds and desync the
   /// exported filenames inside from the folder around them.
-  Future<void> _renameSession(SessionRecord session) async {
+  Future<void> _renameSession(LibraryEntry session) async {
     final controller = TextEditingController(text: session.title);
     final newTitle = await showDialog<String>(
       context: context,
@@ -173,14 +289,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       await writeSessionMeta(session.dirPath, meta.copyWith(title: trimmed));
       if (!mounted) return;
       setState(() {
-        final index = _sessions.indexOf(session);
+        final index = _entries.indexOf(session);
         if (index >= 0) {
-          _sessions[index] = session.copyWith(
-            title: trimmed,
-            meta: session.meta.copyWith(title: trimmed),
-          );
+          final updated = [..._entries];
+          updated[index] = session.copyWith(title: trimmed);
+          _entries = updated;
         }
       });
+      _persistIndex();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,44 +305,69 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
-  Future<void> _exportSession(SessionRecord session) async {
+  Future<void> _exportSession(LibraryEntry session) async {
     final bridge = ref.read(rustBridgeProvider);
     final settings = ref.read(settingsProvider);
+    // Phase 2: the segments are only read when something actually needs
+    // them. The list itself never has them in memory.
+    final record = await loadSessionRecord(session.dirPath);
+    if (!mounted) return;
     await showEksporDialog(
       context,
-      session.toSummary(),
+      record?.toSummary() ?? session.toSummary(),
       bridge: bridge,
       defaultOutputDir: resolveTilde(settings.libraryPath),
       defaultFormat: settings.defaultExportFormat,
-      summary: session.meta.summary,
+      summary: record?.meta.summary ?? '',
     );
   }
 
-  Future<void> _openSession(SessionRecord session) async {
+  Future<void> _openSession(LibraryEntry session) async {
+    final record = await loadSessionRecord(session.dirPath);
+    if (!mounted) return;
+    if (record == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${session.title}" tidak bisa dibuka.')),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TranscriptPlayerScreen(
-          title: session.title,
-          durationSeconds: session.durationSeconds,
-          segments: session.segments,
-          audioPath: session.audioPath,
-          sessionDirPath: session.dirPath,
-          meta: session.meta,
+          title: record.title,
+          durationSeconds: record.durationSeconds,
+          segments: record.segments,
+          audioPath: record.audioPath,
+          sessionDirPath: record.dirPath,
+          meta: record.meta,
         ),
       ),
     );
-    // The player can edit the transcript, re-transcribe, and save a summary —
-    // re-read so the list reflects all of that instead of going stale.
-    if (mounted && widget.sessions == null) await _loadFromDisk();
+    // The player can edit the transcript, re-transcribe and save a summary.
+    // Only that one session can have changed, so only that one is re-read —
+    // re-scanning the whole library here was paying the old open cost again
+    // even when the user had merely looked (audit A.2-5).
+    if (!mounted || widget.sessions != null) return;
+    final refreshed = await buildLibraryEntry(Directory(session.dirPath));
+    if (!mounted || refreshed == null) return;
+    setState(() {
+      final index = _entries.indexWhere((e) => e.dirPath == session.dirPath);
+      if (index < 0) return;
+      final updated = [..._entries];
+      updated[index] = refreshed;
+      _entries = updated;
+    });
+    _persistIndex();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final filtered = _filteredSessions;
+    final filtered = _filteredEntries;
 
     return DefaultTabController(
       length: 2,
+      initialIndex: widget.initialTab,
       child: Scaffold(
         backgroundColor: colors.background,
         appBar: AppBar(
@@ -237,6 +378,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, size: 20),
             onPressed: () => Navigator.of(context).pop(),
+            tooltip: 'Kembali',
           ),
           bottom: TabBar(
             labelColor: colors.primary,
@@ -257,17 +399,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   padding: const EdgeInsets.all(12),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: _onSearchChanged,
                     decoration: InputDecoration(
                       hintText: 'Cari judul, isi transkrip, atau ringkasan...',
                       prefixIcon: Icon(Icons.search, color: colors.textTertiary, size: 18),
-                      suffixIcon: _query.isNotEmpty
+                      suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
                               icon: Icon(Icons.clear, size: 18, color: colors.textTertiary),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                              },
+                              onPressed: _clearSearch,
+                              tooltip: 'Bersihkan pencarian',
                             )
                           : null,
                       filled: true,
@@ -284,37 +424,60 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ),
                   ),
                 ),
+                if (_deepSearching)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Mencari di dalam transkrip…',
+                            style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                // Outside the list on purpose: as list item 0 it was
+                // disposed and re-created on every scroll, and each
+                // creation walked the whole library directory (A.2-6).
+                if (!_loading && _entries.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: StorageBar(
+                      totalSessions: _entries.length,
+                      libraryPath: widget.libraryPath,
+                    ),
+                  ),
                 Expanded(
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
-                      : _sessions.isEmpty
+                      : _entries.isEmpty
                           ? const EmptyState(
                               icon: Icons.folder_open_outlined,
                               title: 'Belum ada sesi tersimpan',
                               subtitle: 'Sesi transkripsi akan muncul di sini',
                             )
-                              : filtered.isEmpty
-                                  ? const EmptyState(
-                                      icon: Icons.search_off,
-                                      title: 'Tidak ada sesi cocok',
-                                    )
+                          : filtered.isEmpty
+                              ? const EmptyState(
+                                  icon: Icons.search_off,
+                                  title: 'Tidak ada sesi cocok',
+                                )
                               : ListView.separated(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  itemCount: filtered.length + 1, // +1 for storage bar
-                                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 8),
                                   itemBuilder: (context, index) {
-                                    if (index == 0) {
-                                      return StorageBar(
-                                      totalSessions: _sessions.length,
-                                      libraryPath: widget.libraryPath,
-                                    );
-                                    }
-                                    final session = filtered[index - 1];
+                                    final session = filtered[index];
                                     return SessionCardFromSummary(
+                                      key: ValueKey(session.dirPath),
                                       session: session.toSummary(),
-                                      hasSummary: session.meta.hasSummary,
-                                      matchSnippet:
-                                          matchingSnippet(session, _query),
+                                      hasSummary: session.hasSummary,
+                                      matchSnippet: _snippetFor(session),
                                       onDelete: () => _deleteSession(session),
                                       onExport: () => _exportSession(session),
                                       onRename: () => _renameSession(session),
@@ -328,7 +491,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
             // Upload tab
             Padding(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               child: FileUploadZone(onProcessed: _loadFromDisk),
             ),
           ],

@@ -182,33 +182,6 @@ String titleFromDirName(String dirName) {
   return match?.group(1) ?? dirName;
 }
 
-/// Whether [record] matches [query], searched over the title, the summary and
-/// every segment's text.
-///
-/// Full-text search across transcripts is the point: the library previously
-/// matched titles only, which for auto-titled sessions ("Sesi 2026-09-30
-/// 14:05") meant search found nothing anyone would think to look for.
-bool sessionMatchesQuery(SessionRecord record, String query) {
-  final q = query.trim().toLowerCase();
-  if (q.isEmpty) return true;
-  if (record.title.toLowerCase().contains(q)) return true;
-  if (record.meta.summary.toLowerCase().contains(q)) return true;
-  return record.segments.any((s) => s.text.toLowerCase().contains(q));
-}
-
-/// The first transcript line containing [query], for the search-result
-/// snippet. `null` when the match came from the title or summary only.
-String? matchingSnippet(SessionRecord record, String query) {
-  final q = query.trim().toLowerCase();
-  if (q.isEmpty) return null;
-  for (final segment in record.segments) {
-    if (segment.text.toLowerCase().contains(q)) {
-      return '${segment.speaker}: ${segment.text}'.trim();
-    }
-  }
-  return null;
-}
-
 /// Reads the sidecar in [dirPath]. Returns [SessionMeta.empty] when it is
 /// missing or unreadable — a corrupt sidecar must never hide a transcript.
 Future<SessionMeta> readSessionMeta(String dirPath) async {
@@ -333,58 +306,4 @@ Future<List<TranscriptSegment>?> readTranscriptBackup(String dirPath) async {
   } catch (_) {
     return null;
   }
-}
-
-/// Loads every session under [libraryPath], newest first.
-///
-/// A directory that fails to parse is skipped rather than aborting the scan:
-/// one bad folder must not empty the user's whole library.
-Future<List<SessionRecord>> loadSessionLibrary(String libraryPath) async {
-  final dir = Directory(libraryPath);
-  if (!await dir.exists()) return const [];
-
-  final sessions = <SessionRecord>[];
-  final List<FileSystemEntity> entries;
-  try {
-    entries = dir.listSync();
-  } catch (_) {
-    return const [];
-  }
-
-  for (final entry in entries) {
-    if (entry is! Directory) continue;
-    try {
-      final transcript = transcriptFileIn(entry);
-      if (transcript == null) continue;
-      final segments = parseTranscriptJson(await transcript.readAsString());
-      final meta = await readSessionMeta(entry.path);
-      final stat = await entry.stat();
-      final dirName = entry.uri.pathSegments.where((s) => s.isNotEmpty).last;
-      final audio = entry.listSync().whereType<File>().where((f) {
-        final ext = f.path.split('.').last.toLowerCase();
-        return kAudioExtensions.contains(ext);
-      }).firstOrNull;
-
-      sessions.add(
-        SessionRecord(
-          dirPath: entry.path,
-          title: meta.title?.trim().isNotEmpty == true
-              ? meta.title!.trim()
-              : titleFromDirName(dirName),
-          date: stat.modified.toIso8601String().substring(0, 10),
-          segments: segments,
-          durationSeconds: segments.isEmpty
-              ? 0
-              : segments.last.timestamp + segments.last.duration,
-          audioPath: audio?.path,
-          meta: meta,
-        ),
-      );
-    } catch (_) {
-      continue;
-    }
-  }
-
-  sessions.sort((a, b) => b.date.compareTo(a.date));
-  return sessions;
 }
