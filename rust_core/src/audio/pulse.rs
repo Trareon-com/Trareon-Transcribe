@@ -432,8 +432,10 @@ fn pump(
                 carry.extend_from_slice(&bytes);
                 let usable = carry.len() - carry.len() % 4;
                 let samples: Vec<f32> = carry[..usable]
-                    .chunks_exact(4)
-                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|c| f32::from_le_bytes(*c))
                     .collect();
                 carry.drain(..usable);
                 if samples.is_empty() {
