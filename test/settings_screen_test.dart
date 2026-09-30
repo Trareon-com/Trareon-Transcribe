@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,54 +127,167 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   void resumeSession(String sessionId) {}
 }
 
-void main() {
-  testWidgets('settings screen shows all controls', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1440, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
+class _FailingSaveBridge extends _TestBridge {
+  bool fail = true;
 
-    final bridge = _TestBridge();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-        child: const MaterialApp(home: SettingsScreen()),
-      ),
+  @override
+  Future<void> saveSettings(AppSettings settings) async {
+    if (fail) throw const FileSystemException('read-only file system');
+    savedSettings = settings;
+  }
+}
+
+Widget _host(RustBridge bridge) => ProviderScope(
+      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+      child: const MaterialApp(home: SettingsScreen()),
     );
+
+void _sizeViewport(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+}
+
+void main() {
+  testWidgets('two panes: a category list on the left, its content on the right',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Model default'), findsWidgets);
-    expect(find.text('Bahasa'), findsWidgets);
+    // Every category is reachable from the rail without scrolling a
+    // single long column.
+    for (final label in [
+      'Tampilan',
+      'Model & Mode',
+      'Audio & Suara',
+      'Penyimpanan',
+      'Ringkasan AI',
+      'Penyiapan & Diagnostik',
+      'Tentang',
+    ]) {
+      expect(find.text(label), findsWidgets, reason: 'rail entry $label');
+    }
+
+    // The default pane is Tampilan; Model & Mode is one click away.
+    expect(find.text('Tema'), findsOneWidget);
+    expect(find.text('Model default'), findsNothing);
+
+    await tester.tap(find.text('Model & Mode'));
+    await tester.pumpAndSettle();
+    expect(find.text('Model default'), findsOneWidget);
+    expect(find.text('Bahasa'), findsOneWidget);
+
+    await tester.tap(find.text('Audio & Suara'));
+    await tester.pumpAndSettle();
     expect(find.text('VAD (deteksi suara)'), findsOneWidget);
     expect(find.text('Echo Dedupe'), findsOneWidget);
-
-    // Scroll down to the "Lainnya" section (below viewport in lazy ListView)
-    await tester.scrollUntilVisible(
-      find.text('Laporan Privasi'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Laporan Privasi'), findsOneWidget);
-    expect(find.text('Dasbor Penggunaan'), findsOneWidget);
   });
 
-  testWidgets('theme dropdown changes theme', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1440, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-
-    final bridge = _TestBridge();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-        child: const MaterialApp(home: SettingsScreen()),
-      ),
-    );
+  testWidgets('both panes still fit at the 800x600 minimum window',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(800, 600));
+    await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
 
-    // Find and tap the theme dropdown
-    final dropdowns = find.byType(DropdownButton<AppThemeMode>);
-    expect(dropdowns, findsWidgets);
+    await tester.tap(find.text('Penyiapan & Diagnostik'));
+    await tester.pumpAndSettle();
+    expect(find.text('Diagnostik'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no overflow at 800x600');
+  });
+
+  testWidgets('a very narrow window falls back to a chip strip',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(560, 600));
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChoiceChip), findsWidgets);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Audio & Suara'));
+    await tester.pumpAndSettle();
+    expect(find.text('VAD (deteksi suara)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the setup wizard and diagnostics are reachable from Settings',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Penyiapan & Diagnostik'));
+    await tester.pumpAndSettle();
+    expect(find.text('Jalankan Ulang Penyiapan'), findsOneWidget);
+
+    // The wizard had 935 lines of tested UI and no route into it at all
+    // until this sprint (audit A.6-1).
+    //
+    // Pumped rather than settled: step 1 reads real system specs
+    // (/proc/meminfo and friends), and real I/O does not complete inside
+    // a widget test's fake-async zone, so its spinner never stops.
+    await tester.tap(find.text('Jalankan Ulang Penyiapan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('1. Deteksi Spesifikasi'), findsOneWidget);
+    expect(find.text('Tutup'), findsOneWidget);
+
+    await tester.tap(find.text('Tutup'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Jalankan Ulang Penyiapan'), findsOneWidget);
+  });
+
+  testWidgets('a failed save rolls back and says so, with a retry',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    final bridge = _FailingSaveBridge();
+    await tester.pumpWidget(_host(bridge));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Audio & Suara'));
+    await tester.pumpAndSettle();
+
+    final before = tester.widget<Switch>(find.byType(Switch).first).value;
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('gagal disimpan'), findsOneWidget);
+    expect(
+      tester.widget<Switch>(find.byType(Switch).first).value,
+      before,
+      reason: 'a switch that stays flipped after a failed write is lying',
+    );
+
+    // Retry, this time with a working disk.
+    bridge.fail = false;
+    await tester.tap(find.text('Coba lagi'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('gagal disimpan'), findsNothing);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, !before);
+    expect(bridge.savedSettings.vadEnabled, !before);
+  });
+
+  testWidgets('the GPU helper describes the machine, not the switch',
+      (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Model & Mode'));
+    await tester.pumpAndSettle();
+
+    // Without the native engine the capability is unknown, so the text
+    // must stay conditional instead of asserting "menggunakan GPU".
+    expect(find.textContaining('Transkripsi memakai CPU'), findsOneWidget);
+    expect(find.textContaining('menggunakan GPU (Vulkan/CUDA/Metal)'),
+        findsNothing);
+  });
+
+  testWidgets('theme dropdown is present', (WidgetTester tester) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DropdownButton<AppThemeMode>), findsWidgets);
   });
 }

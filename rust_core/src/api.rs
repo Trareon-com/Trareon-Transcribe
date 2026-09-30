@@ -28,6 +28,47 @@ pub fn format_preflight_checks(checks: Vec<Check>) -> String {
     format_checks(&checks)
 }
 
+/// What this *build* can actually do for GPU inference.
+///
+/// The Settings switch is a request, not a capability: whisper.cpp only
+/// has a GPU backend if one was compiled in, so on a plain Linux build
+/// turning "Akselerasi GPU" on changes nothing at all. The settings screen
+/// used to claim "Transkripsi menggunakan GPU (Vulkan/CUDA/Metal)" purely
+/// because the switch was on, which is a statement about the UI rather
+/// than about the machine.
+pub struct GpuCapability {
+    /// True when a GPU backend is compiled into this binary.
+    pub available: bool,
+    /// Human-facing backend name: "Vulkan", "CoreML", "Metal", "CPU".
+    pub backend: String,
+}
+
+pub fn gpu_capability() -> GpuCapability {
+    #[cfg(feature = "gpu-vulkan")]
+    {
+        GpuCapability {
+            available: true,
+            backend: "Vulkan".to_string(),
+        }
+    }
+    #[cfg(all(not(feature = "gpu-vulkan"), target_os = "macos"))]
+    {
+        // whisper.cpp builds Metal (and CoreML on Apple Silicon) in by
+        // default on Apple platforms.
+        GpuCapability {
+            available: true,
+            backend: crate::stt::detect_backend(),
+        }
+    }
+    #[cfg(all(not(feature = "gpu-vulkan"), not(target_os = "macos")))]
+    {
+        GpuCapability {
+            available: false,
+            backend: "CPU".to_string(),
+        }
+    }
+}
+
 /// Installs a `tracing` subscriber writing to stderr. Without this,
 /// every `tracing::error!`/`warn!` call in the engine (session/pipeline
 /// failures, capture errors, etc.) is silently dropped — there is no

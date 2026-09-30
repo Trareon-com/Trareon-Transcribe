@@ -25,6 +25,9 @@ Future<List<Check>> runPreflightChecks() =>
 Future<String> formatPreflightChecks({required List<Check> checks}) =>
     RustLib.instance.api.crateApiFormatPreflightChecks(checks: checks);
 
+Future<GpuCapability> gpuCapability() =>
+    RustLib.instance.api.crateApiGpuCapability();
+
 /// Installs a `tracing` subscriber writing to stderr. Without this,
 /// every `tracing::error!`/`warn!` call in the engine (session/pipeline
 /// failures, capture errors, etc.) is silently dropped — there is no
@@ -346,6 +349,35 @@ Future<void> flightSetEnabled({required bool enabled}) =>
 
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
+
+/// What this *build* can actually do for GPU inference.
+///
+/// The Settings switch is a request, not a capability: whisper.cpp only
+/// has a GPU backend if one was compiled in, so on a plain Linux build
+/// turning "Akselerasi GPU" on changes nothing at all. The settings screen
+/// used to claim "Transkripsi menggunakan GPU (Vulkan/CUDA/Metal)" purely
+/// because the switch was on, which is a statement about the UI rather
+/// than about the machine.
+class GpuCapability {
+  /// True when a GPU backend is compiled into this binary.
+  final bool available;
+
+  /// Human-facing backend name: "Vulkan", "CoreML", "Metal", "CPU".
+  final String backend;
+
+  const GpuCapability({required this.available, required this.backend});
+
+  @override
+  int get hashCode => available.hashCode ^ backend.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GpuCapability &&
+          runtimeType == other.runtimeType &&
+          available == other.available &&
+          backend == other.backend;
+}
 
 /// Result of an HPT (dual-model) file transcription: the quick pass from
 /// `base` (`is_partial = true`) and the refined pass from

@@ -68,12 +68,9 @@ void main() {
       await tester.tap(find.byTooltip('Pengaturan'));
       await tester.pumpAndSettle();
 
-      // Scroll to find Privacy Report tile
-      await tester.dragUntilVisible(
-        find.text('Laporan Privasi'),
-        find.byType(ListView),
-        const Offset(0, -200),
-      );
+      // Settings is two panes now: the Privacy Report tile lives under
+      // the "Penyiapan & Diagnostik" category.
+      await tester.tap(find.text('Penyiapan & Diagnostik'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Laporan Privasi'));
