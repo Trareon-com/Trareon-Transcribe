@@ -247,3 +247,289 @@ skips rather than fails where no sound server exists.
 2. Delete the dead FRB surface (A-3, `resume_pending_transcriptions`, flight recorder) or give it callers.
 3. Windows/Linux global hotkeys (A-14).
 4. A hardware smoke test for dual capture on each platform, per `CHECKLIST.md`.
+
+---
+
+# Round 2: GUI smoke-test fixes
+
+> 2026-09-30 · same branch · found by actually running the release build on
+> the Kali/PipeWire laptop rather than on the test suite.
+
+Everything in §1–§4 above passed CI and passed a `cargo run` probe. Launching
+`build/linux/x64/release/bundle/transcribe`, selecting **Rapat Online** and
+pressing Ctrl+R did not work at all:
+
+* the record button stayed on "⚡ Memulai..." for minutes and no transcript
+  ever appeared;
+* stderr took **6.6 million lines / 1.5 GB in about two minutes** — a tight
+  loop of `` `alsa::poll()` returned POLLERR `` out of cpal's error callback,
+  which on a smaller disk is a denial of service against the user's machine;
+* startup printed dozens of lines of ALSA plugin and JACK noise.
+
+Three independent defects, found in that order.
+
+---
+
+## R-1 — The microphone was a rate converter
+
+**Not** a stream bug. A *device selection* bug, three layers deep.
+
+`cpal`'s Linux backend is ALSA. `Host::input_devices()` enumerates every pcm
+the system defines, which on a normal desktop includes plugins that are not
+capture devices at all. The real listing from this machine:
+
+```
+Input devices (16):
+  name="lavrate"              default=false     <- ffmpeg rate converter
+  name="samplerate"           default=false
+  name="speexrate"            default=false
+  name="pulse"                default=false
+  name="speex"                default=false
+  name="upmix"                default=false
+  name="vdownmix"             default=false
+  name="hw:CARD=PCH,DEV=0"    default=false
+  ...
+```
+
+Every entry says `default=false`, because `Host::default_input_device()`
+opens the pcm literally named `default`, and `default` is never one of the
+enumerated names. `session_model._resolveDevices()` picks "the one marked
+default, else `inputs.first`" — so it picked **`lavrate`**. The recovery
+snapshot left behind by the failing run has it in writing:
+
+```json
+"mic_device_id": "lavrate",
+"speaker_device_id": "lavrate",
+```
+
+Opening `lavrate` as a capture device builds a stream and `play()` succeeds,
+and then `snd_pcm_poll_descriptors_revents()` returns `POLLERR` on every
+poll, with no forward progress and no end. Hence the flood.
+
+Underneath that, the whole ALSA layer is the wrong one on a machine running
+PipeWire: the server owns the card, and cpal fights it for it.
+
+**Fix** — `rust_core/src/audio/pulse.rs`: the microphone is captured through
+the sound server, the same mechanism system audio has used since A-1.
+`resolve_input_source()` is the exact mirror of `resolve_monitor_source()`,
+and it matters for the mirror-image reason: it must never return a
+`.monitor`. On this machine `pactl get-default-source` **is** the sink
+monitor (PipeWire leaves the default there while the mic is suspended), so
+honouring the server's default uncritically would have recorded the speakers
+and labelled them `Saya`. An unrecognised hint falls through to the real mic
+rather than failing, so settings files still carrying `lavrate` recover by
+themselves. cpal stays as the fallback where no sound server answers, and
+`TRAREON_CAPTURE_BACKEND=pulse|cpal` forces either for debugging.
+
+Device *listings* moved to `pactl` on Linux too (`audio/device.rs`), so the
+picker can no longer offer a rate converter as a microphone, and the entry it
+marks as default is by construction the one the capture path would open.
+
+That also removed the startup noise (R-4): the ALSA plugin and libjack
+chatter was cpal enumerating pcms, which the app no longer does here.
+`audio/alsa_quiet.rs` installs an `snd_lib_error_set_handler` no-op for the
+remaining cpal fallback paths.
+
+## R-2 — The error callback had no rate limit
+
+cpal calls the error callback on its audio thread with no back-pressure, and
+`tracing::error!` was called once per error. `audio/stream_error.rs` now
+collapses a burst into one line plus at most one summary per 5 s, and
+escalates a *persistent* error to fatal: the stream is stopped and the reason
+reaches the user as a `SessionEvent::Notice`, rather than spinning forever.
+
+Two details that are easy to get wrong:
+
+* The rate limit is **message-independent**. Keyed on the error text, a device
+  alternating between two errors defeats it and the flood is back at one line
+  per error. A test pins this.
+* The fatal threshold (100 errors in 5 s) is sliding, so occasional buffer
+  xruns across a three-hour recording never accumulate into a false "device is
+  broken" verdict — which would stop a working recording. A test pins that too.
+
+Session start no longer swallows a capture failure either. It used to
+`tracing::warn!` and return `Ok(None)`, so "Rapat Online" would happily start
+a session with zero working capture. `session::decide_start()` now warns when
+one source of two is missing and **refuses to start** when none opened.
+
+## R-3 — `start_session` blocked for 221.8 seconds
+
+With the flood gone the button still sat on "Memulai...". Measured with the
+new `session_start_probe`:
+
+```
+$ ./target/release/session_start_probe <tiny> <large-v3-turbo-q5>
+mode:   Rapat Online (mic + system audio)
+12:36:09  linux mic: capturing via PipeWire/PulseAudio
+12:36:10  whisper engine initialized                     <- q5 loaded, ~1 s
+12:37:59  adaptive hpt benchmark rtf=0.0456 mode=Auto    <- 109.6 s
+12:38:00  whisper engine initialized (x2)                <- reloaded for dual-pass
+12:39:50  adaptive hpt benchmark rtf=0.0457 mode=Auto    <- 109.5 s, again
+start_session returned OK in 221.8s
+```
+
+Model loading was about 3 s of that. The rest was the adaptive-HPT benchmark:
+110 s to transcribe a 5 s clip with `large-v3-turbo-q5` on this 2-core CPU,
+run **once per source**, even though what it measures is the machine.
+
+Three fixes, each derived rather than tuned:
+
+1. **A deadline.** The benchmark's only job is to answer "is
+   `rtf >= threshold`?". Once `audio_secs / threshold` seconds of wall-clock
+   have passed with no result, the answer is already no, and the exact figure
+   cannot change the decision. `benchmark_rtf_bounded()` stops *waiting*
+   there. It cannot cancel `whisper_full`, so on the slow path one detached
+   thread runs to completion and drops the engine itself — a core for a
+   minute or two on a machine already judged slow, against minutes of a
+   frozen button. It happens at most once per process because of (2).
+2. **A cache**, keyed on (model, GPU config). The second source reuses the
+   first's decision.
+3. **A third route.** Both existing routes run the refine model on *every*
+   chunk, so below `rtf 1.0` neither can ever emit anything: a 5 s chunk
+   takes longer to transcribe than the next one takes to arrive, and the
+   worker falls behind forever. That is exactly what the smoke test saw —
+   **zero segments in 90 s of continuous speech**. `HptRoute::QuickOnly`
+   drops the refine pass from the live path and says so in Indonesian,
+   pointing at "Transkrip Ulang" to recover the accuracy afterwards with no
+   real-time constraint. `HPT_LIVE_FLOOR = 1.0` is not a knob — it is the
+   definition of keeping up.
+
+`ForceDual` still forces the old behaviour for anyone who wants it.
+
+---
+
+## Verification on this machine
+
+### Dual capture, real hardware
+
+Audio played into the sink throughout (`ffmpeg … | paplay`).
+
+```
+$ timeout 25 ./target/release/dual_capture_probe 8
+backend override: None
+sound server: PulseAudio/PipeWire reachable
+  default source: Some("alsa_output.pci-0000_00_1f.3.analog-stereo.monitor")
+  default sink:   Some("alsa_output.pci-0000_00_1f.3.analog-stereo")
+  resolved mic:   Ok("alsa_input.pci-0000_00_1f.3.analog-stereo")
+  source: alsa_output.pci-0000_00_1f.3.analog-stereo.monitor 2ch 48000Hz  [monitor]
+  source: alsa_input.pci-0000_00_1f.3.analog-stereo          2ch 48000Hz
+INFO linux mic: capturing via PipeWire/PulseAudio source=alsa_input.pci-0000_00_1f.3.analog-stereo
+mic:     capture started
+INFO linux loopback: recording system audio monitor source=alsa_output.pci-0000_00_1f.3.analog-stereo.monitor
+speaker: capture started
+
+recording for 8s ...
+
+mic      chunks=165 samples=131984 (103% of 128000 expected @16000Hz) rms=0.000084 peak=0.000427
+speaker  chunks=162 samples=129584 (101% of 128000 expected @16000Hz) rms=0.140172 peak=0.793599
+
+RESULT: OK — both sources delivered audio
+```
+
+No POLLERR, and the mic resolves to the real input rather than to the monitor
+that PipeWire reports as the default source. The mic RMS is the ADC noise
+floor of a silent room — non-zero and three orders of magnitude below the
+monitor, which is what proves the two channels are genuinely different
+sources rather than the monitor twice.
+
+### The old path, reproduced on purpose
+
+```
+$ TRAREON_CAPTURE_BACKEND=cpal timeout 20 ./target/release/dual_capture_probe 5 lavrate
+bytes: 1551  lines: 20  POLLERR: 2
+mic device arg:   Some("lavrate")
+mic:     capture started
+ERROR audio input stream error source=mic error=A backend-specific error has occurred: `alsa::poll()` returned POLLERR
+ERROR audio input stream failing persistently — stopping capture source=mic error=... total=100
+mic      chunks=0   samples=0     (0% of 80000 expected @16000Hz) rms=0.000000 peak=0.000000
+RESULT: FAIL — mic delivered no audio
+```
+
+Two log lines and a stopped stream, in **1551 bytes**. The same condition
+previously produced 6.6 million lines and 1.5 GB.
+
+### Session start
+
+| | before | after |
+|---|---:|---:|
+| `start_session`, Rapat Online, tiny + q5 | **221.8 s** | **7.5 s** |
+| `start_session`, Rapat Online, single model | — | **0.6 s** |
+
+```
+$ ./target/release/session_start_probe <tiny> <large-v3-turbo-q5> 60
+13:08:58 adaptive hpt benchmark outran its deadline — the refine model cannot
+         keep up with live audio on this device, using the quick model only
+         deadline_secs=6.0
+start_session returned OK in 7.5s
+t=10s  vu(mic)=0.0001 vu(spk)=0.3833  0 transcript(s)
+      NOTICE: Perangkat ini terlalu lambat untuk model akurat secara langsung,
+              jadi transkrip langsung memakai model cepat. Setelah sesi selesai,
+              gunakan "Transkrip Ulang" untuk menjalankan ulang dengan model akurat.
+t=30s  vu(mic)=0.0001 vu(spk)=0.3579  1 transcript(s)
+      [Peserta 1] Anggain dibertalan bariawab mengyakkan lapor apaguan ...
+t=60s  vu(mic)=0.0001 vu(spk)=0.3975  1 transcript(s)
+      [Peserta 1] 2-2 kali udah pahant, 4-3 kutnya di jadu-mampang gue udah pahanya.
+```
+
+Before this change the same command produced no transcript at all in 90 s.
+The text is poor because the quick model here is `ggml-tiny`; that is the
+model's accuracy, not the pipeline's — the single-model run against
+`ggml-tiny` alone produces the same quality, and "Transkrip Ulang" with the
+accurate model is the answer to it.
+
+### The GUI, which is where this started
+
+Release build, X11, **Rapat Online**, Ctrl+R, audio playing into the sink:
+
+* startup stderr: **0 bytes** (was: dozens of ALSA/JACK plugin lines)
+* "Memulai..." lasted about 3 s, then the UI entered the recording state
+* 60 s of recording produced **2 transcript segments** labelled `Peserta 1`,
+  a live VU meter, and a **6147-byte** log — of which the only two non-Whisper
+  lines are a Flutter renderer notice and a libayatana deprecation warning.
+
+### Gates
+
+```
+$ cd rust_core && cargo fmt --check
+(clean)
+
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.47s
+
+$ cargo test --lib
+test result: ok. 259 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ flutter analyze
+No issues found! (ran in 6.8s)
+
+$ flutter test
+00:40 +114: All tests passed!
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+| Gate | Round 1 | Round 2 |
+|---|---:|---:|
+| `cargo test --lib` | 219 passed | **259 passed** |
+| `flutter test` | 110 passed | **114 passed** |
+| `flutter analyze` | 0 issues | 0 issues |
+| `cargo clippy -D warnings` | clean | clean |
+
+New tests: the rate limiter and its escalation policy (8), the benchmark
+deadline derivation (5), the HPT route thresholds (4), `decide_start` (6),
+Pulse source resolution including the stale-`lavrate` recovery (9), the Linux
+device listing against the real server (1), mic-vs-monitor resolution against
+the real server (1) — plus four Dart tests covering a failed start returning
+the button to idle and a mid-session capture failure reaching the user.
+
+---
+
+## Still open after Round 2
+
+| Gap | Impact |
+|---|---|
+| **Dual-pass HPT runs quick and refine synchronously** in `LivePipelineHpt::ingest`, so nothing is emitted until the refine pass finishes — the "instant partials" the design promises are not actually delivered within a chunk. `QuickOnly` routes around it on slow devices, but the dual-pass path itself needs the refine pass moved onto its own queue. Not attempted here: it is a pipeline redesign, not a bug fix. |
+| **The abandoned benchmark thread** keeps a core busy until `whisper_full` returns (about two minutes on this machine), once per process. `whisper.cpp` offers no way to interrupt it. |
+| **A muted sink silently yields silent "system audio."** Muting a sink also mutes its monitor source in PipeWire, and unmuting the sink does *not* unmute the monitor — so the recording is digital silence with nothing to indicate why. The silence watchdog catches it after 12 s; naming the cause would be better. (Hit accidentally while automating the GUI for this round, which is how it was found.) |
+| **`AudioCapture::stop` does not survive SIGKILL of the app**, so a hard kill can leave the `ffmpeg`/`parec` helper running. A `PR_SET_PDEATHSIG` on the child would close it on Linux. |

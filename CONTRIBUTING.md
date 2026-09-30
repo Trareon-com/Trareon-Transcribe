@@ -112,7 +112,7 @@ If you change any `#[flutter_rust_bridge::frb(ignore)]`-free signatures in `rust
 
 ```bash
 flutter_rust_bridge_codegen generate \
-  --rust-input crate::api,crate::error,crate::audio,crate::decode,crate::export,crate::model,crate::session,crate::settings \
+  --rust-input crate::api,crate::error,crate::audio,crate::decode,crate::export,crate::model,crate::session,crate::settings,crate::summary \
   --rust-root rust_core \
   --dart-output lib/src/rust \
   --dart-entrypoint-class-name RustLib
