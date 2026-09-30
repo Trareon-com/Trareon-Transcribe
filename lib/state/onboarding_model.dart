@@ -5,11 +5,17 @@ import '../services/bridge_service.dart';
 import '../src/rust/model.dart' as rust_model;
 import '../widgets/model_download_card.dart';
 import 'models.dart';
+import 'privacy_report_model.dart';
 import 'settings_model.dart';
 
 final onboardingProvider =
     StateNotifierProvider<OnboardingNotifier, OnboardingState>((ref) {
-      return OnboardingNotifier(ref.watch(rustBridgeProvider));
+      return OnboardingNotifier(
+        ref.watch(rustBridgeProvider),
+        onNetworkRequest: ref
+            .read(privacyReportProvider.notifier)
+            .recordModelDownload,
+      );
     });
 
 /// Which two catalog entries onboarding downloads — `base` for the
@@ -24,9 +30,16 @@ const _accurateModelId = 'large-v3-turbo-q5';
 /// Rust download tracker (`DOWNLOAD_PROGRESS`) is a single global slot, so
 /// concurrent downloads would scramble each other's progress.
 class OnboardingNotifier extends StateNotifier<OnboardingState> {
-  OnboardingNotifier(this._bridge) : super(OnboardingState.empty);
+  OnboardingNotifier(this._bridge, {required this.onNetworkRequest})
+    : super(OnboardingState.empty);
 
   final RustBridge _bridge;
+
+  /// Invoked with the model id immediately before each download starts, so
+  /// the Privacy Report counts it. Required, not optional: this is one of
+  /// the app's four outbound paths.
+  final void Function(String modelId) onNetworkRequest;
+
   bool _running = false;
 
   Future<void> start() async {
@@ -139,6 +152,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     });
 
     try {
+      onNetworkRequest(modelId);
       await _bridge.downloadModel(defaultModelsCacheDir(), modelId);
       apply(slot().copyWith(status: DownloadStatus.ready, progress: 1.0));
     } catch (e) {

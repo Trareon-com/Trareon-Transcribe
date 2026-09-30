@@ -37,12 +37,15 @@ void main() {
   test(
     'start() downloads base then large-v3-turbo-q5 in order and reaches allReady',
     () async {
+      final recorded = <String>[];
       final bridge = _FakeDownloadBridge();
-      final notifier = OnboardingNotifier(bridge);
+      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
 
       await notifier.start();
 
       expect(bridge.calls, ['base', 'large-v3-turbo-q5']);
+      // Every download reports itself to the Privacy Report first.
+      expect(recorded, ['base', 'large-v3-turbo-q5']);
       expect(notifier.state.quick.status, DownloadStatus.ready);
       expect(notifier.state.accurate.status, DownloadStatus.ready);
       expect(notifier.state.allReady, isTrue);
@@ -52,8 +55,9 @@ void main() {
   test(
     'a failed base download stops before attempting the accurate model',
     () async {
+      final recorded = <String>[];
       final bridge = _FakeDownloadBridge(failuresRemaining: {'base': 1});
-      final notifier = OnboardingNotifier(bridge);
+      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
 
       await notifier.start();
 
@@ -66,8 +70,9 @@ void main() {
   );
 
   test('retryQuick clears the error and resumes through both models', () async {
+    final recorded = <String>[];
     final bridge = _FakeDownloadBridge(failuresRemaining: {'base': 1});
-    final notifier = OnboardingNotifier(bridge);
+    final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
 
     await notifier.start();
     expect(notifier.state.quick.status, DownloadStatus.error);
@@ -83,10 +88,11 @@ void main() {
   test(
     'a failed accurate download leaves the already-ready quick model untouched',
     () async {
+      final recorded = <String>[];
       final bridge = _FakeDownloadBridge(
         failuresRemaining: {'large-v3-turbo-q5': 1},
       );
-      final notifier = OnboardingNotifier(bridge);
+      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
 
       await notifier.start();
 
@@ -102,8 +108,9 @@ void main() {
   );
 
   test('concurrent start() calls do not double-download', () async {
+    final recorded = <String>[];
     final bridge = _FakeDownloadBridge();
-    final notifier = OnboardingNotifier(bridge);
+    final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
 
     await Future.wait([notifier.start(), notifier.start()]);
 

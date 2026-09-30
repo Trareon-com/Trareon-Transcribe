@@ -36,6 +36,6 @@ void main() {
 
     expect(find.text('1 panggilan jaringan sejak aplikasi dibuka'), findsOneWidget);
     expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
-    expect(find.textContaining('Mengunduh model'), findsOneWidget);
+    expect(find.textContaining('Mengunduh model "tiny"'), findsOneWidget);
   });
 }
