@@ -399,3 +399,102 @@ The release build surfaced three things no test had:
 - **Not verified on macOS or Windows.** Every claim above is from Linux
   (PipeWire) on this machine. The audio path is shared, but the loopback
   backend is not.
+
+---
+
+## Sprint 1 — fix round (CI failure)
+
+### The failure
+
+CI's `flutter test` reported **275 passed, 1 failed**:
+
+```
+❌ test/session_save_retry_test.dart: retrySave can write somewhere else entirely (failed)
+Expected: ['/home/kali/Documents/TrareonTranscribe']
+```
+
+### Root cause — DONE
+
+The test asserted a literal absolute path containing *this developer's*
+home directory. `SessionNotifier` defaults its library path to
+`~/Documents/TrareonTranscribe` and resolves the tilde against `HOME`
+(`lib/state/models.dart:58`), so the expectation only ever held on a
+machine whose `HOME` is `/home/kali`. On the runner, `HOME` is
+`/home/runner`, and the audio correctly landed in
+`/home/runner/Documents/TrareonTranscribe`.
+
+The production code was right; the assertion was machine-dependent. It
+was also the *only* such assertion — a repo-wide search for `/home/kali`
+and `/Users/` outside `docs/` turned up nothing else in `lib/` or
+`test/` (only `TODO.md` prose and an example binary that already falls
+back correctly).
+
+The test was not weakened. It still asserts exactly what it was written
+to assert — that on `retrySave(outputDir: …)` only the transcript moves
+to the override while the already-placed audio stays in the default
+library folder — but the expected default is now derived rather than
+transcribed.
+
+Alongside the fix, the default library path literal (which had been
+duplicated in `AppSettings.defaults()` and `SessionNotifier`) was given
+a name, `kDefaultLibraryPath`, so the test and both production defaults
+cannot drift apart again.
+
+**Files touched**
+- `lib/state/models.dart` — new `kDefaultLibraryPath` constant;
+  `AppSettings.defaults()` uses it.
+- `lib/state/session_model.dart` — `_libraryPath` initialises from it.
+- `test/session_save_retry_test.dart` — expectation is now
+  `resolveTilde(kDefaultLibraryPath)`.
+
+**Tests added**: none (this is a fix to an existing test's portability,
+not new behaviour). The fix was verified by re-running the suite under a
+foreign home directory:
+
+```
+$ HOME=/tmp/fake-ci-home flutter test test/session_save_retry_test.dart
+00:00 +9: All tests passed!
+```
+
+That is the exact condition that broke CI, and it now passes — before
+the fix it fails there the same way it failed on the runner.
+
+### Verification gate
+
+```
+$ cd rust_core && cargo fmt --check
+FMT OK
+$ cargo clippy --all-targets -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.60s   (no warnings)
+$ cargo test --lib
+test result: ok. 309 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ flutter analyze
+No issues found! (ran in 4.3s)
+
+$ flutter test
+00:01:16 +276: All tests passed!          (was 275 passed / 1 failed)
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+### Smoke test
+
+The change alters a production default's *spelling*, not its value, so
+the smoke test confirmed the resolved path is unchanged. Launched the
+release bundle on `:0`; the main window came up normally ("Belum ada
+transkrip", mode chips, MIC/SPK both `HIDUP`). Opened Pengaturan and
+scrolled to **Output & Penyimpanan**: *Folder output* reads
+`/home/kali/Documents/TrareonTranscribe` — identical to before the
+refactor, i.e. `kDefaultLibraryPath` resolves exactly as the inline
+literal did. App killed with `pkill -9 -x transcribe`.
+
+### Known gaps
+
+- The gaps listed for Sprint 1 above are unchanged; this round fixed the
+  CI failure only and touched no capture, export or privacy code.
+- No other test asserts an absolute path, but nothing *enforces* that.
+  A lint or a test helper that forbids `Platform.environment['HOME']`
+  literals in expectations would make the class of bug unrepeatable;
+  that was out of scope here.
