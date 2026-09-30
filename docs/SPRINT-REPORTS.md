@@ -1012,7 +1012,7 @@ directory, so the DMG's internal layout is unchanged.
 ## Verification gate
 
     cd rust_core && cargo fmt --check          → clean
-    cargo clippy --all-targets -- -D warnings  → No issues found! (ran in 2.1s)
+    cargo clippy --all-targets -- -D warnings  → exit 0, zero warning/error lines
     cargo test --lib                           → 315 passed; 0 failed; 0 ignored
     flutter analyze                            → No issues found! (ran in 4.4s)
     flutter test                               → 334 tests, All tests passed!
@@ -1020,9 +1020,13 @@ directory, so the DMG's internal layout is unchanged.
 
 **CI-equivalent check.** The whole point of this round is that a green
 working tree proved nothing, so the fix was verified the way CI sees it:
-`git archive HEAD | tar -x` into a clean directory, then `flutter
-analyze` there → `No issues found!`. That export is a pristine checkout
-of the commit, with no untracked files to mask a missing one.
+`git archive HEAD | tar -x` into a clean directory, then the Flutter gate
+run there: `flutter analyze` → `No issues found!`, `flutter test` → 333
+passed, 1 skipped. That export is a pristine checkout of the commit, with
+no untracked files to mask a missing one. The one skip is
+`tracked_sources_test.dart` itself: the export is not a git work tree, so
+the ignore rules are unobservable and it skips by design. In the repo the
+same suite is 334 passed, 0 skipped.
 
 ## Smoke test
 
