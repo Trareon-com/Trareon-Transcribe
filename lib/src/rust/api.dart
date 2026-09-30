@@ -48,6 +48,16 @@ Future<bool> healthCheck() => RustLib.instance.api.crateApiHealthCheck();
 Future<List<AudioDeviceInfo>> listAudioDevices() =>
     RustLib.instance.api.crateApiListAudioDevices();
 
+/// Playback devices — what the "Pengeras Suara" / loopback picker must show.
+///
+/// The speaker picker used to call [`list_audio_devices`], so it offered the
+/// user a list of microphones to record the system audio from. On Linux this
+/// resolves to PulseAudio/PipeWire *sinks* (same source of truth as
+/// `audio::pulse`, which the loopback capture then turns into
+/// `<sink>.monitor`), so what the picker shows and what gets recorded agree.
+Future<List<AudioDeviceInfo>> listOutputAudioDevices() =>
+    RustLib.instance.api.crateApiListOutputAudioDevices();
+
 Future<AudioDeviceInfo> getLoopbackDevice({required String nameHint}) =>
     RustLib.instance.api.crateApiGetLoopbackDevice(nameHint: nameHint);
 

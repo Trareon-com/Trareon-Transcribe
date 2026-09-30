@@ -63,6 +63,17 @@ pub fn list_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
     crate::audio::list_input_devices()
 }
 
+/// Playback devices — what the "Pengeras Suara" / loopback picker must show.
+///
+/// The speaker picker used to call [`list_audio_devices`], so it offered the
+/// user a list of microphones to record the system audio from. On Linux this
+/// resolves to PulseAudio/PipeWire *sinks* (same source of truth as
+/// `audio::pulse`, which the loopback capture then turns into
+/// `<sink>.monitor`), so what the picker shows and what gets recorded agree.
+pub fn list_output_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
+    crate::audio::list_output_devices()
+}
+
 pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TranscribeError> {
     crate::audio::get_loopback_device(&name_hint)
 }

@@ -201,4 +201,18 @@ class SummarySettings {
           customPrompt == other.customPrompt;
 }
 
-enum Theme { light, dark }
+/// Appearance preference. `System` follows the OS setting; it is a UI
+/// concept, but it has to be persisted here or it silently degrades to
+/// "Terang" on every restart — which is what it used to do, because the Dart
+/// bridge had nowhere to map it to.
+///
+/// `Default` is `Light` so that a settings file written by an older build
+/// (where the field could be absent) still loads.
+enum Theme {
+  light,
+  dark,
+  system;
+
+  static Future<Theme> default_() =>
+      RustLib.instance.api.crateSettingsThemeDefault();
+}

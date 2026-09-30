@@ -173,6 +173,24 @@ rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
   avgLogProb: s.avgLogProb,
 );
 
+/// Appearance preference, Dart -> Rust.
+///
+/// Top-level (like [toRustSegment]) so the mapping is directly testable:
+/// "Sistem" used to collapse to `Light` on the way out and come back as
+/// "Terang" after every restart, and nothing could see that happen.
+rust_settings.Theme toRustTheme(AppThemeMode mode) => switch (mode) {
+  AppThemeMode.light => rust_settings.Theme.light,
+  AppThemeMode.dark => rust_settings.Theme.dark,
+  AppThemeMode.system => rust_settings.Theme.system,
+};
+
+/// Inverse of [toRustTheme].
+AppThemeMode fromRustTheme(rust_settings.Theme theme) => switch (theme) {
+  rust_settings.Theme.light => AppThemeMode.light,
+  rust_settings.Theme.dark => AppThemeMode.dark,
+  rust_settings.Theme.system => AppThemeMode.system,
+};
+
 /// Inverse of [toRustSegment].
 TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
   source: s.source,
@@ -597,9 +615,12 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() => rust_api.listAudioDevices();
 
+  /// Playback devices, not capture ones. This used to call
+  /// [listAudioDevices], so the "Pengeras Suara" picker offered the user a
+  /// list of microphones to record the system audio from.
   @override
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() =>
-      rust_api.listAudioDevices();
+      rust_api.listOutputAudioDevices();
 
   /// Detects the frontmost window title on macOS by calling osascript.
   /// Gracefully returns empty string on failure or non-macOS platforms.
@@ -788,11 +809,7 @@ class RustEngineBridge implements RustBridge {
 
   AppSettings _fromRustSettings(rust_settings.AppSettings settings) {
     return AppSettings(
-      // Rust-side Theme has no "system" variant (a UI-only concept);
-      // default to light rather than lose information silently.
-      theme: settings.theme == rust_settings.Theme.dark
-          ? AppThemeMode.dark
-          : AppThemeMode.light,
+      theme: fromRustTheme(settings.theme),
       defaultModel: settings.defaultModel,
       defaultMode: _fromRustSessionMode(settings.defaultMode),
       libraryPath: settings.libraryPath,
@@ -808,9 +825,7 @@ class RustEngineBridge implements RustBridge {
 
   rust_settings.AppSettings _toRustSettings(AppSettings settings) {
     return rust_settings.AppSettings(
-      theme: settings.theme == AppThemeMode.dark
-          ? rust_settings.Theme.dark
-          : rust_settings.Theme.light,
+      theme: toRustTheme(settings.theme),
       defaultModel: settings.defaultModel,
       defaultMode: _toRustSessionMode(settings.defaultMode),
       libraryPath: settings.libraryPath,
