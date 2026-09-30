@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 
-import '../fixtures/large_session.dart';
+import '../support/large_session.dart';
 import '../test_helpers.dart';
 
 /// Feeds a caller-controlled, *synchronous* transcript stream, so the

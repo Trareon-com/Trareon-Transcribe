@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/services/library_index.dart';
 import 'package:transcribe/services/session_store.dart';
 
-import '../fixtures/large_session.dart';
+import '../support/large_session.dart';
 
 /// The exit criterion, in milliseconds.
 const int kLibraryOpenBudgetMs = 500;

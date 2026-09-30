@@ -1,5 +1,5 @@
 //! Synthetic "three hour meeting" fixture — the Rust half of
-//! `test/fixtures/large_session.dart`.
+//! `test/support/large_session.dart`.
 //!
 //! Both sides generate the same shape (5 000 segments over 3 hours, one
 //! utterance every ~2.16 s) so a number measured in Dart and a number

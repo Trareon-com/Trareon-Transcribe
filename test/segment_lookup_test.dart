@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/utils/segment_lookup.dart';
 
-import 'fixtures/large_session.dart';
+import 'support/large_session.dart';
 
 TranscriptSegment seg(double start, double duration, {String source = 'mic'}) =>
     TranscriptSegment(

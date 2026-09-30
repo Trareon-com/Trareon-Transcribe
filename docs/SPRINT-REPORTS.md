@@ -550,13 +550,13 @@ Test counts moved from **309 → 315** Rust unit tests (+6) and
 
 ### 1. Synthetic 5 000-segment / 3-hour fixture as a permanent benchmark · **DONE**
 
-`test/fixtures/large_session.dart` and `rust_core/src/bench_fixture.rs`
+`test/support/large_session.dart` and `rust_core/src/bench_fixture.rs`
 generate the same shape on both sides — 5 000 segments over 3 hours, one
 utterance every 2.16 s, deterministic (fixed mixer, no clock, no I/O) so
 runs are comparable between commits. The Dart fixture also writes a
 200-session library to a temp directory for the library benchmark.
 
-- Files: `test/fixtures/large_session.dart`,
+- Files: `test/support/large_session.dart`,
   `rust_core/src/bench_fixture.rs`, `rust_core/src/lib.rs`
 - Tests: `test/perf/transcript_view_perf_test.dart` (7),
   `test/perf/session_ingest_perf_test.dart` (3),

@@ -21,7 +21,7 @@ import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_colors.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
 
-import '../fixtures/large_session.dart';
+import '../support/large_session.dart';
 
 /// Size of the control transcript the 5 000-segment numbers are compared
 /// against. Small enough that no plausible implementation struggles.
