@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -13,8 +16,27 @@ import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_theme.dart';
 
+/// Smallest window the layout is designed to survive. The audit verified
+/// no overflow at 800x600; below that the control bar and the library grid
+/// clip. macOS enforces a minimum from the app bundle, Linux and Windows
+/// had none, so a user could drag the window down to nothing and lose the
+/// record button off the edge.
+const Size kMinimumWindowSize = Size(800, 600);
+
+Future<void> _applyWindowConstraints() async {
+  if (!(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) return;
+  try {
+    await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(kMinimumWindowSize);
+  } catch (_) {
+    // A window manager that refuses the constraint must not stop the app
+    // from launching — the layout is merely croppable, not broken.
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _applyWindowConstraints();
   await RustLib.init(externalLibrary: tryLoadRustCoreLibrary());
   await rust_api.initLogging();
 
