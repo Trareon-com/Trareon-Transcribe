@@ -188,6 +188,10 @@ String _snippetOf(List<TranscriptSegment> segments) {
   return '';
 }
 
+/// `Directory` for a session path. Small helper so callers outside this
+/// file do not have to import `dart:io` just to refresh one entry.
+Directory directoryFor(String dirPath) => Directory(dirPath);
+
 /// Parses one session directory into an index entry. This is the expensive
 /// path — it decodes the transcript — and is only taken for sessions the
 /// index does not already cover.

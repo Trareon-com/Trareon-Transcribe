@@ -45,6 +45,12 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
   /// instead of flashing empty while it re-reads the file.
   final SessionMeta meta;
 
+  /// What the back button does. Null means "pop the route", which is what
+  /// it always did; the main screen embeds this player in its workspace
+  /// instead of pushing it, and there closing means clearing the
+  /// selection rather than popping anything.
+  final VoidCallback? onClose;
+
   const TranscriptPlayerScreen({
     super.key,
     required this.title,
@@ -54,6 +60,7 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
     this.onSegmentsChanged,
     this.sessionDirPath,
     this.meta = SessionMeta.empty,
+    this.onClose,
   });
 
   @override
@@ -450,9 +457,14 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
             title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
-              tooltip: 'Kembali',
+              icon: Icon(
+                widget.onClose != null
+                    ? Icons.close
+                    : Icons.arrow_back_ios_new,
+                size: 20,
+              ),
+              onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
+              tooltip: widget.onClose != null ? 'Tutup sesi' : 'Kembali',
             ),
             actions: [
               IconButton(

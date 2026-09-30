@@ -6,8 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/global_hotkey_service.dart';
+import '../services/library_index.dart';
+import '../services/session_store.dart';
 import '../state/audio_stream_model.dart';
 import '../state/audio_watchdog_model.dart';
+import '../state/library_model.dart';
 import '../state/models.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
@@ -17,15 +20,21 @@ import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/capture_health_view.dart';
-import '../widgets/mode_selector.dart';
 import '../widgets/recovery_dialog.dart';
-import '../widgets/model_download_dialog.dart';
-import '../widgets/stream_toggle.dart';
+import '../widgets/session_controls.dart';
+import '../widgets/session_sidebar.dart';
 import '../widgets/animated_record_button.dart';
 import '../widgets/transcript_view.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
+import 'transcript_player_screen.dart';
 
+/// Main window: a permanent session sidebar and one workspace.
+///
+/// The redesign in blueprint §4 in one sentence: recording history moves
+/// out of an unlabelled folder icon and onto the screen, and the workspace
+/// has exactly one primary action at a time — a big "Mulai Rekam" when
+/// there is nothing to show, the transcript once there is.
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -35,12 +44,20 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final GlobalHotkeyService _globalHotkeys = GlobalHotkeyService();
+  final FocusNode _sidebarSearchFocus =
+      FocusNode(debugLabel: 'sidebar-search');
+  final _titleController = TextEditingController();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   List<rust_session.RecoverableSession> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
   bool _isStoppingSession = false;
   bool _isStartingSession = false;
-  final _titleController = TextEditingController();
+
+  /// Session shown in the workspace instead of the live recording panel.
+  SessionRecord? _openSession;
+  bool _openingSession = false;
 
   /// Polled while recording so the confirmation badge and the Stop
   /// integrity summary read the same numbers.
@@ -73,6 +90,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _globalHotkeys.dispose();
     _healthTimer?.cancel();
     _diskTimer?.cancel();
+    _sidebarSearchFocus.dispose();
     _titleController.dispose();
     super.dispose();
   }
@@ -246,6 +264,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!mounted) return;
     _forgetRecoverable(session);
     if (recovered != null) {
+      setState(() => _openSession = null);
       _startHealthPolling(recovered.sessionId);
       _startDiskWatch();
     }
@@ -370,6 +389,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     } finally {
       if (mounted) setState(() => _isStoppingSession = false);
     }
+    // The session just written belongs in the sidebar without a restart.
+    unawaited(ref.read(libraryListProvider.notifier).refresh());
     if (!context.mounted) return;
 
     // A channel that recorded nothing is worth a dialog the user has to
@@ -394,6 +415,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await _handleBerhentiPressed(context, ref);
       return;
     }
+    // Recording always takes over the workspace: starting a session while
+    // reading an old one and having the new transcript appear nowhere
+    // visible is how a recording gets lost.
+    if (_openSession != null) setState(() => _openSession = null);
     // start() can hang for a long time with zero other feedback while
     // waiting on a native macOS permission dialog (e.g. first-ever Webinar/
     // system-audio capture) — without this the record button just looks
@@ -448,6 +473,50 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
   }
 
+  // --- Navigation -----------------------------------------------------
+
+  void _openSettings() => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+      );
+
+  Future<void> _openLibrary({int tab = 0}) async {
+    final libraryPath = resolveTilde(ref.read(settingsProvider).libraryPath);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LibraryScreen(libraryPath: libraryPath, initialTab: tab),
+      ),
+    );
+    if (mounted) unawaited(ref.read(libraryListProvider.notifier).refresh());
+  }
+
+  /// Loads a session's transcript and shows it in the workspace.
+  Future<void> _selectSession(LibraryEntry entry) async {
+    setState(() => _openingSession = true);
+    final record = await loadSessionRecord(entry.dirPath);
+    if (!mounted) return;
+    setState(() {
+      _openingSession = false;
+      _openSession = record;
+    });
+    if (record == null && context.mounted) {
+      AppToast.show(context, '"${entry.title}" tidak bisa dibuka.',
+          type: ToastType.error);
+    }
+  }
+
+  void _newSession() {
+    setState(() => _openSession = null);
+    _sidebarSearchFocus.unfocus();
+  }
+
+  void _focusSidebarSearch() {
+    if (_scaffoldKey.currentState?.hasDrawer == true &&
+        !(_scaffoldKey.currentState?.isDrawerOpen ?? false)) {
+      _scaffoldKey.currentState?.openDrawer();
+    }
+    _sidebarSearchFocus.requestFocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
@@ -457,7 +526,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         lifecycle == SessionLifecycle.recording || lifecycle == SessionLifecycle.paused;
     final isPaused = lifecycle == SessionLifecycle.paused;
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
 
     // Keep the title controller in sync with auto-detected session title
@@ -489,40 +557,55 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       AppToast.show(context, notice.message, type: ToastType.error);
     });
 
+    final sidebar = SessionSidebar(
+      selectedDirPath: _openSession?.dirPath,
+      onSelect: (entry) {
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          Navigator.of(context).pop();
+        }
+        _selectSession(entry);
+      },
+      onNewSession: () {
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          Navigator.of(context).pop();
+        }
+        _newSession();
+      },
+      onOpenLibrary: () => _openLibrary(),
+      onOpenUpload: () => _openLibrary(tab: 1),
+      onOpenSettings: _openSettings,
+      searchFocusNode: _sidebarSearchFocus,
+      isRecording: isActive,
+    );
+
     return CallbackShortcuts(
       bindings: {
-        SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
             _toggleStartBerhenti(context, ref),
-        SingleActivator(LogicalKeyboardKey.keyR, control: true): () =>
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () =>
             _toggleStartBerhenti(context, ref),
-        SingleActivator(LogicalKeyboardKey.keyP, meta: true): () {
+        const SingleActivator(LogicalKeyboardKey.keyP, meta: true): () {
           if (isPaused) {
             notifier.resume();
           } else if (lifecycle == SessionLifecycle.recording) {
             notifier.pause();
           }
         },
-        SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
+        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
           if (isPaused) {
             notifier.resume();
           } else if (lifecycle == SessionLifecycle.recording) {
             notifier.pause();
           }
         },
-        SingleActivator(LogicalKeyboardKey.keyL, meta: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) {
-              final lp = ref.read(settingsProvider).libraryPath;
-              return LibraryScreen(libraryPath: resolveTilde(lp));
-            })),
-        SingleActivator(LogicalKeyboardKey.keyL, control: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) {
-              final lp = ref.read(settingsProvider).libraryPath;
-              return LibraryScreen(libraryPath: resolveTilde(lp));
-            })),
-        SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-        SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+        // Ctrl+L now focuses the sidebar search rather than pushing a
+        // separate library screen: the history is already on screen.
+        const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
+            _focusSidebarSearch,
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true):
+            _focusSidebarSearch,
+        SingleActivator(LogicalKeyboardKey.comma, meta: true): _openSettings,
+        SingleActivator(LogicalKeyboardKey.comma, control: true): _openSettings,
         SingleActivator(LogicalKeyboardKey.slash, meta: true): () =>
             setState(() => _showShortcuts = !_showShortcuts),
         SingleActivator(LogicalKeyboardKey.slash, control: true): () =>
@@ -530,180 +613,419 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
-          backgroundColor: colors.background,
-          body: Column(
-            children: [
-              if (_saveError != null)
-                _SaveFailedBanner(
-                  message: _saveError!,
-                  busy: _retryingSave,
-                  onRetry: () => _retrySave(),
-                  onSaveElsewhere: () => _retrySave(elsewhere: true),
-                ),
-
-              // Recovery banner
-              if (_loadingRecoveries)
-                const LinearProgressIndicator(minHeight: 2)
-              else if (_recoverableSessions.isNotEmpty)
-                Material(
-                  color: colors.chipBackground,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.restore_outlined, color: colors.primary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _recoverySummary(_recoverableSessions),
-                            style: TextStyle(color: colors.text, fontSize: 13),
-                          ),
-                        ),
-                        // No "Abaikan": it hid the banner without deleting
-                        // anything, so the same sessions reappeared on
-                        // every launch forever. The dialog offers Pulihkan
-                        // or Hapus per session, and "Nanti saja" to defer.
-                        FilledButton(
-                          onPressed: () => _openRecoveryDialog(context),
-                          child: const Text('Lihat & pulihkan'),
-                        ),
-                      ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final persistentSidebar =
+                constraints.maxWidth >= kSidebarPersistentMinWidth;
+            return Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: colors.background,
+              drawer: persistentSidebar ? null : Drawer(child: sidebar),
+              body: Row(
+                children: [
+                  if (persistentSidebar) sidebar,
+                  Expanded(
+                    child: _Workspace(
+                      showMenuButton: !persistentSidebar,
+                      onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                      session: session,
+                      notifier: notifier,
+                      isActive: isActive,
+                      isPaused: isPaused,
+                      openSession: _openSession,
+                      openingSession: _openingSession,
+                      onCloseSession: _newSession,
+                      vuLevel: vuLevel,
+                      captureHealth: _captureHealth,
+                      titleController: _titleController,
+                      onStartBerhenti: () => _toggleStartBerhenti(context, ref),
+                      onEkspor: () => _onEkspor(context),
+                      isBusy: _isStoppingSession || _isStartingSession,
+                      busyLabel:
+                          _isStartingSession ? 'Memulai...' : 'Menyimpan...',
+                      saveError: _saveError,
+                      retryingSave: _retryingSave,
+                      onRetrySave: () => _retrySave(),
+                      onSaveElsewhere: () => _retrySave(elsewhere: true),
+                      loadingRecoveries: _loadingRecoveries,
+                      recoverySummary: _recoverableSessions.isEmpty
+                          ? null
+                          : _recoverySummary(_recoverableSessions),
+                      onOpenRecovery: () => _openRecoveryDialog(context),
+                      showShortcuts: _showShortcuts,
+                      onCloseShortcuts: () =>
+                          setState(() => _showShortcuts = false),
+                      onSessionEdited: (dirPath) => unawaited(
+                        ref.read(libraryListProvider.notifier).refreshOne(dirPath),
+                      ),
                     ),
                   ),
-                ),
-
-              // Minimal header row (native title bar dari OS yang handle window chrome)
-              Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: colors.headerBackground,
-                  border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Image.asset('assets/logo.png', width: 20, height: 20,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink()),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Trareon Transcribe',
-                      style: TextStyle(
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.upload_file_outlined, size: 18),
-                      tooltip: 'Upload File',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) {
-                            final lp = ref.read(settingsProvider).libraryPath;
-                            return LibraryScreen(libraryPath: resolveTilde(lp));
-                          },
-                        ),
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      color: colors.textSecondary,
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.folder_outlined, size: 18),
-                      tooltip: 'Perpustakaan',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) {
-                            final lp = ref.read(settingsProvider).libraryPath;
-                            return LibraryScreen(libraryPath: resolveTilde(lp));
-                          },
-                        ),
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      color: colors.textSecondary,
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.settings_outlined, size: 18),
-                      tooltip: 'Pengaturan',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      color: colors.textSecondary,
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                        size: 18,
-                      ),
-                      tooltip: isDark ? 'Mode Terang' : 'Mode Gelap',
-                      onPressed: () {
-                        final notifier = ref.read(settingsProvider.notifier);
-                        notifier.toggleTheme();
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      color: colors.textSecondary,
-                    ),
-                  ],
-                ),
+                ],
               ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 
-              // Control bar
-              _ControlBar(
-                session: session,
-                notifier: notifier,
-                isActive: isActive,
-                isPaused: isPaused,
-                vuMikrofonLevel: vuLevel?.micLevel ?? 0.0,
-                vuSpeakerLevel: vuLevel?.speakerLevel ?? 0.0,
-                captureHealth: _captureHealth,
-                titleController: _titleController,
-                onStartBerhenti: () => _toggleStartBerhenti(context, ref),
-                onEkspor: () => _onEkspor(context),
-                isBusy: _isStoppingSession || _isStartingSession,
-                busyLabel: _isStartingSession ? 'Memulai...' : 'Menyimpan...',
-              ),
+class _Workspace extends StatelessWidget {
+  const _Workspace({
+    required this.showMenuButton,
+    required this.onOpenMenu,
+    required this.session,
+    required this.notifier,
+    required this.isActive,
+    required this.isPaused,
+    required this.openSession,
+    required this.openingSession,
+    required this.onCloseSession,
+    required this.vuLevel,
+    required this.captureHealth,
+    required this.titleController,
+    required this.onStartBerhenti,
+    required this.onEkspor,
+    required this.isBusy,
+    required this.busyLabel,
+    required this.saveError,
+    required this.retryingSave,
+    required this.onRetrySave,
+    required this.onSaveElsewhere,
+    required this.loadingRecoveries,
+    required this.recoverySummary,
+    required this.onOpenRecovery,
+    required this.showShortcuts,
+    required this.onCloseShortcuts,
+    required this.onSessionEdited,
+  });
 
-              // Transcript
-              Expanded(
-                child: Stack(
-                  children: [
-                    TranscriptView(
-                      segments: session.segments,
-                      revision: session.revision,
-                      onRenameSpeaker: (oldLabel, newLabel) {
-                        ref
-                            .read(sessionProvider.notifier)
-                            .renameSpeaker(oldLabel, newLabel);
-                      },
+  final bool showMenuButton;
+  final VoidCallback onOpenMenu;
+  final SessionUiState session;
+  final SessionNotifier notifier;
+  final bool isActive;
+  final bool isPaused;
+  final SessionRecord? openSession;
+  final bool openingSession;
+  final VoidCallback onCloseSession;
+  final VuLevel? vuLevel;
+  final rust_session.CaptureHealth? captureHealth;
+  final TextEditingController titleController;
+  final VoidCallback onStartBerhenti;
+  final VoidCallback onEkspor;
+  final bool isBusy;
+  final String busyLabel;
+  final String? saveError;
+  final bool retryingSave;
+  final VoidCallback onRetrySave;
+  final VoidCallback onSaveElsewhere;
+  final bool loadingRecoveries;
+  final String? recoverySummary;
+  final VoidCallback onOpenRecovery;
+  final bool showShortcuts;
+  final VoidCallback onCloseShortcuts;
+  final ValueChanged<String> onSessionEdited;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final hasTranscript = session.segments.isNotEmpty;
+
+    if (openingSession) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final opened = openSession;
+    if (opened != null) {
+      return TranscriptPlayerScreen(
+        key: ValueKey(opened.dirPath),
+        title: opened.title,
+        durationSeconds: opened.durationSeconds,
+        segments: opened.segments,
+        audioPath: opened.audioPath,
+        sessionDirPath: opened.dirPath,
+        meta: opened.meta,
+        onClose: onCloseSession,
+        onSegmentsChanged: (_) => onSessionEdited(opened.dirPath),
+      );
+    }
+
+    return Column(
+      children: [
+        if (saveError != null)
+          _SaveFailedBanner(
+            message: saveError!,
+            busy: retryingSave,
+            onRetry: onRetrySave,
+            onSaveElsewhere: onSaveElsewhere,
+          ),
+        if (loadingRecoveries)
+          const LinearProgressIndicator(minHeight: 2)
+        else if (recoverySummary != null)
+          Material(
+            color: colors.chipBackground,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.restore_outlined, color: colors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      recoverySummary!,
+                      style: TextStyle(color: colors.text, fontSize: 13),
                     ),
-                    if (_showShortcuts)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: _ShortcutsPanel(
-                          onClose: () => setState(() => _showShortcuts = false),
-                        ),
-                      ),
-                  ],
+                  ),
+                  // No "Abaikan": it hid the banner without deleting
+                  // anything, so the same sessions reappeared on every
+                  // launch forever.
+                  FilledButton(
+                    onPressed: onOpenRecovery,
+                    child: const Text('Lihat & pulihkan'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        _ControlArea(
+          showMenuButton: showMenuButton,
+          onOpenMenu: onOpenMenu,
+          session: session,
+          notifier: notifier,
+          isActive: isActive,
+          isPaused: isPaused,
+          vuLevel: vuLevel,
+          captureHealth: captureHealth,
+          titleController: titleController,
+          onStartBerhenti: onStartBerhenti,
+          onEkspor: onEkspor,
+          isBusy: isBusy,
+          busyLabel: busyLabel,
+          hasTranscript: hasTranscript,
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              if (!hasTranscript && !isActive)
+                _IdleWorkspace(onStart: onStartBerhenti, busy: isBusy)
+              else
+                TranscriptView(
+                  segments: session.segments,
+                  revision: session.revision,
+                  onRenameSpeaker: notifier.renameSpeaker,
                 ),
-              ),
-
-              // Footer
-              _FooterBar(
-                lifecycle: lifecycle,
-                segmentsCount: session.segments.length,
-                elapsedSeconds: session.elapsedSeconds,
-              ),
+              if (showShortcuts)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: _ShortcutsPanel(onClose: onCloseShortcuts),
+                ),
             ],
           ),
         ),
+        _FooterBar(
+          lifecycle: session.lifecycle,
+          segmentsCount: session.segments.length,
+          elapsedSeconds: session.elapsedSeconds,
+        ),
+      ],
+    );
+  }
+}
+
+/// The empty state: one big, obvious thing to do (blueprint §4.2).
+class _IdleWorkspace extends StatelessWidget {
+  const _IdleWorkspace({required this.onStart, required this.busy});
+
+  final VoidCallback onStart;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic_none_outlined, size: 56, color: colors.textTertiary),
+            const SizedBox(height: 16),
+            Text(
+              'Siap merekam',
+              style: TextStyle(
+                color: colors.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Transkrip muncul di sini begitu rekaman berjalan.\n'
+              'Semuanya diproses di komputer Anda.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: busy ? null : onStart,
+                icon: const Icon(Icons.fiber_manual_record, size: 18),
+                label: const Text(
+                  'Mulai Rekam',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'atau tekan Ctrl+R',
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Sesi" and "Perangkat", plus the one action that applies right now.
+class _ControlArea extends StatelessWidget {
+  const _ControlArea({
+    required this.showMenuButton,
+    required this.onOpenMenu,
+    required this.session,
+    required this.notifier,
+    required this.isActive,
+    required this.isPaused,
+    required this.vuLevel,
+    required this.captureHealth,
+    required this.titleController,
+    required this.onStartBerhenti,
+    required this.onEkspor,
+    required this.isBusy,
+    required this.busyLabel,
+    required this.hasTranscript,
+  });
+
+  final bool showMenuButton;
+  final VoidCallback onOpenMenu;
+  final SessionUiState session;
+  final SessionNotifier notifier;
+  final bool isActive;
+  final bool isPaused;
+  final VuLevel? vuLevel;
+  final rust_session.CaptureHealth? captureHealth;
+  final TextEditingController titleController;
+  final VoidCallback onStartBerhenti;
+  final VoidCallback onEkspor;
+  final bool isBusy;
+  final String busyLabel;
+  final bool hasTranscript;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showMenuButton)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 10),
+                  child: IconButton(
+                    icon: const Icon(Icons.menu),
+                    tooltip: 'Riwayat sesi',
+                    onPressed: onOpenMenu,
+                  ),
+                ),
+              Expanded(
+                child: Wrap(
+                  spacing: 20,
+                  runSpacing: 12,
+                  children: [
+                    SessionGroup(
+                      titleController: titleController,
+                      onTitleChanged: notifier.setTitle,
+                      mode: session.config.mode,
+                      onModeChanged: notifier.setMode,
+                      modeLocked: isActive,
+                    ),
+                    DeviceGroup(
+                      micEnabled: session.config.micEnabled,
+                      speakerEnabled: session.config.speakerEnabled,
+                      onMicToggled: notifier.toggleMic,
+                      onSpeakerToggled: notifier.toggleSpeaker,
+                      micLevel: vuLevel?.micLevel ?? 0,
+                      speakerLevel: vuLevel?.speakerLevel ?? 0,
+                      live: isActive,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Hidden until there is something to export: it used
+                    // to sit next to the record button, enabled, on an
+                    // empty screen (blueprint §4.2).
+                    if (hasTranscript) ...[
+                      SizedBox(
+                        height: 36,
+                        child: OutlinedButton.icon(
+                          onPressed: onEkspor,
+                          icon: Icon(Icons.download_outlined,
+                              size: 16, color: colors.text),
+                          label: Text('Ekspor',
+                              style: TextStyle(color: colors.text)),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: colors.border),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    AnimatedRecordButton(
+                      isRecording: isActive,
+                      isPaused: isPaused,
+                      onPressed: onStartBerhenti,
+                      isBusy: isBusy,
+                      busyLabel: busyLabel,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // The VU meter alone cannot distinguish "recording" from "open
+          // but silent"; the badge is what says audio actually arrived.
+          if (isActive) ...[
+            const SizedBox(height: 8),
+            CaptureConfirmationBadge(health: captureHealth),
+          ],
+        ],
       ),
     );
   }
@@ -764,251 +1086,7 @@ class _SaveFailedBanner extends StatelessWidget {
   }
 }
 
-/// Control bar: 3 rows - title+quality, VU meters, action buttons
-class _ControlBar extends StatelessWidget {
-  final SessionUiState session;
-  final SessionNotifier notifier;
-  final bool isActive;
-  final bool isPaused;
-  final double vuMikrofonLevel;
-  final double vuSpeakerLevel;
-  final rust_session.CaptureHealth? captureHealth;
-  final TextEditingController titleController;
-  final VoidCallback onStartBerhenti;
-  final VoidCallback onEkspor;
-  final bool isBusy;
-  final String busyLabel;
-
-  const _ControlBar({
-    required this.session,
-    required this.notifier,
-    required this.isActive,
-    required this.isPaused,
-    required this.vuMikrofonLevel,
-    required this.vuSpeakerLevel,
-    required this.captureHealth,
-    required this.titleController,
-    required this.onStartBerhenti,
-    required this.onEkspor,
-    required this.isBusy,
-    required this.busyLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Row 1: title + quality toggle
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: colors.chipBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, color: colors.textTertiary, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: titleController,
-                          onChanged: notifier.setTitle,
-                          onSubmitted: notifier.setTitle,
-                          style: TextStyle(color: colors.text, fontSize: 13),
-                          decoration: InputDecoration.collapsed(
-                            hintText: 'Judul sesi...',
-                            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              _QualityToggle(),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Row 2: VU meters + capture confirmation (while recording).
-          // The VU meter alone cannot distinguish "recording" from "open
-          // but silent"; the badge is what says audio actually arrived.
-          if (isActive) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _VuMeterRow(
-                    micLevel: vuMikrofonLevel,
-                    speakerLevel: vuSpeakerLevel,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                CaptureConfirmationBadge(health: captureHealth),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Row 3: action buttons. The mode selector + stream toggles are
-          // wrapped in a horizontal scroll view and Ekspor/record are kept
-          // outside of it — at narrow window widths (Row's un-scrollable
-          // content used to overflow off the right edge of the window,
-          // silently clipping the record button so clicking where it used
-          // to be did nothing) this guarantees Ekspor and the record button
-          // stay on-screen and clickable no matter how narrow the window is.
-          Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Mode selector — disabled while a session is active
-                      IgnorePointer(
-                        ignoring: isActive,
-                        child: Opacity(
-                          opacity: isActive ? 0.5 : 1.0,
-                          child: ModeSelector(
-                            selected: session.config.mode,
-                            onChanged: notifier.setMode,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // MIC toggle interaktif
-                      StreamToggle(
-                        label: 'Mikrofon',
-                        enabled: session.config.micEnabled,
-                        accent: colors.primary,
-                        onChanged: (enabled) => notifier.toggleMic(enabled),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // SPK toggle interaktif
-                      StreamToggle(
-                        label: 'Pengeras Suara',
-                        enabled: session.config.speakerEnabled,
-                        accent: colors.primary,
-                        onChanged: (enabled) => notifier.toggleSpeaker(enabled),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Ekspor button
-              SizedBox(
-                height: 36,
-                child: OutlinedButton.icon(
-                  onPressed: onEkspor,
-                  icon: Icon(Icons.download_outlined, size: 16, color: colors.text),
-                  label: Text('Ekspor', style: TextStyle(color: colors.text)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: colors.border),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Animated record button
-              AnimatedRecordButton(
-                isRecording: isActive,
-                isPaused: isPaused,
-                onPressed: onStartBerhenti,
-                isBusy: isBusy,
-                busyLabel: busyLabel,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VuMeterRow extends StatelessWidget {
-  final double micLevel;
-  final double speakerLevel;
-
-  const _VuMeterRow({required this.micLevel, required this.speakerLevel});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.chipBackground,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.mic, size: 14, color: colors.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _AudioLevelBar(level: micLevel, color: const Color(0xFF2E7D32)),
-          ),
-          const SizedBox(width: 16),
-          Icon(Icons.volume_up, size: 14, color: colors.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _AudioLevelBar(level: speakerLevel, color: const Color(0xFFE65100)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AudioLevelBar extends StatelessWidget {
-  final double level;
-  final Color color;
-
-  const _AudioLevelBar({required this.level, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: level.clamp(0.0, 1.0)),
-        duration: const Duration(milliseconds: 80),
-        curve: Curves.easeOut,
-        builder: (context, value, _) {
-          return LinearProgressIndicator(
-            value: value,
-            minHeight: 6,
-            color: color,
-            backgroundColor: colors.border.withValues(alpha: 0.3),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Footer bar: recording timer, minify to tray, diarization info
+/// Footer bar: recording timer and segment count.
 class _FooterBar extends StatelessWidget {
   final SessionLifecycle lifecycle;
   final int segmentsCount;
@@ -1024,7 +1102,9 @@ class _FooterBar extends StatelessWidget {
     final h = (secs / 3600).floor();
     final m = ((secs % 3600) / 60).floor();
     final s = (secs % 60).floor();
-    if (h > 0) return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    if (h > 0) {
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
@@ -1042,7 +1122,6 @@ class _FooterBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Recording dot + timer
           if (isRecording || isPaused) ...[
             Container(
               width: 8,
@@ -1051,7 +1130,13 @@ class _FooterBar extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: isRecording ? AppColors.statusActive : Colors.orange,
                 boxShadow: isRecording
-                    ? [BoxShadow(color: AppColors.statusActive.withValues(alpha: 0.5), blurRadius: 4, spreadRadius: 1)]
+                    ? [
+                        BoxShadow(
+                          color: AppColors.statusActive.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ]
                     : null,
               ),
             ),
@@ -1067,19 +1152,23 @@ class _FooterBar extends StatelessWidget {
             ),
             const SizedBox(width: 16),
           ],
-
-          // Segments
           if (segmentsCount > 0) ...[
             Icon(Icons.chat_bubble_outline, size: 14, color: colors.textTertiary),
             const SizedBox(width: 4),
             Text(
               '$segmentsCount',
-              style: TextStyle(color: colors.textTertiary, fontSize: 12, fontFamily: 'monospace'),
+              style: TextStyle(
+                  color: colors.textTertiary,
+                  fontSize: 12,
+                  fontFamily: 'monospace'),
             ),
             const SizedBox(width: 16),
           ],
-
           const Spacer(),
+          Text(
+            'Ctrl+/ untuk pintasan',
+            style: TextStyle(color: colors.textTertiary, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -1125,16 +1214,17 @@ class _ShortcutsPanel extends StatelessWidget {
               const Spacer(),
               IconButton(
                 icon: Icon(Icons.close, size: 18, color: colors.textSecondary),
+                tooltip: 'Tutup',
                 onPressed: onClose,
               ),
             ],
           ),
           const SizedBox(height: 8),
-          _ShortcutRow(label: 'Mulai / Berhenti merekam', shortcut: 'Cmd+R'),
-          _ShortcutRow(label: 'Jeda / Lanjutkan', shortcut: 'Cmd+P'),
-          _ShortcutRow(label: 'Buka Perpustakaan', shortcut: 'Cmd+L'),
-          _ShortcutRow(label: 'Buka Pengaturan', shortcut: 'Cmd+,'),
-          _ShortcutRow(label: 'Tampilkan panel pintasan', shortcut: 'Cmd+/'),
+          const _ShortcutRow(label: 'Mulai / Berhenti merekam', shortcut: 'Ctrl+R'),
+          const _ShortcutRow(label: 'Jeda / Lanjutkan', shortcut: 'Ctrl+P'),
+          const _ShortcutRow(label: 'Cari di riwayat sesi', shortcut: 'Ctrl+L'),
+          const _ShortcutRow(label: 'Buka Pengaturan', shortcut: 'Ctrl+,'),
+          const _ShortcutRow(label: 'Tampilkan panel pintasan', shortcut: 'Ctrl+/'),
         ],
       ),
     );
@@ -1165,71 +1255,13 @@ class _ShortcutRow extends StatelessWidget {
             ),
             child: Text(
               shortcut,
-              style: TextStyle(color: colors.textSecondary, fontSize: 12, fontFamily: 'monospace'),
+              style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontFamily: 'monospace'),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Toggle kualitas: ⚡ Cepat (base) / 🎯 Akurat (large-v3-turbo-q5)
-class _QualityToggle extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final isAkurat = settings.defaultModel == 'large-v3-turbo-q5';
-
-    // 'large-v3-turbo' (unquantized) is a real KNOWN_MODELS entry but has no
-    // pinned SHA256 yet — verify_checksum() hard-refuses any download without
-    // a pin, so targeting it here would always fail. The bundled, downloadable
-    // "accurate" model is the q5-quantized variant.
-    final targetModel = isAkurat ? 'base' : 'large-v3-turbo-q5';
-    final targetAvailable = isModelAvailable(targetModel, libraryPath: settings.libraryPath);
-
-    return GestureDetector(
-      onTap: () async {
-        if (!targetAvailable) {
-          if (!context.mounted) return;
-          final modelsDir = resolveTilde(settings.libraryPath);
-          final ok = await showModelDownloadDialog(
-            context: context,
-            bridge: ref.read(rustBridgeProvider),
-            modelId: targetModel,
-            modelsDir: modelsDir,
-            displayName: isAkurat ? 'Model Akurat' : 'Model Cepat',
-          );
-          if (ok) {
-            await notifier.setDefaultModel(targetModel);
-          }
-          return;
-        }
-        await notifier.setDefaultModel(targetModel);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: colors.chipBackground,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: colors.border),
-        ),
-        child: Opacity(
-          opacity: targetAvailable ? 1.0 : 0.4,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(isAkurat ? '🎯' : '⚡', style: const TextStyle(fontSize: 12)),
-              const SizedBox(width: 4),
-              Text(
-                isAkurat ? 'Akurat' : 'Cepat',
-                style: TextStyle(color: colors.textSecondary, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
