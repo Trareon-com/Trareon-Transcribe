@@ -3263,6 +3263,18 @@ impl SseDecode for crate::model::ModelInfo {
     }
 }
 
+impl SseDecode for crate::session::NoticeLevel {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::session::NoticeLevel::Warning,
+            1 => crate::session::NoticeLevel::Error,
+            _ => unreachable!("Invalid variant for NoticeLevel: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for Option<std::collections::HashMap<String, String>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3493,6 +3505,16 @@ impl SseDecode for crate::session::SessionEvent {
                 return crate::session::SessionEvent::Vu {
                     source: var_source,
                     level: var_level,
+                };
+            }
+            2 => {
+                let mut var_level = <crate::session::NoticeLevel>::sse_decode(deserializer);
+                let mut var_source = <String>::sse_decode(deserializer);
+                let mut var_message = <String>::sse_decode(deserializer);
+                return crate::session::SessionEvent::Notice {
+                    level: var_level,
+                    source: var_source,
+                    message: var_message,
                 };
             }
             _ => {
@@ -4172,6 +4194,24 @@ impl flutter_rust_bridge::IntoIntoDart<crate::model::ModelInfo> for crate::model
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::session::NoticeLevel {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Warning => 0.into_dart(),
+            Self::Error => 1.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::session::NoticeLevel {}
+impl flutter_rust_bridge::IntoIntoDart<crate::session::NoticeLevel>
+    for crate::session::NoticeLevel
+{
+    fn into_into_dart(self) -> crate::session::NoticeLevel {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::ProgressiveFileResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -4256,6 +4296,17 @@ impl flutter_rust_bridge::IntoDart for crate::session::SessionEvent {
                 1.into_dart(),
                 source.into_into_dart().into_dart(),
                 level.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
+            crate::session::SessionEvent::Notice {
+                level,
+                source,
+                message,
+            } => [
+                2.into_dart(),
+                level.into_into_dart().into_dart(),
+                source.into_into_dart().into_dart(),
+                message.into_into_dart().into_dart(),
             ]
             .into_dart(),
             _ => {
@@ -4894,6 +4945,22 @@ impl SseEncode for crate::model::ModelInfo {
     }
 }
 
+impl SseEncode for crate::session::NoticeLevel {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::session::NoticeLevel::Warning => 0,
+                crate::session::NoticeLevel::Error => 1,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for Option<std::collections::HashMap<String, String>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5071,6 +5138,16 @@ impl SseEncode for crate::session::SessionEvent {
                 <i32>::sse_encode(1, serializer);
                 <String>::sse_encode(source, serializer);
                 <f32>::sse_encode(level, serializer);
+            }
+            crate::session::SessionEvent::Notice {
+                level,
+                source,
+                message,
+            } => {
+                <i32>::sse_encode(2, serializer);
+                <crate::session::NoticeLevel>::sse_encode(level, serializer);
+                <String>::sse_encode(source, serializer);
+                <String>::sse_encode(message, serializer);
             }
             _ => {
                 unimplemented!("");

@@ -4,10 +4,17 @@
 //! CI unit tests; the pieces here (device list, ring buffer, config/mode
 //! types) are pure logic and fully unit-tested.
 
+/// Muting libasound's own stderr printing; a no-op off Linux.
+pub mod alsa_quiet;
 pub mod capture;
 pub mod device;
 pub mod loopback;
+/// Rust-side capture plumbing: driven from `session`, never from Dart. Every
+/// public item carries `#[frb(ignore)]` — an attribute on the `mod` line
+/// itself is a proc macro on a file module, which is still unstable.
+pub mod pulse;
 pub mod ring_buffer;
+pub mod stream_error;
 
 use serde::{Deserialize, Serialize};
 
