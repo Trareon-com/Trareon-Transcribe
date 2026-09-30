@@ -40,7 +40,7 @@ class OnboardingScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Selamat datang di Traeon Transcribe',
+                'Selamat datang di Trareon Transcribe',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
