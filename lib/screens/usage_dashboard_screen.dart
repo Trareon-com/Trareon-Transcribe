@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../services/session_store.dart';
 
 class UsageStats {
   final int totalSessions;
@@ -34,6 +35,10 @@ String _sourceModeLabel(String source) => switch (source) {
 /// folder) and aggregates them into [UsageStats]. Pulled out as a plain
 /// top-level function — separate from the widget's `_loadStats()` — so it
 /// can be unit-tested with a plain `test()` instead of `testWidgets()`.
+///
+/// Uses [transcriptFileIn] rather than "the first `.json`": the metadata
+/// sidecar is JSON too, and whichever the filesystem happened to list first
+/// decided whether a session was counted at all.
 Future<UsageStats> scanUsageStats(String libraryPath) async {
   final resolved = libraryPath.startsWith('~/')
       ? '${Platform.environment['HOME'] ?? ''}${libraryPath.substring(1)}'
@@ -52,8 +57,7 @@ Future<UsageStats> scanUsageStats(String libraryPath) async {
   try {
     for (final entry in dir.listSync()) {
       if (entry is! Directory) continue;
-      final files = entry.listSync().whereType<File>().toList();
-      final jsonFile = files.where((f) => f.path.endsWith('.json')).firstOrNull;
+      final jsonFile = transcriptFileIn(entry);
       if (jsonFile == null) continue;
       try {
         final raw = await jsonFile.readAsString();

@@ -13,7 +13,7 @@ void main() {
       ),
     );
 
-    expect(find.text('0 network calls since launch'), findsOneWidget);
+    expect(find.text('0 panggilan jaringan sejak aplikasi dibuka'), findsOneWidget);
     expect(find.byIcon(Icons.verified_user_outlined), findsOneWidget);
     expect(find.text('Belum ada aktivitas jaringan tercatat.'), findsOneWidget);
   });
@@ -34,7 +34,7 @@ void main() {
     container.read(privacyReportProvider.notifier).recordModelDownload('tiny');
     await tester.pump();
 
-    expect(find.text('1 network calls since launch'), findsOneWidget);
+    expect(find.text('1 panggilan jaringan sejak aplikasi dibuka'), findsOneWidget);
     expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
     expect(find.textContaining('Mengunduh model'), findsOneWidget);
   });

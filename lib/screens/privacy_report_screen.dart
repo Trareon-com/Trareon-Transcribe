@@ -35,7 +35,7 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
     final isClean = report.networkCallCount == 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacy Report')),
+      appBar: AppBar(title: const Text('Laporan Privasi')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -56,7 +56,7 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${report.networkCallCount} network calls since launch',
+                          '${report.networkCallCount} panggilan jaringan sejak aplikasi dibuka',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         Text('Sesi berjalan selama ${_formatDuration(elapsed)}'),
