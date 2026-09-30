@@ -128,11 +128,11 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     List<rust_export.ExportFormat> formats = const [],
   }) async => [];
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
   @override
   Future<void> pauseSession(String sessionId) async {}
   @override

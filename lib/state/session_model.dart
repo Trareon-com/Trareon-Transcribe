@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
@@ -304,6 +305,13 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   /// Title the save used, so a retry writes to the same folder.
   String _pendingTitle = '';
 
+  /// Whether the captured audio has been moved out of the recovery
+  /// directory into a session folder. A retry must not try again once it
+  /// has — the engine hands the audio over exactly once — but it *must*
+  /// try again if the first attempt failed, so "Simpan ke folder lain"
+  /// rescues the recording along with the transcript.
+  bool _audioPlaced = false;
+
   /// Whether the transcript of the last stopped session is on disk.
   /// `false` after a failed save, until [retrySave] succeeds.
   bool get hasUnsavedTranscript =>
@@ -323,8 +331,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       lifecycle: SessionLifecycle.stopped,
       elapsedSeconds: 0,
     );
-    if (state.segments.isEmpty) return;
     _pendingAudioSessionId = id;
+    _audioPlaced = false;
     _pendingTitle = state.sessionTitle.isNotEmpty
         ? state.sessionTitle
         : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
@@ -346,6 +354,35 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     final segments = state.segments;
     final id = _pendingAudioSessionId;
     final title = _pendingTitle;
+
+    // Audio first, and unconditionally.
+    //
+    // Transcription can lag far behind capture on a slow device, so a
+    // session stopped before Whisper has finalized its first segment is
+    // an ordinary outcome — and it still holds the whole recording. The
+    // audio used to be dropped in exactly that case, which made "stop too
+    // early" a silent data-loss path. Saving it means the user can run
+    // "Transkrip Ulang" over it afterwards.
+    var audio = const <rust_export.ExportedFile>[];
+    if (id != null && !_audioPlaced) {
+      try {
+        audio = await _bridge.exportSessionAudio(
+          sessionId: id,
+          outputDir: outputDir,
+          title: title,
+        );
+        _audioPlaced = true;
+      } catch (e) {
+        debugPrint('exportSessionAudio failed: $e');
+      }
+    }
+    if (segments.isEmpty && audio.isEmpty && _audioPlaced) {
+      // Nothing was captured and nothing was transcribed: an empty folder
+      // would just be litter in the library.
+      _pendingAudioSessionId = null;
+      return;
+    }
+
     // Rethrown (not swallowed) so the caller can tell the user their
     // transcript failed to save — previously a failed auto-save here was
     // silently lost with zero feedback, leaving the user unable to tell
@@ -366,25 +403,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     _pendingAudioSessionId = null;
 
     // Best-effort from here on: the transcript (the primary artifact) is
-    // already saved, so a failure writing the raw audio or the metadata
-    // sidecar shouldn't surface as a save error to the user.
-    if (id != null) {
+    // already saved, so a failure writing the metadata sidecar shouldn't
+    // surface as a save error. The sidecar gives the library the
+    // user-facing title (instead of the date-prefixed folder name) and
+    // gives "Transkrip Ulang" the model and language this session used.
+    final anchor = exported.isNotEmpty ? exported.first : audio.firstOrNull;
+    if (anchor != null) {
       try {
-        await _bridge.exportSessionAudio(
-          sessionId: id,
-          outputDir: outputDir,
-          title: title,
-        );
-      } catch (_) {}
-    }
-    // The sidecar gives the library the user-facing title (instead of the
-    // date-prefixed folder name) and gives "Transkrip Ulang" the model and
-    // language this session was recorded with.
-    if (exported.isNotEmpty) {
-      try {
-        final sessionDir = File(exported.first.path).parent.path;
         await writeSessionMeta(
-          sessionDir,
+          File(anchor.path).parent.path,
           SessionMeta(title: title, language: _language, model: _modelId),
         );
       } catch (_) {}

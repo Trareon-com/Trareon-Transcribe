@@ -865,6 +865,12 @@ fn is_registered(session_id: &str) -> bool {
 /// Removes a recovery directory that holds nothing recoverable. Guarded on
 /// emptiness rather than age: a directory being created right now already
 /// has its snapshot written (see `start_session_with_id`).
+///
+/// A directory with no snapshot but *with* audio is left alone and logged:
+/// it cannot be recovered (there is no config to resume from) but it holds
+/// a recording, and deleting the user's audio to tidy up is not a trade
+/// this code gets to make. Builds before `stop_session` always claimed the
+/// audio could leave these behind.
 fn remove_dir_if_stale(dir: &Path) {
     let has_content = [
         dir.join(JOURNAL_FILE),
@@ -875,9 +881,15 @@ fn remove_dir_if_stale(dir: &Path) {
     ]
     .iter()
     .any(|p| p.exists());
-    if !has_content {
-        let _ = fs::remove_dir_all(dir);
+    if has_content {
+        tracing::warn!(
+            path = %dir.display(),
+            "recovery directory holds audio but no snapshot; keeping it rather \
+             than deleting a recording that cannot be resumed"
+        );
+        return;
     }
+    let _ = fs::remove_dir_all(dir);
 }
 
 /// Live capture health, used both by the recording UI ("rekaman
@@ -1816,6 +1828,21 @@ mod tests {
 
         assert!(list_recoverable_sessions().unwrap().is_empty());
         assert!(!legacy.exists());
+    }
+
+    /// Tidying up must never take a recording with it.
+    #[test]
+    fn a_directory_with_audio_but_no_snapshot_is_kept() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &[], 3.0);
+        let dir = home.path().join(&staged.session_id);
+        std::fs::remove_file(dir.join(SNAPSHOT_FILE)).unwrap();
+
+        assert!(list_recoverable_sessions().unwrap().is_empty());
+        assert!(
+            dir.exists(),
+            "an unresumable recording is still the user's audio"
+        );
     }
 
     #[test]

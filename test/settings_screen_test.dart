@@ -115,11 +115,11 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
     ],
   }) async => [];
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
   @override
   void pauseSession(String sessionId) {}
   @override

@@ -110,13 +110,13 @@ abstract class RustBridge {
     ],
   });
 
-  /// Writes the raw mic/speaker audio captured during [sessionId]'s live
-  /// recording as `mic.wav`/`speaker.wav` into the same session folder
+  /// Places the mic/speaker audio captured during [sessionId]'s live
+  /// recording as `mic.wav`/`speaker.wav` in the same session folder
   /// [exportSession] uses for this `outputDir`/`title`. Call once, after
   /// [stopSession] — the audio is only retained until the first call for a
   /// given session. Returns an empty list (not an error) when there was no
   /// live capture to save, e.g. a batch-file transcription.
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
@@ -453,11 +453,11 @@ class RustBridgeMock implements RustBridge {
   }) async => [];
 
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {}
+  }) async => [];
 
   @override
   void pauseSession(String sessionId) {}
@@ -849,17 +849,15 @@ class RustEngineBridge implements RustBridge {
       );
 
   @override
-  Future<void> exportSessionAudio({
+  Future<List<rust_export.ExportedFile>> exportSessionAudio({
     required String sessionId,
     required String outputDir,
     required String title,
-  }) async {
-    await rust_api.exportSessionAudio(
-      sessionId: sessionId,
-      outputDir: outputDir,
-      title: title,
-    );
-  }
+  }) => rust_api.exportSessionAudio(
+    sessionId: sessionId,
+    outputDir: outputDir,
+    title: title,
+  );
 
   rust_audio.SessionConfig _toRustSessionConfig(SessionConfig config) {
     return rust_audio.SessionConfig(
