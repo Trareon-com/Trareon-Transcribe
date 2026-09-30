@@ -11,8 +11,9 @@ import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'test_helpers.dart';
 
-class _TestBridge implements RustBridge {
+class _TestBridge with SummaryBridgeStubs implements RustBridge {
   AppSettings savedSettings = AppSettings.defaults();
 
   @override
@@ -30,6 +31,9 @@ class _TestBridge implements RustBridge {
   Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
   @override
@@ -56,7 +60,7 @@ class _TestBridge implements RustBridge {
   Stream<double> downloadProgress() => const Stream.empty();
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

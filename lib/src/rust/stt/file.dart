@@ -7,6 +7,84 @@ import '../export.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// Per-file result of a batch run: either a transcript or the reason there
+/// isn't one.
+///
+/// `transcribe_files_batch` reports failures through its progress callback,
+/// but the FRB wrapper used to keep only the successes — so an import where
+/// one file was corrupt came back silently short, with no way for the UI to
+/// say which file failed or why.
+class BatchFileOutcome {
+  final String filename;
+
+  /// The path as passed in, so the caller can match outcomes to its queue.
+  final String path;
+  final TranscribeFileResult? result;
+  final String? error;
+
+  const BatchFileOutcome({
+    required this.filename,
+    required this.path,
+    this.result,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      filename.hashCode ^ path.hashCode ^ result.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchFileOutcome &&
+          runtimeType == other.runtimeType &&
+          filename == other.filename &&
+          path == other.path &&
+          result == other.result &&
+          error == other.error;
+}
+
+enum BatchFileStatus { queued, decoding, transcribing, done, error }
+
+/// Which file a batch run is currently on, without the (potentially huge)
+/// segment payload.
+///
+/// `transcribe_files_batch` takes an `on_progress` callback, but the FRB
+/// wrapper can only return once the whole batch is done — so a Dart caller
+/// importing a one-hour recording used to watch a spinner that never moved.
+/// This snapshot is polled from Dart the same way model-download progress is.
+class BatchProgressSnapshot {
+  /// 0-based index of the file being worked on.
+  final int fileIndex;
+  final int totalFiles;
+  final String filename;
+  final BatchFileStatus status;
+
+  const BatchProgressSnapshot({
+    required this.fileIndex,
+    required this.totalFiles,
+    required this.filename,
+    required this.status,
+  });
+
+  @override
+  int get hashCode =>
+      fileIndex.hashCode ^
+      totalFiles.hashCode ^
+      filename.hashCode ^
+      status.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchProgressSnapshot &&
+          runtimeType == other.runtimeType &&
+          fileIndex == other.fileIndex &&
+          totalFiles == other.totalFiles &&
+          filename == other.filename &&
+          status == other.status;
+}
+
 class TranscribeFileResult {
   final String filename;
   final double durationSecs;

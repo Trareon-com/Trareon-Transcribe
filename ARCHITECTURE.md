@@ -29,6 +29,10 @@ rust_core/                 Rust engine (compiled as staticlib/cdylib/lib)
     export/                 Markdown/TXT/JSON/SRT/VTT/HTML/DOCX/WAV writers
     decode/                 Symphonia decode + rubato resample (no ffmpeg)
     model.rs                Model catalog, SHA256 verification, resumable download
+    summary.rs              AI meeting summary (Ollama / OpenAI-compatible) —
+                            the only networked feature, opt-in, never reachable
+                            from the transcription path
+    diarization.rs          Per-channel acoustic clustering → speaker labels
     session.rs              In-memory session registry, auto-split logic
     settings.rs              Settings persistence (OS config dir)
     singleton.rs             Single-instance PID lock
@@ -85,12 +89,26 @@ Regenerate bindings after any FRB-exposed signature changes:
 
 ```bash
 flutter_rust_bridge_codegen generate \
-  --rust-input crate::api,crate::error,crate::audio,crate::decode,crate::export,crate::model,crate::session,crate::settings \
+  --rust-input crate::api,crate::error,crate::audio,crate::decode,crate::export,crate::model,crate::session,crate::settings,crate::summary \
   --rust-root rust_core \
   --dart-output lib/src/rust \
   --dart-entrypoint-class-name RustLib
 flutter pub run build_runner build --delete-conflicting-outputs   # freezed unions (e.g. AutoSplitReason)
 ```
+
+The codegen version must match the `flutter_rust_bridge` version pinned in
+`rust_core/Cargo.toml` (currently `=2.13.0`) — a mismatch makes the
+generated code refuse to load at runtime:
+
+```bash
+cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
+```
+
+`--rust-input` is a whitelist of the *public surface*, not a list of every
+module. Adding a module there exposes everything public in it (e.g. adding
+`crate::stt` pulls in `whisper_cd.dart`); prefer letting FRB reach types
+transitively from `crate::api`. Delete any orphaned files under
+`lib/src/rust/` after narrowing the list.
 
 Do **not** run `flutter_rust_bridge_codegen integrate` against this repo —
 it overwrites `lib/main.dart` with a demo stub and reformats the whole
@@ -155,6 +173,30 @@ and install the shared library into the bundle.
 ## Security posture
 
 See [`SECURITY.md`](SECURITY.md). The short version: zero network calls
-during transcription, model downloads are the only legitimate network
-activity and are SHA256-verified, no telemetry by default, `cargo
-audit`/`cargo deny`/`clippy -D warnings` gate every change.
+during transcription and audio never leaves the device. Exactly two
+features can open a socket, both user-initiated — SHA256-verified model
+downloads, and the opt-in AI summary (transcript text only, defaulting to
+a loopback Ollama endpoint, counted in the in-app Privacy Report). No
+telemetry by default. `cargo audit`/`cargo deny`/`clippy -D warnings`
+gate every change, and `privacy.rs`/`privacy_proof_test.dart` fail the
+build if the network boundary moves.
+
+## Session storage
+
+A session is a directory under the configured library path:
+
+```
+<library>/YYYYMMDD-<title>/
+  <title>.md / .txt / .json      transcript, written by the Rust exporter
+  mic.wav / speaker.wav          raw per-track audio (live sessions)
+  <title>.<ext>                  source audio (imported files)
+  trareon-session.json           metadata sidecar
+```
+
+The sidecar (`lib/services/session_store.dart`) holds what the bare segment
+array can't: the AI summary and the template it was made with, a
+user-chosen title independent of the folder name (so rename never has to
+move files), and the model/language the transcript came from (so
+"Transkrip Ulang" knows what it is replacing). Sessions written before the
+sidecar existed load unchanged — every field falls back to something
+derivable from the directory.

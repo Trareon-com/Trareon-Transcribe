@@ -213,6 +213,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ref.read(audioWatchdogProvider.notifier).acknowledge();
     });
 
+    // Capture problems the engine reports directly: a source that couldn't be
+    // opened at start, or one that died mid-recording. Faster and far more
+    // specific than the silence watchdog above, which can only infer trouble
+    // after twelve seconds of nothing.
+    ref.listen(sessionNoticeProvider, (_, next) {
+      final notice = next.valueOrNull;
+      if (notice == null) return;
+      AppToast.show(context, notice.message, type: ToastType.error);
+    });
+
     return CallbackShortcuts(
       bindings: {
         SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>

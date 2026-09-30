@@ -35,8 +35,6 @@ void main() {
           gpuEnabled: false,
           gpuDevice: 0,
           vadEnabled: true,
-          sampleRate: 16000,
-          chunkDurationSecs: 30,
         ),
         startedAtUnixMs: BigInt.zero,
         lastSplitAtUnixMs: BigInt.zero,

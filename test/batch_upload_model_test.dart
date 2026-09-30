@@ -8,6 +8,7 @@ import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
 import 'package:transcribe/state/batch_upload_model.dart';
 import 'package:transcribe/state/models.dart';
+import 'test_helpers.dart';
 
 void main() {
   group('BatchUploadNotifier', () {
@@ -113,7 +114,7 @@ void main() {
   });
 }
 
-class _NoopBridge implements RustBridge {
+class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<String> startSession(SessionConfig config) async => '';
   @override
@@ -129,6 +130,9 @@ class _NoopBridge implements RustBridge {
   Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => [];
   @override
@@ -152,7 +156,7 @@ class _NoopBridge implements RustBridge {
   @override
   Stream<double> downloadProgress() => const Stream.empty();
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -182,7 +186,7 @@ class _TestBridge extends _NoopBridge {
   final List<String> exportedTitles = [];
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -190,10 +194,13 @@ class _TestBridge extends _NoopBridge {
     int gpuDevice = 0,
   }) async {
     return [
-      rust_stt_file.TranscribeFileResult(
+      rust_stt_file.BatchFileOutcome(
         filename: 'test.mp3',
-        durationSecs: 1.0,
-        segments: [
+        path: files.first,
+        result: rust_stt_file.TranscribeFileResult(
+          filename: 'test.mp3',
+          durationSecs: 1.0,
+          segments: [
           rust_export.Segment(
             source: 'mic',
             speaker: 'MIC',
@@ -206,8 +213,9 @@ class _TestBridge extends _NoopBridge {
             lowConfidence: false,
             avgLogProb: -0.2,
           ),
-        ],
-        language: 'id',
+          ],
+          language: 'id',
+        ),
       ),
     ];
   }
@@ -226,7 +234,7 @@ class _TestBridge extends _NoopBridge {
 
 class _ErrorBridge extends _NoopBridge {
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

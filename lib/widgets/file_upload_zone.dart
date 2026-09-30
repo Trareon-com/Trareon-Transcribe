@@ -46,6 +46,14 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
     }
 
     final settings = ref.read(settingsProvider);
+    // Progressive Mode used to apply only to live recording — imports always
+    // ran the single default model, so turning it on did nothing here.
+    const refineId = 'large-v3-turbo-q5';
+    final useProgressive =
+        settings.progressiveEnabled &&
+        settings.defaultModel != refineId &&
+        isModelAvailable(refineId, libraryPath: settings.libraryPath);
+
     await batch.processBatch(
       ref.read(rustBridgeProvider),
       modelPathForId(settings.defaultModel, libraryPath: settings.libraryPath),
@@ -53,6 +61,10 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
       language: settings.language,
       gpuEnabled: settings.gpuEnabled,
       gpuDevice: settings.gpuDevice,
+      refineModelPath: useProgressive
+          ? modelPathForId(refineId, libraryPath: settings.libraryPath)
+          : null,
+      modelId: useProgressive ? refineId : settings.defaultModel,
     );
     if (mounted) {
       await widget.onProcessed?.call();

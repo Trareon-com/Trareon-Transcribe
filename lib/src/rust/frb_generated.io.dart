@@ -19,6 +19,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
+import 'summary.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustLibApiImplPlatform({
@@ -50,6 +51,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AutoSplitReason dco_decode_auto_split_reason(dynamic raw);
 
   @protected
+  BatchFileOutcome dco_decode_batch_file_outcome(dynamic raw);
+
+  @protected
+  BatchFileStatus dco_decode_batch_file_status(dynamic raw);
+
+  @protected
+  BatchProgressSnapshot dco_decode_batch_progress_snapshot(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -57,6 +67,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AutoSplitReason dco_decode_box_autoadd_auto_split_reason(dynamic raw);
+
+  @protected
+  BatchProgressSnapshot dco_decode_box_autoadd_batch_progress_snapshot(
+    dynamic raw,
+  );
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
@@ -74,6 +89,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SessionRecoverySnapshot dco_decode_box_autoadd_session_recovery_snapshot(
     dynamic raw,
   );
+
+  @protected
+  SummaryConfig dco_decode_box_autoadd_summary_config(dynamic raw);
+
+  @protected
+  TranscribeFileResult dco_decode_box_autoadd_transcribe_file_result(
+    dynamic raw,
+  );
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
   Check dco_decode_check(dynamic raw);
@@ -104,6 +130,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
+
+  @protected
+  List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
 
   @protected
   List<Check> dco_decode_list_check(dynamic raw);
@@ -141,12 +170,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<TranscribeFileResult> dco_decode_list_transcribe_file_result(
-    dynamic raw,
-  );
+  ModelInfo dco_decode_model_info(dynamic raw);
 
   @protected
-  ModelInfo dco_decode_model_info(dynamic raw);
+  NoticeLevel dco_decode_notice_level(dynamic raw);
 
   @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
@@ -158,10 +185,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AutoSplitReason? dco_decode_opt_box_autoadd_auto_split_reason(dynamic raw);
 
   @protected
+  BatchProgressSnapshot? dco_decode_opt_box_autoadd_batch_progress_snapshot(
+    dynamic raw,
+  );
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
+
+  @protected
+  TranscribeFileResult? dco_decode_opt_box_autoadd_transcribe_file_result(
+    dynamic raw,
+  );
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
@@ -201,6 +241,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SessionStatus dco_decode_session_status(dynamic raw);
+
+  @protected
+  SummaryConfig dco_decode_summary_config(dynamic raw);
+
+  @protected
+  SummaryProvider dco_decode_summary_provider(dynamic raw);
+
+  @protected
+  SummarySettings dco_decode_summary_settings(dynamic raw);
+
+  @protected
+  SummaryTemplate dco_decode_summary_template(dynamic raw);
 
   @protected
   Theme dco_decode_theme(dynamic raw);
@@ -253,6 +305,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AutoSplitReason sse_decode_auto_split_reason(SseDeserializer deserializer);
 
   @protected
+  BatchFileOutcome sse_decode_batch_file_outcome(SseDeserializer deserializer);
+
+  @protected
+  BatchFileStatus sse_decode_batch_file_status(SseDeserializer deserializer);
+
+  @protected
+  BatchProgressSnapshot sse_decode_batch_progress_snapshot(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
@@ -260,6 +323,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AutoSplitReason sse_decode_box_autoadd_auto_split_reason(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BatchProgressSnapshot sse_decode_box_autoadd_batch_progress_snapshot(
     SseDeserializer deserializer,
   );
 
@@ -283,6 +351,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SessionRecoverySnapshot sse_decode_box_autoadd_session_recovery_snapshot(
     SseDeserializer deserializer,
   );
+
+  @protected
+  SummaryConfig sse_decode_box_autoadd_summary_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TranscribeFileResult sse_decode_box_autoadd_transcribe_file_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   Check sse_decode_check(SseDeserializer deserializer);
@@ -313,6 +394,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AudioDeviceInfo> sse_decode_list_audio_device_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BatchFileOutcome> sse_decode_list_batch_file_outcome(
     SseDeserializer deserializer,
   );
 
@@ -360,12 +446,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<TranscribeFileResult> sse_decode_list_transcribe_file_result(
-    SseDeserializer deserializer,
-  );
+  ModelInfo sse_decode_model_info(SseDeserializer deserializer);
 
   @protected
-  ModelInfo sse_decode_model_info(SseDeserializer deserializer);
+  NoticeLevel sse_decode_notice_level(SseDeserializer deserializer);
 
   @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
@@ -381,12 +465,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BatchProgressSnapshot? sse_decode_opt_box_autoadd_batch_progress_snapshot(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
     SseDeserializer deserializer,
   );
+
+  @protected
+  TranscribeFileResult? sse_decode_opt_box_autoadd_transcribe_file_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   Float32List? sse_decode_opt_list_prim_f_32_strict(
@@ -434,6 +531,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SessionStatus sse_decode_session_status(SseDeserializer deserializer);
+
+  @protected
+  SummaryConfig sse_decode_summary_config(SseDeserializer deserializer);
+
+  @protected
+  SummaryProvider sse_decode_summary_provider(SseDeserializer deserializer);
+
+  @protected
+  SummarySettings sse_decode_summary_settings(SseDeserializer deserializer);
+
+  @protected
+  SummaryTemplate sse_decode_summary_template(SseDeserializer deserializer);
 
   @protected
   Theme sse_decode_theme(SseDeserializer deserializer);
@@ -495,6 +604,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_batch_file_outcome(
+    BatchFileOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_file_status(
+    BatchFileStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_batch_progress_snapshot(
+    BatchProgressSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
@@ -506,6 +633,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_auto_split_reason(
     AutoSplitReason self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_batch_progress_snapshot(
+    BatchProgressSnapshot self,
     SseSerializer serializer,
   );
 
@@ -532,6 +665,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     SessionRecoverySnapshot self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_summary_config(
+    SummaryConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_transcribe_file_result(
+    TranscribeFileResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_check(Check self, SseSerializer serializer);
@@ -563,6 +711,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_audio_device_info(
     List<AudioDeviceInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_batch_file_outcome(
+    List<BatchFileOutcome> self,
     SseSerializer serializer,
   );
 
@@ -627,13 +781,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_transcribe_file_result(
-    List<TranscribeFileResult> self,
-    SseSerializer serializer,
-  );
+  void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
 
   @protected
-  void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
+  void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_Map_String_String_None(
@@ -651,6 +802,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_batch_progress_snapshot(
+    BatchProgressSnapshot? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
@@ -658,6 +815,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     (BigInt, BigInt)? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_transcribe_file_result(
+    TranscribeFileResult? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_list_prim_f_32_strict(
@@ -712,6 +878,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_session_status(SessionStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_summary_config(SummaryConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_summary_provider(
+    SummaryProvider self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_summary_settings(
+    SummarySettings self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_summary_template(
+    SummaryTemplate self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_theme(Theme self, SseSerializer serializer);

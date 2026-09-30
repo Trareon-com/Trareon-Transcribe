@@ -8,14 +8,69 @@ import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/theme/app_theme.dart';
 import 'package:transcribe/screens/main_screen.dart';
 import 'package:transcribe/widgets/setup_overlay.dart';
+import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
 
+/// Inert implementations of the bridge methods added for Meetily parity
+/// (summary, HPT file import, batch progress).
+///
+/// Mixed into every `RustBridge` test double so adding a bridge method
+/// doesn't mean editing five near-identical fakes. [generateSummary] throws
+/// rather than returning a placeholder: the summary path is the only one that
+/// can touch the network, so a test that reaches it by accident must fail
+/// loudly instead of quietly passing on fabricated Markdown. Individual
+/// doubles override whichever members their test actually exercises.
+mixin SummaryBridgeStubs {
+  Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+    required String summary,
+    List<rust_export.ExportFormat> formats = const [
+      rust_export.ExportFormat.markdown,
+      rust_export.ExportFormat.txt,
+      rust_export.ExportFormat.json,
+    ],
+  }) async => const [];
+
+  Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
+    required String quickModelPath,
+    required String refineModelPath,
+    required String path,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  }) async => rust_api.ProgressiveFileResult(
+    filename: path.split('/').last,
+    quickSegments: const [],
+    refinedSegments: const [],
+    language: language ?? 'auto',
+  );
+
+  Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
+
+  Future<String> generateSummary({
+    required List<TranscriptSegment> segments,
+    required SummaryConfig config,
+  }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  Future<List<String>> listSummaryModels({
+    required SummaryProvider provider,
+    required String baseUrl,
+    required String apiKey,
+  }) async => const [];
+
+  Future<String> summaryPreviewTranscript(
+    List<TranscriptSegment> segments,
+  ) async => segments.map((s) => '${s.speaker}: ${s.text}').join('\n');
+}
+
 /// Timer-free test double for RustBridge that persists settings in memory
-class NoopBridge implements RustBridge {
+class NoopBridge with SummaryBridgeStubs implements RustBridge {
   NoopBridge();
 
   AppSettings _storedSettings = AppSettings.defaults();
@@ -40,6 +95,9 @@ class NoopBridge implements RustBridge {
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
@@ -77,7 +135,7 @@ class NoopBridge implements RustBridge {
   Stream<double> downloadProgress() => const Stream.empty();
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

@@ -42,9 +42,11 @@ class SessionConfig {
   /// Overrides adaptive HPT routing. `Auto` benchmarks live; the other
   /// variants force a specific path regardless of device capability.
   final HptMode hptMode;
+
+  /// Gate Whisper inference on the dual-stage VAD. `false` transcribes
+  /// every buffered chunk — more CPU, but nothing can be dropped by a
+  /// mis-tuned speech detector. Honoured by `pipeline::LivePipeline`.
   final bool vadEnabled;
-  final int sampleRate;
-  final int chunkDurationSecs;
 
   /// Enable GPU acceleration for whisper inference (Vulkan/CUDA/Metal).
   /// Mirrors `AppSettings::gpu_enabled`; the caller is responsible for
@@ -64,8 +66,6 @@ class SessionConfig {
     this.refineModelPath,
     required this.hptMode,
     required this.vadEnabled,
-    required this.sampleRate,
-    required this.chunkDurationSecs,
     required this.gpuEnabled,
     required this.gpuDevice,
   });
@@ -94,8 +94,6 @@ class SessionConfig {
       refineModelPath.hashCode ^
       hptMode.hashCode ^
       vadEnabled.hashCode ^
-      sampleRate.hashCode ^
-      chunkDurationSecs.hashCode ^
       gpuEnabled.hashCode ^
       gpuDevice.hashCode;
 
@@ -113,8 +111,6 @@ class SessionConfig {
           refineModelPath == other.refineModelPath &&
           hptMode == other.hptMode &&
           vadEnabled == other.vadEnabled &&
-          sampleRate == other.sampleRate &&
-          chunkDurationSecs == other.chunkDurationSecs &&
           gpuEnabled == other.gpuEnabled &&
           gpuDevice == other.gpuDevice;
 }

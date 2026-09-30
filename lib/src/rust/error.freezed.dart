@@ -28,6 +28,7 @@ mixin _$TranscribeError {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
@@ -39,6 +40,7 @@ mixin _$TranscribeError {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
@@ -50,6 +52,7 @@ mixin _$TranscribeError {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -64,6 +67,7 @@ mixin _$TranscribeError {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
@@ -75,6 +79,7 @@ mixin _$TranscribeError {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
@@ -86,6 +91,7 @@ mixin _$TranscribeError {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
 
@@ -217,6 +223,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return audioDevice(field0);
   }
@@ -232,6 +239,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return audioDevice?.call(field0);
   }
@@ -247,6 +255,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (audioDevice != null) {
@@ -268,6 +277,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return audioDevice(this);
   }
@@ -283,6 +293,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return audioDevice?.call(this);
   }
@@ -298,6 +309,7 @@ class _$TranscribeError_AudioDeviceImpl extends TranscribeError_AudioDevice {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (audioDevice != null) {
@@ -407,6 +419,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return audioDecode(field0);
   }
@@ -422,6 +435,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return audioDecode?.call(field0);
   }
@@ -437,6 +451,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (audioDecode != null) {
@@ -458,6 +473,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return audioDecode(this);
   }
@@ -473,6 +489,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return audioDecode?.call(this);
   }
@@ -488,6 +505,7 @@ class _$TranscribeError_AudioDecodeImpl extends TranscribeError_AudioDecode {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (audioDecode != null) {
@@ -597,6 +615,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return model(field0);
   }
@@ -612,6 +631,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return model?.call(field0);
   }
@@ -627,6 +647,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (model != null) {
@@ -648,6 +669,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return model(this);
   }
@@ -663,6 +685,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return model?.call(this);
   }
@@ -678,6 +701,7 @@ class _$TranscribeError_ModelImpl extends TranscribeError_Model {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (model != null) {
@@ -790,6 +814,7 @@ class _$TranscribeError_TranscriptionImpl
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return transcription(field0);
   }
@@ -805,6 +830,7 @@ class _$TranscribeError_TranscriptionImpl
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return transcription?.call(field0);
   }
@@ -820,6 +846,7 @@ class _$TranscribeError_TranscriptionImpl
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (transcription != null) {
@@ -841,6 +868,7 @@ class _$TranscribeError_TranscriptionImpl
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return transcription(this);
   }
@@ -856,6 +884,7 @@ class _$TranscribeError_TranscriptionImpl
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return transcription?.call(this);
   }
@@ -871,6 +900,7 @@ class _$TranscribeError_TranscriptionImpl
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (transcription != null) {
@@ -982,6 +1012,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return export_(field0);
   }
@@ -997,6 +1028,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return export_?.call(field0);
   }
@@ -1012,6 +1044,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (export_ != null) {
@@ -1033,6 +1066,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return export_(this);
   }
@@ -1048,6 +1082,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return export_?.call(this);
   }
@@ -1063,6 +1098,7 @@ class _$TranscribeError_ExportImpl extends TranscribeError_Export {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (export_ != null) {
@@ -1171,6 +1207,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return io(field0);
   }
@@ -1186,6 +1223,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return io?.call(field0);
   }
@@ -1201,6 +1239,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (io != null) {
@@ -1222,6 +1261,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return io(this);
   }
@@ -1237,6 +1277,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return io?.call(this);
   }
@@ -1252,6 +1293,7 @@ class _$TranscribeError_IoImpl extends TranscribeError_Io {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (io != null) {
@@ -1363,6 +1405,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return invalidInput(field0);
   }
@@ -1378,6 +1421,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return invalidInput?.call(field0);
   }
@@ -1393,6 +1437,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (invalidInput != null) {
@@ -1414,6 +1459,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return invalidInput(this);
   }
@@ -1429,6 +1475,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return invalidInput?.call(this);
   }
@@ -1444,6 +1491,7 @@ class _$TranscribeError_InvalidInputImpl extends TranscribeError_InvalidInput {
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (invalidInput != null) {
@@ -1561,6 +1609,7 @@ class _$TranscribeError_SessionNotFoundImpl
     required TResult Function(String field0) io,
     required TResult Function(String field0) invalidInput,
     required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
   }) {
     return sessionNotFound(field0);
   }
@@ -1576,6 +1625,7 @@ class _$TranscribeError_SessionNotFoundImpl
     TResult? Function(String field0)? io,
     TResult? Function(String field0)? invalidInput,
     TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
   }) {
     return sessionNotFound?.call(field0);
   }
@@ -1591,6 +1641,7 @@ class _$TranscribeError_SessionNotFoundImpl
     TResult Function(String field0)? io,
     TResult Function(String field0)? invalidInput,
     TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
     required TResult orElse(),
   }) {
     if (sessionNotFound != null) {
@@ -1612,6 +1663,7 @@ class _$TranscribeError_SessionNotFoundImpl
     required TResult Function(TranscribeError_InvalidInput value) invalidInput,
     required TResult Function(TranscribeError_SessionNotFound value)
     sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
   }) {
     return sessionNotFound(this);
   }
@@ -1627,6 +1679,7 @@ class _$TranscribeError_SessionNotFoundImpl
     TResult? Function(TranscribeError_Io value)? io,
     TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
   }) {
     return sessionNotFound?.call(this);
   }
@@ -1642,6 +1695,7 @@ class _$TranscribeError_SessionNotFoundImpl
     TResult Function(TranscribeError_Io value)? io,
     TResult Function(TranscribeError_InvalidInput value)? invalidInput,
     TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
     required TResult orElse(),
   }) {
     if (sessionNotFound != null) {
@@ -1666,5 +1720,200 @@ abstract class TranscribeError_SessionNotFound extends TranscribeError {
   _$$TranscribeError_SessionNotFoundImplCopyWith<
     _$TranscribeError_SessionNotFoundImpl
   >
+  get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$TranscribeError_SummaryImplCopyWith<$Res>
+    implements $TranscribeErrorCopyWith<$Res> {
+  factory _$$TranscribeError_SummaryImplCopyWith(
+    _$TranscribeError_SummaryImpl value,
+    $Res Function(_$TranscribeError_SummaryImpl) then,
+  ) = __$$TranscribeError_SummaryImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String field0});
+}
+
+/// @nodoc
+class __$$TranscribeError_SummaryImplCopyWithImpl<$Res>
+    extends _$TranscribeErrorCopyWithImpl<$Res, _$TranscribeError_SummaryImpl>
+    implements _$$TranscribeError_SummaryImplCopyWith<$Res> {
+  __$$TranscribeError_SummaryImplCopyWithImpl(
+    _$TranscribeError_SummaryImpl _value,
+    $Res Function(_$TranscribeError_SummaryImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of TranscribeError
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? field0 = null}) {
+    return _then(
+      _$TranscribeError_SummaryImpl(
+        null == field0
+            ? _value.field0
+            : field0 // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$TranscribeError_SummaryImpl extends TranscribeError_Summary {
+  const _$TranscribeError_SummaryImpl(this.field0) : super._();
+
+  @override
+  final String field0;
+
+  @override
+  String toString() {
+    return 'TranscribeError.summary(field0: $field0)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$TranscribeError_SummaryImpl &&
+            (identical(other.field0, field0) || other.field0 == field0));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, field0);
+
+  /// Create a copy of TranscribeError
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$TranscribeError_SummaryImplCopyWith<_$TranscribeError_SummaryImpl>
+  get copyWith =>
+      __$$TranscribeError_SummaryImplCopyWithImpl<
+        _$TranscribeError_SummaryImpl
+      >(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String field0) audioDevice,
+    required TResult Function(String field0) audioDecode,
+    required TResult Function(String field0) model,
+    required TResult Function(String field0) transcription,
+    required TResult Function(String field0) export_,
+    required TResult Function(String field0) io,
+    required TResult Function(String field0) invalidInput,
+    required TResult Function(String field0) sessionNotFound,
+    required TResult Function(String field0) summary,
+  }) {
+    return summary(field0);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String field0)? audioDevice,
+    TResult? Function(String field0)? audioDecode,
+    TResult? Function(String field0)? model,
+    TResult? Function(String field0)? transcription,
+    TResult? Function(String field0)? export_,
+    TResult? Function(String field0)? io,
+    TResult? Function(String field0)? invalidInput,
+    TResult? Function(String field0)? sessionNotFound,
+    TResult? Function(String field0)? summary,
+  }) {
+    return summary?.call(field0);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String field0)? audioDevice,
+    TResult Function(String field0)? audioDecode,
+    TResult Function(String field0)? model,
+    TResult Function(String field0)? transcription,
+    TResult Function(String field0)? export_,
+    TResult Function(String field0)? io,
+    TResult Function(String field0)? invalidInput,
+    TResult Function(String field0)? sessionNotFound,
+    TResult Function(String field0)? summary,
+    required TResult orElse(),
+  }) {
+    if (summary != null) {
+      return summary(field0);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(TranscribeError_AudioDevice value) audioDevice,
+    required TResult Function(TranscribeError_AudioDecode value) audioDecode,
+    required TResult Function(TranscribeError_Model value) model,
+    required TResult Function(TranscribeError_Transcription value)
+    transcription,
+    required TResult Function(TranscribeError_Export value) export_,
+    required TResult Function(TranscribeError_Io value) io,
+    required TResult Function(TranscribeError_InvalidInput value) invalidInput,
+    required TResult Function(TranscribeError_SessionNotFound value)
+    sessionNotFound,
+    required TResult Function(TranscribeError_Summary value) summary,
+  }) {
+    return summary(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(TranscribeError_AudioDevice value)? audioDevice,
+    TResult? Function(TranscribeError_AudioDecode value)? audioDecode,
+    TResult? Function(TranscribeError_Model value)? model,
+    TResult? Function(TranscribeError_Transcription value)? transcription,
+    TResult? Function(TranscribeError_Export value)? export_,
+    TResult? Function(TranscribeError_Io value)? io,
+    TResult? Function(TranscribeError_InvalidInput value)? invalidInput,
+    TResult? Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult? Function(TranscribeError_Summary value)? summary,
+  }) {
+    return summary?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(TranscribeError_AudioDevice value)? audioDevice,
+    TResult Function(TranscribeError_AudioDecode value)? audioDecode,
+    TResult Function(TranscribeError_Model value)? model,
+    TResult Function(TranscribeError_Transcription value)? transcription,
+    TResult Function(TranscribeError_Export value)? export_,
+    TResult Function(TranscribeError_Io value)? io,
+    TResult Function(TranscribeError_InvalidInput value)? invalidInput,
+    TResult Function(TranscribeError_SessionNotFound value)? sessionNotFound,
+    TResult Function(TranscribeError_Summary value)? summary,
+    required TResult orElse(),
+  }) {
+    if (summary != null) {
+      return summary(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class TranscribeError_Summary extends TranscribeError {
+  const factory TranscribeError_Summary(final String field0) =
+      _$TranscribeError_SummaryImpl;
+  const TranscribeError_Summary._() : super._();
+
+  @override
+  String get field0;
+
+  /// Create a copy of TranscribeError
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$TranscribeError_SummaryImplCopyWith<_$TranscribeError_SummaryImpl>
   get copyWith => throw _privateConstructorUsedError;
 }

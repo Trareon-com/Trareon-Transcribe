@@ -11,9 +11,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'session.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `audio_registry`, `collect_worker_events`, `load_snapshot_file`, `persist_session_snapshot`, `recovery_dir`, `recovery_path`, `registry`, `remove_snapshot_file`, `should_split`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CaptureChannel`, `SessionState`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `audio_registry`, `collect_worker_events`, `decide_start`, `load_snapshot_file`, `persist_session_snapshot`, `recovery_dir`, `recovery_path`, `registry`, `remove_snapshot_file`, `should_split`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CaptureAttempt`, `CaptureChannel`, `SessionState`, `StartDecision`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Takes (removes) the raw mic/speaker audio retained for `session_id`, if
 /// any. Returns `(None, None)` if the session had no live capture (e.g. it
@@ -77,6 +77,14 @@ Future<List<SessionRecoverySnapshot>> listRecoverableSessions() =>
 
 enum AutoSplitReason { timeBoundary, memoryPressure }
 
+enum NoticeLevel {
+  /// The session is running, but with less than the user asked for.
+  warning,
+
+  /// Something the user asked for has stopped working.
+  error,
+}
+
 @freezed
 sealed class SessionEvent with _$SessionEvent {
   const SessionEvent._();
@@ -87,6 +95,16 @@ sealed class SessionEvent with _$SessionEvent {
     required String source,
     required double level,
   }) = SessionEvent_Vu;
+
+  /// Something the user has to be told mid-session: a capture source that
+  /// couldn't be opened, or one that died while recording. Previously these
+  /// were only `tracing::warn!`ed, so a session that recorded nothing at all
+  /// looked identical to one that was simply quiet.
+  const factory SessionEvent.notice({
+    required NoticeLevel level,
+    required String source,
+    required String message,
+  }) = SessionEvent_Notice;
 }
 
 class SessionRecoverySnapshot {

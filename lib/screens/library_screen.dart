@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/session_store.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -33,7 +33,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  List<SessionSummary> _sessions = [];
+  List<SessionRecord> _sessions = [];
   bool _loading = true;
   // Soft-delete: timer fires real disk deletion after SnackBar expires.
   // Cancelled immediately if the user taps "Urungkan".
@@ -42,8 +42,21 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.sessions != null) {
-      _sessions = List.of(widget.sessions!);
+    final seeded = widget.sessions;
+    if (seeded != null) {
+      _sessions = [
+        for (final s in seeded)
+          SessionRecord(
+            dirPath: s.id,
+            title: s.title,
+            date: s.date,
+            segments: s.segments,
+            durationSeconds: s.durationSeconds,
+            audioPath: s.audioPath,
+            meta: SessionMeta.empty,
+            seededSegmentsCount: s.segmentsCount,
+          ),
+      ];
       _loading = false;
     } else {
       _loadFromDisk();
@@ -56,59 +69,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       setState(() => _loading = false);
       return;
     }
-    final dir = Directory(libraryPath);
-    if (!dir.existsSync()) {
-      setState(() => _loading = false);
-      return;
-    }
-    final sessions = <SessionSummary>[];
-    try {
-      for (final entry in dir.listSync()) {
-        if (entry is! Directory) continue;
-        try {
-          final sessionDir = entry;
-          final files = sessionDir.listSync().whereType<File>().toList();
-          final jsonFile = files.where((f) => f.path.endsWith('.json')).firstOrNull;
-          if (jsonFile == null) continue;
-          final raw = await jsonFile.readAsString();
-          final list = jsonDecode(raw) as List<dynamic>;
-          final segments = list.map((e) {
-            final m = e as Map<String, dynamic>;
-            return TranscriptSegment(
-              source: m['source'] as String? ?? '',
-              speaker: m['speaker'] as String? ?? '',
-              text: m['text'] as String? ?? '',
-              timestamp: (m['timestamp'] as num?)?.toDouble() ?? 0,
-              duration: (m['duration'] as num?)?.toDouble() ?? 0,
-              language: m['language'] as String? ?? '',
-              confidence: (m['confidence'] as num?)?.toDouble() ?? 1.0,
-              isPartial: m['is_partial'] as bool? ?? false,
-            );
-          }).toList();
-          final title = sessionDir.path.split(Platform.pathSeparator).last;
-          final stat = await sessionDir.stat();
-          final duration = segments.isEmpty ? 0.0
-              : (segments.last.timestamp + segments.last.duration);
-          final audioFile = files.firstWhere(
-            (f) => const {'wav', 'mp3', 'm4a', 'aac', 'ogg', 'flac', 'opus', 'mp4', 'mov', 'mkv'}
-                .contains(f.path.split('.').last.toLowerCase()),
-            orElse: () => File(''),
-          );
-          sessions.add(SessionSummary(
-            id: sessionDir.path,
-            title: title,
-            date: stat.modified.toIso8601String().substring(0, 10),
-            segmentsCount: segments.length,
-            segments: segments,
-            durationSeconds: duration,
-            audioPath: audioFile.path.isEmpty ? null : audioFile.path,
-          ));
-        } catch (_) {
-          continue;
-        }
-      }
-      sessions.sort((a, b) => b.date.compareTo(a.date));
-    } catch (e) { debugPrint("LibraryScreen: sort error: $e"); }
+    final sessions = await loadSessionLibrary(libraryPath);
     if (!mounted) return;
     setState(() {
       _sessions = sessions;
@@ -131,24 +92,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.dispose();
   }
 
-  List<SessionSummary> get _filteredSessions {
-    if (_query.isEmpty) return _sessions;
-    final q = _query.toLowerCase();
-    return _sessions.where((s) => s.title.toLowerCase().contains(q)).toList();
-  }
+  /// Full-text: matches the title, the saved summary, and every segment's
+  /// text. Title-only matching used to make search useless for auto-titled
+  /// sessions, which is most of them.
+  List<SessionRecord> get _filteredSessions =>
+      _sessions.where((s) => sessionMatchesQuery(s, _query)).toList();
 
-  void _deleteSession(SessionSummary session) {
+  void _deleteSession(SessionRecord session) {
     final index = _sessions.indexOf(session);
     if (index == -1) return;
 
     // Remove from UI immediately (optimistic). Actual disk deletion is
     // deferred by 5 s so "Urungkan" can cancel it before data is gone.
     setState(() => _sessions.removeAt(index));
-    _pendingDeletions[session.id]?.cancel();
-    _pendingDeletions[session.id] = Timer(const Duration(seconds: 5), () {
-      _pendingDeletions.remove(session.id);
+    _pendingDeletions[session.dirPath]?.cancel();
+    _pendingDeletions[session.dirPath] = Timer(const Duration(seconds: 5), () {
+      _pendingDeletions.remove(session.dirPath);
       try {
-        final dir = Directory(session.id);
+        final dir = Directory(session.dirPath);
         if (dir.existsSync()) dir.deleteSync(recursive: true);
       } catch (e) { debugPrint("LibraryScreen: timer error: $e"); }
     });
@@ -159,7 +120,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         action: SnackBarAction(
           label: 'Urungkan',
           onPressed: () {
-            _pendingDeletions.remove(session.id)?.cancel();
+            _pendingDeletions.remove(session.dirPath)?.cancel();
             if (mounted) {
               setState(() => _sessions.insert(index.clamp(0, _sessions.length), session));
             }
@@ -170,16 +131,93 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Future<void> _exportSession(SessionSummary session) async {
+  /// Renames a session by writing the new title into its metadata sidecar.
+  ///
+  /// The directory keeps its original `YYYYMMDD-…` name on purpose: moving it
+  /// would invalidate the audio path the player already holds and desync the
+  /// exported filenames inside from the folder around them.
+  Future<void> _renameSession(SessionRecord session) async {
+    final controller = TextEditingController(text: session.title);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Ganti Nama Sesi'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nama sesi',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.of(dialogCtx).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(controller.text),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    final trimmed = newTitle?.trim();
+    if (trimmed == null || trimmed.isEmpty || trimmed == session.title) return;
+
+    try {
+      final meta = await readSessionMeta(session.dirPath);
+      await writeSessionMeta(session.dirPath, meta.copyWith(title: trimmed));
+      if (!mounted) return;
+      setState(() {
+        final index = _sessions.indexOf(session);
+        if (index >= 0) {
+          _sessions[index] = session.copyWith(
+            title: trimmed,
+            meta: session.meta.copyWith(title: trimmed),
+          );
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengganti nama: $e')),
+      );
+    }
+  }
+
+  Future<void> _exportSession(SessionRecord session) async {
     final bridge = ref.read(rustBridgeProvider);
     final settings = ref.read(settingsProvider);
     await showEksporDialog(
       context,
-      session,
+      session.toSummary(),
       bridge: bridge,
       defaultOutputDir: resolveTilde(settings.libraryPath),
       defaultFormat: settings.defaultExportFormat,
+      summary: session.meta.summary,
     );
+  }
+
+  Future<void> _openSession(SessionRecord session) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TranscriptPlayerScreen(
+          title: session.title,
+          durationSeconds: session.durationSeconds,
+          segments: session.segments,
+          audioPath: session.audioPath,
+          sessionDirPath: session.dirPath,
+          meta: session.meta,
+        ),
+      ),
+    );
+    // The player can edit the transcript, re-transcribe, and save a summary —
+    // re-read so the list reflects all of that instead of going stale.
+    if (mounted && widget.sessions == null) await _loadFromDisk();
   }
 
   @override
@@ -221,7 +259,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
-                      hintText: 'Cari sesi...',
+                      hintText: 'Cari judul, isi transkrip, atau ringkasan...',
                       prefixIcon: Icon(Icons.search, color: colors.textTertiary, size: 18),
                       suffixIcon: _query.isNotEmpty
                           ? IconButton(
@@ -273,19 +311,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     }
                                     final session = filtered[index - 1];
                                     return SessionCardFromSummary(
-                                      session: session,
+                                      session: session.toSummary(),
+                                      hasSummary: session.meta.hasSummary,
+                                      matchSnippet:
+                                          matchingSnippet(session, _query),
                                       onDelete: () => _deleteSession(session),
                                       onExport: () => _exportSession(session),
-                                      onTap: () => Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => TranscriptPlayerScreen(
-                                            title: session.title,
-                                            durationSeconds: session.durationSeconds,
-                                            segments: session.segments,
-                                            audioPath: session.audioPath,
-                                          ),
-                                        ),
-                                      ),
+                                      onRename: () => _renameSession(session),
+                                      onTap: () => _openSession(session),
                                     );
                                   },
                                 ),

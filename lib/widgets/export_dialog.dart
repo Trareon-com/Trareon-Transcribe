@@ -19,12 +19,15 @@ String _toDialogFormatId(String settingsFormat) => switch (settingsFormat) {
 ///
 /// [defaultFormat] is the format name from settings (e.g. 'markdown', 'txt').
 /// The corresponding checkbox will be pre-selected; others remain unchecked.
+/// [summary] is the session's saved AI summary (Markdown). When non-empty it
+/// leads the Markdown/TXT/HTML/DOCX output; SRT/VTT/JSON are unaffected.
 Future<bool> showEksporDialog(
   BuildContext context,
   SessionSummary session, {
   required RustBridge bridge,
   String defaultOutputDir = '',
   String defaultFormat = 'markdown',
+  String summary = '',
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
@@ -90,6 +93,23 @@ Future<bool> showEksporDialog(
                       },
                     ),
                   const Divider(height: 16),
+                  if (summary.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_awesome_outlined,
+                              size: 13, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Ringkasan AI disertakan di Markdown, TXT, HTML & DOCX',
+                              style: TextStyle(color: colors.primary, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Text(
                     'Semua file dalam 1 folder',
                     style: TextStyle(color: colors.textTertiary, fontSize: 11),
@@ -154,10 +174,11 @@ Future<bool> showEksporDialog(
   ];
 
   try {
-    await bridge.exportSession(
+    await bridge.exportSessionWithSummary(
       segments: session.segments,
       outputDir: outputDir,
       title: session.title,
+      summary: summary,
       formats: formats,
     );
     // Tutup loading dialog

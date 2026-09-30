@@ -42,23 +42,17 @@ impl Diarizer {
 
     /// Identifies or clusters the human speaker for a given audio PCM slice and channel.
     pub fn identify_speaker(&mut self, channel: &str, pcm_samples: &[f32]) -> String {
-        let channel_lower = channel.to_lowercase();
-        let channel_tag = if channel_lower.contains("spk") || channel_lower.contains("speaker") {
-            "SPK"
-        } else {
-            "MIC"
-        };
+        let channel_tag = channel_tag(channel);
 
         if pcm_samples.is_empty() {
-            return format!("Pembicara 1 ({channel_tag})");
+            return speaker_label(channel_tag, 1);
         }
 
         let (pitch, energy, zcr) = extract_acoustic_features(pcm_samples);
 
-        let clusters = if channel_tag == "MIC" {
-            &mut self.mic_clusters
-        } else {
-            &mut self.spk_clusters
+        let clusters = match channel_tag {
+            ChannelTag::Mic => &mut self.mic_clusters,
+            ChannelTag::Speaker | ChannelTag::File => &mut self.spk_clusters,
         };
 
         let threshold = 0.22;
@@ -82,14 +76,12 @@ impl Diarizer {
             cluster.centroid_pitch = (cluster.centroid_pitch * (n - 1.0) + pitch) / n;
             cluster.centroid_energy = (cluster.centroid_energy * (n - 1.0) + energy) / n;
             cluster.centroid_zcr = (cluster.centroid_zcr * (n - 1.0) + zcr) / n;
-            let speaker_num = idx + 1;
-            format!("Pembicara {speaker_num} ({channel_tag})")
+            speaker_label(channel_tag, idx + 1)
         } else {
-            let new_num = clusters.len() + 1;
-            let new_id = format!("Pembicara {new_num} ({channel_tag})");
+            let new_id = speaker_label(channel_tag, clusters.len() + 1);
             clusters.push(SpeakerCluster {
                 id: new_id.clone(),
-                channel: channel_tag.to_string(),
+                channel: channel_tag.as_str().to_string(),
                 centroid_pitch: pitch,
                 centroid_energy: energy,
                 centroid_zcr: zcr,
@@ -97,6 +89,54 @@ impl Diarizer {
             });
             new_id
         }
+    }
+}
+
+/// Which capture channel a PCM slice came from. Decides the label wording:
+/// the microphone is the person using the app, the loopback is everyone else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelTag {
+    Mic,
+    Speaker,
+    /// An imported file — no mic/system distinction available.
+    File,
+}
+
+impl ChannelTag {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ChannelTag::Mic => "MIC",
+            ChannelTag::Speaker => "SPK",
+            ChannelTag::File => "FILE",
+        }
+    }
+}
+
+/// Maps a pipeline source string (`"mic"`, `"spk"`, `"file"`) to a tag.
+pub fn channel_tag(channel: &str) -> ChannelTag {
+    let lower = channel.to_lowercase();
+    if lower.contains("spk") || lower.contains("speaker") {
+        ChannelTag::Speaker
+    } else if lower.contains("file") {
+        ChannelTag::File
+    } else {
+        ChannelTag::Mic
+    }
+}
+
+/// Indonesian speaker label for cluster `n` (1-based) on `tag`.
+///
+/// Meetily-parity requirement: a reader must be able to tell "me" from "the
+/// other participants" at a glance, so the mic's primary cluster is `Saya`
+/// and loopback clusters are `Peserta N`. Extra mic clusters (a second
+/// person sharing the same microphone) stay explicit rather than being
+/// silently folded into `Saya`.
+pub fn speaker_label(tag: ChannelTag, n: usize) -> String {
+    match (tag, n) {
+        (ChannelTag::Mic, 1) => "Saya".to_string(),
+        (ChannelTag::Mic, n) => format!("Pembicara {n} (Mikrofon)"),
+        (ChannelTag::Speaker, n) => format!("Peserta {n}"),
+        (ChannelTag::File, n) => format!("Pembicara {n}"),
     }
 }
 
@@ -221,17 +261,47 @@ except Exception as e:
         .map_err(|e| e.to_string())
 }
 
-/// Fallback: pure-Rust clustering for environments without pyannote.audio.
-pub fn run_rust_diarization(
-    _audio_path: &str,
-    _channels: &[(&str, Vec<f32>)],
-) -> Vec<(f64, f64, String)> {
-    Vec::new()
+/// Assigns a speaker label to every segment of a single-channel recording
+/// (an imported file), by clustering the PCM window each segment covers.
+///
+/// `samples` must be 16 kHz mono — the rate every decode path targets. A
+/// segment whose window falls outside the buffer (rounding at the tail) is
+/// clustered on whatever samples remain, and on nothing at all it falls back
+/// to the first cluster rather than being left unlabelled.
+pub fn label_segments(
+    diarizer: &mut Diarizer,
+    samples: &[f32],
+    segments: &mut [crate::export::Segment],
+) {
+    const SAMPLE_RATE: f64 = 16_000.0;
+    for segment in segments.iter_mut() {
+        let start = (segment.timestamp * SAMPLE_RATE).max(0.0) as usize;
+        let end = ((segment.timestamp + segment.duration) * SAMPLE_RATE).max(0.0) as usize;
+        let window = samples
+            .get(start.min(samples.len())..end.min(samples.len()))
+            .unwrap_or(&[]);
+        segment.speaker = diarizer.identify_speaker(&segment.source, window);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn seg(timestamp: f64, duration: f64, source: &str) -> crate::export::Segment {
+        crate::export::Segment {
+            source: source.to_string(),
+            speaker: String::new(),
+            text: "halo".into(),
+            timestamp,
+            duration,
+            language: "id".into(),
+            confidence: 0.9,
+            avg_log_prob: -0.3,
+            is_partial: false,
+            low_confidence: false,
+        }
+    }
 
     #[test]
     fn clusters_distinct_pitch_profiles_into_separate_speakers() {
@@ -242,8 +312,8 @@ mod tests {
         let spk1 = diarizer.identify_speaker("MIC", &low_pitch_pcm);
         let spk2 = diarizer.identify_speaker("MIC", &high_pitch_pcm);
 
-        assert_eq!(spk1, "Pembicara 1 (MIC)");
-        assert_eq!(spk2, "Pembicara 2 (MIC)");
+        assert_eq!(spk1, "Saya");
+        assert_eq!(spk2, "Pembicara 2 (Mikrofon)");
     }
 
     #[test]
@@ -255,8 +325,8 @@ mod tests {
         let spk1 = diarizer.identify_speaker("SPK", &pcm_a1);
         let spk2 = diarizer.identify_speaker("SPK", &pcm_a2);
 
-        assert_eq!(spk1, "Pembicara 1 (SPK)");
-        assert_eq!(spk2, "Pembicara 1 (SPK)");
+        assert_eq!(spk1, "Peserta 1");
+        assert_eq!(spk2, "Peserta 1");
     }
 
     #[test]
@@ -265,14 +335,69 @@ mod tests {
         let mic_pcm = vec![0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 0.5, -0.5];
         let spk_pcm = vec![0.4, -0.4, 0.4, -0.4, 0.4, -0.4, 0.4, -0.4];
 
-        assert_eq!(
-            diarizer.identify_speaker("mic", &mic_pcm),
-            "Pembicara 1 (MIC)"
+        assert_eq!(diarizer.identify_speaker("mic", &mic_pcm), "Saya");
+        assert_eq!(diarizer.identify_speaker("spk", &spk_pcm), "Peserta 1");
+    }
+
+    #[test]
+    fn mic_and_speaker_cluster_pools_are_independent() {
+        // Identical audio on both channels must not collapse into one label:
+        // the whole point of "Saya" vs "Peserta" is the channel distinction.
+        let mut diarizer = Diarizer::new();
+        let pcm = vec![0.4, -0.4, 0.4, -0.4, 0.4, -0.4, 0.4, -0.4];
+        assert_eq!(diarizer.identify_speaker("mic", &pcm), "Saya");
+        assert_eq!(diarizer.identify_speaker("spk", &pcm), "Peserta 1");
+    }
+
+    #[test]
+    fn imported_files_get_neutral_pembicara_labels() {
+        let mut diarizer = Diarizer::new();
+        let pcm = vec![0.4, -0.4, 0.4, -0.4, 0.4, -0.4, 0.4, -0.4];
+        assert_eq!(diarizer.identify_speaker("file", &pcm), "Pembicara 1");
+    }
+
+    #[test]
+    fn empty_pcm_still_yields_a_label() {
+        let mut diarizer = Diarizer::new();
+        assert_eq!(diarizer.identify_speaker("mic", &[]), "Saya");
+        assert_eq!(diarizer.identify_speaker("spk", &[]), "Peserta 1");
+    }
+
+    #[test]
+    fn label_segments_assigns_a_speaker_to_every_segment() {
+        let mut diarizer = Diarizer::new();
+        // 3 s of 16 kHz audio: first second one timbre, then a different one.
+        let mut samples = vec![0.0f32; 48_000];
+        for (i, s) in samples.iter_mut().enumerate() {
+            *s = if i < 16_000 {
+                if i % 2 == 0 {
+                    0.5
+                } else {
+                    -0.5
+                }
+            } else if i % 8 < 4 {
+                0.5
+            } else {
+                -0.5
+            };
+        }
+        let mut segments = vec![seg(0.0, 1.0, "file"), seg(1.0, 2.0, "file")];
+        label_segments(&mut diarizer, &samples, &mut segments);
+
+        assert!(segments.iter().all(|s| s.speaker.starts_with("Pembicara")));
+        assert_ne!(
+            segments[0].speaker, segments[1].speaker,
+            "clearly different timbres should not share a cluster"
         );
-        assert_eq!(
-            diarizer.identify_speaker("spk", &spk_pcm),
-            "Pembicara 1 (SPK)"
-        );
+    }
+
+    #[test]
+    fn label_segments_tolerates_windows_past_the_end_of_the_buffer() {
+        let mut diarizer = Diarizer::new();
+        let samples = vec![0.3f32; 16_000]; // 1 s
+        let mut segments = vec![seg(0.9, 5.0, "file"), seg(60.0, 1.0, "file")];
+        label_segments(&mut diarizer, &samples, &mut segments);
+        assert!(segments.iter().all(|s| !s.speaker.is_empty()));
     }
 
     #[cfg(feature = "pyannote")]

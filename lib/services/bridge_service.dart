@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -10,6 +11,7 @@ import '../src/rust/model.dart' as rust_model;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
 import '../src/rust/stt/file.dart' as rust_stt_file;
+import '../src/rust/summary.dart' as rust_summary;
 import '../state/models.dart';
 
 /// Abstraction over the Rust engine, callable from Dart. [RustEngineBridge]
@@ -23,6 +25,11 @@ abstract class RustBridge {
   Future<void> toggleSpeaker(String sessionId, bool enabled);
   Stream<TranscriptSegment> transcriptStream(String sessionId);
   Stream<VuLevel> vuMeterStream(String sessionId);
+
+  /// Capture problems the engine reports mid-session — a source that could
+  /// not be opened at start, or one that died while recording. Surfaced as a
+  /// toast; without it a half-dead session looks identical to a quiet one.
+  Stream<SessionNotice> noticeStream(String sessionId);
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions();
   Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot);
   Future<AppSettings> loadSettings();
@@ -48,9 +55,12 @@ abstract class RustBridge {
   /// The caller must start the download via [downloadModel] first.
   Stream<double> downloadProgress();
 
-  /// Transcribe a batch of audio/video files using the given model.
-  /// Returns a list of transcription results, one per file.
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  /// Transcribes every file in [files] against a single loaded model.
+  ///
+  /// Pass the whole queue in one call: loading the model is the expensive
+  /// step, so a per-file loop pays it once per file. Returns one outcome per
+  /// input file, carrying either the transcript or the error.
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -98,12 +108,90 @@ abstract class RustBridge {
   /// by transcribing a 5s synthetic sine wave. Used by adaptive HPT at startup.
   /// Throws if the model cannot be loaded.
   Future<double> benchmarkRtf(String modelPath);
+
+  /// Two-pass (HPT) transcription of a single file: a quick pass from the
+  /// base model, then a refined pass from large-v3-turbo-q5 carrying the same
+  /// `(source, timestamp)` keys. Used by file import when Progressive Mode is
+  /// on and both models are present.
+  Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
+    required String quickModelPath,
+    required String refineModelPath,
+    required String path,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  });
+
+  /// Which file the in-flight [batchTranscribeFiles] call is currently on.
+  /// `null` when no batch is running. [batchTranscribeFiles] only returns
+  /// once every file is done, so this is the only way to show real progress.
+  Future<rust_stt_file.BatchProgressSnapshot?> batchProgress();
+
+  /// **The only networked call in the app.** Sends the rendered transcript
+  /// text (never audio, never paths) to the user-configured endpoint and
+  /// returns Markdown. Runs only on an explicit user action.
+  Future<String> generateSummary({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+  });
+
+  /// Lists models offered by the configured summary endpoint. Sends no
+  /// transcript content — used to populate the settings dropdown.
+  Future<List<String>> listSummaryModels({
+    required rust_summary.SummaryProvider provider,
+    required String baseUrl,
+    required String apiKey,
+  });
+
+  /// Renders [segments] exactly as [generateSummary] would transmit them, so
+  /// the user can review what would leave the machine before opting in.
+  /// Local only.
+  Future<String> summaryPreviewTranscript(List<TranscriptSegment> segments);
+
+  /// As [exportSession], but leads the Markdown/TXT/HTML/DOCX output with
+  /// [summary]. An empty [summary] behaves exactly like [exportSession].
+  Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+    required String summary,
+    List<rust_export.ExportFormat> formats,
+  });
 }
+
+/// Shared conversion so every bridge method sends the same Segment shape.
+rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
+  source: s.source,
+  speaker: s.speaker,
+  text: s.text,
+  timestamp: s.timestamp,
+  duration: s.duration,
+  language: s.language,
+  confidence: s.confidence,
+  isPartial: s.isPartial,
+  lowConfidence: s.lowConfidence,
+  avgLogProb: s.avgLogProb,
+);
+
+/// Inverse of [toRustSegment].
+TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
+  source: s.source,
+  speaker: s.speaker,
+  text: s.text,
+  timestamp: s.timestamp,
+  duration: s.duration,
+  language: s.language,
+  confidence: s.confidence,
+  isPartial: s.isPartial,
+  lowConfidence: s.lowConfidence,
+  avgLogProb: s.avgLogProb,
+);
 
 class RustBridgeMock implements RustBridge {
   final _random = Random();
   final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
+  final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _timers = {};
   AppSettings _settings = AppSettings.defaults();
 
@@ -114,6 +202,7 @@ class RustBridgeMock implements RustBridge {
     final vuController = StreamController<VuLevel>.broadcast();
     _transcriptControllers[id] = transcriptController;
     _vuControllers[id] = vuController;
+    _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
 
     var elapsed = 0.0;
     _timers[id] = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -146,6 +235,7 @@ class RustBridgeMock implements RustBridge {
     _timers.remove(sessionId)?.cancel();
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
+    await _noticeControllers.remove(sessionId)?.close();
   }
 
   @override
@@ -162,6 +252,11 @@ class RustBridgeMock implements RustBridge {
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) {
     return _vuControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) {
+    return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
   }
 
   @override
@@ -258,7 +353,7 @@ class RustBridgeMock implements RustBridge {
       Stream.periodic(const Duration(milliseconds: 300), (i) => (i + 1) / 10.0).take(10);
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -293,6 +388,58 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
+
+  @override
+  Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+    required String summary,
+    List<rust_export.ExportFormat> formats = const [
+      rust_export.ExportFormat.markdown,
+      rust_export.ExportFormat.txt,
+      rust_export.ExportFormat.json,
+    ],
+  }) async => [];
+
+  @override
+  Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
+    required String quickModelPath,
+    required String refineModelPath,
+    required String path,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  }) async => rust_api.ProgressiveFileResult(
+    filename: path.split(Platform.pathSeparator).last,
+    quickSegments: const [],
+    refinedSegments: const [],
+    language: language ?? 'auto',
+  );
+
+  @override
+  Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
+
+  /// The mock never performs I/O of any kind — a test that reaches the
+  /// summary path must fail loudly rather than silently hit a real endpoint.
+  @override
+  Future<String> generateSummary({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<List<String>> listSummaryModels({
+    required rust_summary.SummaryProvider provider,
+    required String baseUrl,
+    required String apiKey,
+  }) async => const [];
+
+  @override
+  Future<String> summaryPreviewTranscript(
+    List<TranscriptSegment> segments,
+  ) async => segments.map((s) => '${s.speaker}: ${s.text}').join('\n');
 }
 
 /// Real bridge backed by the flutter_rust_bridge-generated bindings in
@@ -303,6 +450,7 @@ class RustBridgeMock implements RustBridge {
 class RustEngineBridge implements RustBridge {
   final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
+  final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _pollTimers = {};
   final Set<String> _polling = {};
   final Set<String> _pausedSessions = {};
@@ -314,6 +462,7 @@ class RustEngineBridge implements RustBridge {
     final id = await rust_api.startSession(config: _toRustSessionConfig(config));
     _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
+    _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
     _pollTimers[id] = Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
     return id;
   }
@@ -326,6 +475,7 @@ class RustEngineBridge implements RustBridge {
     await rust_api.stopSession(sessionId: sessionId);
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
+    await _noticeControllers.remove(sessionId)?.close();
     _lastMicLevels.remove(sessionId);
     _lastSpeakerLevels.remove(sessionId);
   }
@@ -359,6 +509,11 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
+  Stream<SessionNotice> noticeStream(String sessionId) {
+    return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() =>
       rust_api.listRecoverableSessions();
 
@@ -387,6 +542,17 @@ class RustEngineBridge implements RustBridge {
               else if (source == 'spk') { _lastSpeakerLevels[sessionId] = level; }
             }
           },
+          // Delivered even while paused: a source that just died is news
+          // regardless, and unlike a segment it cannot be replayed later.
+          notice: (level, source, message) {
+            _noticeControllers[sessionId]?.add(SessionNotice(
+              level: level == rust_session.NoticeLevel.error
+                  ? SessionNoticeLevel.error
+                  : SessionNoticeLevel.warning,
+              source: source,
+              message: message,
+            ));
+          },
         );
       }
       if (hasVu) {
@@ -402,20 +568,8 @@ class RustEngineBridge implements RustBridge {
     }
   }
 
-  TranscriptSegment _fromRustSegment(rust_export.Segment segment) {
-    return TranscriptSegment(
-      source: segment.source,
-      speaker: segment.speaker,
-      text: segment.text,
-      timestamp: segment.timestamp,
-      duration: segment.duration,
-      language: segment.language,
-      confidence: segment.confidence,
-      isPartial: segment.isPartial,
-      lowConfidence: segment.lowConfidence,
-      avgLogProb: segment.avgLogProb,
-    );
-  }
+  TranscriptSegment _fromRustSegment(rust_export.Segment segment) =>
+      fromRustSegment(segment);
 
   @override
   Future<AppSettings> loadSettings() async {
@@ -480,7 +634,7 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -507,27 +661,80 @@ class RustEngineBridge implements RustBridge {
     ],
   }) {
     return rust_api.exportSession(
-      segments: segments
-          .map(
-            (s) => rust_export.Segment(
-              source: s.source,
-              speaker: s.speaker,
-              text: s.text,
-              timestamp: s.timestamp,
-              duration: s.duration,
-              language: s.language,
-              confidence: s.confidence,
-              isPartial: s.isPartial,
-              lowConfidence: s.lowConfidence,
-              avgLogProb: s.avgLogProb,
-            ),
-          )
-          .toList(),
+      segments: segments.map(toRustSegment).toList(),
       formats: formats,
       outputDir: outputDir,
       title: title,
     );
   }
+
+  @override
+  Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+    required String summary,
+    List<rust_export.ExportFormat> formats = const [
+      rust_export.ExportFormat.markdown,
+      rust_export.ExportFormat.txt,
+      rust_export.ExportFormat.json,
+    ],
+  }) {
+    return rust_api.exportSessionWithSummary(
+      segments: segments.map(toRustSegment).toList(),
+      formats: formats,
+      outputDir: outputDir,
+      title: title,
+      summary: summary,
+    );
+  }
+
+  @override
+  Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
+    required String quickModelPath,
+    required String refineModelPath,
+    required String path,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  }) => rust_api.progressiveTranscribeFile(
+    quickModelPath: quickModelPath,
+    refineModelPath: refineModelPath,
+    path: path,
+    language: language,
+    gpuEnabled: gpuEnabled,
+    gpuDevice: gpuDevice,
+  );
+
+  @override
+  Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() =>
+      rust_api.getBatchProgress();
+
+  @override
+  Future<String> generateSummary({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+  }) => rust_api.generateSummary(
+    segments: segments.map(toRustSegment).toList(),
+    config: config,
+  );
+
+  @override
+  Future<List<String>> listSummaryModels({
+    required rust_summary.SummaryProvider provider,
+    required String baseUrl,
+    required String apiKey,
+  }) => rust_api.listSummaryModels(
+    provider: provider,
+    baseUrl: baseUrl,
+    apiKey: apiKey,
+  );
+
+  @override
+  Future<String> summaryPreviewTranscript(List<TranscriptSegment> segments) =>
+      rust_api.summaryPreviewTranscript(
+        segments: segments.map(toRustSegment).toList(),
+      );
 
   @override
   Future<void> exportSessionAudio({
@@ -553,8 +760,6 @@ class RustEngineBridge implements RustBridge {
       refineModelPath: config.refineModelPath,
       hptMode: _toRustHptMode(config.hptMode),
       vadEnabled: config.vadEnabled,
-      sampleRate: 16000,
-      chunkDurationSecs: 30,
       gpuEnabled: config.gpuEnabled,
       gpuDevice: config.gpuDevice,
     );
@@ -595,8 +800,9 @@ class RustEngineBridge implements RustBridge {
       language: settings.language,
       gpuEnabled: settings.gpuEnabled,
       gpuDevice: settings.gpuDevice,
-      // autoStopMinutes is Dart-only; defaults to null (disabled) on load
-      autoStopMinutes: null,
+      autoStopMinutes: settings.autoStopMinutes,
+      progressiveEnabled: settings.progressiveEnabled,
+      summary: settings.summary,
     );
   }
 
@@ -616,6 +822,9 @@ class RustEngineBridge implements RustBridge {
       language: settings.language,
       gpuEnabled: settings.gpuEnabled,
       gpuDevice: settings.gpuDevice,
+      autoStopMinutes: settings.autoStopMinutes,
+      progressiveEnabled: settings.progressiveEnabled,
+      summary: settings.summary,
     );
   }
 }

@@ -11,6 +11,7 @@ import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'test_helpers.dart';
 
 Future<WizardSpecs> _detectSpecs() async => const WizardSpecs(
       cpuCores: 8,
@@ -18,7 +19,7 @@ Future<WizardSpecs> _detectSpecs() async => const WizardSpecs(
       suggestedModel: 'large-v3-turbo-q5',
     );
 
-class _FakeBridge implements RustBridge {
+class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   AppSettings savedSettings = AppSettings.defaults();
   final List<(String, String)> downloadModelCalls = [];
 
@@ -42,6 +43,9 @@ class _FakeBridge implements RustBridge {
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
@@ -84,7 +88,7 @@ class _FakeBridge implements RustBridge {
       Stream.fromIterable([0.0, 0.5, 1.0]);
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

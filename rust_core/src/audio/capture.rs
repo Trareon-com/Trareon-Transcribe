@@ -1,19 +1,58 @@
-//! Live audio capture: opens a cpal input stream and forwards resampled
-//! 16kHz mono f32 PCM to a channel. Runs the stream on a dedicated OS
-//! thread since `cpal::Stream` isn't `Send` on most platforms.
+//! Live audio capture: forwards resampled 16kHz mono f32 PCM to a channel.
 //!
-//! Config resolution and error paths are unit-tested; actually opening a
-//! stream requires a real audio device and is exercised via manual smoke
-//! test (see the project test plan), not CI.
+//! The cpal path opens an input stream on a dedicated OS thread, since
+//! `cpal::Stream` isn't `Send` on most platforms. On Linux that path is the
+//! *fallback*: a machine with PipeWire or PulseAudio is captured through the
+//! sound server instead (see [`crate::audio::pulse`] for why — in short,
+//! cpal's ALSA backend enumerates plugin pcms that aren't capture devices and
+//! fights the sound server for the card, producing an endless `POLLERR`).
+//!
+//! Config resolution, backend selection and error rate-limiting are
+//! unit-tested; actually opening a stream requires a real audio device and is
+//! exercised via manual smoke test (see the project test plan), not CI.
 
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Sample, SampleFormat, StreamConfig};
 
+use crate::audio::stream_error::{fatal_stream_message, ErrorAction, StreamErrorReporter};
 use crate::decode::resample_to_target;
 use crate::error::TranscribeError;
+
+/// Env override for the Linux capture backend, for debugging and for the
+/// hardware probes: `pulse` forces the sound-server path, `cpal` forces the
+/// raw ALSA path (i.e. reproduces the POLLERR bug on purpose). Unset = auto.
+#[flutter_rust_bridge::frb(ignore)]
+pub const BACKEND_ENV: &str = "TRAREON_CAPTURE_BACKEND";
+
+/// Which capture backend to use for the microphone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[flutter_rust_bridge::frb(ignore)]
+pub enum MicBackend {
+    /// Capture through PulseAudio/PipeWire (Linux only).
+    Pulse,
+    /// Capture through cpal (ALSA/WASAPI/CoreAudio).
+    Cpal,
+}
+
+/// Picks the microphone backend. Split out as a pure function of the two
+/// inputs that decide it so the policy is testable without a sound server.
+///
+/// `sound_server` is whether a PulseAudio/PipeWire server answered. `Cpal`
+/// stays the answer for every non-Linux target, where cpal *is* the native
+/// backend and has no equivalent problem.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn choose_mic_backend(override_env: Option<&str>, sound_server: bool) -> MicBackend {
+    match override_env.map(str::trim) {
+        Some(value) if value.eq_ignore_ascii_case("pulse") => MicBackend::Pulse,
+        Some(value) if value.eq_ignore_ascii_case("cpal") => MicBackend::Cpal,
+        _ if cfg!(target_os = "linux") && sound_server => MicBackend::Pulse,
+        _ => MicBackend::Cpal,
+    }
+}
 
 /// A running capture session. Dropping this stops the stream and joins
 /// the capture thread. Not FRB-exposed — driven from Rust-side session
@@ -22,31 +61,90 @@ use crate::error::TranscribeError;
 pub struct AudioCapture {
     pub(crate) stop_tx: Option<mpsc::Sender<()>>,
     pub(crate) thread: Option<JoinHandle<()>>,
+    /// Set by the stream error callback when a stream fails persistently
+    /// (see [`crate::audio::stream_error`]). Polled by the session so the
+    /// failure reaches the user instead of only the log.
+    failure: Arc<Mutex<Option<String>>>,
 }
 
 impl AudioCapture {
     /// Wrap an externally-created capture thread (used by loopback capture
-    /// on platforms where the capture path differs from cpal).
+    /// and by the PulseAudio path, where the capture mechanism isn't cpal).
     pub fn new(stop_tx: mpsc::Sender<()>, thread: JoinHandle<()>) -> Self {
         Self {
             stop_tx: Some(stop_tx),
             thread: Some(thread),
+            failure: Arc::new(Mutex::new(None)),
         }
     }
 
-    /// Start capturing from the named device (or the system default input
+    /// Takes the fatal stream error, if this capture has died. Returns it
+    /// once — the caller turns it into a single user-visible notice.
+    pub fn take_failure(&self) -> Option<String> {
+        self.failure.lock().ok().and_then(|mut slot| slot.take())
+    }
+
+    /// Start capturing from the named device (or the platform default input
     /// if `device_name` is `None`). Resampled mono f32 PCM chunks are sent
     /// on `samples_tx` as they arrive; the receiver end typically feeds a
     /// [`crate::audio::RingBuffer`].
+    ///
+    /// `source` is the channel label (`"mic"` / `"spk"`), used only to make
+    /// log lines and user-facing errors say which half of the recording is
+    /// affected.
     pub fn start(
+        source: &str,
+        device_name: Option<String>,
+        samples_tx: mpsc::Sender<Vec<f32>>,
+    ) -> Result<Self, TranscribeError> {
+        #[cfg(target_os = "linux")]
+        {
+            use crate::audio::pulse;
+
+            let override_env = std::env::var(BACKEND_ENV).ok();
+            let forced = override_env
+                .as_deref()
+                .is_some_and(|v| v.trim().eq_ignore_ascii_case("pulse"));
+            if choose_mic_backend(override_env.as_deref(), pulse::server_available())
+                == MicBackend::Pulse
+            {
+                let resolved = pulse::resolve_microphone(device_name.as_deref()).and_then(|mic| {
+                    tracing::info!(source = %mic, "linux mic: capturing via PipeWire/PulseAudio");
+                    pulse::capture_source(&mic, samples_tx.clone())
+                });
+                match resolved {
+                    Ok(capture) => return Ok(capture),
+                    // Falling back to cpal is a last resort, not the norm:
+                    // it is the path that produces the POLLERR flood when
+                    // the sound server owns the card. Honour an explicit
+                    // `pulse` override by surfacing the error instead.
+                    Err(e) if forced => return Err(e),
+                    Err(e) => {
+                        tracing::warn!(%source, %e, "PulseAudio mic capture failed, trying cpal");
+                    }
+                }
+            }
+        }
+        Self::start_via_cpal(source, device_name, samples_tx)
+    }
+
+    fn start_via_cpal(
+        source: &str,
         device_name: Option<String>,
         samples_tx: mpsc::Sender<Vec<f32>>,
     ) -> Result<Self, TranscribeError> {
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), TranscribeError>>();
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let failure = Arc::new(Mutex::new(None));
 
+        let watchdog = StreamWatchdog {
+            source: source.to_string(),
+            failure: Arc::clone(&failure),
+            stop_tx: stop_tx.clone(),
+        };
         let thread = std::thread::spawn(move || {
-            let outcome = Self::run_capture_thread(device_name, samples_tx, stop_rx, &ready_tx);
+            let outcome =
+                Self::run_capture_thread(device_name, samples_tx, stop_rx, &ready_tx, watchdog);
             // If run_capture_thread returned before signaling readiness
             // (e.g. device/config resolution failed), make sure the
             // caller's ready_rx.recv() below still unblocks.
@@ -67,14 +165,15 @@ impl AudioCapture {
             Ok(Ok(())) => Ok(Self {
                 stop_tx: Some(stop_tx),
                 thread: Some(thread),
+                failure,
             }),
             Ok(Err(e)) => Err(e),
             Err(mpsc::RecvTimeoutError::Timeout) => Err(TranscribeError::AudioDevice(
-                "Audio input device did not respond within 8 seconds. This is a known \
-                 issue with some audio drivers (e.g. Intel Smart Sound Technology) where \
-                 Windows' WASAPI initialization hangs. Try restarting the Windows Audio \
-                 service, updating your audio driver, or selecting a different \
-                 microphone in Settings."
+                "Perangkat input audio tidak merespons dalam 8 detik. Ini masalah \
+                 yang dikenal pada beberapa driver audio (misalnya Intel Smart Sound \
+                 Technology) di mana inisialisasi WASAPI Windows menggantung. Coba \
+                 restart layanan Windows Audio, perbarui driver audio, atau pilih \
+                 mikrofon lain di Pengaturan."
                     .into(),
             )),
             Err(mpsc::RecvTimeoutError::Disconnected) => Err(TranscribeError::AudioDevice(
@@ -88,12 +187,14 @@ impl AudioCapture {
         samples_tx: mpsc::Sender<Vec<f32>>,
         stop_rx: mpsc::Receiver<()>,
         ready_tx: &mpsc::Sender<Result<(), TranscribeError>>,
+        watchdog: StreamWatchdog,
     ) -> Result<(), TranscribeError> {
+        crate::audio::alsa_quiet::silence_once();
         let host = cpal::default_host();
         let device = resolve_device(&host, device_name.as_deref())?;
         let config = resolve_input_config(&device)?;
 
-        let stream = build_input_stream(&device, &config, samples_tx)?;
+        let stream = build_input_stream(&device, &config, samples_tx, watchdog)?;
         stream
             .play()
             .map_err(|e| TranscribeError::AudioDevice(format!("failed to start stream: {e}")))?;
@@ -102,7 +203,9 @@ impl AudioCapture {
         let _ = ready_tx.send(Ok(()));
 
         // Block until told to stop; the stream keeps running on cpal's
-        // own callback thread(s) in the meantime.
+        // own callback thread(s) in the meantime. `StreamWatchdog` sends on
+        // this same channel when the stream starts failing persistently, so
+        // a broken device tears itself down here instead of spinning.
         let _ = stop_rx.recv();
         drop(stream);
         Ok(())
@@ -114,6 +217,53 @@ impl AudioCapture {
         }
         if let Some(handle) = self.thread.take() {
             let _ = handle.join();
+        }
+    }
+}
+
+/// Rate-limits cpal's stream-error callback and escalates a persistent
+/// failure into a stop request plus a user-visible message.
+///
+/// cpal calls the error callback on its own audio thread with no
+/// back-pressure, so this must stay allocation-light and must never block.
+struct StreamWatchdog {
+    source: String,
+    failure: Arc<Mutex<Option<String>>>,
+    stop_tx: mpsc::Sender<()>,
+}
+
+impl StreamWatchdog {
+    /// Consumes `self` into the `FnMut` cpal wants for its error callback.
+    fn into_error_callback(self) -> impl FnMut(cpal::StreamError) + Send + 'static {
+        let mut reporter = StreamErrorReporter::default();
+        move |e: cpal::StreamError| {
+            match reporter.observe(Instant::now()) {
+                ErrorAction::Log { suppressed: 0 } => {
+                    tracing::error!(source = %self.source, error = %e, "audio input stream error");
+                }
+                ErrorAction::Log { suppressed } => {
+                    tracing::error!(
+                        source = %self.source,
+                        error = %e,
+                        suppressed,
+                        "audio input stream error (repeating; identical errors suppressed)"
+                    );
+                }
+                ErrorAction::Suppress => {}
+                ErrorAction::Fatal { total } => {
+                    tracing::error!(
+                        source = %self.source,
+                        error = %e,
+                        total,
+                        "audio input stream failing persistently — stopping capture"
+                    );
+                    if let Ok(mut slot) = self.failure.lock() {
+                        *slot = Some(fatal_stream_message(&self.source, &e.to_string()));
+                    }
+                    // Unblocks the capture thread, which drops the stream.
+                    let _ = self.stop_tx.send(());
+                }
+            }
         }
     }
 }
@@ -168,15 +318,14 @@ fn build_input_stream(
     device: &cpal::Device,
     supported_config: &cpal::SupportedStreamConfig,
     samples_tx: mpsc::Sender<Vec<f32>>,
+    watchdog: StreamWatchdog,
 ) -> Result<cpal::Stream, TranscribeError> {
     let config: StreamConfig = supported_config.config();
     let sample_format = supported_config.sample_format();
     let channels = config.channels as usize;
     let source_rate = config.sample_rate.0;
 
-    let err_fn = |e: cpal::StreamError| {
-        tracing::error!("audio input stream error: {e}");
-    };
+    let err_fn = watchdog.into_error_callback();
 
     let stream = match sample_format {
         SampleFormat::F32 => build_generic_input_stream::<f32>(
@@ -386,11 +535,49 @@ mod tests {
     #[test]
     fn start_capture_on_missing_device_errors_not_panics() {
         // No real device on CI runners is fine — this must return Err
-        // cleanly rather than panicking or hanging.
+        // cleanly rather than panicking or hanging. Pinned to cpal so the
+        // assertion is about the named-device lookup and not about whatever
+        // sound server the test machine happens to run.
         let (tx, _rx) = mpsc::channel();
-        let result =
-            AudioCapture::start(Some("definitely-not-a-real-device-xyz123".to_string()), tx);
+        let result = AudioCapture::start_via_cpal(
+            "mic",
+            Some("definitely-not-a-real-device-xyz123".to_string()),
+            tx,
+        );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn backend_override_is_honoured_in_both_directions() {
+        assert_eq!(choose_mic_backend(Some("pulse"), false), MicBackend::Pulse);
+        assert_eq!(choose_mic_backend(Some("PULSE"), false), MicBackend::Pulse);
+        assert_eq!(choose_mic_backend(Some(" cpal "), true), MicBackend::Cpal);
+    }
+
+    #[test]
+    fn without_an_override_linux_prefers_the_sound_server() {
+        // On Linux a reachable PulseAudio/PipeWire server always wins: the
+        // cpal/ALSA path is what produced the POLLERR flood. Elsewhere cpal
+        // *is* the native backend, so it stays the answer either way.
+        let expected_with_server = if cfg!(target_os = "linux") {
+            MicBackend::Pulse
+        } else {
+            MicBackend::Cpal
+        };
+        assert_eq!(choose_mic_backend(None, true), expected_with_server);
+        assert_eq!(choose_mic_backend(None, false), MicBackend::Cpal);
+        // An unrecognised value is not a third backend.
+        assert_eq!(choose_mic_backend(Some("jack"), false), MicBackend::Cpal);
+    }
+
+    #[test]
+    fn a_fresh_capture_has_no_failure_to_report() {
+        let (_stop_tx, stop_rx) = mpsc::channel::<()>();
+        let thread = std::thread::spawn(move || {
+            let _ = stop_rx.recv();
+        });
+        let capture = AudioCapture::new(_stop_tx.clone(), thread);
+        assert_eq!(capture.take_failure(), None);
     }
 
     #[test]

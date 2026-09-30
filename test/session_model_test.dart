@@ -13,8 +13,9 @@ import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'test_helpers.dart';
 
-class _NoopBridge implements RustBridge {
+class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   final AppSettings settings;
 
   _NoopBridge({AppSettings? settings}) : settings = settings ?? AppSettings.defaults();
@@ -39,6 +40,9 @@ class _NoopBridge implements RustBridge {
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
+
+  @override
+  Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
   Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
@@ -75,7 +79,7 @@ class _NoopBridge implements RustBridge {
   Stream<double> downloadProgress() => const Stream.empty();
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -305,8 +309,6 @@ void main() {
         gpuEnabled: false,
         gpuDevice: 0,
         vadEnabled: false,
-        sampleRate: 16000,
-        chunkDurationSecs: 30,
       ),
       startedAtUnixMs: BigInt.zero,
       lastSplitAtUnixMs: BigInt.zero,

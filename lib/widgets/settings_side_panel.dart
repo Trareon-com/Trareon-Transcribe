@@ -11,6 +11,7 @@ import '../utils/model_labels.dart';
 import '../screens/privacy_report_screen.dart';
 import '../screens/usage_dashboard_screen.dart';
 import 'app_toast.dart';
+import 'summary_settings_section.dart';
 
 /// OBS-style side panel settings that slides in from the right
 class SettingsSidePanel extends ConsumerStatefulWidget {
@@ -320,6 +321,11 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                             trailing: const SizedBox.shrink(),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      const _SettingsSection(
+                        title: 'Ringkasan AI',
+                        children: [SummarySettingsSection()],
                       ),
                       const SizedBox(height: 12),
                       _SettingsSection(

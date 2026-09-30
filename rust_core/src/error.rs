@@ -31,6 +31,13 @@ pub enum TranscribeError {
 
     #[error("session not found: {0}")]
     SessionNotFound(String),
+
+    /// AI summary generation failed (endpoint unreachable, auth rejected,
+    /// unexpected response shape). Separate from `Transcription` so the UI
+    /// can say "summary failed, your transcript is safe" — summaries are the
+    /// one opt-in networked feature and must never look like data loss.
+    #[error("summary error: {0}")]
+    Summary(String),
 }
 
 impl From<std::io::Error> for TranscribeError {

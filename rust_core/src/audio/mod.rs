@@ -4,10 +4,17 @@
 //! CI unit tests; the pieces here (device list, ring buffer, config/mode
 //! types) are pure logic and fully unit-tested.
 
+/// Muting libasound's own stderr printing; a no-op off Linux.
+pub mod alsa_quiet;
 pub mod capture;
 pub mod device;
 pub mod loopback;
+/// Rust-side capture plumbing: driven from `session`, never from Dart. Every
+/// public item carries `#[frb(ignore)]` — an attribute on the `mod` line
+/// itself is a proc macro on a file module, which is still unstable.
+pub mod pulse;
 pub mod ring_buffer;
+pub mod stream_error;
 
 use serde::{Deserialize, Serialize};
 
@@ -70,9 +77,10 @@ pub struct SessionConfig {
     /// variants force a specific path regardless of device capability.
     #[serde(default)]
     pub hpt_mode: HptMode,
+    /// Gate Whisper inference on the dual-stage VAD. `false` transcribes
+    /// every buffered chunk — more CPU, but nothing can be dropped by a
+    /// mis-tuned speech detector. Honoured by `pipeline::LivePipeline`.
     pub vad_enabled: bool,
-    pub sample_rate: u32,
-    pub chunk_duration_secs: u32,
     /// Enable GPU acceleration for whisper inference (Vulkan/CUDA/Metal).
     /// Mirrors `AppSettings::gpu_enabled`; the caller is responsible for
     /// copying the user's setting in when building this config.
@@ -96,8 +104,6 @@ impl SessionConfig {
             refine_model_path: None,
             hpt_mode: HptMode::Auto,
             vad_enabled: true,
-            sample_rate: 16_000,
-            chunk_duration_secs: 30,
             gpu_enabled: false,
             gpu_device: 0,
         }
@@ -138,6 +144,22 @@ mod tests {
     fn session_config_from_mode() {
         let cfg = SessionConfig::for_mode(SessionMode::Online, "models/tiny.gguf".into());
         assert!(cfg.mic_enabled && cfg.speaker_enabled);
-        assert_eq!(cfg.sample_rate, 16_000);
+        assert!(cfg.vad_enabled);
+    }
+
+    #[test]
+    fn recovery_snapshots_from_older_builds_still_deserialize() {
+        // Older snapshots carry `sample_rate`/`chunk_duration_secs`, which were
+        // removed because nothing ever read them. Unknown fields must not make
+        // a pre-upgrade in-progress session unrecoverable.
+        let legacy = r#"{
+            "mic_enabled": true, "speaker_enabled": false, "mode": "Offline",
+            "mic_device_id": null, "speaker_device_id": null,
+            "model_path": "models/ggml-base.bin",
+            "vad_enabled": false, "sample_rate": 16000, "chunk_duration_secs": 30
+        }"#;
+        let cfg: SessionConfig = serde_json::from_str(legacy).unwrap();
+        assert!(!cfg.vad_enabled);
+        assert_eq!(cfg.model_path, "models/ggml-base.bin");
     }
 }

@@ -80,7 +80,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Privacy Report screen loads - check for the screen title
-      expect(find.text('Privacy Report'), findsOneWidget);
+      expect(find.text('Laporan Privasi'), findsOneWidget);
     });
 
     testWidgets('shortcuts icon toggles keyboard shortcuts panel', (WidgetTester tester) async {

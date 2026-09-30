@@ -28,6 +28,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       vadEnabled: loaded.vadEnabled,
       language: loaded.language,
       autoStopMinutes: loaded.autoStopMinutes,
+      summary: loaded.summary,
       defaultExportFormat: DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
       micDeviceId: DartPrefs.instance.getString('micDeviceId'),
       speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
@@ -92,8 +93,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setProgressiveEnabled(bool enabled) async {
     _userActed = true;
     state = state.copyWith(progressiveEnabled: enabled);
-    DartPrefs.instance.setBool('progressiveEnabled', enabled);
-    await DartPrefs.instance.save();
+    // Rust owns this now. It used to be written to DartPrefs and never read
+    // back, so the toggle silently reverted to "on" on every launch.
     await _bridge.saveSettings(state);
   }
 
@@ -121,6 +122,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state = state.copyWith(hptMode: mode);
     DartPrefs.instance.setInt('hptMode', mode.index);
     await DartPrefs.instance.save();
+    await _bridge.saveSettings(state);
+  }
+
+  /// Updates the opt-in AI-summary configuration. Persisted through Rust
+  /// alongside the rest of the settings (see `SummarySettings` for why the
+  /// API key lives in the same file).
+  Future<void> setSummarySettings(SummarySettings summary) async {
+    _userActed = true;
+    state = state.copyWith(summary: summary);
     await _bridge.saveSettings(state);
   }
 

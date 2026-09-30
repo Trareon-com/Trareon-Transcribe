@@ -13,6 +13,14 @@ class SessionCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onExport;
+  final VoidCallback? onRename;
+
+  /// Shows the "Ringkasan" badge when this session has a saved AI summary.
+  final bool hasSummary;
+
+  /// Transcript line that matched the current search, shown under the
+  /// metadata row so a full-text hit explains *why* the session matched.
+  final String? matchSnippet;
 
   const SessionCard({
     super.key,
@@ -24,6 +32,9 @@ class SessionCard extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onExport,
+    this.onRename,
+    this.hasSummary = false,
+    this.matchSnippet,
   });
 
   String _formatDuration(double seconds) {
@@ -88,15 +99,32 @@ class SessionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: colors.text,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: colors.text,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (hasSummary) ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: 'Punya ringkasan AI',
+                            child: Icon(
+                              Icons.auto_awesome,
+                              size: 13,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Row(
@@ -123,11 +151,31 @@ class SessionCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (matchSnippet != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        matchSnippet!,
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
 
               // Actions
+              if (onRename != null)
+                IconButton(
+                  icon: Icon(Icons.drive_file_rename_outline,
+                      size: 18, color: colors.textTertiary),
+                  tooltip: 'Ganti nama',
+                  onPressed: onRename,
+                ),
               IconButton(
                 icon: Icon(Icons.upload_outlined, size: 18, color: colors.textTertiary),
                 tooltip: 'Ekspor',
@@ -152,6 +200,9 @@ class SessionCardFromSummary extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onExport;
   final VoidCallback onDelete;
+  final VoidCallback? onRename;
+  final bool hasSummary;
+  final String? matchSnippet;
 
   const SessionCardFromSummary({
     super.key,
@@ -159,6 +210,9 @@ class SessionCardFromSummary extends StatelessWidget {
     required this.onTap,
     required this.onExport,
     required this.onDelete,
+    this.onRename,
+    this.hasSummary = false,
+    this.matchSnippet,
   });
 
   @override
@@ -172,6 +226,9 @@ class SessionCardFromSummary extends StatelessWidget {
       onTap: onTap,
       onDelete: onDelete,
       onExport: onExport,
+      onRename: onRename,
+      hasSummary: hasSummary,
+      matchSnippet: matchSnippet,
     );
   }
 }

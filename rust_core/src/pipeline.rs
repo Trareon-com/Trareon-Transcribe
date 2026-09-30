@@ -11,10 +11,11 @@
 //!   3. **Speaker labels** → per-channel acoustic-feature clustering
 //!      (`diarization::Diarizer`); cross-source echo dedupe runs in
 //!      `session::SessionState::collect_worker_events`.
-//!   4. **Qwen2.5-7B** → post-correction + per-speaker summary
-//!      (`llm_correction::correct_and_summarize`, feature-gated `llm`,
-//!      invoked after the batch is finalized — see `export` for the
-//!      Markdown/TXT/SRT/DOCX writers that consume the result).
+//!
+//! Summarisation deliberately lives *outside* this file. It is the one
+//! networked feature in the app (`summary`), it runs only on explicit user
+//! action after a session has finished, and nothing in this module may
+//! reference it — `privacy::tests` enforces that.
 //!
 //! `LivePipeline` is the deterministic per-source stage orchestrator (stages
 //! 1–3). It deliberately owns only processing state; audio device threads
@@ -28,9 +29,10 @@
 //! happens one level up, in `session::SessionState::collect_worker_events`,
 //! once both channels' segments have actually converged.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use crate::audio::{HptMode, RingBuffer};
 use crate::diarization::Diarizer;
@@ -44,11 +46,35 @@ pub struct LivePipeline<'a> {
     engine: &'a WhisperEngine,
     ring: RingBuffer,
     vad: DualVad,
+    vad_enabled: bool,
     diarizer: Diarizer,
     source: String,
     language: Option<String>,
     samples_seen: u64,
     last_transcript_tail: String,
+}
+
+/// Everything a [`LiveWorker`] needs to transcribe one source.
+///
+/// Replaces the previous 7-to-9 positional parameters on `spawn*`, each of
+/// which needed its own `#[allow(clippy::too_many_arguments)]`, and gives
+/// `vad_enabled` an actual home — the user's VAD setting used to reach
+/// `SessionConfig` and stop there.
+#[flutter_rust_bridge::frb(ignore)]
+#[derive(Debug, Clone)]
+pub struct LiveWorkerConfig {
+    /// Model used for the quick pass, and for single-model transcription.
+    pub quick_model_path: PathBuf,
+    /// Refine model for HPT. `None` = single-model transcription.
+    pub refine_model_path: Option<PathBuf>,
+    pub hpt_mode: HptMode,
+    /// `"mic"` or `"spk"`.
+    pub source: String,
+    pub language: Option<String>,
+    /// Mirrors `SessionConfig::vad_enabled`.
+    pub vad_enabled: bool,
+    pub gpu_enabled: bool,
+    pub gpu_device: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +86,8 @@ pub enum LiveEvent {
 pub struct LiveWorker {
     stop_tx: Option<std::sync::mpsc::Sender<()>>,
     thread: Option<std::thread::JoinHandle<()>>,
+    /// Set only when adaptive HPT chose a strategy — see [`HptRoute`].
+    route: Option<HptRoute>,
     /// Set by the worker thread when it exits. Used by `stop()` to wait
     /// with a bounded timeout instead of blocking indefinitely on `join()`.
     finished: Arc<AtomicBool>,
@@ -82,17 +110,24 @@ impl LiveWorker {
         Ok(pending)
     }
 
+    /// Starts the worker described by `config`, picking the single-model,
+    /// dual-pass or adaptive strategy from `refine_model_path` + `hpt_mode`.
     pub fn spawn(
-        model_path: impl AsRef<std::path::Path>,
-        source: impl Into<String>,
-        language: Option<String>,
+        config: LiveWorkerConfig,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
-        gpu_enabled: bool,
-        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
-        let engine = WhisperEngine::load_with_gpu(model_path.as_ref(), gpu_enabled, gpu_device)?;
-        Self::spawn_with_engine(engine, source, language, samples_rx, events_tx)
+        match config.refine_model_path.clone() {
+            Some(_) => Self::spawn_adaptive(config, samples_rx, events_tx),
+            None => {
+                let engine = WhisperEngine::load_with_gpu(
+                    &config.quick_model_path,
+                    config.gpu_enabled,
+                    config.gpu_device,
+                )?;
+                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+            }
+        }
     }
 
     /// Single-model worker over an already-loaded engine. Used by
@@ -101,12 +136,16 @@ impl LiveWorker {
     /// 548 MB refine model.
     fn spawn_with_engine(
         engine: WhisperEngine,
-        source: impl Into<String>,
-        language: Option<String>,
+        config: LiveWorkerConfig,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
     ) -> Result<Self, TranscribeError> {
-        let source = source.into();
+        let LiveWorkerConfig {
+            source,
+            language,
+            vad_enabled,
+            ..
+        } = config;
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
         let finished = Arc::new(AtomicBool::new(false));
         let finished_mutex = Arc::new(Mutex::new(()));
@@ -120,6 +159,7 @@ impl LiveWorker {
                 source.clone(),
                 language,
                 VadConfig::default(),
+                vad_enabled,
             ) {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
@@ -156,6 +196,7 @@ impl LiveWorker {
         Ok(Self {
             stop_tx: Some(stop_tx),
             thread: Some(thread),
+            route: None,
             finished,
             finished_mutex,
             finished_cvar,
@@ -216,27 +257,26 @@ impl LiveWorker {
     /// so the UI renders text within the 3-5s latency budget, then refined
     /// segments (`is_partial = false`) with the same `(source, timestamp)`
     /// keys replace them on the Dart side.
-    // gpu_enabled/gpu_device push this 1 arg over clippy's default limit;
-    // bundling into a config struct isn't warranted for two primitives that
-    // are just a pass-through to WhisperEngine::load_with_gpu.
-    #[allow(clippy::too_many_arguments)]
     pub fn spawn_hpt(
-        quick_model_path: impl AsRef<std::path::Path>,
-        refine_model_path: impl AsRef<std::path::Path>,
-        source: impl Into<String>,
-        language: Option<String>,
+        config: LiveWorkerConfig,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
-        gpu_enabled: bool,
-        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
+        let refine_model_path = config.refine_model_path.clone().ok_or_else(|| {
+            TranscribeError::Model("HPT worker requires a refine model path".into())
+        })?;
         let engine = ProgressiveEngine::load(
-            quick_model_path.as_ref(),
-            refine_model_path.as_ref(),
-            gpu_enabled,
-            gpu_device,
+            &config.quick_model_path,
+            &refine_model_path,
+            config.gpu_enabled,
+            config.gpu_device,
         )?;
-        let source = source.into();
+        let LiveWorkerConfig {
+            source,
+            language,
+            vad_enabled,
+            ..
+        } = config;
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
         let finished = Arc::new(AtomicBool::new(false));
         let finished_mutex = Arc::new(Mutex::new(()));
@@ -250,6 +290,7 @@ impl LiveWorker {
                 source.clone(),
                 language,
                 VadConfig::default(),
+                vad_enabled,
             ) {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
@@ -293,6 +334,7 @@ impl LiveWorker {
         Ok(Self {
             stop_tx: Some(stop_tx),
             thread: Some(thread),
+            route: None,
             finished,
             finished_mutex,
             finished_cvar,
@@ -310,49 +352,157 @@ impl LiveWorker {
     ///
     /// The benchmark itself is a no-network local inference probe over a 5s
     /// synthetic sine wave, so no user audio ever leaves the device for it.
-    // gpu_enabled/gpu_device push this 2 args over clippy's default limit;
-    // bundling into a config struct isn't warranted for two primitives that
-    // are just a pass-through to WhisperEngine::load_with_gpu.
-    #[allow(clippy::too_many_arguments)]
     pub fn spawn_adaptive(
-        quick_model_path: impl AsRef<std::path::Path>,
-        refine_model_path: impl AsRef<std::path::Path>,
-        mode: HptMode,
-        source: impl Into<String>,
-        language: Option<String>,
+        config: LiveWorkerConfig,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
-        gpu_enabled: bool,
-        gpu_device: i32,
     ) -> Result<Self, TranscribeError> {
-        // Load refine model ONCE — used for both the benchmark and (when
-        // direct is chosen) the actual transcription engine.
-        let engine =
-            WhisperEngine::load_with_gpu(refine_model_path.as_ref(), gpu_enabled, gpu_device)?;
-        let rtf = crate::benchmark::benchmark_rtf(&engine);
-        tracing::info!(rtf, mode = ?mode, "adaptive hpt benchmark");
-
-        let direct = match mode {
-            HptMode::ForceDirect => true,
-            HptMode::ForceDual => false,
-            HptMode::Auto => should_direct_q5(rtf),
+        let refine_model_path = config.refine_model_path.clone().ok_or_else(|| {
+            TranscribeError::Model("adaptive HPT worker requires a refine model path".into())
+        })?;
+        let key = BenchmarkKey {
+            model: refine_model_path.to_string_lossy().into_owned(),
+            gpu_enabled: config.gpu_enabled,
+            gpu_device: config.gpu_device,
         };
 
-        if direct {
-            Self::spawn_with_engine(engine, source, language, samples_rx, events_tx)
-        } else {
-            drop(engine); // dual-pass loads both models itself
-            Self::spawn_hpt(
-                quick_model_path,
-                refine_model_path,
-                source,
-                language,
-                samples_rx,
-                events_tx,
-                gpu_enabled,
-                gpu_device,
-            )
+        // Forced modes need no measurement at all, and a cached route covers
+        // every worker after the first. "Rapat Online" spawns one per source,
+        // and re-measuring for the second cost a second full benchmark —
+        // 110 s of it on the machine this was measured on — for an answer
+        // that is a property of the machine, not of the source.
+        let known = match config.hpt_mode {
+            HptMode::ForceDirect => Some(HptRoute::DirectRefine),
+            HptMode::ForceDual => Some(HptRoute::DualPass),
+            HptMode::Auto => recall_route(&key),
+        };
+        if let Some(route) = known {
+            return Self::spawn_route(route, &refine_model_path, config, samples_rx, events_tx);
         }
+
+        // Load the refine model once: the benchmark hands it back when it
+        // finishes in time, so the direct path reuses it instead of paying
+        // for the same ~550 MB twice.
+        let engine = WhisperEngine::load_with_gpu(
+            &refine_model_path,
+            config.gpu_enabled,
+            config.gpu_device,
+        )?;
+        // The deadline is derived from the *lowest* threshold that still needs
+        // an exact figure. Past it, `rtf < HPT_LIVE_FLOOR` is already known,
+        // which is all `route_for_rtf` needs to reach `QuickOnly`.
+        let deadline = crate::benchmark::benchmark_deadline(HPT_LIVE_FLOOR);
+        let route = match crate::benchmark::benchmark_rtf_bounded(engine, deadline) {
+            crate::benchmark::BenchmarkOutcome::Measured { rtf, engine } => {
+                let route = route_for_rtf(rtf);
+                tracing::info!(rtf, ?route, mode = ?config.hpt_mode, "adaptive hpt benchmark");
+                remember_route(&key, route);
+                if route == HptRoute::DirectRefine {
+                    // Only this route can reuse the benchmark's engine; the
+                    // others need a different model set.
+                    return Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                        .map(|worker| worker.with_route(route));
+                }
+                drop(engine);
+                route
+            }
+            crate::benchmark::BenchmarkOutcome::TooSlow => {
+                tracing::info!(
+                    deadline_secs = deadline.as_secs_f64(),
+                    "adaptive hpt benchmark outran its deadline — the refine model cannot \
+                     keep up with live audio on this device, using the quick model only"
+                );
+                remember_route(&key, HptRoute::QuickOnly);
+                HptRoute::QuickOnly
+            }
+        };
+        Self::spawn_route(route, &refine_model_path, config, samples_rx, events_tx)
+    }
+
+    /// Spawns the worker for an already-known route.
+    fn spawn_route(
+        route: HptRoute,
+        refine_model_path: &Path,
+        config: LiveWorkerConfig,
+        samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
+        events_tx: std::sync::mpsc::Sender<LiveEvent>,
+    ) -> Result<Self, TranscribeError> {
+        let worker = match route {
+            HptRoute::DirectRefine => {
+                let engine = WhisperEngine::load_with_gpu(
+                    refine_model_path,
+                    config.gpu_enabled,
+                    config.gpu_device,
+                )?;
+                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+            }
+            HptRoute::DualPass => Self::spawn_hpt(config, samples_rx, events_tx),
+            HptRoute::QuickOnly => {
+                let engine = WhisperEngine::load_with_gpu(
+                    &config.quick_model_path,
+                    config.gpu_enabled,
+                    config.gpu_device,
+                )?;
+                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+            }
+        };
+        worker.map(|worker| worker.with_route(route))
+    }
+
+    fn with_route(mut self, route: HptRoute) -> Self {
+        self.route = Some(route);
+        self
+    }
+
+    /// Which live strategy this worker ended up on, when adaptive HPT chose
+    /// it. `None` for single-model workers, where there was nothing to choose.
+    pub fn route(&self) -> Option<HptRoute> {
+        self.route
+    }
+}
+
+/// Which live strategy adaptive HPT picked for a device.
+#[flutter_rust_bridge::frb(ignore)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HptRoute {
+    /// Fast device: the refine model alone, single pass.
+    DirectRefine,
+    /// The refine model keeps up with real time; the quick model goes first
+    /// so text appears before the accurate version replaces it.
+    DualPass,
+    /// The refine model cannot keep up with live audio on this device. Both
+    /// other routes run it on **every** chunk, so on a device below the floor
+    /// they emit nothing at all: each 5 s chunk takes longer to transcribe
+    /// than the next one takes to arrive, and the worker falls behind
+    /// forever. Measured on a 2-core laptop: 110 s of q5 inference per 5 s
+    /// chunk, and not one segment in 90 s of speech. Quick-model text the
+    /// user can actually read beats perfect text they never see — and
+    /// "Transkrip Ulang" re-runs the saved audio with the accurate model
+    /// afterwards, with no real-time constraint.
+    QuickOnly,
+}
+
+/// What an adaptive-HPT measurement is actually about: a model running on
+/// this machine with this GPU configuration. Not the audio source.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BenchmarkKey {
+    model: String,
+    gpu_enabled: bool,
+    gpu_device: i32,
+}
+
+fn routes() -> &'static Mutex<HashMap<BenchmarkKey, HptRoute>> {
+    static ROUTES: OnceLock<Mutex<HashMap<BenchmarkKey, HptRoute>>> = OnceLock::new();
+    ROUTES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn recall_route(key: &BenchmarkKey) -> Option<HptRoute> {
+    routes().lock().ok()?.get(key).copied()
+}
+
+fn remember_route(key: &BenchmarkKey, route: HptRoute) {
+    if let Ok(mut routes) = routes().lock() {
+        routes.insert(key.clone(), route);
     }
 }
 
@@ -361,11 +511,71 @@ impl LiveWorker {
 /// borderline devices still get the instant-partial benefit of dual-pass).
 pub const HPT_DIRECT_THRESHOLD: f64 = 1.2;
 
+/// RTF below which the refine model has no place in a *live* pipeline at all.
+///
+/// 1.0 is not a tuning choice, it is the definition of keeping up: at
+/// `rtf < 1.0` the refine pass takes longer than the audio it is transcribing,
+/// so every chunk puts the worker further behind. Dual-pass does not help —
+/// it runs the same refine pass on every chunk and adds the quick pass on top.
+pub const HPT_LIVE_FLOOR: f64 = 1.0;
+
+/// Picks the live strategy for a measured realtime factor.
+pub fn route_for_rtf(rtf: f64) -> HptRoute {
+    if rtf >= HPT_DIRECT_THRESHOLD {
+        HptRoute::DirectRefine
+    } else if rtf >= HPT_LIVE_FLOOR {
+        HptRoute::DualPass
+    } else {
+        HptRoute::QuickOnly
+    }
+}
+
 /// Pure decision: does this device run q5 fast enough to skip the base
 /// quick pass entirely? `rtf` = seconds of audio transcribed per second of
 /// wall-clock. ≥ `HPT_DIRECT_THRESHOLD` → direct q5 single pass.
 pub fn should_direct_q5(rtf: f64) -> bool {
     rtf >= HPT_DIRECT_THRESHOLD
+}
+
+#[cfg(test)]
+mod route_tests {
+    use super::{route_for_rtf, HptRoute, HPT_DIRECT_THRESHOLD, HPT_LIVE_FLOOR};
+
+    #[test]
+    fn a_fast_device_runs_the_refine_model_directly() {
+        assert_eq!(route_for_rtf(HPT_DIRECT_THRESHOLD), HptRoute::DirectRefine);
+        assert_eq!(route_for_rtf(5.0), HptRoute::DirectRefine);
+    }
+
+    #[test]
+    fn a_device_that_merely_keeps_up_gets_dual_pass() {
+        assert_eq!(route_for_rtf(HPT_LIVE_FLOOR), HptRoute::DualPass);
+        assert_eq!(
+            route_for_rtf(HPT_DIRECT_THRESHOLD - 0.001),
+            HptRoute::DualPass
+        );
+    }
+
+    #[test]
+    fn a_device_that_cannot_keep_up_drops_the_refine_model() {
+        // The measured case: rtf 0.046 (110 s of q5 inference per 5 s chunk).
+        // Dual-pass runs that same refine pass on every chunk, so it emitted
+        // nothing at all in 90 s of speech. Quick-only text is readable now;
+        // "Transkrip Ulang" recovers the accuracy afterwards.
+        assert_eq!(route_for_rtf(0.046), HptRoute::QuickOnly);
+        assert_eq!(
+            route_for_rtf(HPT_LIVE_FLOOR - 0.001),
+            HptRoute::QuickOnly,
+            "below 1.0 the refine pass is slower than the audio it transcribes"
+        );
+        assert_eq!(route_for_rtf(0.0), HptRoute::QuickOnly);
+    }
+
+    #[test]
+    fn the_floor_is_below_the_direct_threshold() {
+        const { assert!(HPT_LIVE_FLOOR < HPT_DIRECT_THRESHOLD) };
+        assert_eq!(HPT_LIVE_FLOOR, 1.0, "1.0 is 'keeps up with real time'");
+    }
 }
 
 #[cfg(test)]
@@ -435,11 +645,13 @@ impl<'a> LivePipeline<'a> {
         source: impl Into<String>,
         language: Option<String>,
         vad_config: VadConfig,
+        vad_enabled: bool,
     ) -> TranscribeResult<Self> {
         Ok(Self {
             engine,
             ring: RingBuffer::default(),
             vad: DualVad::new(vad_config)?,
+            vad_enabled,
             diarizer: Diarizer::new(),
             source: source.into(),
             language,
@@ -472,15 +684,7 @@ impl<'a> LivePipeline<'a> {
             return Ok(Vec::new());
         }
 
-        let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
-        let mut has_speech = false;
-        for frame in samples.as_chunks::<FRAME_SAMPLES_10MS>().0 {
-            fill_i16_slice(frame, &mut frame_buf);
-            if self.vad.is_speech(&frame_buf)? {
-                has_speech = true;
-                break;
-            }
-        }
+        let has_speech = detect_speech(&mut self.vad, self.vad_enabled, samples)?;
         self.ring.push(samples);
         self.samples_seen = self.samples_seen.saturating_add(samples.len() as u64);
 
@@ -525,6 +729,7 @@ pub struct LivePipelineHpt<'a> {
     engine: &'a ProgressiveEngine,
     ring: RingBuffer,
     vad: DualVad,
+    vad_enabled: bool,
     diarizer: Diarizer,
     source: String,
     language: Option<String>,
@@ -537,11 +742,13 @@ impl<'a> LivePipelineHpt<'a> {
         source: impl Into<String>,
         language: Option<String>,
         vad_config: VadConfig,
+        vad_enabled: bool,
     ) -> TranscribeResult<Self> {
         Ok(Self {
             engine,
             ring: RingBuffer::default(),
             vad: DualVad::new(vad_config)?,
+            vad_enabled,
             diarizer: Diarizer::new(),
             source: source.into(),
             language,
@@ -559,15 +766,7 @@ impl<'a> LivePipelineHpt<'a> {
             return Ok((Vec::new(), Vec::new()));
         }
 
-        let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
-        let mut has_speech = false;
-        for frame in samples.as_chunks::<FRAME_SAMPLES_10MS>().0 {
-            fill_i16_slice(frame, &mut frame_buf);
-            if self.vad.is_speech(&frame_buf)? {
-                has_speech = true;
-                break;
-            }
-        }
+        let has_speech = detect_speech(&mut self.vad, self.vad_enabled, samples)?;
         self.ring.push(samples);
         self.samples_seen = self.samples_seen.saturating_add(samples.len() as u64);
 
@@ -607,6 +806,25 @@ impl<'a> LivePipelineHpt<'a> {
         crate::confidence::apply_confidence_routing(&mut refined);
         Ok((quick, refined))
     }
+}
+
+/// Dual-stage VAD gate, honouring the user's `vad_enabled` setting.
+///
+/// With VAD off, every buffered chunk is transcribed: more inference work,
+/// but a mis-tuned detector can no longer swallow quiet speech. Shared by
+/// both pipelines so the two can't drift apart.
+fn detect_speech(vad: &mut DualVad, vad_enabled: bool, samples: &[f32]) -> TranscribeResult<bool> {
+    if !vad_enabled {
+        return Ok(true);
+    }
+    let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
+    for frame in samples.as_chunks::<FRAME_SAMPLES_10MS>().0 {
+        fill_i16_slice(frame, &mut frame_buf);
+        if vad.is_speech(&frame_buf)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn fill_i16_slice(src: &[f32], dst: &mut [i16]) {

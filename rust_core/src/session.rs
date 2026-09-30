@@ -17,7 +17,7 @@ use crate::dedupe::is_echo;
 use crate::error::TranscribeError;
 use crate::export::Segment;
 use crate::memory;
-use crate::pipeline::{LiveEvent, LiveWorker};
+use crate::pipeline::{HptRoute, LiveEvent, LiveWorker, LiveWorkerConfig};
 
 /// Long sessions (>4h) auto-split per hour to bound memory growth (PP-21).
 pub const AUTO_SPLIT_INTERVAL_SECS: u64 = 3600;
@@ -38,10 +38,89 @@ pub struct SessionStatus {
     pub model_loaded: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum NoticeLevel {
+    /// The session is running, but with less than the user asked for.
+    Warning,
+    /// Something the user asked for has stopped working.
+    Error,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub enum SessionEvent {
     Transcript(Segment),
-    Vu { source: String, level: f32 },
+    Vu {
+        source: String,
+        level: f32,
+    },
+    /// Something the user has to be told mid-session: a capture source that
+    /// couldn't be opened, or one that died while recording. Previously these
+    /// were only `tracing::warn!`ed, so a session that recorded nothing at all
+    /// looked identical to one that was simply quiet.
+    Notice {
+        level: NoticeLevel,
+        source: String,
+        message: String,
+    },
+}
+
+/// What happened when one source's capture was attempted at session start.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum CaptureAttempt {
+    /// This source isn't part of the requested mode/toggles.
+    Disabled,
+    Started,
+    Failed(String),
+}
+
+/// Whether a session with these capture outcomes should start, and what the
+/// user needs to be told. Pure so the policy is unit-testable without a
+/// sound card; see the tests at the bottom of this module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum StartDecision {
+    Proceed,
+    /// Start anyway — at least one source works — but say what is missing.
+    ProceedWithWarning(String),
+    /// Refuse to start: nothing would be recorded. Failing here is what keeps
+    /// the UI from sitting in "Memulai…" and then silently recording nothing.
+    Fail(String),
+}
+
+/// Decides the above from the two per-source outcomes.
+///
+/// The rule that matters for "Rapat Online" (mic + system audio): one source
+/// failing is a warning, not a failure — a meeting recorded from the speakers
+/// alone is still worth having — but *both* failing must be an error, because
+/// the alternative is a session that produces an empty transcript with no
+/// explanation.
+pub(crate) fn decide_start(mic: &CaptureAttempt, speaker: &CaptureAttempt) -> StartDecision {
+    let sources = [("Mikrofon", mic), ("Audio sistem", speaker)];
+    let failures: Vec<String> = sources
+        .iter()
+        .filter_map(|(label, attempt)| match attempt {
+            CaptureAttempt::Failed(reason) => Some(format!("{label} — {reason}")),
+            _ => None,
+        })
+        .collect();
+    if failures.is_empty() {
+        return StartDecision::Proceed;
+    }
+
+    let detail = failures.join("; ");
+    if sources
+        .iter()
+        .any(|(_, attempt)| **attempt == CaptureAttempt::Started)
+    {
+        StartDecision::ProceedWithWarning(format!(
+            "Sebagian sumber audio tidak dapat dibuka; rekaman berjalan tanpa sumber \
+             tersebut. {detail}"
+        ))
+    } else {
+        StartDecision::Fail(format!(
+            "Sesi tidak dapat dimulai: tidak ada sumber audio yang berhasil dibuka. \
+             {detail}"
+        ))
+    }
 }
 
 struct SessionState {
@@ -68,8 +147,11 @@ struct SessionState {
 const RECENT_EMITTED_WINDOW_SECS: f64 = 30.0;
 
 struct CaptureChannel {
-    _capture: AudioCapture,
-    _worker: LiveWorker,
+    /// Polled for a fatal stream error (see
+    /// [`crate::audio::stream_error`]) as well as owning the capture thread.
+    capture: AudioCapture,
+    worker: LiveWorker,
+    source: String,
     events_rx: mpsc::Receiver<LiveEvent>,
     /// Raw 16kHz mono samples for this source, retained for WAV export
     /// (blueprint §7.1: per-track mic.wav + speaker.wav) — filled by the
@@ -146,37 +228,32 @@ pub fn recover_session(snapshot: SessionRecoverySnapshot) -> Result<String, Tran
     start_session_with_id(snapshot.session_id, snapshot.config)
 }
 
-// gpu_enabled/gpu_device push this 2 args over clippy's default limit;
-// bundling into a config struct isn't warranted for two primitives that
-// are just a pass-through to LiveWorker::spawn/spawn_adaptive.
-#[allow(clippy::too_many_arguments)]
 fn start_capture(
     enabled: bool,
     device_name: Option<String>,
-    model_path: &str,
-    refine_model_path: Option<String>,
-    hpt_mode: crate::audio::HptMode,
-    source: &str,
-    language: Option<String>,
-    gpu_enabled: bool,
-    gpu_device: i32,
-) -> Result<Option<CaptureChannel>, TranscribeError> {
+    worker_config: LiveWorkerConfig,
+) -> Result<(Option<CaptureChannel>, CaptureAttempt), TranscribeError> {
     if !enabled {
-        return Ok(None);
+        return Ok((None, CaptureAttempt::Disabled));
     }
+    let source = worker_config.source.clone();
     let (raw_tx, raw_rx) = mpsc::channel();
     let (samples_tx, samples_rx) = mpsc::channel();
     // Speaker (loopback) uses platform-specific capture (WASAPI / CoreAudio
-    // Process Tap / PulseAudio monitor). Mic uses the standard cpal input path.
+    // Process Tap / PulseAudio monitor). Mic uses cpal, except on Linux with
+    // a sound server, where it also goes through PulseAudio/PipeWire.
     let capture = match if source == "spk" {
         crate::audio::loopback::start_loopback(device_name, raw_tx)
     } else {
-        AudioCapture::start(device_name, raw_tx)
+        AudioCapture::start(&source, device_name, raw_tx)
     } {
         Ok(c) => c,
         Err(e) => {
-            tracing::warn!(source, %e, "skipping capture — device unavailable");
-            return Ok(None);
+            // Reported, not swallowed: returning `Ok(None)` here is how a
+            // "Rapat Online" session used to start with zero working capture
+            // and no indication of it anywhere but the log.
+            tracing::warn!(%source, %e, "capture could not be started");
+            return Ok((None, CaptureAttempt::Failed(e.to_string())));
         }
     };
 
@@ -202,34 +279,17 @@ fn start_capture(
     // A failure to load/init the STT pipeline (e.g. missing or corrupt model
     // file) MUST propagate so the caller surfaces it to the user instead of
     // silently starting a session that never transcribes anything.
-    let worker = match refine_model_path {
-        Some(refine) => LiveWorker::spawn_adaptive(
-            model_path,
-            refine,
-            hpt_mode,
+    let worker = LiveWorker::spawn(worker_config, samples_rx, events_tx)?;
+    Ok((
+        Some(CaptureChannel {
+            capture,
+            worker,
             source,
-            language,
-            samples_rx,
-            events_tx,
-            gpu_enabled,
-            gpu_device,
-        )?,
-        None => LiveWorker::spawn(
-            model_path,
-            source,
-            language,
-            samples_rx,
-            events_tx,
-            gpu_enabled,
-            gpu_device,
-        )?,
-    };
-    Ok(Some(CaptureChannel {
-        _capture: capture,
-        _worker: worker,
-        events_rx,
-        raw_audio,
-    }))
+            events_rx,
+            raw_audio,
+        }),
+        CaptureAttempt::Started,
+    ))
 }
 
 pub fn stop_session(session_id: &str) -> Result<(), TranscribeError> {
@@ -375,29 +435,62 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
     let refine_model_path = config
         .refine_model_path
         .clone()
-        .filter(|p| !p.is_empty() && p != &config.model_path);
-    let mic_capture = start_capture(
+        .filter(|p| !p.is_empty() && p != &config.model_path)
+        .map(PathBuf::from);
+    let worker_config = |source: &str| LiveWorkerConfig {
+        quick_model_path: PathBuf::from(&config.model_path),
+        refine_model_path: refine_model_path.clone(),
+        hpt_mode: config.hpt_mode,
+        source: source.to_string(),
+        language: language.clone(),
+        vad_enabled: config.vad_enabled,
+        gpu_enabled: config.gpu_enabled,
+        gpu_device: config.gpu_device,
+    };
+    let (mic_capture, mic_attempt) = start_capture(
         config.mic_enabled,
         config.mic_device_id.clone(),
-        &config.model_path,
-        refine_model_path.clone(),
-        config.hpt_mode,
-        "mic",
-        language.clone(),
-        config.gpu_enabled,
-        config.gpu_device,
+        worker_config("mic"),
     )?;
-    let speaker_capture = start_capture(
+    let (speaker_capture, speaker_attempt) = start_capture(
         config.speaker_enabled,
         config.speaker_device_id.clone(),
-        &config.model_path,
-        refine_model_path,
-        config.hpt_mode,
-        "spk",
-        language,
-        config.gpu_enabled,
-        config.gpu_device,
+        worker_config("spk"),
     )?;
+    let mut pending_events = Vec::new();
+    match decide_start(&mic_attempt, &speaker_attempt) {
+        StartDecision::Proceed => {}
+        StartDecision::ProceedWithWarning(message) => {
+            tracing::warn!(%message, "starting session with a degraded capture set");
+            pending_events.push(SessionEvent::Notice {
+                level: NoticeLevel::Warning,
+                source: "session".to_string(),
+                message,
+            });
+        }
+        // Returning here drops whichever captures did start, so a refused
+        // session leaves no orphaned capture threads or helper processes.
+        StartDecision::Fail(message) => return Err(TranscribeError::AudioDevice(message)),
+    }
+    // Adaptive HPT may have concluded the accurate model can't keep up with
+    // live audio here. That silently changes what the user gets, so it is
+    // said out loud — the alternative it replaces produced no transcript at
+    // all on the device this was measured on.
+    let downgraded = [mic_capture.as_ref(), speaker_capture.as_ref()]
+        .into_iter()
+        .flatten()
+        .any(|channel| channel.worker.route() == Some(HptRoute::QuickOnly));
+    if downgraded {
+        pending_events.push(SessionEvent::Notice {
+            level: NoticeLevel::Warning,
+            source: "session".to_string(),
+            message: "Perangkat ini terlalu lambat untuk model akurat secara langsung, \
+                      jadi transkrip langsung memakai model cepat. Setelah sesi selesai, \
+                      gunakan \"Transkrip Ulang\" untuk menjalankan ulang dengan model \
+                      akurat."
+                .to_string(),
+        });
+    }
     let state = SessionState {
         session_id: id.clone(),
         config,
@@ -408,7 +501,7 @@ fn start_session_with_id(id: String, config: SessionConfig) -> Result<String, Tr
         segments_count: 0,
         mic_capture,
         speaker_capture,
-        pending_events: Vec::new(),
+        pending_events,
         recent_emitted: Vec::new(),
     };
     registry()
@@ -512,6 +605,22 @@ impl SessionState {
         // Inlined (not extracted to a helper) so the borrow checker sees
         // per-field borrows — calling a `&mut self` method while holding a
         // reference into one of its fields would be rejected.
+        // A stream that died mid-session (see `audio::stream_error`) reaches
+        // the user here. `take_failure` yields it once, so the toast isn't
+        // re-raised on every 200 ms poll.
+        for channel in [self.mic_capture.as_ref(), self.speaker_capture.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            if let Some(message) = channel.capture.take_failure() {
+                self.pending_events.push(SessionEvent::Notice {
+                    level: NoticeLevel::Error,
+                    source: channel.source.clone(),
+                    message,
+                });
+            }
+        }
+
         if let Some(capture) = self.mic_capture.as_ref() {
             while let Ok(event) = capture.events_rx.try_recv() {
                 match event {
@@ -604,6 +713,130 @@ mod tests {
         cfg.mic_enabled = false;
         cfg.speaker_enabled = false;
         cfg
+    }
+
+    #[test]
+    fn nothing_enabled_proceeds_without_a_notice() {
+        assert_eq!(
+            decide_start(&CaptureAttempt::Disabled, &CaptureAttempt::Disabled),
+            StartDecision::Proceed
+        );
+    }
+
+    #[test]
+    fn everything_working_proceeds_without_a_notice() {
+        assert_eq!(
+            decide_start(&CaptureAttempt::Started, &CaptureAttempt::Started),
+            StartDecision::Proceed
+        );
+        assert_eq!(
+            decide_start(&CaptureAttempt::Started, &CaptureAttempt::Disabled),
+            StartDecision::Proceed
+        );
+    }
+
+    #[test]
+    fn a_failed_mic_with_working_loopback_warns_and_proceeds() {
+        // "Rapat Online" on a machine whose mic can't be opened: the meeting
+        // audio is still worth recording, but the user has to know their own
+        // voice isn't in it.
+        let decision = decide_start(
+            &CaptureAttempt::Failed("POLLERR".into()),
+            &CaptureAttempt::Started,
+        );
+        let StartDecision::ProceedWithWarning(message) = decision else {
+            panic!("expected a warning, got {decision:?}");
+        };
+        assert!(message.contains("Mikrofon"), "must name the dead source");
+        assert!(message.contains("POLLERR"), "must keep the reason");
+        assert!(
+            !message.contains("Audio sistem"),
+            "must not blame the source that works: {message}"
+        );
+    }
+
+    #[test]
+    fn a_failed_loopback_with_working_mic_warns_and_proceeds() {
+        let decision = decide_start(
+            &CaptureAttempt::Started,
+            &CaptureAttempt::Failed("no monitor source".into()),
+        );
+        let StartDecision::ProceedWithWarning(message) = decision else {
+            panic!("expected a warning, got {decision:?}");
+        };
+        assert!(message.contains("Audio sistem"));
+        assert!(!message.contains("Mikrofon"));
+    }
+
+    #[test]
+    fn every_source_failing_refuses_to_start() {
+        // The actual GUI bug: both sources dead, session started anyway, and
+        // the UI waited forever for a transcript that could never arrive.
+        let decision = decide_start(
+            &CaptureAttempt::Failed("POLLERR".into()),
+            &CaptureAttempt::Failed("no monitor source".into()),
+        );
+        let StartDecision::Fail(message) = decision else {
+            panic!("expected a failure, got {decision:?}");
+        };
+        assert!(message.contains("tidak dapat dimulai"));
+        assert!(message.contains("Mikrofon") && message.contains("Audio sistem"));
+    }
+
+    #[test]
+    fn the_only_enabled_source_failing_refuses_to_start() {
+        // "Rapat Offline" (mic only) and "Webinar" (system audio only) have
+        // nothing to fall back to, so a single failure is fatal there.
+        assert!(matches!(
+            decide_start(
+                &CaptureAttempt::Failed("x".into()),
+                &CaptureAttempt::Disabled
+            ),
+            StartDecision::Fail(_)
+        ));
+        assert!(matches!(
+            decide_start(
+                &CaptureAttempt::Disabled,
+                &CaptureAttempt::Failed("x".into())
+            ),
+            StartDecision::Fail(_)
+        ));
+    }
+
+    #[test]
+    fn a_refused_start_surfaces_as_an_audio_device_error() {
+        // Threaded end-to-end through start_session so `decide_start` can't be
+        // wired up and then ignored: a mic-only session whose only device
+        // cannot be opened must return Err, not a running session that will
+        // never produce a segment.
+        //
+        // Pinned to cpal because the PulseAudio path deliberately *recovers*
+        // from an unknown device hint (stale settings from the previous build
+        // carry cpal ALSA names), so on a machine with a sound server an
+        // unknown name would correctly succeed and prove nothing.
+        // No other test starts a capture, so this process-wide override is
+        // safe; it is restored anyway.
+        let previous = std::env::var(crate::audio::capture::BACKEND_ENV).ok();
+        std::env::set_var(crate::audio::capture::BACKEND_ENV, "cpal");
+
+        let mut cfg = SessionConfig::for_mode(SessionMode::Offline, "tiny".into());
+        cfg.mic_enabled = true;
+        cfg.speaker_enabled = false;
+        cfg.mic_device_id = Some("definitely-not-a-real-device-xyz123".into());
+        let result = start_session(cfg);
+
+        match previous {
+            Some(value) => std::env::set_var(crate::audio::capture::BACKEND_ENV, value),
+            None => std::env::remove_var(crate::audio::capture::BACKEND_ENV),
+        }
+
+        let Err(TranscribeError::AudioDevice(message)) = result else {
+            panic!("expected an audio device error, got {result:?}");
+        };
+        assert!(
+            message.contains("tidak dapat dimulai"),
+            "error must be the actionable Indonesian one: {message}"
+        );
     }
 
     #[test]
