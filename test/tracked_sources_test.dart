@@ -16,11 +16,13 @@ void main() {
   const scannedRoots = ['lib', 'test', 'integration_test'];
 
   test('no Dart source under lib/, test/ or integration_test/ is gitignored', () {
-    final git = Process.runSync('git', ['--version']);
-    if (git.exitCode != 0) {
-      // No git in this environment (e.g. a source tarball): the invariant is
-      // real but unobservable here. Skipping is honest; asserting is not.
-      markTestSkipped('git unavailable — cannot check ignore rules');
+    // The probe has to be "am I inside a work tree", not "does the git binary
+    // exist": in a source export git runs fine but every check-ignore returns
+    // 128. Either way the invariant is real but unobservable, so skip rather
+    // than assert — and skip loudly, not silently pass.
+    final inWorkTree = _tryGit(['rev-parse', '--is-inside-work-tree']);
+    if (inWorkTree?.trim() != 'true') {
+      markTestSkipped('not a git work tree — cannot check ignore rules');
       return;
     }
 
@@ -54,6 +56,17 @@ void main() {
           'artifacts).',
     );
   });
+}
+
+/// Runs a git command, returning its stdout, or null if git is unavailable or
+/// exited non-zero.
+String? _tryGit(List<String> args) {
+  try {
+    final result = Process.runSync('git', args);
+    return result.exitCode == 0 ? result.stdout as String : null;
+  } on ProcessException {
+    return null;
+  }
 }
 
 /// Returns the subset of [paths] that git would ignore.
