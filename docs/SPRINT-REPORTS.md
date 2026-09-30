@@ -923,3 +923,134 @@ primary action is fully visible; re-captured after the fix.
 - The smoke test's microphone channel is silent on this machine, so the
   mic capture path was exercised only to the point of the (correct)
   "tidak ada suara sama sekali" warning.
+
+---
+
+# Sprint 2 fix round — CI failures
+
+Independent verification of `sprint/02-scale` failed on two jobs. Both
+root causes are fixed below; neither was fixed by weakening a test or
+disabling a lint.
+
+## 1. `flutter analyze` — 21 errors in four test files · **DONE**
+
+**Symptom.** CI reported `uri_does_not_exist` for
+`test/fixtures/large_session.dart` plus cascading `undefined_function` /
+`undefined_identifier` for `buildBenchmarkSegments`,
+`writeBenchmarkLibrary`, `kBenchmarkSegmentCount`,
+`kBenchmarkSessionCount` and `kBenchmarkDurationSeconds` across
+`test/perf/library_index_perf_test.dart`,
+`test/perf/session_ingest_perf_test.dart`,
+`test/perf/transcript_view_perf_test.dart` and
+`test/segment_lookup_test.dart`.
+
+**Root cause.** Sprint 2 wrote the benchmark helper to
+`test/fixtures/large_session.dart`. `test/fixtures/` is gitignored, and
+correctly so: it holds the WAV artifacts that
+`cargo run --bin gen_fixtures` generates. The helper was therefore never
+committed. Every local gate stayed green because the local gate only
+ever sees the working tree, where the file exists; CI checks out the
+commit, where it does not. Confirmed empirically — `git archive HEAD`
+on the pre-fix commit contains no `test/fixtures/` entries at all.
+
+**Fix.** Hand-written test sources now live in `test/support/`. The
+helper moved to `test/support/large_session.dart` with a comment
+explaining the distinction, and the four imports were updated.
+
+**Regression gate.** `test/tracked_sources_test.dart` asserts that no
+Dart source under `lib/`, `test/` or `integration_test/` is gitignored,
+so this class of green-locally / red-on-CI failure cannot recur. It
+probes `git rev-parse --is-inside-work-tree` (not `git --version` — that
+succeeds in a source export, where every `check-ignore` then returns
+128) and skips loudly when the invariant is not observable.
+
+Verified on all three paths:
+
+| Situation | Expected | Observed |
+| --- | --- | --- |
+| Repo, clean tree | pass | `+1: All tests passed!` |
+| Dart file placed under `test/fixtures/` | fail | `Actual: ['test/fixtures/_probe.dart']` |
+| Non-git source export | skip | `~1: All tests skipped.` |
+
+- Files: `test/support/large_session.dart` (moved from `test/fixtures/`),
+  `test/tracked_sources_test.dart` (new),
+  `test/perf/library_index_perf_test.dart`,
+  `test/perf/session_ingest_perf_test.dart`,
+  `test/perf/transcript_view_perf_test.dart`,
+  `test/segment_lookup_test.dart`, `rust_core/src/bench_fixture.rs`
+  (doc comment), `docs/SPRINT-REPORTS.md`
+- Tests added: 1 (`tracked_sources_test.dart`)
+
+## 2. macOS packaging — `hdiutil: create failed - Resource busy` · **DONE (unverified on macOS)**
+
+**Root cause.** `hdiutil create -srcfolder X -format UDZO` is a compound
+operation: it builds a temporary read/write image, attaches it, copies
+`X` in, detaches it, then compresses. "Resource busy" is that detach
+losing a race against a process still holding a file on the freshly
+mounted volume — on GitHub runners, Spotlight's `mds` indexing the
+~690 MB of models the script had just bundled.
+
+**Fix**, in `scripts/package_macos.sh`, cheapest change first:
+
+1. Stage the signed bundle into `$TMPDIR` (`/var/folders/...`, which is
+   excluded from Spotlight indexing) with `ditto` — not `cp`, so the
+   ad-hoc signature survives — instead of imaging the live Xcode build
+   tree.
+2. Split create from compress: build `UDRW`, then `hdiutil convert` to
+   `UDZO`. Each step is then simple enough for a retry to mean something.
+3. Retry the create up to three times, detaching any volume a failed
+   attempt left mounted first — otherwise the retry trips over the
+   previous attempt's mount and fails identically.
+
+`-srcfolder` still points at the `.app` bundle, not at the staging
+directory, so the DMG's internal layout is unchanged.
+
+- Files: `scripts/package_macos.sh`
+- Tests added: none — this is a shell script for a platform not
+  available here. See known gaps.
+
+## Verification gate
+
+    cd rust_core && cargo fmt --check          → clean
+    cargo clippy --all-targets -- -D warnings  → No issues found! (ran in 2.1s)
+    cargo test --lib                           → 315 passed; 0 failed; 0 ignored
+    flutter analyze                            → No issues found! (ran in 4.4s)
+    flutter test                               → 334 tests, All tests passed!
+    flutter build linux --release              → ✓ Built build/linux/x64/release/bundle/transcribe
+
+**CI-equivalent check.** The whole point of this round is that a green
+working tree proved nothing, so the fix was verified the way CI sees it:
+`git archive HEAD | tar -x` into a clean directory, then `flutter
+analyze` there → `No issues found!`. That export is a pristine checkout
+of the commit, with no untracked files to mask a missing one.
+
+## Smoke test
+
+Release build launched on `:0` per the standard recipe. The 1280x720
+window came up showing Sprint 2's redesigned main screen: permanent
+session sidebar with three real sessions from the library
+(`Sesi 2026-10-01 02:18` · 49 detik · 7 segmen, `Sesi Pendek Tanpa
+Transkrip` · 0 segmen, `Sesi 2026-10-01 05:23` · 5 detik · 2 segmen),
+the session/mode/device header with both ALSA devices resolved, and the
+"Siap merekam" empty state with the single primary "Mulai Rekam" action.
+`/tmp/trareon_smoke.log` was empty — no stderr output. Process killed
+with `pkill -9 -x transcribe` afterwards.
+
+No capture run was repeated this round: the fix round touches no file
+under `lib/`. The only non-test, non-docs change is a macOS shell
+script, and `rust_core/src/bench_fixture.rs` changed by one doc-comment
+line. The launch above is a regression check that the release bundle
+still starts, not a re-verification of Sprint 2's capture claims.
+
+## Known gaps
+
+- **The macOS DMG fix is unverified.** There is no macOS machine here;
+  the script is syntax-checked (`bash -n`) and the reasoning is stated
+  above, but whether "Resource busy" is gone can only be established by
+  the CI job. If it recurs, the next thing to try is disabling Spotlight
+  on the staging volume (`mdutil -i off`) — the retry loop will make the
+  failure mode visible in the log either way.
+- **The retry sleeps 15 s between attempts**, so a genuinely broken
+  packaging step now takes ~30 s longer to fail than before.
+- Everything in Sprint 2's own "Known gaps" list above still stands;
+  this round fixed CI, not product scope.
