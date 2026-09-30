@@ -605,6 +605,40 @@ pub(crate) mod linux {
         let _ = child.wait();
         Ok(())
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// End-to-end against the real sound server: what `capture_loopback`
+        /// would actually record must be a monitor source, never the mic.
+        ///
+        /// Skips when there is no usable PulseAudio/PipeWire (CI containers,
+        /// headless builders) rather than failing — the pure resolution rules
+        /// are covered unconditionally by `monitor_resolution_tests`.
+        #[test]
+        fn resolves_a_real_monitor_source_when_a_sound_server_is_running() {
+            let Some(listing) = pactl(&["list", "short", "sources"]) else {
+                eprintln!("skipped: pactl unavailable");
+                return;
+            };
+            let sources = parse_pactl_sources(&listing);
+            if !sources.iter().any(|s| s.ends_with(".monitor")) {
+                eprintln!("skipped: no monitor source on this machine");
+                return;
+            }
+
+            let resolved = monitor_source(None).expect("a monitor source exists");
+            assert!(
+                resolved.ends_with(".monitor"),
+                "loopback would have recorded {resolved}, which is not a monitor source"
+            );
+            assert!(
+                sources.contains(&resolved),
+                "{resolved} is not among the sources the server reports"
+            );
+        }
+    }
 }
 
 #[cfg(test)]
