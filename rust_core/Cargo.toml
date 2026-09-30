@@ -34,6 +34,10 @@ path = "src/bin/dual_capture_probe.rs"
 name = "poll_probe"
 path = "src/bin/poll_probe.rs"
 
+[[bin]]
+name = "session_start_probe"
+path = "src/bin/session_start_probe.rs"
+
 [dependencies]
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
