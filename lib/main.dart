@@ -127,8 +127,10 @@ class TranscribeApp extends ConsumerWidget {
       themeAnimationDuration: const Duration(milliseconds: 300),
       themeAnimationCurve: Curves.easeInOut,
       // First-launch routing: when models aren't downloaded yet, show the
-      // dedicated onboarding/download screen. The legacy SetupWizardScreen
-      // remains reachable from Settings for power users.
+      // dedicated onboarding/download screen. (SetupWizardScreen still has
+      // no route into it from anywhere in the app — Sprint 2 either wires
+      // it in or deletes it. It is not "reachable from Settings", which is
+      // what this comment used to claim.)
       home: modelsReady ? const MainScreen() : const _OnboardingRoute(),
     );
   }

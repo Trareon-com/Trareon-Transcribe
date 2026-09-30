@@ -3,37 +3,8 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
-import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-
-// These functions are ignored because they are not marked as `pub`: `client`, `request_body`, `snippet`, `trim_base`, `validate`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `build_prompt`, `chat_endpoint`, `models_endpoint`, `parse_chat_response`, `parse_models_response`, `system_prompt`, `template_instruction`, `transcript_text`, `truncate_transcript`
-
-/// Sends `transcript` to the configured endpoint and returns Markdown.
-///
-/// This is the only place in the crate that performs an outbound request
-/// with user content, and it runs exactly once per explicit user action.
-Future<String> generateSummary({
-  required SummaryConfig config,
-  required String transcript,
-}) => RustLib.instance.api.crateSummaryGenerateSummary(
-  config: config,
-  transcript: transcript,
-);
-
-/// Lists the models the configured endpoint offers, so the UI can present a
-/// dropdown instead of a free-text field. Sends no transcript content.
-Future<List<String>> listSummaryModels({
-  required SummaryProvider provider,
-  required String baseUrl,
-  required String apiKey,
-}) => RustLib.instance.api.crateSummaryListSummaryModels(
-  provider: provider,
-  baseUrl: baseUrl,
-  apiKey: apiKey,
-);
 
 class SummaryConfig {
   final SummaryProvider provider;
@@ -65,9 +36,6 @@ class SummaryConfig {
     required this.language,
     required this.timeoutSecs,
   });
-
-  static Future<SummaryConfig> default_() =>
-      RustLib.instance.api.crateSummarySummaryConfigDefault();
 
   @override
   int get hashCode =>

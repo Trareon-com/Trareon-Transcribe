@@ -14,6 +14,7 @@ import '../utils/model_labels.dart';
 import '../screens/privacy_report_screen.dart';
 import '../screens/usage_dashboard_screen.dart';
 import 'app_toast.dart';
+import 'model_download_dialog.dart';
 import 'summary_settings_section.dart';
 
 /// OBS-style side panel settings that slides in from the right
@@ -168,19 +169,27 @@ class _SettingsSidePanelState extends ConsumerState<SettingsSidePanel>
                                   : kKnownModelIds.first,
                               items: kKnownModelIds,
                               labelBuilder: modelDisplayLabel,
-                              onChanged: (modelId) {
-                                if (!isModelAvailable(modelId,
+                              onChanged: (modelId) async {
+                                if (isModelAvailable(modelId,
                                     libraryPath: settings.libraryPath)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                          'Model pilihan belum tersedia. Selesaikan Setup Wizard terlebih dahulu.'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                  await notifier.setDefaultModel(modelId);
                                   return;
                                 }
-                                notifier.setDefaultModel(modelId);
+                                // This used to tell the user to "Selesaikan
+                                // Setup Wizard terlebih dahulu" — a wizard
+                                // with no route into it from anywhere in the
+                                // app. Offer the download that actually
+                                // exists instead.
+                                final downloaded = await showModelDownloadDialog(
+                                  context: context,
+                                  bridge: ref.read(rustBridgeProvider),
+                                  modelId: modelId,
+                                  modelsDir: resolveTilde(settings.libraryPath),
+                                  displayName: modelDisplayLabel(modelId),
+                                );
+                                if (downloaded) {
+                                  await notifier.setDefaultModel(modelId);
+                                }
                               },
                             ),
                           ),

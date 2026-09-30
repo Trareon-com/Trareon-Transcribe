@@ -4,57 +4,9 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'audio.dart';
-import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'summary.dart';
-
-// These functions are ignored because they are not marked as `pub`: `default_true`, `load_settings_from`, `settings_path`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `config_path`, `doctor_check_on_start`, `load`, `on_stop_hook`, `resolve_recordings_dir`, `to_config`, `transcription_enabled`
-
-Future<String> defaultLibraryPath() =>
-    RustLib.instance.api.crateSettingsDefaultLibraryPath();
-
-Future<AppSettings> loadSettings() =>
-    RustLib.instance.api.crateSettingsLoadSettings();
-
-Future<void> saveSettings({required AppSettings settings}) =>
-    RustLib.instance.api.crateSettingsSaveSettings(settings: settings);
-
-class AppConfig {
-  final String? recordingsDir;
-  final String? onStop;
-  final bool? transcriptionEnabled;
-  final bool? doctorCheckOnStart;
-
-  const AppConfig({
-    this.recordingsDir,
-    this.onStop,
-    this.transcriptionEnabled,
-    this.doctorCheckOnStart,
-  });
-
-  static Future<AppConfig> default_() =>
-      RustLib.instance.api.crateSettingsAppConfigDefault();
-
-  @override
-  int get hashCode =>
-      recordingsDir.hashCode ^
-      onStop.hashCode ^
-      transcriptionEnabled.hashCode ^
-      doctorCheckOnStart.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AppConfig &&
-          runtimeType == other.runtimeType &&
-          recordingsDir == other.recordingsDir &&
-          onStop == other.onStop &&
-          transcriptionEnabled == other.transcriptionEnabled &&
-          doctorCheckOnStart == other.doctorCheckOnStart;
-}
 
 class AppSettings {
   final Theme theme;
@@ -110,9 +62,6 @@ class AppSettings {
     required this.audioToDisk,
     required this.summary,
   });
-
-  static Future<AppSettings> default_() =>
-      RustLib.instance.api.crateSettingsAppSettingsDefault();
 
   @override
   int get hashCode =>
@@ -182,9 +131,6 @@ class SummarySettings {
     required this.customPrompt,
   });
 
-  static Future<SummarySettings> default_() =>
-      RustLib.instance.api.crateSettingsSummarySettingsDefault();
-
   @override
   int get hashCode =>
       enabled.hashCode ^
@@ -216,11 +162,4 @@ class SummarySettings {
 ///
 /// `Default` is `Light` so that a settings file written by an older build
 /// (where the field could be absent) still loads.
-enum Theme {
-  light,
-  dark,
-  system;
-
-  static Future<Theme> default_() =>
-      RustLib.instance.api.crateSettingsThemeDefault();
-}
+enum Theme { light, dark, system }

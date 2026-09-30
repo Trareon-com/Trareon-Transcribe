@@ -4,119 +4,11 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'audio.dart';
-import 'error.dart';
 import 'export.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'session.freezed.dart';
-
-// These functions are ignored because they are not marked as `pub`: `accept_or_drop_echo`, `audio_registry`, `capitalize`, `capture_health`, `collect_worker_events`, `decide_start`, `describe_recoverable`, `elapsed_secs`, `is_empty`, `is_empty`, `is_registered`, `load_snapshot_file`, `persist_session_snapshot`, `raise_silence_warnings`, `recoverable_audio_secs`, `recovery_dir`, `registry`, `remove_dir_if_stale`, `retire_recovery_state`, `sanitize_session_id`, `session_recovery_dir`, `should_split`, `source_label`, `start_capture`, `start_session_with_id`, `trim_recent_emitted`, `unix_ms_now`, `with_session_mut`, `write_snapshot_file`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CaptureAttempt`, `CaptureChannel`, `ResumeState`, `SessionState`, `StartDecision`, `StoppedAudio`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `all_expected_confirmed`, `has_audio`, `release_recovery_dir`, `take_session_audio`
-// These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`, `default`
-
-Future<String> startSession({required SessionConfig config}) =>
-    RustLib.instance.api.crateSessionStartSession(config: config);
-
-/// Brings a crashed session back: its transcript, its audio, and its clock.
-///
-/// The transcript comes from the journal; the audio from the `.part` files,
-/// which are reopened and appended to so the eventual WAV covers the whole
-/// meeting. New segments are offset onto the end of the recovered timeline
-/// — a restarted pipeline counts from zero, and the recovered transcript
-/// already occupies that stretch, so without the offset the first new
-/// segment would silently replace the first recovered one (they share the
-/// `source@timestamp` merge key).
-///
-/// The offset is taken from the longest recovered audio track when there is
-/// one, because that is how much real time the recording covers; the end of
-/// the last recovered segment is the fallback for a RAM-path session.
-Future<RecoveredSession> recoverSession({
-  required SessionRecoverySnapshot snapshot,
-}) => RustLib.instance.api.crateSessionRecoverSession(snapshot: snapshot);
-
-Future<void> stopSession({required String sessionId}) =>
-    RustLib.instance.api.crateSessionStopSession(sessionId: sessionId);
-
-Future<void> toggleMic({required String sessionId, required bool enabled}) =>
-    RustLib.instance.api.crateSessionToggleMic(
-      sessionId: sessionId,
-      enabled: enabled,
-    );
-
-Future<void> toggleSpeaker({
-  required String sessionId,
-  required bool enabled,
-}) => RustLib.instance.api.crateSessionToggleSpeaker(
-  sessionId: sessionId,
-  enabled: enabled,
-);
-
-Future<void> setSessionMode({
-  required String sessionId,
-  required SessionMode mode,
-}) => RustLib.instance.api.crateSessionSetSessionMode(
-  sessionId: sessionId,
-  mode: mode,
-);
-
-Future<void> recordSegment({required String sessionId}) =>
-    RustLib.instance.api.crateSessionRecordSegment(sessionId: sessionId);
-
-/// Mirrors the user-entered session title into the recovery snapshot, so a
-/// crashed session shows up in the recovery dialog under the name the user
-/// gave it rather than as a UUID.
-Future<void> setSessionTitle({
-  required String sessionId,
-  required String title,
-}) => RustLib.instance.api.crateSessionSetSessionTitle(
-  sessionId: sessionId,
-  title: title,
-);
-
-/// Call periodically (e.g. every minute) from the live capture loop. If it
-/// returns `Some`, the caller should flush the current chunk to disk and
-/// start a new file segment, then call [`mark_split`].
-Future<AutoSplitReason?> checkAutoSplit({required String sessionId}) =>
-    RustLib.instance.api.crateSessionCheckAutoSplit(sessionId: sessionId);
-
-Future<void> markSplit({required String sessionId}) =>
-    RustLib.instance.api.crateSessionMarkSplit(sessionId: sessionId);
-
-Future<SessionStatus> getStatus({required String sessionId}) =>
-    RustLib.instance.api.crateSessionGetStatus(sessionId: sessionId);
-
-Future<List<SessionEvent>> pollEvents({required String sessionId}) =>
-    RustLib.instance.api.crateSessionPollEvents(sessionId: sessionId);
-
-/// Everything the recovery dialog needs, newest first.
-///
-/// Snapshots whose session left nothing behind — no journal entries and no
-/// audio — are deleted here rather than listed. They are the residue of a
-/// session that died within seconds of starting, and offering to "recover"
-/// them produces an empty session the user then has to clean up by hand.
-/// Flat `*.inprogress` files from builds before the per-session directory
-/// are removed for the same reason: they carry configuration only, which
-/// is exactly the thing that made recovery useless.
-Future<List<RecoverableSession>> listRecoverableSessions() =>
-    RustLib.instance.api.crateSessionListRecoverableSessions();
-
-/// Discards a recoverable session and everything it held. Called from the
-/// recovery dialog's per-session "Hapus"; the previous banner could only
-/// dismiss the whole list, leaving the files behind forever.
-Future<void> deleteRecoverableSession({required String sessionId}) => RustLib
-    .instance
-    .api
-    .crateSessionDeleteRecoverableSession(sessionId: sessionId);
-
-/// Live capture health, used both by the recording UI ("rekaman
-/// terkonfirmasi") and by the integrity summary shown at Stop.
-Future<CaptureHealth> getCaptureHealth({required String sessionId}) =>
-    RustLib.instance.api.crateSessionGetCaptureHealth(sessionId: sessionId);
-
-enum AutoSplitReason { timeBoundary, memoryPressure }
 
 /// Snapshot of a running session's capture health.
 class CaptureHealth {

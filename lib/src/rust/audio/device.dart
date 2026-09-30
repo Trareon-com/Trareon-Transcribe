@@ -3,25 +3,8 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
-import '../error.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-
-// These functions are ignored because they are not marked as `pub`: `list_input_devices_via_cpal`, `list_output_devices_via_cpal`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
-
-Future<List<AudioDeviceInfo>> listInputDevices() =>
-    RustLib.instance.api.crateAudioDeviceListInputDevices();
-
-Future<List<AudioDeviceInfo>> listOutputDevices() =>
-    RustLib.instance.api.crateAudioDeviceListOutputDevices();
-
-/// Best-effort lookup for a macOS/Windows loopback device by name convention
-/// (BlackHole on macOS, WASAPI loopback exposed as an output device on
-/// Windows). Returns an error the caller should surface as "install
-/// BlackHole" / wizard guidance rather than a crash.
-Future<AudioDeviceInfo> getLoopbackDevice({required String nameHint}) =>
-    RustLib.instance.api.crateAudioDeviceGetLoopbackDevice(nameHint: nameHint);
 
 class AudioDeviceInfo {
   final String name;

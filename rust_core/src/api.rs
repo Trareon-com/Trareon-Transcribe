@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::audio::{AudioDeviceInfo, SessionConfig, SessionMode};
+use crate::audio::{AudioDeviceInfo, SessionConfig};
 use crate::doctor::{format_checks, run_checks, Check};
 use crate::error::TranscribeError;
 use crate::export::{ExportFormat, ExportedFile, Segment};
@@ -17,11 +17,7 @@ use crate::session::{
     CaptureHealth, RecoverableSession, RecoveredSession, SessionEvent, SessionRecoverySnapshot,
     SessionStatus,
 };
-use crate::settings::{AppConfig, AppSettings};
-
-pub fn get_app_config() -> AppConfig {
-    AppConfig::load().unwrap_or_default()
-}
+use crate::settings::AppSettings;
 
 pub fn run_preflight_checks() -> Vec<Check> {
     let settings = crate::settings::load_settings();
@@ -30,16 +26,6 @@ pub fn run_preflight_checks() -> Vec<Check> {
 
 pub fn format_preflight_checks(checks: Vec<Check>) -> String {
     format_checks(&checks)
-}
-
-pub fn resume_pending_transcriptions(library_path: String) -> Result<Vec<String>, TranscribeError> {
-    let paths = crate::pipeline::LiveWorker::resume_pending_transcriptions(std::path::Path::new(
-        &library_path,
-    ))?;
-    Ok(paths
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect())
 }
 
 /// Installs a `tracing` subscriber writing to stderr. Without this,
@@ -77,10 +63,6 @@ pub fn list_output_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeErr
     crate::audio::list_output_devices()
 }
 
-pub fn get_loopback_device(name_hint: String) -> Result<AudioDeviceInfo, TranscribeError> {
-    crate::audio::get_loopback_device(&name_hint)
-}
-
 // --- Session control -----------------------------------------------------
 
 pub fn start_session(config: SessionConfig) -> Result<String, TranscribeError> {
@@ -97,10 +79,6 @@ pub fn toggle_mic(session_id: String, enabled: bool) -> Result<(), TranscribeErr
 
 pub fn toggle_speaker(session_id: String, enabled: bool) -> Result<(), TranscribeError> {
     crate::session::toggle_speaker(&session_id, enabled)
-}
-
-pub fn set_session_mode(session_id: String, mode: SessionMode) -> Result<(), TranscribeError> {
-    crate::session::set_session_mode(&session_id, mode)
 }
 
 pub fn get_session_status(session_id: String) -> Result<SessionStatus, TranscribeError> {
@@ -268,19 +246,6 @@ pub fn export_session_audio(
     // directory open.
     crate::session::release_recovery_dir(&session_id);
     Ok(exported)
-}
-
-/// Sanitize a candidate filename so it is safe to use on all target
-/// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
-/// input would otherwise be empty after stripping.
-pub fn export_sanitize_filename(raw: String) -> String {
-    crate::export::sanitize_filename(&raw)
-}
-
-// --- File transcription -----------------------------------------------------
-
-pub fn decode_audio_file(path: String) -> Result<crate::decode::AudioBuffer, TranscribeError> {
-    crate::decode::decode_audio_file(std::path::Path::new(&path))
 }
 
 // --- Hybrid Progressive Transcription (HPT) --------------------------------------
@@ -543,21 +508,14 @@ pub fn flight_set_enabled(enabled: bool) {
 
 // --- Singleton instance lock -----------------------------------------------------
 
-pub fn is_another_instance_running() -> Result<bool, TranscribeError> {
-    crate::singleton::is_another_instance_running()
-}
-
 pub fn acquire_instance_lock() -> Result<(), TranscribeError> {
     crate::singleton::acquire_lock()
-}
-
-pub fn release_instance_lock() -> Result<(), TranscribeError> {
-    crate::singleton::release_lock()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::SessionMode;
 
     #[test]
     fn version_is_not_empty() {

@@ -5,7 +5,6 @@
 
 import 'audio.dart';
 import 'audio/device.dart';
-import 'decode.dart';
 import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
@@ -20,19 +19,11 @@ import 'summary.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-Future<AppConfig> getAppConfig() => RustLib.instance.api.crateApiGetAppConfig();
-
 Future<List<Check>> runPreflightChecks() =>
     RustLib.instance.api.crateApiRunPreflightChecks();
 
 Future<String> formatPreflightChecks({required List<Check> checks}) =>
     RustLib.instance.api.crateApiFormatPreflightChecks(checks: checks);
-
-Future<List<String>> resumePendingTranscriptions({
-  required String libraryPath,
-}) => RustLib.instance.api.crateApiResumePendingTranscriptions(
-  libraryPath: libraryPath,
-);
 
 /// Installs a `tracing` subscriber writing to stderr. Without this,
 /// every `tracing::error!`/`warn!` call in the engine (session/pipeline
@@ -59,9 +50,6 @@ Future<List<AudioDeviceInfo>> listAudioDevices() =>
 Future<List<AudioDeviceInfo>> listOutputAudioDevices() =>
     RustLib.instance.api.crateApiListOutputAudioDevices();
 
-Future<AudioDeviceInfo> getLoopbackDevice({required String nameHint}) =>
-    RustLib.instance.api.crateApiGetLoopbackDevice(nameHint: nameHint);
-
 Future<String> startSession({required SessionConfig config}) =>
     RustLib.instance.api.crateApiStartSession(config: config);
 
@@ -80,14 +68,6 @@ Future<void> toggleSpeaker({
 }) => RustLib.instance.api.crateApiToggleSpeaker(
   sessionId: sessionId,
   enabled: enabled,
-);
-
-Future<void> setSessionMode({
-  required String sessionId,
-  required SessionMode mode,
-}) => RustLib.instance.api.crateApiSetSessionMode(
-  sessionId: sessionId,
-  mode: mode,
 );
 
 Future<SessionStatus> getSessionStatus({required String sessionId}) =>
@@ -212,15 +192,6 @@ Future<List<ExportedFile>> exportSessionAudio({
   outputDir: outputDir,
   title: title,
 );
-
-/// Sanitize a candidate filename so it is safe to use on all target
-/// filesystems (Windows/macOS/Linux). Falls back to "untitled" when the
-/// input would otherwise be empty after stripping.
-Future<String> exportSanitizeFilename({required String raw}) =>
-    RustLib.instance.api.crateApiExportSanitizeFilename(raw: raw);
-
-Future<AudioBuffer> decodeAudioFile({required String path}) =>
-    RustLib.instance.api.crateApiDecodeAudioFile(path: path);
 
 /// HPT file transcription: quick pass (base) then refine pass
 /// (large-v3-turbo-q5) over the same decoded audio. UI shows
@@ -373,14 +344,8 @@ Future<BigInt> flightEntryCount() =>
 Future<void> flightSetEnabled({required bool enabled}) =>
     RustLib.instance.api.crateApiFlightSetEnabled(enabled: enabled);
 
-Future<bool> isAnotherInstanceRunning() =>
-    RustLib.instance.api.crateApiIsAnotherInstanceRunning();
-
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
-
-Future<void> releaseInstanceLock() =>
-    RustLib.instance.api.crateApiReleaseInstanceLock();
 
 /// Result of an HPT (dual-model) file transcription: the quick pass from
 /// `base` (`is_partial = true`) and the refined pass from

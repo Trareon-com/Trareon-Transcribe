@@ -11,7 +11,6 @@ import 'audio.dart';
 import 'audio/device.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'decode.dart';
 import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
@@ -39,19 +38,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
-  AppConfig dco_decode_app_config(dynamic raw);
-
-  @protected
   AppSettings dco_decode_app_settings(dynamic raw);
 
   @protected
-  AudioBuffer dco_decode_audio_buffer(dynamic raw);
-
-  @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
-
-  @protected
-  AutoSplitReason dco_decode_auto_split_reason(dynamic raw);
 
   @protected
   BatchFileOutcome dco_decode_batch_file_outcome(dynamic raw);
@@ -69,15 +59,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppSettings dco_decode_box_autoadd_app_settings(dynamic raw);
 
   @protected
-  AutoSplitReason dco_decode_box_autoadd_auto_split_reason(dynamic raw);
-
-  @protected
   BatchProgressSnapshot dco_decode_box_autoadd_batch_progress_snapshot(
     dynamic raw,
   );
-
-  @protected
-  bool dco_decode_box_autoadd_bool(dynamic raw);
 
   @protected
   (BigInt, BigInt) dco_decode_box_autoadd_record_u_64_u_64(dynamic raw);
@@ -168,9 +152,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> dco_decode_list_model_info(dynamic raw);
 
   @protected
-  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
-
-  @protected
   Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
   @protected
@@ -201,15 +182,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
-  AutoSplitReason? dco_decode_opt_box_autoadd_auto_split_reason(dynamic raw);
-
-  @protected
   BatchProgressSnapshot? dco_decode_opt_box_autoadd_batch_progress_snapshot(
     dynamic raw,
   );
-
-  @protected
-  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
@@ -227,9 +202,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
-
-  @protected
-  (bool, bool) dco_decode_record_bool_bool(dynamic raw);
 
   @protected
   (String, String) dco_decode_record_string_string(dynamic raw);
@@ -309,19 +281,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
-  AppConfig sse_decode_app_config(SseDeserializer deserializer);
-
-  @protected
   AppSettings sse_decode_app_settings(SseDeserializer deserializer);
 
   @protected
-  AudioBuffer sse_decode_audio_buffer(SseDeserializer deserializer);
-
-  @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
-
-  @protected
-  AutoSplitReason sse_decode_auto_split_reason(SseDeserializer deserializer);
 
   @protected
   BatchFileOutcome sse_decode_batch_file_outcome(SseDeserializer deserializer);
@@ -341,17 +304,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppSettings sse_decode_box_autoadd_app_settings(SseDeserializer deserializer);
 
   @protected
-  AutoSplitReason sse_decode_box_autoadd_auto_split_reason(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   BatchProgressSnapshot sse_decode_box_autoadd_batch_progress_snapshot(
     SseDeserializer deserializer,
   );
-
-  @protected
-  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt) sse_decode_box_autoadd_record_u_64_u_64(
@@ -458,9 +413,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> sse_decode_list_model_info(SseDeserializer deserializer);
 
   @protected
-  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
-
-  @protected
   Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -499,17 +451,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
-  AutoSplitReason? sse_decode_opt_box_autoadd_auto_split_reason(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   BatchProgressSnapshot? sse_decode_opt_box_autoadd_batch_progress_snapshot(
     SseDeserializer deserializer,
   );
-
-  @protected
-  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
@@ -531,9 +475,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProgressiveFileResult sse_decode_progressive_file_result(
     SseDeserializer deserializer,
   );
-
-  @protected
-  (bool, bool) sse_decode_record_bool_bool(SseDeserializer deserializer);
 
   @protected
   (String, String) sse_decode_record_string_string(
@@ -622,23 +563,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
-  void sse_encode_app_config(AppConfig self, SseSerializer serializer);
-
-  @protected
   void sse_encode_app_settings(AppSettings self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_audio_buffer(AudioBuffer self, SseSerializer serializer);
 
   @protected
   void sse_encode_audio_device_info(
     AudioDeviceInfo self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_auto_split_reason(
-    AutoSplitReason self,
     SseSerializer serializer,
   );
 
@@ -670,19 +599,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_auto_split_reason(
-    AutoSplitReason self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_box_autoadd_batch_progress_snapshot(
     BatchProgressSnapshot self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_record_u_64_u_64(
@@ -811,12 +731,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_prim_f_32_strict(
-    Float32List self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_prim_u_32_strict(
     Uint32List self,
     SseSerializer serializer,
@@ -865,19 +779,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_box_autoadd_auto_split_reason(
-    AutoSplitReason? self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_opt_box_autoadd_batch_progress_snapshot(
     BatchProgressSnapshot? self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_record_u_64_u_64(
@@ -902,9 +807,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ProgressiveFileResult self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_record_bool_bool((bool, bool) self, SseSerializer serializer);
 
   @protected
   void sse_encode_record_string_string(
