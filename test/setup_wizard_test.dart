@@ -85,7 +85,7 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
       Stream.fromIterable([0.0, 0.5, 1.0]);
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

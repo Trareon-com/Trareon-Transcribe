@@ -50,9 +50,12 @@ abstract class RustBridge {
   /// The caller must start the download via [downloadModel] first.
   Stream<double> downloadProgress();
 
-  /// Transcribe a batch of audio/video files using the given model.
-  /// Returns a list of transcription results, one per file.
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  /// Transcribes every file in [files] against a single loaded model.
+  ///
+  /// Pass the whole queue in one call: loading the model is the expensive
+  /// step, so a per-file loop pays it once per file. Returns one outcome per
+  /// input file, carrying either the transcript or the error.
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -337,7 +340,7 @@ class RustBridgeMock implements RustBridge {
       Stream.periodic(const Duration(milliseconds: 300), (i) => (i + 1) / 10.0).take(10);
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,
@@ -599,7 +602,7 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

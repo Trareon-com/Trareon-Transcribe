@@ -51,6 +51,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AutoSplitReason dco_decode_auto_split_reason(dynamic raw);
 
   @protected
+  BatchFileOutcome dco_decode_batch_file_outcome(dynamic raw);
+
+  @protected
   BatchFileStatus dco_decode_batch_file_status(dynamic raw);
 
   @protected
@@ -91,6 +94,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SummaryConfig dco_decode_box_autoadd_summary_config(dynamic raw);
 
   @protected
+  TranscribeFileResult dco_decode_box_autoadd_transcribe_file_result(
+    dynamic raw,
+  );
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -122,6 +130,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
+
+  @protected
+  List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
 
   @protected
   List<Check> dco_decode_list_check(dynamic raw);
@@ -159,11 +170,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<TranscribeFileResult> dco_decode_list_transcribe_file_result(
-    dynamic raw,
-  );
-
-  @protected
   ModelInfo dco_decode_model_info(dynamic raw);
 
   @protected
@@ -185,6 +191,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
+
+  @protected
+  TranscribeFileResult? dco_decode_opt_box_autoadd_transcribe_file_result(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -291,6 +302,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AutoSplitReason sse_decode_auto_split_reason(SseDeserializer deserializer);
 
   @protected
+  BatchFileOutcome sse_decode_batch_file_outcome(SseDeserializer deserializer);
+
+  @protected
   BatchFileStatus sse_decode_batch_file_status(SseDeserializer deserializer);
 
   @protected
@@ -341,6 +355,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  TranscribeFileResult sse_decode_box_autoadd_transcribe_file_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -372,6 +391,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AudioDeviceInfo> sse_decode_list_audio_device_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BatchFileOutcome> sse_decode_list_batch_file_outcome(
     SseDeserializer deserializer,
   );
 
@@ -419,11 +443,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<TranscribeFileResult> sse_decode_list_transcribe_file_result(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   ModelInfo sse_decode_model_info(SseDeserializer deserializer);
 
   @protected
@@ -449,6 +468,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TranscribeFileResult? sse_decode_opt_box_autoadd_transcribe_file_result(
     SseDeserializer deserializer,
   );
 
@@ -574,6 +598,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_batch_file_outcome(
+    BatchFileOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_batch_file_status(
     BatchFileStatus self,
     SseSerializer serializer,
@@ -637,6 +667,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_transcribe_file_result(
+    TranscribeFileResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
@@ -669,6 +705,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_audio_device_info(
     List<AudioDeviceInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_batch_file_outcome(
+    List<BatchFileOutcome> self,
     SseSerializer serializer,
   );
 
@@ -733,12 +775,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_transcribe_file_result(
-    List<TranscribeFileResult> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
 
   @protected
@@ -768,6 +804,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_record_u_64_u_64(
     (BigInt, BigInt)? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_transcribe_file_result(
+    TranscribeFileResult? self,
     SseSerializer serializer,
   );
 

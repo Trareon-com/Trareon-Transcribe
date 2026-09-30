@@ -2910,6 +2910,23 @@ impl SseDecode for crate::session::AutoSplitReason {
     }
 }
 
+impl SseDecode for crate::stt::file::BatchFileOutcome {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_filename = <String>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_result =
+            <Option<crate::stt::file::TranscribeFileResult>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::stt::file::BatchFileOutcome {
+            filename: var_filename,
+            path: var_path,
+            result: var_result,
+            error: var_error,
+        };
+    }
+}
+
 impl SseDecode for crate::stt::file::BatchFileStatus {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3076,6 +3093,20 @@ impl SseDecode for Vec<crate::audio::device::AudioDeviceInfo> {
     }
 }
 
+impl SseDecode for Vec<crate::stt::file::BatchFileOutcome> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::stt::file::BatchFileOutcome>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::doctor::Check> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3210,20 +3241,6 @@ impl SseDecode for Vec<crate::session::SessionRecoverySnapshot> {
     }
 }
 
-impl SseDecode for Vec<crate::stt::file::TranscribeFileResult> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = Vec::with_capacity(len_ as usize);
-        for idx_ in 0..len_ {
-            ans_.push(<crate::stt::file::TranscribeFileResult>::sse_decode(
-                deserializer,
-            ));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for crate::model::ModelInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3310,6 +3327,19 @@ impl SseDecode for Option<(u64, u64)> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<(u64, u64)>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::stt::file::TranscribeFileResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::stt::file::TranscribeFileResult>::sse_decode(
+                deserializer,
+            ));
         } else {
             return None;
         }
@@ -3952,6 +3982,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::session::AutoSplitReason>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchFileOutcome {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.filename.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.result.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::stt::file::BatchFileOutcome
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::stt::file::BatchFileOutcome>
+    for crate::stt::file::BatchFileOutcome
+{
+    fn into_into_dart(self) -> crate::stt::file::BatchFileOutcome {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchFileStatus {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -4543,6 +4596,16 @@ impl SseEncode for crate::session::AutoSplitReason {
     }
 }
 
+impl SseEncode for crate::stt::file::BatchFileOutcome {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.filename, serializer);
+        <String>::sse_encode(self.path, serializer);
+        <Option<crate::stt::file::TranscribeFileResult>>::sse_encode(self.result, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+    }
+}
+
 impl SseEncode for crate::stt::file::BatchFileStatus {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4698,6 +4761,16 @@ impl SseEncode for Vec<crate::audio::device::AudioDeviceInfo> {
     }
 }
 
+impl SseEncode for Vec<crate::stt::file::BatchFileOutcome> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::stt::file::BatchFileOutcome>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::doctor::Check> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4808,16 +4881,6 @@ impl SseEncode for Vec<crate::session::SessionRecoverySnapshot> {
     }
 }
 
-impl SseEncode for Vec<crate::stt::file::TranscribeFileResult> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <crate::stt::file::TranscribeFileResult>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for crate::model::ModelInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4887,6 +4950,16 @@ impl SseEncode for Option<(u64, u64)> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <(u64, u64)>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::stt::file::TranscribeFileResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::stt::file::TranscribeFileResult>::sse_encode(value, serializer);
         }
     }
 }

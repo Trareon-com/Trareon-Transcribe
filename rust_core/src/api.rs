@@ -326,33 +326,48 @@ pub fn progressive_transcribe_file(
 
 // --- File transcription (batch) -----------------------------------------------------
 
+/// Transcribes every file in `files` against a single loaded model.
+///
+/// Loading the model is the expensive part (≈550 MB for large-v3-turbo-q5),
+/// so callers should pass the whole queue in one call rather than looping
+/// per file. Returns one outcome per input file, in input order, carrying
+/// either the transcript or the error — so a single bad file no longer
+/// disappears from the results without explanation.
 pub fn transcribe_files_batch(
     model_path: String,
     files: Vec<String>,
     language: Option<String>,
     gpu_enabled: bool,
     gpu_device: i32,
-) -> Result<Vec<crate::stt::file::TranscribeFileResult>, TranscribeError> {
+) -> Result<Vec<crate::stt::file::BatchFileOutcome>, TranscribeError> {
     let engine = crate::stt::WhisperEngine::load_with_gpu(
         &PathBuf::from(&model_path),
         gpu_enabled,
         gpu_device,
     )?;
     let file_paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
-    let mut results = Vec::new();
+    let mut outcomes = Vec::with_capacity(file_paths.len());
 
     crate::stt::file::transcribe_files_batch(
         &engine,
         &file_paths,
         language.as_deref(),
         |progress| {
-            if let Some(result) = progress.result {
-                results.push(result);
+            // Decoding is an interim status; only terminal states produce an
+            // outcome, otherwise every file would be reported twice.
+            if progress.result.is_none() && progress.error.is_none() {
+                return;
             }
+            outcomes.push(crate::stt::file::BatchFileOutcome {
+                filename: progress.filename,
+                path: files.get(progress.file_index).cloned().unwrap_or_default(),
+                result: progress.result,
+                error: progress.error,
+            });
         },
     );
 
-    Ok(results)
+    Ok(outcomes)
 }
 
 /// Which file [`transcribe_files_batch`] is currently on. Poll this while the

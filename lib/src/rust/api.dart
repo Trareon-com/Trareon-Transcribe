@@ -197,7 +197,14 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   gpuDevice: gpuDevice,
 );
 
-Future<List<TranscribeFileResult>> transcribeFilesBatch({
+/// Transcribes every file in `files` against a single loaded model.
+///
+/// Loading the model is the expensive part (≈550 MB for large-v3-turbo-q5),
+/// so callers should pass the whole queue in one call rather than looping
+/// per file. Returns one outcome per input file, in input order, carrying
+/// either the transcript or the error — so a single bad file no longer
+/// disappears from the results without explanation.
+Future<List<BatchFileOutcome>> transcribeFilesBatch({
   required String modelPath,
   required List<String> files,
   String? language,

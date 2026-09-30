@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
+import '../services/session_store.dart';
 import '../src/rust/audio.dart' as rust_audio;
+import '../src/rust/export.dart' as rust_export;
 import '../src/rust/session.dart' as rust_session;
 import 'models.dart';
 import 'settings_model.dart';
@@ -73,6 +76,10 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
   String _libraryPath = '~/Documents/TrareonTranscribe';
+  // Recorded into the session's metadata sidecar on stop, so the library and
+  // "Transkrip Ulang" know what produced the transcript.
+  String? _language;
+  String _modelId = 'base';
 
   SessionNotifier(
     this._bridge,
@@ -294,8 +301,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       // transcript failed to save — previously a failed auto-save here was
       // silently lost with zero feedback, leaving the user unable to tell
       // a real save from a failed one.
+      final List<rust_export.ExportedFile> exported;
       try {
-        await _bridge.exportSession(
+        exported = await _bridge.exportSession(
           segments: segments,
           outputDir: outputDir,
           title: title,
@@ -305,9 +313,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
           'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
         );
       }
-      // Best-effort: the transcript (the primary artifact) already saved
-      // successfully above, so a raw-audio export failure here shouldn't
-      // surface as a save error to the user — swallow it.
+      // Best-effort from here on: the transcript (the primary artifact) is
+      // already saved, so a failure writing the raw audio or the metadata
+      // sidecar shouldn't surface as a save error to the user.
       try {
         await _bridge.exportSessionAudio(
           sessionId: id,
@@ -315,6 +323,22 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
           title: title,
         );
       } catch (_) {}
+      // The sidecar gives the library the user-facing title (instead of the
+      // date-prefixed folder name) and gives "Transkrip Ulang" the model and
+      // language this session was recorded with.
+      if (exported.isNotEmpty) {
+        try {
+          final sessionDir = File(exported.first.path).parent.path;
+          await writeSessionMeta(
+            sessionDir,
+            SessionMeta(
+              title: title,
+              language: _language,
+              model: _modelId,
+            ),
+          );
+        } catch (_) {}
+      }
     }
   }
 
@@ -391,6 +415,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       return;
     }
     _autoStopMinutes = settings.autoStopMinutes;
+    _language = settings.language;
+    _modelId = settings.defaultModel;
     final (mic, speaker) = settings.defaultMode.defaultToggles;
     // HPT: quick pass uses the default model; refine pass always targets
     // large-v3-turbo-q5 when progressive is enabled (and the quick model

@@ -1,15 +1,18 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import '../services/session_store.dart';
+import '../utils/model_labels.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../widgets/export_dialog.dart';
+import '../widgets/retranscribe_dialog.dart';
+import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
 
 class TranscriptPlayerScreen extends ConsumerStatefulWidget {
@@ -19,6 +22,15 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
   final String? audioPath;
   final ValueChanged<List<TranscriptSegment>>? onSegmentsChanged;
 
+  /// Session directory. Required for the summary sidecar and re-transcribe;
+  /// when null (e.g. a live session not yet saved) both are hidden rather
+  /// than offered and then failing on save.
+  final String? sessionDirPath;
+
+  /// Sidecar contents, so the summary panel opens with the saved summary
+  /// instead of flashing empty while it re-reads the file.
+  final SessionMeta meta;
+
   const TranscriptPlayerScreen({
     super.key,
     required this.title,
@@ -26,6 +38,8 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
     required this.segments,
     this.audioPath,
     this.onSegmentsChanged,
+    this.sessionDirPath,
+    this.meta = SessionMeta.empty,
   });
 
   @override
@@ -44,12 +58,17 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   String? _error;
   Timer? _persistDebounce;
 
+  /// Latest saved summary, kept here so "Ekspor" can lead the Markdown/DOCX
+  /// with it without re-reading the sidecar.
+  late String _summary;
+
   static const _speedOptions = [0.5, 1.0, 1.25, 1.5, 2.0];
 
   @override
   void initState() {
     super.initState();
     _segments = List.of(widget.segments);
+    _summary = widget.meta.summary;
     _initPlayer();
   }
 
@@ -107,31 +126,67 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     _persistDebounce = Timer(const Duration(milliseconds: 400), _persistSegments);
   }
 
+  /// Resolves the session directory. Prefers the explicit path; falls back to
+  /// the audio file's parent for callers that only know where the audio is.
+  String? get _sessionDirPath =>
+      widget.sessionDirPath ??
+      (widget.audioPath != null ? File(widget.audioPath!).parent.path : null);
+
   Future<void> _persistSegments() async {
-    if (widget.audioPath == null) return;
+    final dirPath = _sessionDirPath;
+    if (dirPath == null) return;
     try {
-      final sessionDir = File(widget.audioPath!).parent;
-      // Find existing .json file or default to transcript.json
-      final existing = sessionDir
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.json'))
-          .firstOrNull;
-      final jsonFile = existing ?? File('${sessionDir.path}/transcript.json');
-      final json = jsonEncode(_segments.map((s) => {
-        'source': s.source,
-        'speaker': s.speaker,
-        'text': s.text,
-        'timestamp': s.timestamp,
-        'duration': s.duration,
-        'language': s.language,
-        'confidence': s.confidence,
-        'is_partial': s.isPartial,
-      }).toList());
-      await jsonFile.writeAsString(json);
+      final sessionDir = Directory(dirPath);
+      // transcriptFileIn() skips the metadata sidecar — it is also JSON, and
+      // overwriting it with a segment array would drop the saved summary.
+      final jsonFile =
+          transcriptFileIn(sessionDir) ??
+          File('${sessionDir.path}${Platform.pathSeparator}transcript.json');
+      await jsonFile.writeAsString(encodeTranscriptJson(_segments));
     } catch (e) {
       debugPrint('_persistSegments error: $e');
     }
+  }
+
+  /// Replaces the transcript with a re-run over the same audio, then persists
+  /// it. The summary is deliberately left alone: it may have been edited by
+  /// hand, and silently discarding it would be worse than letting the user
+  /// press "Buat Ulang" themselves.
+  Future<void> _retranscribe() async {
+    final audioPath = widget.audioPath;
+    final dirPath = _sessionDirPath;
+    if (audioPath == null || dirPath == null) return;
+
+    final result = await showRetranscribeDialog(
+      context,
+      audioPath: audioPath,
+      currentModel: widget.meta.model,
+      currentLanguage: widget.meta.language,
+    );
+    if (result == null || !mounted) return;
+
+    setState(() => _segments = result.segments);
+    widget.onSegmentsChanged?.call(List.unmodifiable(_segments));
+    await _persistSegments();
+    try {
+      final existing = await readSessionMeta(dirPath);
+      await writeSessionMeta(
+        dirPath,
+        existing.copyWith(model: result.modelId, language: result.language),
+      );
+    } catch (_) {
+      // Sidecar bookkeeping only — the transcript itself is already saved.
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Transkrip diperbarui: ${result.segments.length} segmen '
+          '(${modelDisplayLabel(result.modelId)}).',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   String _formatTime(double secs) {
@@ -208,6 +263,14 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       ),
       body: Column(
         children: [
+          if (_sessionDirPath != null)
+            SummaryPanel(
+              sessionDirPath: _sessionDirPath!,
+              segments: () => _segments,
+              initialMeta: widget.meta,
+              onSummaryChanged: (text) => setState(() => _summary = text),
+            ),
+
           // Transcript
           Expanded(
             child: TranscriptView(
@@ -323,6 +386,30 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (widget.audioPath != null && _sessionDirPath != null) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text(
+                          'Transkrip Ulang',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        onPressed: _retranscribe,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.primary,
+                          side: BorderSide(
+                            color: colors.primary.withValues(alpha: 0.3),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     OutlinedButton.icon(
                       icon: const Icon(Icons.upload_outlined, size: 16),
                       label: const Text('Ekspor', style: TextStyle(fontSize: 13)),
@@ -347,7 +434,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   }
 
   Future<void> _exportTranscript(BuildContext context) async {
-    final summary = SessionSummary(
+    final sessionSummary = SessionSummary(
       id: widget.title,
       title: widget.title,
       date: DateTime.now().toIso8601String().substring(0, 10),
@@ -371,10 +458,11 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     final settings = ref.read(settingsProvider);
     await showEksporDialog(
       context,
-      summary,
+      sessionSummary,
       bridge: bridge,
       defaultOutputDir: defaultDir,
       defaultFormat: settings.defaultExportFormat,
+      summary: _summary,
     );
   }
 }

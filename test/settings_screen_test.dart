@@ -57,7 +57,7 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   Stream<double> downloadProgress() => const Stream.empty();
 
   @override
-  Future<List<rust_stt_file.TranscribeFileResult>> batchTranscribeFiles({
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
     required String modelPath,
     required List<String> files,
     String? language,

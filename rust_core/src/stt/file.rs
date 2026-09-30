@@ -90,6 +90,22 @@ pub struct BatchFileProgress {
     pub error: Option<String>,
 }
 
+/// Per-file result of a batch run: either a transcript or the reason there
+/// isn't one.
+///
+/// `transcribe_files_batch` reports failures through its progress callback,
+/// but the FRB wrapper used to keep only the successes — so an import where
+/// one file was corrupt came back silently short, with no way for the UI to
+/// say which file failed or why.
+#[derive(Debug, Clone, Serialize)]
+pub struct BatchFileOutcome {
+    pub filename: String,
+    /// The path as passed in, so the caller can match outcomes to its queue.
+    pub path: String,
+    pub result: Option<TranscribeFileResult>,
+    pub error: Option<String>,
+}
+
 /// Which file a batch run is currently on, without the (potentially huge)
 /// segment payload.
 ///

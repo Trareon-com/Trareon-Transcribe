@@ -7,6 +7,43 @@ import '../export.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// Per-file result of a batch run: either a transcript or the reason there
+/// isn't one.
+///
+/// `transcribe_files_batch` reports failures through its progress callback,
+/// but the FRB wrapper used to keep only the successes — so an import where
+/// one file was corrupt came back silently short, with no way for the UI to
+/// say which file failed or why.
+class BatchFileOutcome {
+  final String filename;
+
+  /// The path as passed in, so the caller can match outcomes to its queue.
+  final String path;
+  final TranscribeFileResult? result;
+  final String? error;
+
+  const BatchFileOutcome({
+    required this.filename,
+    required this.path,
+    this.result,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      filename.hashCode ^ path.hashCode ^ result.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchFileOutcome &&
+          runtimeType == other.runtimeType &&
+          filename == other.filename &&
+          path == other.path &&
+          result == other.result &&
+          error == other.error;
+}
+
 enum BatchFileStatus { queued, decoding, transcribing, done, error }
 
 /// Which file a batch run is currently on, without the (potentially huge)
