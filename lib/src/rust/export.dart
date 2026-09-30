@@ -6,6 +6,32 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// A marker the notulis dropped during the meeting (F9).
+///
+/// One keystroke during a three-hour rapat is the workflow this replaces:
+/// before this existed, flagging "this is the decision" meant writing the
+/// wall-clock time on paper.
+class Bookmark {
+  /// Offset into the recording, in seconds.
+  final double timestamp;
+
+  /// Optional one-line note. Empty is normal — the timestamp is the point.
+  final String note;
+
+  const Bookmark({required this.timestamp, required this.note});
+
+  @override
+  int get hashCode => timestamp.hashCode ^ note.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Bookmark &&
+          runtimeType == other.runtimeType &&
+          timestamp == other.timestamp &&
+          note == other.note;
+}
+
 enum ExportFormat { markdown, txt, json, srt, vtt, html, docx }
 
 class ExportedFile {

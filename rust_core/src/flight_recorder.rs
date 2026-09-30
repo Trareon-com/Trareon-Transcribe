@@ -46,6 +46,18 @@ const MESSAGE_CAP: usize = 500;
 /// Default file name inside the app-support / config directory.
 pub const FILE_NAME: &str = "flight_recorder.jsonl";
 
+/// Size at which the active log is rotated to `flight_recorder.1.jsonl`.
+///
+/// Entry trimming alone keeps the file small but throws the *oldest* events
+/// away, and the oldest events are usually the interesting ones — the ones
+/// from before the crash the user is reporting. Rotation keeps two previous
+/// generations so "Ekspor Log Diagnostik" after a restart still contains the
+/// session that failed.
+pub const MAX_FILE_BYTES: u64 = 1_048_576;
+
+/// How many rotated generations to keep besides the active file.
+pub const GENERATIONS: usize = 2;
+
 /// Fallback location used when `init` was never called (defense in
 /// depth): `$XDG_CONFIG_HOME/trareon-transcribe/` on Linux/macOS.
 pub const FALLBACK_SUBDIR: &str = "trareon-transcribe";
@@ -161,6 +173,54 @@ fn append(event: Value) {
     if should_trim {
         trim(&path, max_entries);
     }
+    // Cheap: one `metadata` call per write, no read of the file contents.
+    if fs::metadata(&path).is_ok_and(|m| m.len() > MAX_FILE_BYTES) {
+        rotate(&path);
+    }
+}
+
+/// Generation `n` of the log: 0 is the active file, 1..=[`GENERATIONS`] the
+/// rotated ones (`flight_recorder.1.jsonl`).
+fn generation_path(path: &Path, generation: usize) -> PathBuf {
+    if generation == 0 {
+        return path.to_path_buf();
+    }
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "flight_recorder".to_string());
+    let extension = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_else(|| "jsonl".to_string());
+    path.with_file_name(format!("{stem}.{generation}.{extension}"))
+}
+
+/// Shifts every generation down by one and starts a fresh active file.
+/// Every failure is swallowed — a log that cannot rotate must not take the
+/// application with it.
+fn rotate(path: &Path) {
+    let oldest = generation_path(path, GENERATIONS);
+    let _ = fs::remove_file(&oldest);
+    for generation in (0..GENERATIONS).rev() {
+        let from = generation_path(path, generation);
+        let to = generation_path(path, generation + 1);
+        if from.exists() {
+            let _ = fs::rename(&from, &to);
+        }
+    }
+}
+
+/// Every log file that currently exists, newest first. Used by
+/// [`diagnostics_bundle`].
+pub fn log_files() -> Vec<PathBuf> {
+    let Some(path) = resolve_path() else {
+        return Vec::new();
+    };
+    (0..=GENERATIONS)
+        .map(|generation| generation_path(&path, generation))
+        .filter(|candidate| candidate.exists())
+        .collect()
 }
 
 fn trim(path: &Path, max_entries: usize) {
@@ -268,6 +328,75 @@ pub fn entry_count() -> usize {
         return 0;
     };
     BufReader::new(file).lines().count()
+}
+
+// ── "Ekspor Log Diagnostik" ────────────────────────────────────────────
+
+/// Entry name of the doctor report inside the bundle.
+const DOCTOR_ENTRY: &str = "doctor.txt";
+/// Entry name of the environment summary inside the bundle.
+const ENV_ENTRY: &str = "lingkungan.txt";
+
+/// Writes a `.zip` containing every rotated log generation plus the preflight
+/// ("doctor") report, and returns the path written.
+///
+/// # What is and is not in the bundle
+///
+/// The flight recorder records *metadata only* by construction — lifecycle
+/// transitions, segment counts, error strings from the bridge — so there is no
+/// transcript text, no audio and no file path from the user's library to leak.
+/// `doctor_report` is the same text the Diagnostics screen shows. Nothing else
+/// is added: [`diagnostics_entries`] is the exhaustive list, and a test pins it
+/// so a future "let's also include the transcript" cannot slip in unnoticed.
+///
+/// Writes atomically (temp + rename) like every other persisted file in the
+/// project, so a half-written zip is never left behind for a user to email.
+pub fn write_diagnostics_bundle(
+    destination: &Path,
+    doctor_report: &str,
+    environment: &str,
+) -> std::io::Result<PathBuf> {
+    let entries = diagnostics_entries(doctor_report, environment);
+    let mut buffer = std::io::Cursor::new(Vec::new());
+    {
+        let mut writer = zip::ZipWriter::new(&mut buffer);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        for (name, content) in &entries {
+            writer
+                .start_file(name.as_str(), options)
+                .map_err(std::io::Error::other)?;
+            writer.write_all(content.as_bytes())?;
+        }
+        writer.finish().map_err(std::io::Error::other)?;
+    }
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let temp = PathBuf::from(format!("{}.tmp", destination.display()));
+    fs::write(&temp, buffer.into_inner())?;
+    if fs::rename(&temp, destination).is_err() {
+        fs::copy(&temp, destination)?;
+        let _ = fs::remove_file(&temp);
+    }
+    Ok(destination.to_path_buf())
+}
+
+/// `(entry name, contents)` pairs that [`write_diagnostics_bundle`] packs.
+/// Exposed so the contents can be asserted without unzipping anything.
+pub fn diagnostics_entries(doctor_report: &str, environment: &str) -> Vec<(String, String)> {
+    let mut entries = vec![
+        (DOCTOR_ENTRY.to_string(), doctor_report.to_string()),
+        (ENV_ENTRY.to_string(), environment.to_string()),
+    ];
+    for path in log_files() {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| FILE_NAME.to_string());
+        entries.push((name, fs::read_to_string(&path).unwrap_or_default()));
+    }
+    entries
 }
 
 #[cfg(test)]
@@ -522,6 +651,128 @@ mod tests {
         let name = p.file_name().unwrap().to_str().unwrap();
         assert_eq!(name, FILE_NAME);
         assert!(p.to_string_lossy().contains(FALLBACK_SUBDIR));
+    }
+
+    // ── rotation ───────────────────────────────────────────────────────
+
+    #[test]
+    fn generation_paths_are_numbered_siblings() {
+        let base = Path::new("/tmp/x/flight_recorder.jsonl");
+        assert_eq!(generation_path(base, 0), base);
+        assert_eq!(
+            generation_path(base, 1),
+            Path::new("/tmp/x/flight_recorder.1.jsonl")
+        );
+    }
+
+    #[test]
+    fn rotation_shifts_generations_and_drops_the_oldest() {
+        let _g = serial();
+        let file = init_temp("rotate");
+        fs::write(&file, "aktif\n").unwrap();
+        fs::write(generation_path(&file, 1), "satu\n").unwrap();
+        fs::write(generation_path(&file, 2), "dua\n").unwrap();
+
+        rotate(&file);
+
+        assert!(!file.exists(), "a fresh active file starts empty");
+        assert_eq!(
+            fs::read_to_string(generation_path(&file, 1)).unwrap(),
+            "aktif\n"
+        );
+        assert_eq!(
+            fs::read_to_string(generation_path(&file, 2)).unwrap(),
+            "satu\n"
+        );
+        // "dua" was generation GENERATIONS and is gone — the log is bounded.
+        assert!(!generation_path(&file, 3).exists());
+    }
+
+    #[test]
+    fn an_oversized_log_rotates_on_the_next_write() {
+        let _g = serial();
+        let file = init_temp("rotate-size");
+        fs::write(&file, "x".repeat(MAX_FILE_BYTES as usize + 1)).unwrap();
+        log_lifecycle("s1", "a", "b");
+        // The event landed in the file that was then rotated away, so the
+        // active file is empty and generation 1 holds it.
+        let rotated = fs::read_to_string(generation_path(&file, 1)).unwrap();
+        assert!(
+            rotated.contains("\"session\":\"s1\""),
+            "got: {}",
+            &rotated[rotated.len().saturating_sub(200)..]
+        );
+        assert!(!file.exists() || fs::read_to_string(&file).unwrap().is_empty());
+    }
+
+    #[test]
+    fn log_files_lists_every_generation_that_exists() {
+        let _g = serial();
+        let file = init_temp("generations");
+        fs::write(&file, "a\n").unwrap();
+        fs::write(generation_path(&file, 1), "b\n").unwrap();
+        let files = log_files();
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0], file, "newest first");
+    }
+
+    // ── diagnostics bundle ─────────────────────────────────────────────
+
+    #[test]
+    fn diagnostics_bundle_contains_exactly_the_logs_and_the_doctor_report() {
+        let _g = serial();
+        let file = init_temp("bundle");
+        log_lifecycle("s1", "started", "stopped");
+        fs::write(generation_path(&file, 1), "lama\n").unwrap();
+
+        let entries = diagnostics_entries("PREFLIGHT OK", "Linux x86_64");
+        let names: Vec<&str> = entries.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                DOCTOR_ENTRY,
+                ENV_ENTRY,
+                "flight_recorder.jsonl",
+                "flight_recorder.1.jsonl"
+            ],
+            "the bundle's contents are a fixed list — nothing else may join it"
+        );
+        assert_eq!(entries[0].1, "PREFLIGHT OK");
+        assert!(entries[2].1.contains("\"type\":\"lifecycle\""));
+        assert_eq!(entries[3].1, "lama\n");
+        // Nothing the recorder writes carries transcript content.
+        for (name, content) in &entries {
+            assert!(
+                !content.contains("\"text\""),
+                "{name} carries transcript content"
+            );
+        }
+    }
+
+    #[test]
+    fn diagnostics_bundle_is_a_zip_written_atomically() {
+        let _g = serial();
+        init_temp("bundle-zip");
+        log_system("boot", None);
+        let dir = temp_dir("bundle-out");
+        let destination = dir.join("nested").join("diagnostik.zip");
+
+        let written = write_diagnostics_bundle(&destination, "DOCTOR", "ENV").unwrap();
+        assert_eq!(written, destination);
+        let bytes = fs::read(&destination).unwrap();
+        assert_eq!(&bytes[0..2], b"PK", "must be a real zip container");
+        assert!(
+            !dir.join("nested").join("diagnostik.zip.tmp").exists(),
+            "the temp file must not survive"
+        );
+
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
+        let mut doctor = String::new();
+        std::io::Read::read_to_string(&mut archive.by_name(DOCTOR_ENTRY).unwrap(), &mut doctor)
+            .unwrap();
+        assert_eq!(doctor, "DOCTOR");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

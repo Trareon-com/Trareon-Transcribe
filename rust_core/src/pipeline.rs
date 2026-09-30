@@ -38,6 +38,7 @@ use crate::audio::{HptMode, RingBuffer};
 use crate::diarization::Diarizer;
 use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
+use crate::glossary::GlossaryConfig;
 use crate::progressive::ProgressiveEngine;
 use crate::stt::WhisperEngine;
 use crate::vad::{DualVad, VadConfig, FRAME_SAMPLES_10MS};
@@ -52,6 +53,10 @@ pub struct LivePipeline<'a> {
     language: Option<String>,
     samples_seen: u64,
     last_transcript_tail: String,
+    glossary: GlossaryConfig,
+    /// `glossary.prioritised_terms()`, computed once per session rather than
+    /// per chunk — post-correction runs on every segment.
+    glossary_terms: Vec<String>,
 }
 
 /// Everything a [`LiveWorker`] needs to transcribe one source.
@@ -75,6 +80,9 @@ pub struct LiveWorkerConfig {
     pub vad_enabled: bool,
     pub gpu_enabled: bool,
     pub gpu_device: i32,
+    /// Mirrors `SessionConfig::glossary` — the kamus istilah biases Whisper's
+    /// `initial_prompt` and, optionally, repairs its output.
+    pub glossary: GlossaryConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +152,7 @@ impl LiveWorker {
             source,
             language,
             vad_enabled,
+            glossary,
             ..
         } = config;
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
@@ -160,6 +169,7 @@ impl LiveWorker {
                 language,
                 VadConfig::default(),
                 vad_enabled,
+                glossary,
             ) {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
@@ -275,6 +285,7 @@ impl LiveWorker {
             source,
             language,
             vad_enabled,
+            glossary,
             ..
         } = config;
         let (stop_tx, stop_rx) = std::sync::mpsc::channel();
@@ -291,6 +302,7 @@ impl LiveWorker {
                 language,
                 VadConfig::default(),
                 vad_enabled,
+                glossary,
             ) {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
@@ -646,7 +658,13 @@ impl<'a> LivePipeline<'a> {
         language: Option<String>,
         vad_config: VadConfig,
         vad_enabled: bool,
+        glossary: GlossaryConfig,
     ) -> TranscribeResult<Self> {
+        let glossary_terms = if glossary.post_correction {
+            glossary.prioritised_terms()
+        } else {
+            Vec::new()
+        };
         Ok(Self {
             engine,
             ring: RingBuffer::default(),
@@ -657,6 +675,8 @@ impl<'a> LivePipeline<'a> {
             language,
             samples_seen: 0,
             last_transcript_tail: String::new(),
+            glossary,
+            glossary_terms,
         })
     }
 
@@ -699,12 +719,14 @@ impl<'a> LivePipeline<'a> {
                 .saturating_sub(self.ring.buffered_samples() as u64 + chunk.len() as u64)
                 as f64
                 / 16_000.0;
+            let prompt =
+                crate::glossary::build_initial_prompt(&self.glossary, &self.last_transcript_tail);
             let segments = self.engine.transcribe_chunk(
                 &chunk,
                 &self.source,
                 chunk_start,
                 self.language.as_deref(),
-                Some(&self.last_transcript_tail),
+                Some(&prompt.text),
             )?;
             for mut segment in segments {
                 segment.speaker = self.diarizer.identify_speaker(&self.source, &chunk);
@@ -712,6 +734,7 @@ impl<'a> LivePipeline<'a> {
             }
         }
         crate::progressive::filter_loops(&mut fresh);
+        crate::glossary::correct_segments(&mut fresh, &self.glossary_terms);
         crate::confidence::apply_confidence_routing(&mut fresh);
         if let Some(last) = fresh.last() {
             self.update_prompt_context(&last.text);
@@ -734,6 +757,8 @@ pub struct LivePipelineHpt<'a> {
     source: String,
     language: Option<String>,
     samples_seen: u64,
+    glossary: GlossaryConfig,
+    glossary_terms: Vec<String>,
 }
 
 impl<'a> LivePipelineHpt<'a> {
@@ -743,7 +768,13 @@ impl<'a> LivePipelineHpt<'a> {
         language: Option<String>,
         vad_config: VadConfig,
         vad_enabled: bool,
+        glossary: GlossaryConfig,
     ) -> TranscribeResult<Self> {
+        let glossary_terms = if glossary.post_correction {
+            glossary.prioritised_terms()
+        } else {
+            Vec::new()
+        };
         Ok(Self {
             engine,
             ring: RingBuffer::default(),
@@ -753,6 +784,8 @@ impl<'a> LivePipelineHpt<'a> {
             source: source.into(),
             language,
             samples_seen: 0,
+            glossary,
+            glossary_terms,
         })
     }
 
@@ -783,12 +816,25 @@ impl<'a> LivePipelineHpt<'a> {
                 as f64
                 / 16_000.0;
             let language = self.language.as_deref();
-            let mut quick_segs =
-                self.engine
-                    .transcribe_quick(&chunk, &self.source, chunk_start, language, None)?;
-            let mut refined_segs =
-                self.engine
-                    .transcribe_refine(&chunk, &self.source, chunk_start, language, None)?;
+            // The dual-pass pipeline has never carried a rolling transcript
+            // tail (the quick pass would seed the refine pass with its own
+            // mistakes), so the glossary is the whole prompt here.
+            let prompt = crate::glossary::build_initial_prompt(&self.glossary, "");
+            let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
+            let mut quick_segs = self.engine.transcribe_quick(
+                &chunk,
+                &self.source,
+                chunk_start,
+                language,
+                initial_prompt,
+            )?;
+            let mut refined_segs = self.engine.transcribe_refine(
+                &chunk,
+                &self.source,
+                chunk_start,
+                language,
+                initial_prompt,
+            )?;
             for segment in quick_segs.iter_mut() {
                 segment.speaker = self.diarizer.identify_speaker(&self.source, &chunk);
             }
@@ -802,6 +848,8 @@ impl<'a> LivePipelineHpt<'a> {
         // file-mode HPT in api.rs).
         crate::progressive::filter_loops(&mut quick);
         crate::progressive::filter_loops(&mut refined);
+        crate::glossary::correct_segments(&mut quick, &self.glossary_terms);
+        crate::glossary::correct_segments(&mut refined, &self.glossary_terms);
         crate::confidence::apply_confidence_routing(&mut quick);
         crate::confidence::apply_confidence_routing(&mut refined);
         Ok((quick, refined))

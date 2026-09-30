@@ -45,6 +45,22 @@ class AppSettings {
   /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
   final SummarySettings summary;
 
+  /// Kamus istilah — the persistent global vocabulary list. Empty by
+  /// default, so the feature is inert until the user adds a term.
+  final GlossarySettings glossary;
+
+  /// User-authored summary templates, on top of the four built-ins.
+  final List<CustomSummaryTemplate> summaryTemplates;
+
+  /// Kop surat / signature defaults reused by every "Notulen Rapat" export,
+  /// so a unit kerja types them once rather than per meeting.
+  final NotulenDefaults notulen;
+
+  /// Re-run the transcript with the accurate model in the background after
+  /// the meeting. `None` = ask nothing and decide from the live model:
+  /// default ON when the live pass used the quick model.
+  final bool? autoRetranscribe;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -61,6 +77,10 @@ class AppSettings {
     required this.progressiveEnabled,
     required this.audioToDisk,
     required this.summary,
+    required this.glossary,
+    required this.summaryTemplates,
+    required this.notulen,
+    this.autoRetranscribe,
   });
 
   @override
@@ -79,7 +99,11 @@ class AppSettings {
       autoStopMinutes.hashCode ^
       progressiveEnabled.hashCode ^
       audioToDisk.hashCode ^
-      summary.hashCode;
+      summary.hashCode ^
+      glossary.hashCode ^
+      summaryTemplates.hashCode ^
+      notulen.hashCode ^
+      autoRetranscribe.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -100,7 +124,114 @@ class AppSettings {
           autoStopMinutes == other.autoStopMinutes &&
           progressiveEnabled == other.progressiveEnabled &&
           audioToDisk == other.audioToDisk &&
-          summary == other.summary;
+          summary == other.summary &&
+          glossary == other.glossary &&
+          summaryTemplates == other.summaryTemplates &&
+          notulen == other.notulen &&
+          autoRetranscribe == other.autoRetranscribe;
+}
+
+/// A summary template the user wrote or duplicated (F8).
+///
+/// `id` is a stable identifier generated when the template is created, so
+/// renaming a template does not orphan the sessions that were summarised
+/// with it.
+class CustomSummaryTemplate {
+  final String id;
+  final String name;
+
+  /// The instruction sent to the model, verbatim.
+  final String instructions;
+
+  /// Section headings, used to prefill `instructions` when the user starts
+  /// from a built-in and to show the shape of the output in the picker.
+  final List<String> headings;
+
+  const CustomSummaryTemplate({
+    required this.id,
+    required this.name,
+    required this.instructions,
+    required this.headings,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^ name.hashCode ^ instructions.hashCode ^ headings.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CustomSummaryTemplate &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          instructions == other.instructions &&
+          headings == other.headings;
+}
+
+/// Persisted state of the kamus istilah (F3).
+class GlossarySettings {
+  /// Master switch for feeding the terms into `initial_prompt`.
+  final bool enabled;
+
+  /// The global term list, in the order the user arranged it.
+  final List<String> terms;
+
+  /// Also run the conservative fuzzy post-correction pass.
+  final bool postCorrection;
+
+  const GlossarySettings({
+    required this.enabled,
+    required this.terms,
+    required this.postCorrection,
+  });
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^ terms.hashCode ^ postCorrection.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GlossarySettings &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          terms == other.terms &&
+          postCorrection == other.postCorrection;
+}
+
+/// Fields of the official notulen that belong to the office, not the meeting.
+class NotulenDefaults {
+  final String unitKerja;
+  final String tempat;
+  final String notulis;
+
+  /// Absolute path to a letterhead image (PNG/JPEG). Empty = no kop surat.
+  final String kopSuratPath;
+
+  const NotulenDefaults({
+    required this.unitKerja,
+    required this.tempat,
+    required this.notulis,
+    required this.kopSuratPath,
+  });
+
+  @override
+  int get hashCode =>
+      unitKerja.hashCode ^
+      tempat.hashCode ^
+      notulis.hashCode ^
+      kopSuratPath.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NotulenDefaults &&
+          runtimeType == other.runtimeType &&
+          unitKerja == other.unitKerja &&
+          tempat == other.tempat &&
+          notulis == other.notulis &&
+          kopSuratPath == other.kopSuratPath;
 }
 
 /// Persisted configuration for the opt-in AI summary feature.

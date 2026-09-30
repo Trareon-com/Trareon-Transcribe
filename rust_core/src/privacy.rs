@@ -34,6 +34,7 @@ mod tests {
         "vad/silero.rs",
         "diarization.rs",
         "dedupe/mod.rs",
+        "glossary.rs",
         "session.rs",
         "export/mod.rs",
         "audio/capture.rs",

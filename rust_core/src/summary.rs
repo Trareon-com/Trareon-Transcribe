@@ -184,6 +184,58 @@ pub fn template_instruction(template: SummaryTemplate, custom_prompt: &str) -> S
     }
 }
 
+/// The `##` section headings a built-in template asks the model for.
+///
+/// Used by the "duplicate this template" flow (F8): a user who wants "the
+/// notulen one, but with a Risiko section" starts from the real headings
+/// rather than a blank textarea.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn builtin_headings(template: SummaryTemplate) -> Vec<String> {
+    let headings: &[&str] = match template {
+        SummaryTemplate::NotulenRapat => &[
+            "Ringkasan",
+            "Peserta",
+            "Pembahasan",
+            "Keputusan",
+            "Tindak Lanjut",
+        ],
+        SummaryTemplate::RingkasanEksekutif => &["Ringkasan Eksekutif"],
+        SummaryTemplate::ActionItems => &["Keputusan", "Action Items"],
+        SummaryTemplate::Standup => &["Selesai", "Berikutnya", "Hambatan"],
+        SummaryTemplate::Kustom => &[],
+    };
+    headings.iter().map(|h| (*h).to_string()).collect()
+}
+
+/// Composes the instruction for a user-authored template from its free-text
+/// instructions plus the section headings it declares.
+///
+/// Spelling the headings out as an explicit, ordered list is what makes a
+/// custom template's output stable enough to parse back into the notulen form
+/// — a model given only prose instructions renames sections between runs.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn compose_custom_instruction(instructions: &str, headings: &[String]) -> String {
+    let base = instructions.trim();
+    let sections: Vec<String> = headings
+        .iter()
+        .map(|h| h.trim().trim_start_matches('#').trim().to_string())
+        .filter(|h| !h.is_empty())
+        .collect();
+    if sections.is_empty() {
+        return base.to_string();
+    }
+    let rendered = sections
+        .iter()
+        .map(|h| format!("## {h}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if base.is_empty() {
+        format!("Tulis ringkasan rapat dengan bagian berikut, dalam urutan ini:\n{rendered}")
+    } else {
+        format!("{base}\n\nGunakan bagian berikut, dalam urutan ini:\n{rendered}")
+    }
+}
+
 /// System message: role, output language, and the anti-hallucination rules.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn system_prompt(language: &str) -> String {
@@ -205,13 +257,28 @@ pub fn system_prompt(language: &str) -> String {
     )
 }
 
-/// The user message: instruction + transcript, truncated to
-/// [`MAX_TRANSCRIPT_CHARS`].
+/// The user message: instruction + transcript (truncated to
+/// [`MAX_TRANSCRIPT_CHARS`]) + whatever the notulis flagged during the meeting.
+///
+/// The bookmark block is appended *after* the truncation so a three-hour
+/// meeting cannot drop the very moments the user marked as important — which
+/// is the whole point of having marked them.
 #[flutter_rust_bridge::frb(ignore)]
-pub fn build_prompt(config: &SummaryConfig, transcript: &str) -> String {
+pub fn build_prompt(config: &SummaryConfig, transcript: &str, bookmarks: &[String]) -> String {
     let instruction = template_instruction(config.template, &config.custom_prompt);
     let body = truncate_transcript(transcript.trim(), MAX_TRANSCRIPT_CHARS);
-    format!("{instruction}\n\n--- TRANSKRIP ---\n{body}\n--- AKHIR TRANSKRIP ---")
+    let mut prompt = format!("{instruction}\n\n--- TRANSKRIP ---\n{body}\n--- AKHIR TRANSKRIP ---");
+    let marks: Vec<&str> = bookmarks
+        .iter()
+        .map(|b| b.trim())
+        .filter(|b| !b.is_empty())
+        .collect();
+    if !marks.is_empty() {
+        prompt.push_str("\n\n--- POIN YANG DITANDAI NOTULIS (utamakan ini) ---\n");
+        prompt.push_str(&marks.join("\n"));
+        prompt.push_str("\n--- AKHIR POIN DITANDAI ---");
+    }
+    prompt
 }
 
 // ---------------------------------------------------------------------------
@@ -405,6 +472,7 @@ fn validate(config: &SummaryConfig) -> Result<(), TranscribeError> {
 pub async fn generate_summary(
     config: SummaryConfig,
     transcript: String,
+    bookmarks: Vec<String>,
 ) -> Result<String, TranscribeError> {
     validate(&config)?;
     if transcript.trim().is_empty() {
@@ -414,7 +482,7 @@ pub async fn generate_summary(
     }
 
     let url = chat_endpoint(config.provider, &config.base_url);
-    let prompt = build_prompt(&config, &transcript);
+    let prompt = build_prompt(&config, &transcript, &bookmarks);
 
     let mut request = client(config.timeout_secs)?
         .post(&url)
@@ -588,10 +656,87 @@ mod tests {
             template: SummaryTemplate::ActionItems,
             ..Default::default()
         };
-        let prompt = build_prompt(&config, "[00:00] Saya: kita putuskan pakai Rust");
+        let prompt = build_prompt(&config, "[00:00] Saya: kita putuskan pakai Rust", &[]);
         assert!(prompt.contains("Action Items"));
         assert!(prompt.contains("kita putuskan pakai Rust"));
         assert!(prompt.contains("--- AKHIR TRANSKRIP ---"));
+    }
+
+    #[test]
+    fn bookmarks_are_appended_after_the_transcript_truncation() {
+        let config = SummaryConfig::default();
+        // A transcript well past the cap: the bookmark block must still be
+        // in the prompt, because truncation happens before it is added.
+        let long = "x".repeat(MAX_TRANSCRIPT_CHARS + 5_000);
+        let prompt = build_prompt(&config, &long, &["[05:12] keputusan penting".to_string()]);
+        assert!(prompt.contains("dipotong"), "the transcript was truncated");
+        assert!(prompt.contains("[05:12] keputusan penting"));
+        assert!(
+            prompt.find("--- AKHIR TRANSKRIP ---").unwrap()
+                < prompt.find("[05:12] keputusan penting").unwrap()
+        );
+    }
+
+    #[test]
+    fn a_prompt_without_bookmarks_is_unchanged() {
+        let config = SummaryConfig::default();
+        let with_blanks = build_prompt(&config, "halo", &["".into(), "   ".into()]);
+        assert_eq!(with_blanks, build_prompt(&config, "halo", &[]));
+        assert!(!with_blanks.contains("DITANDAI"));
+    }
+
+    #[test]
+    fn builtin_headings_match_the_template_instructions() {
+        // The headings drive the "duplicate this template" flow, so they must
+        // be the headings the instruction actually asks for.
+        for template in [
+            SummaryTemplate::NotulenRapat,
+            SummaryTemplate::RingkasanEksekutif,
+            SummaryTemplate::ActionItems,
+        ] {
+            let instruction = template_instruction(template, "").to_lowercase();
+            for heading in builtin_headings(template) {
+                assert!(
+                    instruction.contains(&heading.to_lowercase()),
+                    "{template:?} instruction never mentions {heading:?}"
+                );
+            }
+        }
+        assert!(builtin_headings(SummaryTemplate::Kustom).is_empty());
+    }
+
+    #[test]
+    fn custom_instruction_spells_out_the_section_headings_in_order() {
+        let composed = compose_custom_instruction(
+            "  Fokus pada risiko anggaran.  ",
+            &["Pembahasan".into(), "## Risiko".into(), "  ".into()],
+        );
+        assert!(composed.starts_with("Fokus pada risiko anggaran."));
+        assert!(composed.contains("## Pembahasan\n## Risiko"));
+        assert!(!composed.contains("## ## "), "headings are normalised");
+    }
+
+    #[test]
+    fn custom_instruction_falls_back_sensibly() {
+        // Headings without prose still produce a usable instruction …
+        assert!(compose_custom_instruction("", &["Risiko".into()]).contains("## Risiko"));
+        // … and prose without headings is passed through verbatim.
+        assert_eq!(
+            compose_custom_instruction(" Ringkas saja. ", &[]),
+            "Ringkas saja."
+        );
+    }
+
+    #[test]
+    fn a_custom_template_instruction_reaches_the_prompt() {
+        let config = SummaryConfig {
+            template: SummaryTemplate::Kustom,
+            custom_prompt: compose_custom_instruction("Fokus risiko.", &["Risiko".into()]),
+            ..Default::default()
+        };
+        let prompt = build_prompt(&config, "[00:00] Saya: ada risiko kurs", &[]);
+        assert!(prompt.contains("Fokus risiko."));
+        assert!(prompt.contains("## Risiko"));
     }
 
     #[test]
@@ -724,14 +869,18 @@ mod tests {
     #[tokio::test]
     async fn refuses_to_call_out_without_a_model_or_url() {
         let no_model = SummaryConfig::default();
-        assert!(generate_summary(no_model, "halo".into()).await.is_err());
+        assert!(generate_summary(no_model, "halo".into(), Vec::new())
+            .await
+            .is_err());
 
         let no_url = SummaryConfig {
             base_url: "   ".into(),
             model: "qwen2.5:7b".into(),
             ..Default::default()
         };
-        assert!(generate_summary(no_url, "halo".into()).await.is_err());
+        assert!(generate_summary(no_url, "halo".into(), Vec::new())
+            .await
+            .is_err());
     }
 
     #[tokio::test]
@@ -740,7 +889,9 @@ mod tests {
             model: "qwen2.5:7b".into(),
             ..Default::default()
         };
-        let err = generate_summary(config, "   \n ".into()).await.unwrap_err();
+        let err = generate_summary(config, "   \n ".into(), Vec::new())
+            .await
+            .unwrap_err();
         assert!(err.to_string().contains("kosong"));
     }
 

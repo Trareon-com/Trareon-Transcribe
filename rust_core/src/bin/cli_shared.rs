@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use rust_core::export::{export_segments, ExportFormat};
+use rust_core::glossary::{parse_glossary, GlossaryConfig};
 use rust_core::stt::file::{transcribe_files_batch, BatchFileStatus};
 use rust_core::stt::WhisperEngine;
 
@@ -40,6 +41,16 @@ pub struct Args {
     /// GPU device index to use when --gpu is set (0 = default/first device)
     #[arg(long, default_value_t = 0)]
     pub gpu_device: i32,
+
+    /// Kamus istilah file: one term per line (.txt) or first-column CSV.
+    /// The terms are fed to Whisper as `initial_prompt`.
+    #[arg(long)]
+    pub glossary: Option<String>,
+
+    /// Skip the post-inference fuzzy correction toward glossary spellings
+    /// (the `initial_prompt` biasing still applies).
+    #[arg(long, default_value_t = false)]
+    pub no_glossary_correction: bool,
 }
 
 pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
@@ -89,6 +100,25 @@ pub fn run(args: Args) -> i32 {
         return 1;
     }
 
+    let glossary = match args.glossary.as_deref() {
+        None => GlossaryConfig::default(),
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(content) => {
+                let terms = parse_glossary(&content);
+                println!("kamus istilah: {} istilah dari {path}", terms.len());
+                GlossaryConfig {
+                    session_terms: Vec::new(),
+                    global_terms: terms,
+                    post_correction: !args.no_glossary_correction,
+                }
+            }
+            Err(e) => {
+                eprintln!("failed to read glossary '{path}': {e}");
+                return 1;
+            }
+        },
+    };
+
     let output_dir = PathBuf::from(&args.output);
     let total = files.len();
     let mut failures = 0usize;
@@ -97,6 +127,7 @@ pub fn run(args: Args) -> i32 {
         &engine,
         &files,
         args.language.as_deref(),
+        &glossary,
         |progress| match progress.status {
             BatchFileStatus::Done => {
                 println!(

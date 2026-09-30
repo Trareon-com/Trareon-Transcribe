@@ -15,7 +15,9 @@ import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
 import 'export.dart';
+import 'export/notulen.dart';
 import 'frb_generated.dart';
+import 'glossary.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'session.dart';
@@ -53,6 +55,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchProgressSnapshot dco_decode_batch_progress_snapshot(dynamic raw);
 
   @protected
+  Bookmark dco_decode_bookmark(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -62,6 +67,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchProgressSnapshot dco_decode_box_autoadd_batch_progress_snapshot(
     dynamic raw,
   );
+
+  @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  GlossaryConfig dco_decode_box_autoadd_glossary_config(dynamic raw);
+
+  @protected
+  NotulenForm dco_decode_box_autoadd_notulen_form(dynamic raw);
 
   @protected
   (BigInt, BigInt) dco_decode_box_autoadd_record_u_64_u_64(dynamic raw);
@@ -107,6 +121,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus dco_decode_check_status(dynamic raw);
 
   @protected
+  CustomSummaryTemplate dco_decode_custom_summary_template(dynamic raw);
+
+  @protected
   DiskSpaceLevel dco_decode_disk_space_level(dynamic raw);
 
   @protected
@@ -123,6 +140,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_f_64(dynamic raw);
+
+  @protected
+  GlossaryConfig dco_decode_glossary_config(dynamic raw);
+
+  @protected
+  GlossaryPromptInfo dco_decode_glossary_prompt_info(dynamic raw);
+
+  @protected
+  GlossarySettings dco_decode_glossary_settings(dynamic raw);
 
   @protected
   GpuCapability dco_decode_gpu_capability(dynamic raw);
@@ -143,10 +169,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
 
   @protected
+  List<Bookmark> dco_decode_list_bookmark(dynamic raw);
+
+  @protected
   List<ChannelCapture> dco_decode_list_channel_capture(dynamic raw);
 
   @protected
   List<Check> dco_decode_list_check(dynamic raw);
+
+  @protected
+  List<CustomSummaryTemplate> dco_decode_list_custom_summary_template(
+    dynamic raw,
+  );
 
   @protected
   List<ExportFormat> dco_decode_list_export_format(dynamic raw);
@@ -176,10 +210,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
 
   @protected
+  List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
+
+  @protected
   ModelInfo dco_decode_model_info(dynamic raw);
 
   @protected
   NoticeLevel dco_decode_notice_level(dynamic raw);
+
+  @protected
+  NotulenDefaults dco_decode_notulen_defaults(dynamic raw);
+
+  @protected
+  NotulenDraft dco_decode_notulen_draft(dynamic raw);
+
+  @protected
+  NotulenForm dco_decode_notulen_form(dynamic raw);
+
+  @protected
+  NotulenVariant dco_decode_notulen_variant(dynamic raw);
 
   @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
@@ -191,6 +240,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchProgressSnapshot? dco_decode_opt_box_autoadd_batch_progress_snapshot(
     dynamic raw,
   );
+
+  @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
@@ -255,6 +307,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Theme dco_decode_theme(dynamic raw);
 
   @protected
+  TindakLanjut dco_decode_tindak_lanjut(dynamic raw);
+
+  @protected
   TranscribeError dco_decode_transcribe_error(dynamic raw);
 
   @protected
@@ -304,6 +359,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  Bookmark sse_decode_bookmark(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
@@ -313,6 +371,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchProgressSnapshot sse_decode_box_autoadd_batch_progress_snapshot(
     SseDeserializer deserializer,
   );
+
+  @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  GlossaryConfig sse_decode_box_autoadd_glossary_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NotulenForm sse_decode_box_autoadd_notulen_form(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt) sse_decode_box_autoadd_record_u_64_u_64(
@@ -364,6 +433,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus sse_decode_check_status(SseDeserializer deserializer);
 
   @protected
+  CustomSummaryTemplate sse_decode_custom_summary_template(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   DiskSpaceLevel sse_decode_disk_space_level(SseDeserializer deserializer);
 
   @protected
@@ -380,6 +454,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  GlossaryConfig sse_decode_glossary_config(SseDeserializer deserializer);
+
+  @protected
+  GlossaryPromptInfo sse_decode_glossary_prompt_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GlossarySettings sse_decode_glossary_settings(SseDeserializer deserializer);
 
   @protected
   GpuCapability sse_decode_gpu_capability(SseDeserializer deserializer);
@@ -404,12 +489,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<Bookmark> sse_decode_list_bookmark(SseDeserializer deserializer);
+
+  @protected
   List<ChannelCapture> sse_decode_list_channel_capture(
     SseDeserializer deserializer,
   );
 
   @protected
   List<Check> sse_decode_list_check(SseDeserializer deserializer);
+
+  @protected
+  List<CustomSummaryTemplate> sse_decode_list_custom_summary_template(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<ExportFormat> sse_decode_list_export_format(
@@ -449,10 +542,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<TindakLanjut> sse_decode_list_tindak_lanjut(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ModelInfo sse_decode_model_info(SseDeserializer deserializer);
 
   @protected
   NoticeLevel sse_decode_notice_level(SseDeserializer deserializer);
+
+  @protected
+  NotulenDefaults sse_decode_notulen_defaults(SseDeserializer deserializer);
+
+  @protected
+  NotulenDraft sse_decode_notulen_draft(SseDeserializer deserializer);
+
+  @protected
+  NotulenForm sse_decode_notulen_form(SseDeserializer deserializer);
+
+  @protected
+  NotulenVariant sse_decode_notulen_variant(SseDeserializer deserializer);
 
   @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
@@ -466,6 +576,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BatchProgressSnapshot? sse_decode_opt_box_autoadd_batch_progress_snapshot(
     SseDeserializer deserializer,
   );
+
+  @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
@@ -540,6 +653,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Theme sse_decode_theme(SseDeserializer deserializer);
 
   @protected
+  TindakLanjut sse_decode_tindak_lanjut(SseDeserializer deserializer);
+
+  @protected
   TranscribeError sse_decode_transcribe_error(SseDeserializer deserializer);
 
   @protected
@@ -602,6 +718,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_bookmark(Bookmark self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
@@ -613,6 +732,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_batch_progress_snapshot(
     BatchProgressSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_glossary_config(
+    GlossaryConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_notulen_form(
+    NotulenForm self,
     SseSerializer serializer,
   );
 
@@ -677,6 +811,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_check_status(CheckStatus self, SseSerializer serializer);
 
   @protected
+  void sse_encode_custom_summary_template(
+    CustomSummaryTemplate self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_disk_space_level(
     DiskSpaceLevel self,
     SseSerializer serializer,
@@ -699,6 +839,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_glossary_config(
+    GlossaryConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_glossary_prompt_info(
+    GlossaryPromptInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_glossary_settings(
+    GlossarySettings self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_gpu_capability(GpuCapability self, SseSerializer serializer);
@@ -725,6 +883,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_bookmark(List<Bookmark> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_channel_capture(
     List<ChannelCapture> self,
     SseSerializer serializer,
@@ -732,6 +893,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_check(List<Check> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_custom_summary_template(
+    List<CustomSummaryTemplate> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_export_format(
@@ -785,10 +952,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_tindak_lanjut(
+    List<TindakLanjut> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_notulen_defaults(
+    NotulenDefaults self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_notulen_draft(NotulenDraft self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_notulen_form(NotulenForm self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_notulen_variant(
+    NotulenVariant self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_Map_String_String_None(
@@ -804,6 +995,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     BatchProgressSnapshot? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_record_u_64_u_64(
@@ -897,6 +1091,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_theme(Theme self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tindak_lanjut(TindakLanjut self, SseSerializer serializer);
 
   @protected
   void sse_encode_transcribe_error(

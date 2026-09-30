@@ -28,6 +28,7 @@ fn main() {
         gpu_enabled: false,
         gpu_device: 0,
         audio_to_disk: true,
+        glossary: rust_core::glossary::GlossaryConfig::default(),
     };
 
     let session_id = rust_core::api::start_session(config).expect("start_session");
