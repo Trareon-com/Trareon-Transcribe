@@ -170,7 +170,13 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     state = state.copyWith(config: recovered);
   }
 
-  Future<void> recoverFromSnapshot(
+  /// Restores a crashed session: its transcript, its audio and its clock.
+  ///
+  /// `segments: []` used to be hardcoded here, which is how a two-hour
+  /// meeting came back empty from a banner promising it could be
+  /// recovered. Returns the recovered session so the caller can tell the
+  /// user what actually came back.
+  Future<rust_session.RecoveredSession?> recoverFromSnapshot(
     rust_session.SessionRecoverySnapshot snapshot,
   ) async {
     // Same guard as start(): without it, recovering while a session is
@@ -180,17 +186,26 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     // to stop them — while this one clobbers the visible state.
     if (state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
-      return;
+      return null;
     }
     seedRecovery(snapshot);
-    final id = await _bridge.recoverSession(snapshot);
+    final recovered = await _bridge.recoverSession(snapshot);
     state = state.copyWith(
       lifecycle: SessionLifecycle.recording,
-      sessionId: id,
-      segments: [],
+      sessionId: recovered.sessionId,
+      segments: recovered.segments.map(fromRustSegment).toList(),
+      sessionTitle: snapshot.title.isNotEmpty
+          ? snapshot.title
+          : state.sessionTitle,
     );
-    _subscribeToLiveStreams(id);
+    // The elapsed timer continues from where the crashed run left off
+    // rather than restarting at 00:00 — the audio and transcript did.
+    _recordingStartedAt = DateTime.now().subtract(
+      Duration(milliseconds: (recovered.resumeOffsetSecs * 1000).round()),
+    );
+    _subscribeToLiveStreams(recovered.sessionId);
     _resetAutoStopTimer();
+    return recovered;
   }
 
   Future<void> start() async {
@@ -444,12 +459,20 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         speakerDeviceId: settings.speakerDeviceId,
         gpuEnabled: settings.gpuEnabled,
         gpuDevice: settings.gpuDevice,
+        audioToDisk: settings.audioToDisk,
       ),
     );
   }
 
   void setTitle(String title) {
     state = state.copyWith(sessionTitle: title);
+    // Mirrored into the recovery snapshot so a crash shows the session
+    // under the name the user gave it, not a UUID. Fire-and-forget: the
+    // title field must stay responsive, and a failed mirror costs a label.
+    final id = state.sessionId;
+    if (id != null && state.lifecycle == SessionLifecycle.recording) {
+      unawaited(_bridge.setSessionTitle(id, title).catchError((_) {}));
+    }
   }
 
   void updateAutoStopMinutes(int? minutes) {

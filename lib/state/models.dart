@@ -213,6 +213,10 @@ class SessionConfig {
   final bool gpuEnabled;
   final int gpuDevice;
 
+  /// Stream captured audio to disk as it arrives instead of buffering it
+  /// in RAM until Stop. On by default; see `AppSettings.audioToDisk`.
+  final bool audioToDisk;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -225,6 +229,7 @@ class SessionConfig {
     this.hptMode = HptMode.auto,
     this.gpuEnabled = false,
     this.gpuDevice = 0,
+    this.audioToDisk = true,
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -248,6 +253,7 @@ class SessionConfig {
     HptMode? hptMode,
     bool? gpuEnabled,
     int? gpuDevice,
+    bool? audioToDisk,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -263,6 +269,7 @@ class SessionConfig {
       hptMode: hptMode ?? this.hptMode,
       gpuEnabled: gpuEnabled ?? this.gpuEnabled,
       gpuDevice: gpuDevice ?? this.gpuDevice,
+      audioToDisk: audioToDisk ?? this.audioToDisk,
     );
   }
 }
@@ -392,6 +399,12 @@ class AppSettings {
   final bool gpuEnabled;
   final int gpuDevice;
 
+  /// Stream captured audio straight to disk instead of holding it in RAM
+  /// until Stop. On by default; the switch exists because this touches the
+  /// capture path, and a release can fall back without a rebuild. The RAM
+  /// path remains the fallback when the disk writer cannot be opened.
+  final bool audioToDisk;
+
   /// Opt-in AI-summary endpoint configuration. Persisted by Rust alongside
   /// the rest of the settings; `enabled == false` means the app makes no
   /// outbound request at all.
@@ -413,6 +426,7 @@ class AppSettings {
     this.hptMode = HptMode.auto,
     this.gpuEnabled = false,
     this.gpuDevice = 0,
+    this.audioToDisk = true,
     this.summary = kDefaultSummarySettings,
   });
 

@@ -30,8 +30,29 @@ abstract class RustBridge {
   /// not be opened at start, or one that died while recording. Surfaced as a
   /// toast; without it a half-dead session looks identical to a quiet one.
   Stream<SessionNotice> noticeStream(String sessionId);
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions();
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot);
+  /// Sessions left behind by a crash, each with what is actually
+  /// recoverable for it (segment count, audio seconds per source) rather
+  /// than just the configuration the snapshot stored.
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions();
+
+  /// Restores a crashed session and resumes capture into its files.
+  /// Returns the recovered transcript along with the new session id.
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  );
+
+  /// Discards one recoverable session and everything it held.
+  Future<void> deleteRecoverableSession(String sessionId);
+
+  /// How much audio each source has actually delivered, whether it has
+  /// ever been above the noise floor, and how long it has been quiet.
+  /// Drives the live "rekaman terkonfirmasi" indicator and the integrity
+  /// summary shown at Stop.
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId);
+
+  /// Mirrors the session title into the recovery snapshot, so a crashed
+  /// session shows up in the recovery dialog under its name.
+  Future<void> setSessionTitle(String sessionId, String title);
   Future<AppSettings> loadSettings();
   Future<void> saveSettings(AppSettings settings);
   Future<void> downloadModel(String modelsDir, String modelId);
@@ -278,12 +299,30 @@ class RustBridgeMock implements RustBridge {
   }
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async =>
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
       const [];
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async {
-    return startSession(
+  Future<void> deleteRecoverableSession(String sessionId) async {}
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) async =>
+      rust_session.CaptureHealth(
+        sessionId: sessionId,
+        elapsedSecs: 0,
+        segmentCount: 0,
+        channels: const [],
+        warnings: const [],
+      );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async {
+    final id = await startSession(
       SessionConfig(
         micEnabled: snapshot.config.micEnabled,
         speakerEnabled: snapshot.config.speakerEnabled,
@@ -295,6 +334,13 @@ class RustBridgeMock implements RustBridge {
         modelPath: snapshot.config.modelPath,
         vadEnabled: snapshot.config.vadEnabled,
       ),
+    );
+    return rust_session.RecoveredSession(
+      sessionId: id,
+      segments: const [],
+      resumeOffsetSecs: 0,
+      micAudioSecs: 0,
+      speakerAudioSecs: 0,
     );
   }
 
@@ -478,11 +524,20 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<String> startSession(SessionConfig config) async {
     final id = await rust_api.startSession(config: _toRustSessionConfig(config));
+    _openSessionStreams(id);
+    return id;
+  }
+
+  /// Wires the Dart-side stream controllers and the 200 ms poll for a
+  /// session that is now live. Shared with [recoverSession]: a recovered
+  /// session is a running session, and without this it produced no
+  /// transcript events at all.
+  void _openSessionStreams(String id) {
     _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
     _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
-    _pollTimers[id] = Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
-    return id;
+    _pollTimers[id] =
+        Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
   }
 
   @override
@@ -532,12 +587,29 @@ class RustEngineBridge implements RustBridge {
   }
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() =>
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() =>
       rust_api.listRecoverableSessions();
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) =>
-      rust_api.recoverSession(snapshot: snapshot);
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async {
+    final recovered = await rust_api.recoverSession(snapshot: snapshot);
+    _openSessionStreams(recovered.sessionId);
+    return recovered;
+  }
+
+  @override
+  Future<void> deleteRecoverableSession(String sessionId) =>
+      rust_api.deleteRecoverableSession(sessionId: sessionId);
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) =>
+      rust_api.getCaptureHealth(sessionId: sessionId);
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) =>
+      rust_api.setSessionTitle(sessionId: sessionId, title: title);
 
   Future<void> _poll(String sessionId) async {
     if (!_polling.add(sessionId)) return;
@@ -783,6 +855,7 @@ class RustEngineBridge implements RustBridge {
       vadEnabled: config.vadEnabled,
       gpuEnabled: config.gpuEnabled,
       gpuDevice: config.gpuDevice,
+      audioToDisk: config.audioToDisk,
     );
   }
 
@@ -819,6 +892,7 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: settings.gpuDevice,
       autoStopMinutes: settings.autoStopMinutes,
       progressiveEnabled: settings.progressiveEnabled,
+      audioToDisk: settings.audioToDisk,
       summary: settings.summary,
     );
   }
@@ -839,6 +913,7 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: settings.gpuDevice,
       autoStopMinutes: settings.autoStopMinutes,
       progressiveEnabled: settings.progressiveEnabled,
+      audioToDisk: settings.audioToDisk,
       summary: settings.summary,
     );
   }

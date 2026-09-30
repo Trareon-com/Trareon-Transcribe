@@ -48,11 +48,35 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
-  Future<List<rust_session.SessionRecoverySnapshot>> listRecoverableSessions() async => const [];
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
+      const [];
 
   @override
-  Future<String> recoverSession(rust_session.SessionRecoverySnapshot snapshot) async =>
-      'test-session';
+  Future<rust_session.RecoveredSession> recoverSession(
+    rust_session.SessionRecoverySnapshot snapshot,
+  ) async => rust_session.RecoveredSession(
+    sessionId: 'test-session',
+    segments: const [],
+    resumeOffsetSecs: 0,
+    micAudioSecs: 0,
+    speakerAudioSecs: 0,
+  );
+
+  @override
+  Future<void> deleteRecoverableSession(String sessionId) async {}
+
+  @override
+  Future<rust_session.CaptureHealth> captureHealth(String sessionId) async =>
+      rust_session.CaptureHealth(
+        sessionId: sessionId,
+        elapsedSecs: 0,
+        segmentCount: 0,
+        channels: const [],
+        warnings: const [],
+      );
+
+  @override
+  Future<void> setSessionTitle(String sessionId, String title) async {}
 
   @override
   Future<AppSettings> loadSettings() async => savedSettings;

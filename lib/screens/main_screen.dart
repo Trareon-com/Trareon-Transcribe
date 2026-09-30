@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,8 +13,11 @@ import '../state/session_model.dart';
 import '../state/settings_model.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
+import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/capture_health_view.dart';
 import '../widgets/mode_selector.dart';
+import '../widgets/recovery_dialog.dart';
 import '../widgets/model_download_dialog.dart';
 import '../widgets/stream_toggle.dart';
 import '../widgets/animated_record_button.dart';
@@ -29,12 +34,17 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final GlobalHotkeyService _globalHotkeys = GlobalHotkeyService();
-  List<rust_session.SessionRecoverySnapshot> _recoverableSessions = const [];
+  List<rust_session.RecoverableSession> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
   bool _isStoppingSession = false;
   bool _isStartingSession = false;
   final _titleController = TextEditingController();
+
+  /// Polled while recording so the confirmation badge and the Stop
+  /// integrity summary read the same numbers.
+  rust_session.CaptureHealth? _captureHealth;
+  Timer? _healthTimer;
 
   @override
   void initState() {
@@ -49,6 +59,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void dispose() {
     _globalHotkeys.dispose();
+    _healthTimer?.cancel();
     _titleController.dispose();
     super.dispose();
   }
@@ -63,23 +74,132 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
+  /// Capture health is cheap (counters, no I/O) but not free, and nothing
+  /// on screen changes faster than a second.
+  void _startHealthPolling(String sessionId) {
+    _healthTimer?.cancel();
+    _healthTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final health = await _readCaptureHealth(sessionId);
+      if (!mounted || health == null) return;
+      setState(() => _captureHealth = health);
+    });
+  }
+
+  Future<rust_session.CaptureHealth?> _readCaptureHealth(String sessionId) async {
+    try {
+      return await ref.read(rustBridgeProvider).captureHealth(sessionId);
+    } catch (_) {
+      // The session ended between the tick and the call.
+      return null;
+    }
+  }
+
+  void _stopHealthPolling() {
+    _healthTimer?.cancel();
+    _healthTimer = null;
+  }
+
+  Future<void> _openRecoveryDialog(BuildContext context) async {
+    final isActive = switch (ref.read(sessionProvider).lifecycle) {
+      SessionLifecycle.recording || SessionLifecycle.paused => true,
+      _ => false,
+    };
+    final choice = await showRecoveryDialog(
+      context,
+      _recoverableSessions,
+      canRecover: !isActive,
+    );
+    if (choice == null || !context.mounted) return;
+    switch (choice) {
+      case RecoverSession(:final session):
+        await _recoverSession(context, session);
+      case DiscardSession(:final session):
+        await _discardSession(context, session);
+    }
+  }
+
   Future<void> _recoverSession(
     BuildContext context,
-    WidgetRef ref,
-    rust_session.SessionRecoverySnapshot snapshot,
+    rust_session.RecoverableSession session,
   ) async {
-    await ref.read(sessionProvider.notifier).recoverFromSnapshot(snapshot);
+    final rust_session.RecoveredSession? recovered;
+    try {
+      recovered = await ref
+          .read(sessionProvider.notifier)
+          .recoverFromSnapshot(session.snapshot);
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.show(context, 'Gagal memulihkan sesi: $e', type: ToastType.error);
+      }
+      return;
+    }
+    if (!mounted) return;
+    _forgetRecoverable(session);
+    if (recovered != null) _startHealthPolling(recovered.sessionId);
+    if (!context.mounted || recovered == null) return;
+    AppToast.show(
+      context,
+      '"${session.title}" dipulihkan: ${recovered.segments.length} segmen '
+      'dan ${formatDurationId(recovered.resumeOffsetSecs)} audio.',
+      type: ToastType.success,
+    );
+  }
+
+  Future<void> _discardSession(
+    BuildContext context,
+    rust_session.RecoverableSession session,
+  ) async {
+    try {
+      await ref
+          .read(rustBridgeProvider)
+          .deleteRecoverableSession(session.snapshot.sessionId);
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.show(context, 'Gagal menghapus: $e', type: ToastType.error);
+      }
+      return;
+    }
+    if (!mounted) return;
+    _forgetRecoverable(session);
     if (!context.mounted) return;
+    AppToast.show(context, '"${session.title}" dihapus.');
+  }
+
+  /// Banner line. Says what is recoverable, not just how many rows exist:
+  /// "Ada 2 sesi yang bisa dipulihkan" told the user nothing about whether
+  /// the transcript would actually come back, and for a while it wouldn't.
+  static String _recoverySummary(
+    List<rust_session.RecoverableSession> sessions,
+  ) {
+    final segments = sessions.fold<int>(0, (sum, s) => sum + s.segmentCount);
+    final audioSecs = sessions.fold<double>(
+      0,
+      (sum, s) => sum + s.micAudioSecs + s.speakerAudioSecs,
+    );
+    final count = sessions.length == 1
+        ? '1 sesi terhenti'
+        : '${sessions.length} sesi terhenti';
+    final contents = <String>[
+      if (segments > 0) '$segments segmen transkrip',
+      if (audioSecs > 0) '${formatDurationId(audioSecs)} audio',
+    ];
+    if (contents.isEmpty) {
+      return '$count tanpa transkrip atau audio yang tersisa.';
+    }
+    return '$count — ${contents.join(' dan ')} bisa dipulihkan.';
+  }
+
+  void _forgetRecoverable(rust_session.RecoverableSession session) {
     setState(() {
       _recoverableSessions = _recoverableSessions
-          .where((item) => item.sessionId != snapshot.sessionId)
+          .where((item) => item.snapshot.sessionId != session.snapshot.sessionId)
           .toList(growable: false);
     });
-    AppToast.show(context, 'Sesi ${snapshot.sessionId} dipulihkan.', type: ToastType.success);
   }
 
   Future<void> _handleBerhentiPressed(BuildContext context, WidgetRef ref) async {
-    final segments = ref.read(sessionProvider).segments;
+    final session = ref.read(sessionProvider);
+    final segments = session.segments;
     if (segments.isNotEmpty) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -104,16 +224,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (confirmed != true) return;
     }
     if (!context.mounted) return;
+    // Read the final health *before* stopping: the counters live in the
+    // session the stop is about to remove.
+    final sessionId = session.sessionId;
+    final health =
+        sessionId == null ? null : await _readCaptureHealth(sessionId);
+    if (!context.mounted) return;
+    _stopHealthPolling();
     setState(() => _isStoppingSession = true);
+    var saved = false;
     try {
       await ref.read(sessionProvider.notifier).stop();
-      if (segments.isNotEmpty && context.mounted) {
-        AppToast.show(
-          context,
-          'Sesi tersimpan (${segments.length} segmen).',
-          type: ToastType.success,
-        );
-      }
+      saved = segments.isNotEmpty;
     } on TranscribeSaveError catch (e) {
       if (context.mounted) {
         AppToast.show(context, '$e', type: ToastType.error);
@@ -125,6 +247,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     } finally {
       if (mounted) setState(() => _isStoppingSession = false);
     }
+    if (!context.mounted) return;
+
+    // A channel that recorded nothing is worth a dialog the user has to
+    // dismiss; a clean session is worth a toast and no interruption.
+    if (health != null && health.warnings.isNotEmpty) {
+      await showCaptureIntegrityDialog(context, health, saved: saved);
+    } else if (saved) {
+      AppToast.show(
+        context,
+        'Sesi tersimpan (${segments.length} segmen).',
+        type: ToastType.success,
+      );
+    }
+    if (mounted) setState(() => _captureHealth = null);
   }
 
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
@@ -142,6 +278,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     setState(() => _isStartingSession = true);
     try {
       await ref.read(sessionProvider.notifier).start();
+      final id = ref.read(sessionProvider).sessionId;
+      if (id != null) _startHealthPolling(id);
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, '$e');
@@ -282,25 +420,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Ada ${_recoverableSessions.length} sesi yang bisa dipulihkan.',
+                            _recoverySummary(_recoverableSessions),
                             style: TextStyle(color: colors.text, fontSize: 13),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () => setState(() => _recoverableSessions = const []),
-                          child: const Text('Abaikan'),
-                        ),
+                        // No "Abaikan": it hid the banner without deleting
+                        // anything, so the same sessions reappeared on
+                        // every launch forever. The dialog offers Pulihkan
+                        // or Hapus per session, and "Nanti saja" to defer.
                         FilledButton(
-                          // A session is already recording (possibly a
-                          // just-recovered one) — recovering another would
-                          // silently orphan this one's Rust-side capture
-                          // with nothing left to stop it. Session lifecycle
-                          // here is single-active, so make that visible
-                          // instead of a no-op tap.
-                          onPressed: isActive
-                              ? null
-                              : () => _recoverSession(context, ref, _recoverableSessions.first),
-                          child: const Text('Pulihkan'),
+                          onPressed: () => _openRecoveryDialog(context),
+                          child: const Text('Lihat & pulihkan'),
                         ),
                       ],
                     ),
@@ -395,6 +525,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 isPaused: isPaused,
                 vuMikrofonLevel: vuLevel?.micLevel ?? 0.0,
                 vuSpeakerLevel: vuLevel?.speakerLevel ?? 0.0,
+                captureHealth: _captureHealth,
                 titleController: _titleController,
                 onStartBerhenti: () => _toggleStartBerhenti(context, ref),
                 onEkspor: () => _onEkspor(context),
@@ -449,6 +580,7 @@ class _ControlBar extends StatelessWidget {
   final bool isPaused;
   final double vuMikrofonLevel;
   final double vuSpeakerLevel;
+  final rust_session.CaptureHealth? captureHealth;
   final TextEditingController titleController;
   final VoidCallback onStartBerhenti;
   final VoidCallback onEkspor;
@@ -462,6 +594,7 @@ class _ControlBar extends StatelessWidget {
     required this.isPaused,
     required this.vuMikrofonLevel,
     required this.vuSpeakerLevel,
+    required this.captureHealth,
     required this.titleController,
     required this.onStartBerhenti,
     required this.onEkspor,
@@ -520,7 +653,9 @@ class _ControlBar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Row 2: VU meters (visible during recording)
+          // Row 2: VU meters + capture confirmation (while recording).
+          // The VU meter alone cannot distinguish "recording" from "open
+          // but silent"; the badge is what says audio actually arrived.
           if (isActive) ...[
             Row(
               children: [
@@ -530,6 +665,8 @@ class _ControlBar extends StatelessWidget {
                     speakerLevel: vuSpeakerLevel,
                   ),
                 ),
+                const SizedBox(width: 12),
+                CaptureConfirmationBadge(health: captureHealth),
               ],
             ),
             const SizedBox(height: 8),
