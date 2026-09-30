@@ -47,6 +47,9 @@ dependencies:
   flutter_rust_bridge: 2.13.0
   freezed_annotation: ^2.4.4
   url_launcher: ^6.3.2
+  # Direct dependency (already transitive): path.basename/extension, because
+  # split('/') mis-parses Windows paths in the import queue.
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:

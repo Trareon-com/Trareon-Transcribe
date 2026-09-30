@@ -1837,13 +1837,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BatchProgressSnapshot dco_decode_batch_progress_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return BatchProgressSnapshot(
       fileIndex: dco_decode_u_32(arr[0]),
       totalFiles: dco_decode_u_32(arr[1]),
       filename: dco_decode_String(arr[2]),
       status: dco_decode_batch_file_status(arr[3]),
+      progress: dco_decode_f_32(arr[4]),
     );
   }
 
@@ -2629,11 +2630,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_totalFiles = sse_decode_u_32(deserializer);
     var var_filename = sse_decode_String(deserializer);
     var var_status = sse_decode_batch_file_status(deserializer);
+    var var_progress = sse_decode_f_32(deserializer);
     return BatchProgressSnapshot(
       fileIndex: var_fileIndex,
       totalFiles: var_totalFiles,
       filename: var_filename,
       status: var_status,
+      progress: var_progress,
     );
   }
 
@@ -3614,6 +3617,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.totalFiles, serializer);
     sse_encode_String(self.filename, serializer);
     sse_encode_batch_file_status(self.status, serializer);
+    sse_encode_f_32(self.progress, serializer);
   }
 
   @protected

@@ -31,6 +31,20 @@ pub fn transcribe_file(
     path: &Path,
     language: Option<&str>,
 ) -> TranscribeResult<TranscribeFileResult> {
+    transcribe_file_reporting(engine, path, language, |_| {})
+}
+
+/// [`transcribe_file`], reporting how far through the file it is.
+///
+/// `on_progress` receives a fraction in `0.0..=1.0` after each 30-second
+/// chunk. A one-hour import is ~120 chunks, so this is a real progress
+/// bar rather than a spinner that only moves between files.
+pub fn transcribe_file_reporting(
+    engine: &WhisperEngine,
+    path: &Path,
+    language: Option<&str>,
+    mut on_progress: impl FnMut(f32),
+) -> TranscribeResult<TranscribeFileResult> {
     let audio = decode_audio_file(path)?;
 
     // ADR-10 CHUNKED PROCESSING: for large audio files (>30s), split into
@@ -45,11 +59,14 @@ pub fn transcribe_file(
         // Small file — single shot is the fast path.
         let segments = engine.transcribe_chunk(&audio.samples, "file", 0.0, language, None)?;
         all_segments = segments;
+        on_progress(1.0);
     } else {
+        let total_chunks = audio.samples.len().div_ceil(chunk_samples);
         for (chunk_idx, chunk) in audio.samples.chunks(chunk_samples).enumerate() {
             let chunk_start = chunk_idx as f64 * CHUNK_DURATION_SECS;
             let segments = engine.transcribe_chunk(chunk, "file", chunk_start, language, None)?;
             all_segments.extend(segments);
+            on_progress((chunk_idx + 1) as f32 / total_chunks as f32);
         }
     }
 
@@ -120,6 +137,8 @@ pub struct BatchProgressSnapshot {
     pub total_files: u32,
     pub filename: String,
     pub status: BatchFileStatus,
+    /// How far through *this* file the engine is, in `0.0..=1.0`.
+    pub progress: f32,
 }
 
 static BATCH_PROGRESS: Mutex<Option<BatchProgressSnapshot>> = Mutex::new(None);
@@ -145,6 +164,28 @@ fn set_batch_progress(snapshot: BatchProgressSnapshot) {
     }
 }
 
+/// Publishes a snapshot from outside this module.
+///
+/// The two-pass (HPT) import lives in `api.rs` and used to report nothing
+/// at all, so turning Progressive Mode on made the import progress bar
+/// stop working (audit B.1-2).
+#[flutter_rust_bridge::frb(ignore)]
+pub fn publish_batch_progress(
+    file_index: u32,
+    total_files: u32,
+    filename: String,
+    status: BatchFileStatus,
+    progress: f32,
+) {
+    set_batch_progress(BatchProgressSnapshot {
+        file_index,
+        total_files,
+        filename,
+        status,
+        progress: progress.clamp(0.0, 1.0),
+    });
+}
+
 /// Sequential batch: whisper.cpp inference must be serialized through one
 /// engine, so this is deliberately not parallel on the STT step. Decode
 /// happens inline per-file too, for simplicity — a follow-up can pipeline
@@ -164,16 +205,17 @@ pub fn transcribe_files_batch(
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let publish = |status: BatchFileStatus| {
+        let publish = |status: BatchFileStatus, progress: f32| {
             set_batch_progress(BatchProgressSnapshot {
                 file_index: index as u32,
                 total_files: total_files as u32,
                 filename: filename.clone(),
                 status,
+                progress: progress.clamp(0.0, 1.0),
             });
         };
 
-        publish(BatchFileStatus::Decoding);
+        publish(BatchFileStatus::Decoding, 0.0);
         on_progress(BatchFileProgress {
             file_index: index,
             total_files,
@@ -183,9 +225,11 @@ pub fn transcribe_files_batch(
             error: None,
         });
 
-        match transcribe_file(engine, path, language) {
+        match transcribe_file_reporting(engine, path, language, |fraction| {
+            publish(BatchFileStatus::Transcribing, fraction);
+        }) {
             Ok(result) => {
-                publish(BatchFileStatus::Done);
+                publish(BatchFileStatus::Done, 1.0);
                 on_progress(BatchFileProgress {
                     file_index: index,
                     total_files,
@@ -196,7 +240,7 @@ pub fn transcribe_files_batch(
                 });
             }
             Err(e) => {
-                publish(BatchFileStatus::Error);
+                publish(BatchFileStatus::Error, 0.0);
                 on_progress(BatchFileProgress {
                     file_index: index,
                     total_files,
@@ -246,17 +290,24 @@ mod tests {
         reset_batch_progress();
         assert!(read_batch_progress().is_none());
 
-        set_batch_progress(BatchProgressSnapshot {
-            file_index: 2,
-            total_files: 5,
-            filename: "rapat.m4a".into(),
-            status: BatchFileStatus::Transcribing,
-        });
+        publish_batch_progress(
+            2,
+            5,
+            "rapat.m4a".into(),
+            BatchFileStatus::Transcribing,
+            0.25,
+        );
         let snapshot = read_batch_progress().expect("progress must be readable");
         assert_eq!(snapshot.file_index, 2);
         assert_eq!(snapshot.total_files, 5);
         assert_eq!(snapshot.filename, "rapat.m4a");
         assert_eq!(snapshot.status, BatchFileStatus::Transcribing);
+        assert_eq!(snapshot.progress, 0.25);
+
+        // Out-of-range fractions are clamped, not shown to the user as a
+        // 140 % progress bar.
+        publish_batch_progress(0, 1, "x".into(), BatchFileStatus::Transcribing, 1.4);
+        assert_eq!(read_batch_progress().unwrap().progress, 1.0);
 
         // A stale "Done" from a previous run must not be visible to the next.
         reset_batch_progress();

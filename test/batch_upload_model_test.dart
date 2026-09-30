@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
+import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
@@ -26,7 +29,8 @@ void main() {
       final notifier = BatchUploadNotifier();
       final rejected = notifier.addFiles(['/a/document.pdf', '/a/song.mp3']);
 
-      expect(rejected, ['/a/document.pdf']);
+      expect(rejected.map((r) => r.path), ['/a/document.pdf']);
+      expect(rejected.single.reason, RejectionReason.unsupportedFormat);
       expect(notifier.state, hasLength(1));
       expect(notifier.state.single.filename, 'song.mp3');
     });
@@ -111,6 +115,107 @@ void main() {
         outputDir: '~/Documents/Trareon Transcribe',
       );
       expect(notifier.state.single.status, BatchFileStatus.error);
+    });
+
+    test('a file over the advertised 2 GB limit is rejected, with the reason',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('trareon_import_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final small = File('${dir.path}/kecil.wav')..writeAsBytesSync([1, 2, 3]);
+
+      final notifier = BatchUploadNotifier();
+      expect(notifier.addFiles([small.path]), isEmpty);
+      expect(notifier.state.single.sizeBytes, 3);
+      expect(kMaxImportBytes, 2 * 1024 * 1024 * 1024,
+          reason: 'the drop zone advertises this number, so it has to be the '
+              'one that is enforced');
+    });
+
+    test('cancelling a queued file stops it from being processed', () async {
+      final notifier = BatchUploadNotifier();
+      notifier.addFiles(['/a/satu.mp3', '/a/dua.mp3']);
+      notifier.cancelFile('/a/satu.mp3');
+
+      expect(notifier.entryFor('/a/satu.mp3')!.status,
+          BatchFileStatus.cancelled);
+      expect(notifier.entryFor('/a/dua.mp3')!.status, BatchFileStatus.queued);
+
+      final bridge = _TestBridge();
+      await notifier.processBatch(bridge, '/model/path',
+          outputDir: '~/Documents/Trareon Transcribe');
+      expect(bridge.batchedFiles, ['/a/dua.mp3'],
+          reason: 'a cancelled file must never reach the engine');
+    });
+
+    test('retry puts a failed file back in the queue', () async {
+      final notifier = BatchUploadNotifier();
+      notifier.addFiles(['/a/crash.mp3']);
+      await notifier.processBatch(_ErrorBridge(), '/model/path',
+          outputDir: '~/Documents/Trareon Transcribe');
+      expect(notifier.state.single.status, BatchFileStatus.error);
+      expect(notifier.state.single.error, isNotNull);
+
+      notifier.retryFile('/a/crash.mp3');
+      expect(notifier.state.single.status, BatchFileStatus.queued);
+      expect(notifier.state.single.error, isNull);
+      expect(notifier.state.single.progress, 0);
+    });
+
+    test('clearing the queue mid-run does not throw', () async {
+      // `state.firstWhere(...)` threw a StateError here and killed the whole
+      // batch when the user pressed "Kosongkan" while it ran (audit B.1-2).
+      final notifier = BatchUploadNotifier();
+      notifier.addFiles(['/a/satu.mp3']);
+      final bridge = _ClearingBridge(notifier);
+      await notifier.processBatch(bridge, '/model/path',
+          outputDir: '~/Documents/Trareon Transcribe');
+      expect(notifier.state, isEmpty);
+    });
+
+    test('the progressive path reports per-file progress', () async {
+      final notifier = BatchUploadNotifier();
+      notifier.addFiles(['/a/panjang.mp3']);
+      final bridge = _ProgressiveBridge();
+
+      await notifier.processBatch(
+        bridge,
+        '/model/quick',
+        refineModelPath: '/model/refine',
+        outputDir: '~/Documents/Trareon Transcribe',
+      );
+
+      expect(bridge.progressiveCalls, ['/a/panjang.mp3']);
+      expect(notifier.state.single.status, BatchFileStatus.done);
+      expect(notifier.state.single.progress, 1.0);
+    });
+
+    test('cancelling during a progressive run stops the files after it',
+        () async {
+      final notifier = BatchUploadNotifier();
+      notifier.addFiles(['/a/satu.mp3', '/a/dua.mp3', '/a/tiga.mp3']);
+      // Cancel the rest while the first file is inside the engine — the
+      // file being transcribed cannot be interrupted, the ones behind it
+      // can.
+      final bridge = _ProgressiveBridge(onCall: (path) {
+        if (path == '/a/satu.mp3') {
+          notifier.cancelFile('/a/dua.mp3');
+          notifier.cancelFile('/a/tiga.mp3');
+        }
+      });
+
+      await notifier.processBatch(
+        bridge,
+        '/model/quick',
+        refineModelPath: '/model/refine',
+        outputDir: '~/Documents/Trareon Transcribe',
+      );
+
+      expect(bridge.progressiveCalls, ['/a/satu.mp3']);
+      expect(notifier.entryFor('/a/satu.mp3')!.status, BatchFileStatus.done);
+      expect(notifier.entryFor('/a/dua.mp3')!.status,
+          BatchFileStatus.cancelled);
+      expect(notifier.entryFor('/a/tiga.mp3')!.status,
+          BatchFileStatus.cancelled);
     });
   });
 }
@@ -219,6 +324,7 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
 
 class _TestBridge extends _NoopBridge {
   final List<String> exportedTitles = [];
+  final List<String> batchedFiles = [];
 
   @override
   Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
@@ -228,6 +334,7 @@ class _TestBridge extends _NoopBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
   }) async {
+    batchedFiles.addAll(files);
     return [
       rust_stt_file.BatchFileOutcome(
         filename: 'test.mp3',
@@ -277,5 +384,64 @@ class _ErrorBridge extends _NoopBridge {
     int gpuDevice = 0,
   }) async {
     throw Exception('engine failure');
+  }
+}
+
+/// Clears the queue while the engine is "working", the way pressing
+/// "Kosongkan" mid-import does.
+class _ClearingBridge extends _NoopBridge {
+  _ClearingBridge(this.notifier);
+
+  final BatchUploadNotifier notifier;
+
+  @override
+  Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
+    required String modelPath,
+    required List<String> files,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  }) async {
+    notifier.clear();
+    return [];
+  }
+}
+
+class _ProgressiveBridge extends _NoopBridge {
+  _ProgressiveBridge({this.onCall});
+
+  final void Function(String path)? onCall;
+  final List<String> progressiveCalls = [];
+
+  @override
+  Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
+    required String quickModelPath,
+    required String refineModelPath,
+    required String path,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+  }) async {
+    progressiveCalls.add(path);
+    onCall?.call(path);
+    return rust_api.ProgressiveFileResult(
+      filename: path.split('/').last,
+      quickSegments: const [],
+      refinedSegments: [
+        rust_export.Segment(
+          source: 'file',
+          speaker: 'Pembicara 1',
+          text: 'halo',
+          timestamp: 0,
+          duration: 1,
+          language: 'id',
+          confidence: 0.9,
+          isPartial: false,
+          lowConfidence: false,
+          avgLogProb: -0.2,
+        ),
+      ],
+      language: 'id',
+    );
   }
 }

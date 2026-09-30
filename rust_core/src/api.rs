@@ -321,6 +321,18 @@ pub fn progressive_transcribe_file(
         gpu_enabled,
         gpu_device,
     )?;
+    let filename = std::path::Path::new(&path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    // The two-pass import used to publish no progress at all, so turning
+    // Progressive Mode on made the import spinner stop moving until the
+    // whole file was done (audit B.1-2). It reports the same snapshot the
+    // single-model batch path does.
+    let report = |status: crate::stt::file::BatchFileStatus, fraction: f32| {
+        crate::stt::file::publish_batch_progress(0, 1, filename.clone(), status, fraction);
+    };
+    report(crate::stt::file::BatchFileStatus::Decoding, 0.0);
     let audio = crate::decode::decode_audio_file(std::path::Path::new(&path))?;
 
     // Chunk like file.rs: 30s chunks bound peak memory.
@@ -330,11 +342,19 @@ pub fn progressive_transcribe_file(
     let mut refined_segments = Vec::new();
 
     if audio.samples.len() <= chunk_samples {
+        report(crate::stt::file::BatchFileStatus::Transcribing, 0.0);
         quick_segments =
             engine.transcribe_quick(&audio.samples, "file", 0.0, language.as_deref(), None)?;
+        report(crate::stt::file::BatchFileStatus::Transcribing, 0.5);
         refined_segments =
             engine.transcribe_refine(&audio.samples, "file", 0.0, language.as_deref(), None)?;
+        report(crate::stt::file::BatchFileStatus::Transcribing, 1.0);
     } else {
+        let total_chunks = audio.samples.len().div_ceil(chunk_samples);
+        // Both passes run over every chunk, so the unit of work is
+        // 2 × chunks and the bar has to count them that way.
+        let total_passes = (total_chunks * 2) as f32;
+        let mut done = 0.0f32;
         for (idx, chunk) in audio.samples.chunks(chunk_samples).enumerate() {
             let start = idx as f64 * CHUNK_SECS;
             quick_segments.extend(engine.transcribe_quick(
@@ -344,6 +364,11 @@ pub fn progressive_transcribe_file(
                 language.as_deref(),
                 None,
             )?);
+            done += 1.0;
+            report(
+                crate::stt::file::BatchFileStatus::Transcribing,
+                done / total_passes,
+            );
             refined_segments.extend(engine.transcribe_refine(
                 chunk,
                 "file",
@@ -351,6 +376,11 @@ pub fn progressive_transcribe_file(
                 language.as_deref(),
                 None,
             )?);
+            done += 1.0;
+            report(
+                crate::stt::file::BatchFileStatus::Transcribing,
+                done / total_passes,
+            );
         }
     }
 
@@ -380,11 +410,9 @@ pub fn progressive_transcribe_file(
         }
     }
 
+    report(crate::stt::file::BatchFileStatus::Done, 1.0);
     Ok(ProgressiveFileResult {
-        filename: std::path::Path::new(&path)
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default(),
+        filename,
         quick_segments,
         refined_segments,
         language: language.unwrap_or_else(|| "auto".to_string()),

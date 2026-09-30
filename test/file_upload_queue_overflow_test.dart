@@ -68,6 +68,6 @@ void main() {
     await pumpWithQueue(tester, 0);
     expect(tester.takeException(), isNull);
     expect(find.byType(ListView), findsNothing);
-    expect(find.text('Pilih File'), findsOneWidget);
+    expect(find.text('Pilih Berkas'), findsOneWidget);
   });
 }

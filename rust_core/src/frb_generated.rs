@@ -1803,11 +1803,13 @@ impl SseDecode for crate::stt::file::BatchProgressSnapshot {
         let mut var_totalFiles = <u32>::sse_decode(deserializer);
         let mut var_filename = <String>::sse_decode(deserializer);
         let mut var_status = <crate::stt::file::BatchFileStatus>::sse_decode(deserializer);
+        let mut var_progress = <f32>::sse_decode(deserializer);
         return crate::stt::file::BatchProgressSnapshot {
             file_index: var_fileIndex,
             total_files: var_totalFiles,
             filename: var_filename,
             status: var_status,
+            progress: var_progress,
         };
     }
 }
@@ -2910,6 +2912,7 @@ impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchProgressSnapshot {
             self.total_files.into_into_dart().into_dart(),
             self.filename.into_into_dart().into_dart(),
             self.status.into_into_dart().into_dart(),
+            self.progress.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3681,6 +3684,7 @@ impl SseEncode for crate::stt::file::BatchProgressSnapshot {
         <u32>::sse_encode(self.total_files, serializer);
         <String>::sse_encode(self.filename, serializer);
         <crate::stt::file::BatchFileStatus>::sse_encode(self.status, serializer);
+        <f32>::sse_encode(self.progress, serializer);
     }
 }
 
