@@ -115,8 +115,8 @@ Future<void> stopWithSegments(
     lifecycle: SessionLifecycle.recording,
     sessionId: 'sesi-1',
     sessionTitle: 'Rapat Anggaran',
-    segments: [segment('halo')],
   );
+  notifier.setSegments([segment('halo')]);
   if (expectFailure) {
     await expectLater(notifier.stop(), throwsA(isA<TranscribeSaveError>()));
   } else {

@@ -675,6 +675,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   children: [
                     TranscriptView(
                       segments: session.segments,
+                      revision: session.revision,
                       onRenameSpeaker: (oldLabel, newLabel) {
                         ref
                             .read(sessionProvider.notifier)

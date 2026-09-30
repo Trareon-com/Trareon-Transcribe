@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,13 +11,40 @@ import '../utils/speaker_color.dart';
 import '../widgets/empty_state.dart';
 import 'speaker_avatar.dart';
 
+/// Scrolling transcript.
+///
+/// Built for the three-hour meeting it is advertised for: at 5 000 segments
+/// the old implementation allocated a complete `(index, segment)` tuple list
+/// on **every** build — and three independent 1–5 Hz sources (the elapsed
+/// timer, the VU meter, each arriving segment) triggered one (audit A.1-11).
+/// Now:
+///
+/// * the filtered index list is computed once per (segments, query) change
+///   and is not allocated at all while the search box is empty;
+/// * rows carry a `ValueKey`, so `ListView.builder`'s element recycling
+///   stops replaying the entry animation on every scroll (A.1-13);
+/// * the playing-row highlight arrives through a [ValueListenable] that
+///   only fires when the *row* changes, not on every position tick (A.3-6).
 class TranscriptView extends StatefulWidget {
   final List<TranscriptSegment> segments;
+
+  /// Monotonic counter bumped by the owner whenever [segments] changes
+  /// *content* without changing length or identity — a refined HPT pass
+  /// replacing its quick pass, or a manual edit. Without it the cached
+  /// filter results would go stale on exactly those edits.
+  final int revision;
+
   final void Function(int index, String newText)? onEdit;
 
-  /// If non-null, the segment at this index is visually highlighted
-  /// as the "currently playing" segment in the player.
-  final int? activeSegmentIndex;
+  /// Index of the row currently being played, or null. A listenable rather
+  /// than a plain value so the player can push it from its audio position
+  /// stream without rebuilding this widget's parent.
+  final ValueListenable<int?>? activeSegmentIndex;
+
+  /// Called when a row is tapped in a player context: seek the audio to the
+  /// start of that segment. When null, tapping a row opens the edit dialog
+  /// instead (the live-recording behaviour).
+  final void Function(int index, TranscriptSegment segment)? onSeekToSegment;
 
   /// Map of original speaker name → custom label.
   final Map<String, String> speakerLabels;
@@ -25,8 +55,10 @@ class TranscriptView extends StatefulWidget {
   const TranscriptView({
     super.key,
     required this.segments,
+    this.revision = 0,
     this.onEdit,
     this.activeSegmentIndex,
+    this.onSeekToSegment,
     this.speakerLabels = const {},
     this.onRenameSpeaker,
   });
@@ -35,16 +67,61 @@ class TranscriptView extends StatefulWidget {
   State<TranscriptView> createState() => _TranscriptViewState();
 }
 
+/// How long the search box waits after the last keystroke before filtering.
+/// At 5 000 segments an unfiltered pass allocates 5 000 lowercased strings;
+/// typing "anggaran" used to do that eight times.
+const Duration kTranscriptSearchDebounce = Duration(milliseconds: 250);
+
 class _TranscriptViewState extends State<TranscriptView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   String _searchQuery = '';
+
+  /// Original indices of the rows that match [_searchQuery], or null when
+  /// the search box is empty — in which case list position *is* the index
+  /// and no list is allocated at all.
+  List<int>? _matches;
+
+  /// Tail-follow while recording.
   bool _autoScroll = true;
+
+  /// Follow the playing row while the audio plays. Switched off the moment
+  /// the user scrolls by hand, and back on from the toolbar toggle.
+  bool _followActive = true;
+
+  /// Row count the last rebuild saw. Compared against instead of
+  /// `oldWidget.segments.length` because the notifier now publishes an
+  /// unmodifiable *view* over one growing list — old and new widget share
+  /// the backing store, so their lengths are always equal.
+  int _knownCount = 0;
+  int _knownRevision = 0;
+
+  int? _activeIndex;
+  final GlobalKey _activeRowKey = GlobalKey();
+
+  /// Displayed position the forward sliver starts at. Everything before it
+  /// lives in a second, reverse-growth sliver above the viewport's centre,
+  /// so scroll offset 0 always means "row [_anchorIndex] at the top" and
+  /// jumping across the meeting costs one screenful of layout instead of
+  /// the whole transcript. 0 — the live-recording case — makes the leading
+  /// sliver empty, i.e. an ordinary top-anchored list.
+  int _anchorIndex = 0;
+  static const Key _forwardSliverKey = ValueKey('transcript-forward');
+
+  bool get _isPlayerMode => widget.activeSegmentIndex != null;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _knownCount = widget.segments.length;
+    _knownRevision = widget.revision;
+    final active = widget.activeSegmentIndex;
+    if (active != null) {
+      _activeIndex = active.value;
+      active.addListener(_onActiveIndexChanged);
+    }
   }
 
   void _onScroll() {
@@ -52,15 +129,89 @@ class _TranscriptViewState extends State<TranscriptView> {
     final pos = _scrollController.position;
     const threshold = 50.0;
     final atBottom = pos.maxScrollExtent - pos.pixels < threshold;
-    if (_autoScroll != atBottom) {
+    if (!_isPlayerMode && _autoScroll != atBottom) {
       setState(() => _autoScroll = atBottom);
     }
+  }
+
+  /// Fires at most once per played segment (~0.5 Hz), not once per audio
+  /// position tick — the player derives the index with a binary search and
+  /// a [ValueNotifier] swallows repeated identical values.
+  void _onActiveIndexChanged() {
+    final next = widget.activeSegmentIndex?.value;
+    if (next == _activeIndex) return;
+    setState(() => _activeIndex = next);
+    if (_followActive && next != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealRow(next));
+    }
+  }
+
+  /// Brings row [originalIndex] into view.
+  ///
+  /// Two cases, and the difference matters enormously at 5 000 rows:
+  ///
+  /// * **Nearby** (the row is already realised — which is every step of
+  ///   ordinary playback, because the next row is inside the cache extent):
+  ///   `ensureVisible`, smooth and cheap.
+  /// * **Far** (a manual seek across the meeting): scrolling there is not an
+  ///   option. `RenderSliverList` walks children from the one it already has,
+  ///   so `jumpTo` across 4 000 variable-height rows *builds all 4 000* —
+  ///   measured at 20 s on this hardware. Instead the anchor moves and the
+  ///   viewport is re-centred on it, which builds one screenful. See
+  ///   [_anchorIndex].
+  void _revealRow(int originalIndex) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _positionOf(originalIndex);
+    if (position < 0) return;
+
+    final rowContext = _activeRowKey.currentContext;
+    if (rowContext != null) {
+      Scrollable.ensureVisible(
+        rowContext,
+        alignment: 0.35,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    _anchorAt(position);
+  }
+
+  /// Position of [originalIndex] within the currently displayed list.
+  int _positionOf(int originalIndex) =>
+      _matches == null ? originalIndex : _matches!.indexOf(originalIndex);
+
+  /// Re-centres the viewport so that displayed position [position] is at the
+  /// top of the forward sliver, with a couple of rows of context above it.
+  void _anchorAt(int position) {
+    final anchor = (position - 2).clamp(0, position);
+    setState(() => _anchorIndex = anchor);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      // Offset 0 is, by construction, the first row of the forward sliver.
+      _scrollController.jumpTo(0);
+      final ctx = _activeRowKey.currentContext;
+      if (ctx != null) Scrollable.ensureVisible(ctx, alignment: 0.25);
+    });
   }
 
   @override
   void didUpdateWidget(TranscriptView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_autoScroll && widget.segments.length > oldWidget.segments.length) {
+
+    final oldActive = oldWidget.activeSegmentIndex;
+    final newActive = widget.activeSegmentIndex;
+    if (!identical(oldActive, newActive)) {
+      oldActive?.removeListener(_onActiveIndexChanged);
+      newActive?.addListener(_onActiveIndexChanged);
+      _activeIndex = newActive?.value;
+    }
+
+    final count = widget.segments.length;
+    final contentChanged =
+        count != _knownCount || widget.revision != _knownRevision;
+    if (contentChanged && _searchQuery.isNotEmpty) _rebuildMatches();
+    if (_autoScroll && !_isPlayerMode && count > _knownCount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -71,19 +222,107 @@ class _TranscriptViewState extends State<TranscriptView> {
         }
       });
     }
+    _knownCount = count;
+    _knownRevision = widget.revision;
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    widget.activeSegmentIndex?.removeListener(_onActiveIndexChanged);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(kTranscriptSearchDebounce, () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value.trim().toLowerCase();
+        _rebuildMatches();
+      });
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _matches = null;
+      _anchorIndex = 0;
+    });
+  }
+
+  void _rebuildMatches() {
+    // Positions change meaning when the filter does, so the anchor — which
+    // is a *position*, not a segment index — has to go back to the top.
+    _anchorIndex = 0;
+    final query = _searchQuery;
+    if (query.isEmpty) {
+      _matches = null;
+      return;
+    }
+    final segments = widget.segments;
+    final matches = <int>[];
+    for (var i = 0; i < segments.length; i++) {
+      final segment = segments[i];
+      if (segment.text.toLowerCase().contains(query) ||
+          segment.speaker.toLowerCase().contains(query)) {
+        matches.add(i);
+      }
+    }
+    _matches = matches;
+  }
+
+  /// One row, addressed by its position in the *displayed* list.
+  Widget _buildRow(BuildContext context, AppColorSet colors, int position) {
+    final matches = _matches;
+    final originalIndex = matches == null ? position : matches[position];
+    final seg = widget.segments[originalIndex];
+    final isActive = originalIndex == _activeIndex;
+    final displaySpeaker = widget.speakerLabels[seg.speaker] ?? seg.speaker;
+    return TranscriptSegmentTile(
+      key: isActive ? _activeRowKey : ValueKey(originalIndex),
+      segment: seg,
+      displaySpeaker: displaySpeaker,
+      speakerColor: speakerColor(seg.speaker, colors),
+      isActive: isActive,
+      searchQuery: _searchQuery,
+      onSeek: widget.onSeekToSegment == null
+          ? null
+          : () => widget.onSeekToSegment!(originalIndex, seg),
+      onEdit: widget.onEdit == null
+          ? null
+          : (newText) => widget.onEdit!(originalIndex, newText),
+      onCopy: () {
+        Clipboard.setData(ClipboardData(
+          text:
+              '[${formatDuration(Duration(milliseconds: (seg.timestamp * 1000).round()))}] ${seg.text}',
+        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Segmen disalin',
+                style: TextStyle(fontSize: 12, color: colors.text)),
+            duration: const Duration(seconds: 1),
+            backgroundColor: colors.surface,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      onRename: widget.onRenameSpeaker == null
+          ? null
+          : (newName) => widget.onRenameSpeaker!(seg.speaker, newName),
+    );
+  }
+
   void _copyAllToClipboard(BuildContext context) {
     if (widget.segments.isEmpty) return;
     final text = widget.segments
-        .map((s) => '[${s.speaker} · ${formatDuration(Duration(milliseconds: (s.timestamp * 1000).round()))}] ${s.text}')
+        .map((s) =>
+            '[${s.speaker} · ${formatDuration(Duration(milliseconds: (s.timestamp * 1000).round()))}] ${s.text}')
         .join('\n');
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +333,6 @@ class _TranscriptViewState extends State<TranscriptView> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +345,10 @@ class _TranscriptViewState extends State<TranscriptView> {
         subtitle: 'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)',
       );
     }
+
+    final matches = _matches;
+    final itemCount = matches?.length ?? widget.segments.length;
+    final anchor = _anchorIndex.clamp(0, itemCount);
 
     return Column(
       children: [
@@ -124,19 +366,17 @@ class _TranscriptViewState extends State<TranscriptView> {
                   height: 36,
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
+                    onChanged: _onSearchChanged,
                     style: TextStyle(color: colors.text, fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Cari...',
                       hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
                       prefixIcon: Icon(Icons.search, size: 16, color: colors.textTertiary),
-                      suffixIcon: _searchQuery.isNotEmpty
+                      suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
                               icon: Icon(Icons.clear, size: 14, color: colors.textTertiary),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
+                              onPressed: _clearSearch,
+                              tooltip: 'Bersihkan pencarian',
                             )
                           : null,
                       filled: true,
@@ -153,19 +393,38 @@ class _TranscriptViewState extends State<TranscriptView> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${widget.segments.length} segmen',
+                _searchQuery.isEmpty
+                    ? '${widget.segments.length} segmen'
+                    : '$itemCount dari ${widget.segments.length} segmen',
                 style: TextStyle(color: colors.textSecondary, fontSize: 12),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: _autoScroll ? 'Auto-scroll aktif' : 'Auto-scroll mati',
-                icon: Icon(
-                  _autoScroll ? Icons.vertical_align_bottom : Icons.pause_circle_outline,
-                  size: 18,
-                  color: _autoScroll ? colors.primary : colors.textTertiary,
+              if (_isPlayerMode)
+                IconButton(
+                  tooltip: _followActive
+                      ? 'Ikuti pemutaran: aktif'
+                      : 'Ikuti pemutaran: mati',
+                  icon: Icon(
+                    _followActive ? Icons.my_location : Icons.location_disabled,
+                    size: 18,
+                    color: _followActive ? colors.primary : colors.textTertiary,
+                  ),
+                  onPressed: () {
+                    setState(() => _followActive = !_followActive);
+                    final active = _activeIndex;
+                    if (_followActive && active != null) _revealRow(active);
+                  },
+                )
+              else
+                IconButton(
+                  tooltip: _autoScroll ? 'Auto-scroll aktif' : 'Auto-scroll mati',
+                  icon: Icon(
+                    _autoScroll ? Icons.vertical_align_bottom : Icons.pause_circle_outline,
+                    size: 18,
+                    color: _autoScroll ? colors.primary : colors.textTertiary,
+                  ),
+                  onPressed: () => setState(() => _autoScroll = !_autoScroll),
                 ),
-                onPressed: () => setState(() => _autoScroll = !_autoScroll),
-              ),
               IconButton(
                 tooltip: 'Salin semua',
                 icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
@@ -177,61 +436,51 @@ class _TranscriptViewState extends State<TranscriptView> {
 
         // Transcript list
         Expanded(
-          child: Builder(
-            builder: (context) {
-              final query = _searchQuery.trim().toLowerCase();
-              final items = query.isEmpty
-                  ? [for (var i = 0; i < widget.segments.length; i++) (i, widget.segments[i])]
-                  : [
-                      for (var i = 0; i < widget.segments.length; i++)
-                        if (widget.segments[i].text.toLowerCase().contains(query) ||
-                            widget.segments[i].speaker.toLowerCase().contains(query))
-                          (i, widget.segments[i]),
-                    ];
-
-              if (items.isEmpty) {
-                return EmptyState(
+          child: itemCount == 0
+              ? const EmptyState(
                   icon: Icons.search_off,
-                  title: query.isNotEmpty ? 'Tidak ada segmen cocok' : 'Belum ada transkrip',
-                );
-              }
-              return ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final (originalIndex, seg) = items[index];
-                  final displaySpeaker = widget.speakerLabels[seg.speaker] ?? seg.speaker;
-                  return _SegmentTile(
-                    segment: seg,
-                    displaySpeaker: displaySpeaker,
-                    speakerColor: speakerColor(seg.speaker, colors),
-                    isActive: widget.activeSegmentIndex != null && originalIndex == widget.activeSegmentIndex,
-                    searchQuery: query,
-                    onEdit: widget.onEdit == null
-                        ? null
-                        : (newText) => widget.onEdit!(originalIndex, newText),
-                    onCopy: () {
-                      Clipboard.setData(ClipboardData(
-                        text: '[${formatDuration(Duration(milliseconds: (seg.timestamp * 1000).round()))}] ${seg.text}',
-                      ));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Segmen disalin', style: TextStyle(fontSize: 12, color: colors.text)),
-                          duration: Duration(seconds: 1),
-                          backgroundColor: colors.surface,
-                          behavior: SnackBarBehavior.floating,
+                  title: 'Tidak ada segmen cocok',
+                )
+              : NotificationListener<UserScrollNotification>(
+                  // A hand-scroll during playback means "stop dragging me
+                  // back to the playhead" — the same contract the live
+                  // tail-follow has always had.
+                  onNotification: (_) {
+                    if (_isPlayerMode && _followActive) {
+                      setState(() => _followActive = false);
+                    }
+                    return false;
+                  },
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    center: _forwardSliverKey,
+                    slivers: [
+                      // Rows above the anchor, laid out upwards. Empty
+                      // (childCount 0) whenever the anchor is 0.
+                      SliverPadding(
+                        padding: const EdgeInsets.only(left: 12, right: 12, top: 8),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) =>
+                                _buildRow(context, colors, anchor - 1 - index),
+                            childCount: anchor,
+                          ),
                         ),
-                      );
-                    },
-                    onRename: widget.onRenameSpeaker == null
-                        ? null
-                        : (newName) => widget.onRenameSpeaker!(seg.speaker, newName),
-                  );
-                },
-              );
-            },
-          ),
+                      ),
+                      SliverPadding(
+                        key: _forwardSliverKey,
+                        padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) =>
+                                _buildRow(context, colors, anchor + index),
+                            childCount: itemCount - anchor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
         ),
       ],
     );
@@ -268,7 +517,9 @@ List<TextSpan> _highlightText(String text, String query, TextStyle baseStyle, Co
   return results;
 }
 
-class _SegmentTile extends StatelessWidget {
+/// One transcript row. Public so the 5 000-segment benchmark can assert
+/// that only the visible handful is ever materialised.
+class TranscriptSegmentTile extends StatelessWidget {
   final TranscriptSegment segment;
   final String displaySpeaker;
   final Color speakerColor;
@@ -276,9 +527,11 @@ class _SegmentTile extends StatelessWidget {
   final String searchQuery;
   final ValueChanged<String>? onEdit;
   final VoidCallback? onCopy;
+  final VoidCallback? onSeek;
   final ValueChanged<String>? onRename;
 
-  const _SegmentTile({
+  const TranscriptSegmentTile({
+    super.key,
     required this.segment,
     required this.displaySpeaker,
     required this.speakerColor,
@@ -286,6 +539,7 @@ class _SegmentTile extends StatelessWidget {
     this.searchQuery = '',
     this.onEdit,
     this.onCopy,
+    this.onSeek,
     this.onRename,
   });
 
@@ -294,203 +548,194 @@ class _SegmentTile extends StatelessWidget {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final activeBg = speakerColor.withValues(alpha: isActive ? 0.12 : 0.0);
     final activeBorder = isActive ? speakerColor : Colors.transparent;
-
+    // No entry animation: `ListView.builder` recycles elements, so the
+    // fade-and-slide replayed on every scroll and on every search keystroke
+    // (audit A.1-13), and at 5 000 rows it kept a frame permanently
+    // scheduled while the user dragged the scrollbar.
     return Semantics(
-      label: '${segment.speaker} pada ${formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round()))}: ${segment.text}',
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, (1 - value) * 12),
-              child: child,
+      label:
+          '${segment.speaker} pada ${formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round()))}: ${segment.text}',
+      selected: isActive,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            color: activeBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: activeBorder.withValues(alpha: isActive ? 0.5 : 0.0),
+              width: isActive ? 1.5 : 0,
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Container(
-            decoration: BoxDecoration(
-              color: activeBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: activeBorder.withValues(alpha: isActive ? 0.5 : 0.0),
-                width: isActive ? 1.5 : 0,
+          ),
+          child: InkWell(
+            onTap: onSeek ?? (onEdit != null ? () => _openEditDialog(context) : null),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 12,
+                right: 8,
+                top: 10,
+                bottom: 10,
               ),
-            ),
-            child: InkWell(
-              onTap: onEdit != null ? () => _openEditDialog(context) : null,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: isActive ? 12 : 16,
-                  right: 8,
-                  top: 10,
-                  bottom: 10,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Timeline strip (garis vertikal kecil)
-                    Container(
-                      width: 3,
-                      height: 16,
-                      margin: const EdgeInsets.only(top: 3, right: 10),
-                      decoration: BoxDecoration(
-                        color: speakerColor.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Timeline strip (garis vertikal kecil)
+                  Container(
+                    width: 3,
+                    height: 16,
+                    margin: const EdgeInsets.only(top: 3, right: 10),
+                    decoration: BoxDecoration(
+                      color: speakerColor.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    // Speaker label + time
-                    SizedBox(
-                      width: 72,
-                      child: GestureDetector(
-                        onTap: onRename != null
-                            ? () => _openRenameDialog(context)
-                            : null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                SpeakerAvatar(name: displaySpeaker, color: speakerColor, size: 22),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    displaySpeaker,
-                                    style: TextStyle(
-                                      color: speakerColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (onRename != null) ...[
-                                  const SizedBox(width: 2),
-                                  Icon(Icons.edit_outlined, size: 10, color: speakerColor.withValues(alpha: 0.5)),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round())),
-                              style: TextStyle(
-                                color: colors.textTertiary,
-                                fontSize: 10,
-                                fontFeatures: [FontFeature.tabularFigures()],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Content
-                    Expanded(
+                  ),
+                  // Speaker label + time
+                  SizedBox(
+                    width: 72,
+                    child: GestureDetector(
+                      onTap: onRename != null
+                          ? () => _openRenameDialog(context)
+                          : null,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          RichText(
-                            text: TextSpan(
-                              children: _highlightText(
-                                segment.text,
-                                searchQuery,
-                                TextStyle(
-                                  color: colors.text,
-                                  fontSize: 14,
-                                  height: 1.45,
-                                  letterSpacing: 0.1,
+                          Row(
+                            children: [
+                              SpeakerAvatar(name: displaySpeaker, color: speakerColor, size: 22),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  displaySpeaker,
+                                  style: TextStyle(
+                                    color: speakerColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                speakerColor,
                               ),
+                              if (onRename != null) ...[
+                                const SizedBox(width: 2),
+                                Icon(Icons.edit_outlined, size: 10, color: speakerColor.withValues(alpha: 0.5)),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round())),
+                            style: TextStyle(
+                              color: colors.textTertiary,
+                              fontSize: 10,
+                              fontFeatures: const [FontFeature.tabularFigures()],
                             ),
                           ),
-                          if (segment.isPartial) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 9,
-                                  height: 9,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.4,
-                                    color: colors.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  'Memperbaiki…',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: colors.textTertiary,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (segment.lowConfidence) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 12,
-                                  color: const Color(0xFFD97706),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Kepercayaan rendah',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: const Color(0xFFD97706),
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
                     ),
-                    // Action buttons
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+                  ),
+                  const SizedBox(width: 8),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (onCopy != null)
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: IconButton(
-                              icon: Icon(Icons.copy_outlined, size: 16, color: colors.textTertiary),
-                              onPressed: onCopy,
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Salin segmen',
+                        RichText(
+                          text: TextSpan(
+                            children: _highlightText(
+                              segment.text,
+                              searchQuery,
+                              TextStyle(
+                                color: colors.text,
+                                fontSize: 14,
+                                height: 1.45,
+                                letterSpacing: 0.1,
+                              ),
+                              speakerColor,
                             ),
                           ),
-                        if (onEdit != null)
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: IconButton(
-                              icon: Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
-                              onPressed: () => _openEditDialog(context),
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Edit',
-                            ),
+                        ),
+                        if (segment.isPartial) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 9,
+                                height: 9,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.4,
+                                  color: colors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Memperbaiki…',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: colors.textTertiary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
                           ),
+                        ],
+                        if (segment.lowConfidence) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 12,
+                                color: Color(0xFFD97706),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Kepercayaan rendah',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: const Color(0xFFD97706),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  // Action buttons
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onCopy != null)
+                        SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: IconButton(
+                            icon: Icon(Icons.copy_outlined, size: 16, color: colors.textTertiary),
+                            onPressed: onCopy,
+                            padding: EdgeInsets.zero,
+                            tooltip: 'Salin segmen',
+                          ),
+                        ),
+                      if (onEdit != null)
+                        SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: IconButton(
+                            icon: Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
+                            onPressed: () => _openEditDialog(context),
+                            padding: EdgeInsets.zero,
+                            tooltip: 'Edit',
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

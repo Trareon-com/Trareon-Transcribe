@@ -1,4 +1,7 @@
 pub mod api;
+/// Synthetic 5 000-segment / 3-hour meeting used by the performance tests.
+#[cfg(test)]
+pub mod bench_fixture;
 pub mod benchmark;
 pub mod confidence;
 pub mod doctor;

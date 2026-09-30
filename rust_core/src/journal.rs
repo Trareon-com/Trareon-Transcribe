@@ -334,4 +334,103 @@ mod tests {
         assert_eq!(last_segment_end_secs(&segments), 12.0);
         assert_eq!(last_segment_end_secs(&[]), 0.0);
     }
+
+    /// Permanent benchmark: the journal is what a three-hour meeting is
+    /// recovered from, so writing and replaying one has to be cheap enough
+    /// that recovery is instant rather than a second spinner after a crash.
+    ///
+    /// The assertion that matters is the *shape*: replaying 4× the segments
+    /// must cost ~4× the time. `replay` is keyed by a `HashMap`, so it is
+    /// linear; a scan-per-line implementation would be quadratic and this
+    /// test is what would catch that coming back.
+    #[test]
+    fn a_three_hour_journal_writes_and_replays_linearly() {
+        use crate::bench_fixture::{bench_segments, three_hour_meeting, BENCH_SEGMENT_COUNT};
+
+        fn write_and_replay(dir: &Path, segments: &[Segment]) -> (u128, u128) {
+            let path = dir.join(format!("transcript-{}.jsonl", segments.len()));
+            let mut journal = TranscriptJournal::open_append(&path).unwrap();
+            let write_start = Instant::now();
+            for segment in segments {
+                journal.append(segment).unwrap();
+            }
+            journal.sync().unwrap();
+            let write_micros = write_start.elapsed().as_micros();
+
+            let replay_start = Instant::now();
+            let replayed = replay(&path);
+            let replay_micros = replay_start.elapsed().as_micros();
+            assert_eq!(replayed.len(), segments.len());
+            assert_eq!(replayed.last().unwrap().text, segments.last().unwrap().text);
+            (write_micros, replay_micros)
+        }
+
+        let dir = temp_dir();
+        let quarter = bench_segments(BENCH_SEGMENT_COUNT / 4, 45.0 * 60.0);
+        let full = three_hour_meeting();
+
+        let (small_write, small_replay) = write_and_replay(&dir, &quarter);
+        let (big_write, big_replay) = write_and_replay(&dir, &full);
+
+        println!(
+            "[perf] journal write {} segs = {}ms, {} segs = {}ms",
+            quarter.len(),
+            small_write / 1000,
+            full.len(),
+            big_write / 1000
+        );
+        println!(
+            "[perf] journal replay {} segs = {}ms, {} segs = {}ms",
+            quarter.len(),
+            small_replay / 1000,
+            full.len(),
+            big_replay / 1000
+        );
+
+        let ratio = big_replay as f64 / small_replay.max(1) as f64;
+        assert!(
+            ratio < 10.0,
+            "replaying 4x the segments took {ratio:.1}x as long — that is the \
+             shape of a quadratic replay, not a linear one"
+        );
+        assert!(
+            big_replay < 2_000_000,
+            "recovering a three-hour transcript took {}ms",
+            big_replay / 1000
+        );
+    }
+
+    /// The HPT worst case at scale: every segment arrives twice, quick then
+    /// refined. `replay` must still return exactly one row per utterance.
+    #[test]
+    fn a_three_hour_journal_of_refined_passes_replays_one_row_per_utterance() {
+        use crate::bench_fixture::three_hour_meeting;
+
+        let dir = temp_dir();
+        let path = dir.join("hpt.jsonl");
+        let segments = three_hour_meeting();
+        let mut journal = TranscriptJournal::open_append(&path).unwrap();
+        for segment in &segments {
+            let mut quick = segment.clone();
+            quick.is_partial = true;
+            quick.text = format!("cepat: {}", segment.text);
+            journal.append(&quick).unwrap();
+        }
+        for segment in &segments {
+            journal.append(segment).unwrap();
+        }
+        journal.sync().unwrap();
+
+        let start = Instant::now();
+        let replayed = replay(&path);
+        println!(
+            "[perf] journal replay of {} lines (2 passes) = {}ms",
+            segments.len() * 2,
+            start.elapsed().as_millis()
+        );
+        assert_eq!(replayed.len(), segments.len());
+        assert!(replayed.iter().all(|s| !s.is_partial));
+        assert_eq!(replayed[0].text, segments[0].text);
+        assert_eq!(replayed.last().unwrap().text, segments.last().unwrap().text);
+    }
 }
