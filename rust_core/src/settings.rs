@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio::SessionMode;
 use crate::error::TranscribeError;
+use crate::summary::{SummaryConfig, SummaryProvider, SummaryTemplate};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Theme {
@@ -36,6 +37,72 @@ pub struct AppSettings {
     /// GPU device index to use when `gpu_enabled` is true (0 = default).
     #[serde(default)]
     pub gpu_device: i32,
+    /// Stop recording automatically after this many minutes without new
+    /// transcript segments. `None` = never. Previously Dart-only, which meant
+    /// it silently reset to "off" on every launch.
+    #[serde(default)]
+    pub auto_stop_minutes: Option<u32>,
+    /// Hybrid Progressive Transcription: quick (base) pass then refine (q5).
+    #[serde(default = "default_true")]
+    pub progressive_enabled: bool,
+    /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
+    #[serde(default)]
+    pub summary: SummarySettings,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Persisted configuration for the opt-in AI summary feature.
+///
+/// `api_key` is stored in the same plaintext settings JSON as everything
+/// else (OS config dir, user-private permissions). There is no OS keychain
+/// dependency in this project, so this is a deliberate trade-off: it is
+/// documented in `SECURITY.md`, the field is empty by default, and the
+/// default provider (local Ollama) needs no key at all.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SummarySettings {
+    /// Master switch. While false, no summary UI is offered and no request
+    /// can be made — the app stays fully offline.
+    pub enabled: bool,
+    pub provider: SummaryProvider,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub template: SummaryTemplate,
+    pub custom_prompt: String,
+}
+
+impl Default for SummarySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider: SummaryProvider::Ollama,
+            base_url: crate::summary::DEFAULT_OLLAMA_BASE_URL.to_string(),
+            api_key: String::new(),
+            model: String::new(),
+            template: SummaryTemplate::NotulenRapat,
+            custom_prompt: String::new(),
+        }
+    }
+}
+
+impl SummarySettings {
+    /// Builds the runtime config used by `summary::generate_summary`.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn to_config(&self, language: Option<&str>) -> SummaryConfig {
+        SummaryConfig {
+            provider: self.provider,
+            base_url: self.base_url.clone(),
+            api_key: self.api_key.clone(),
+            model: self.model.clone(),
+            template: self.template,
+            custom_prompt: self.custom_prompt.clone(),
+            language: language.unwrap_or("id").to_string(),
+            timeout_secs: crate::summary::DEFAULT_TIMEOUT_SECS,
+        }
+    }
 }
 
 impl Default for AppSettings {
@@ -52,6 +119,9 @@ impl Default for AppSettings {
             language: Some("id".to_string()),
             gpu_enabled: false,
             gpu_device: 0,
+            auto_stop_minutes: None,
+            progressive_enabled: true,
+            summary: SummarySettings::default(),
         }
     }
 }
@@ -139,6 +209,87 @@ mod tests {
         assert!(matches!(loaded.theme, Theme::Dark));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn summary_is_off_and_local_by_default() {
+        let s = AppSettings::default();
+        assert!(!s.summary.enabled, "networked feature must be opt-in");
+        assert!(s.summary.api_key.is_empty());
+        assert!(s.summary.base_url.contains("localhost"));
+    }
+
+    #[test]
+    fn auto_stop_and_progressive_survive_a_roundtrip() {
+        // Both used to live only in Dart memory and reset on every launch.
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_persist_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+
+        let saved = AppSettings {
+            auto_stop_minutes: Some(10),
+            progressive_enabled: false,
+            summary: SummarySettings {
+                enabled: true,
+                model: "qwen2.5:7b".to_string(),
+                template: SummaryTemplate::ActionItems,
+                ..SummarySettings::default()
+            },
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert_eq!(loaded.auto_stop_minutes, Some(10));
+        assert!(!loaded.progressive_enabled);
+        assert!(loaded.summary.enabled);
+        assert_eq!(loaded.summary.model, "qwen2.5:7b");
+        assert_eq!(loaded.summary.template, SummaryTemplate::ActionItems);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn settings_files_from_older_builds_still_load() {
+        // A pre-upgrade settings.json has none of the new keys. Falling back
+        // to *all* defaults here would silently reset the user's model,
+        // theme and library path.
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_legacy_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        std::fs::write(
+            &path,
+            r#"{"theme":"Dark","default_model":"large-v3-turbo-q5","default_mode":"Webinar",
+                "library_path":"/tmp/lib","always_on_top":false,"auto_save_interval_secs":10,
+                "vad_enabled":false,"echo_dedupe_enabled":true,"language":"id"}"#,
+        )
+        .unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert_eq!(loaded.default_model, "large-v3-turbo-q5");
+        assert_eq!(loaded.library_path, "/tmp/lib");
+        assert!(!loaded.vad_enabled);
+        assert_eq!(loaded.auto_stop_minutes, None);
+        assert!(loaded.progressive_enabled, "new flag defaults to on");
+        assert!(!loaded.summary.enabled);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn to_config_carries_the_ui_language_through() {
+        let settings = SummarySettings {
+            model: "m".into(),
+            ..SummarySettings::default()
+        };
+        assert_eq!(settings.to_config(Some("en")).language, "en");
+        assert_eq!(settings.to_config(None).language, "id");
     }
 
     #[test]

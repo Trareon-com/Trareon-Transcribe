@@ -11,6 +11,7 @@ import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'test_helpers.dart';
 
 Future<WizardSpecs> _detectSpecs() async => const WizardSpecs(
       cpuCores: 8,
@@ -18,7 +19,7 @@ Future<WizardSpecs> _detectSpecs() async => const WizardSpecs(
       suggestedModel: 'large-v3-turbo-q5',
     );
 
-class _FakeBridge implements RustBridge {
+class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   AppSettings savedSettings = AppSettings.defaults();
   final List<(String, String)> downloadModelCalls = [];
 

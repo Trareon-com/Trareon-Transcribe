@@ -31,4 +31,11 @@ sealed class TranscribeError with _$TranscribeError implements FrbException {
       TranscribeError_InvalidInput;
   const factory TranscribeError.sessionNotFound(String field0) =
       TranscribeError_SessionNotFound;
+
+  /// AI summary generation failed (endpoint unreachable, auth rejected,
+  /// unexpected response shape). Separate from `Transcription` so the UI
+  /// can say "summary failed, your transcript is safe" — summaries are the
+  /// one opt-in networked feature and must never look like data loss.
+  const factory TranscribeError.summary(String field0) =
+      TranscribeError_Summary;
 }

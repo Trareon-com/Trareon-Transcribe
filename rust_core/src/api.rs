@@ -170,6 +170,25 @@ pub fn export_session(
     crate::export::export_segments(&segments, &formats, &PathBuf::from(output_dir), &title)
 }
 
+/// As [`export_session`], but leads the Markdown/TXT/HTML/DOCX output with
+/// `summary` (Markdown, from [`generate_summary`]). An empty `summary`
+/// produces byte-identical output to [`export_session`].
+pub fn export_session_with_summary(
+    segments: Vec<Segment>,
+    formats: Vec<ExportFormat>,
+    output_dir: String,
+    title: String,
+    summary: String,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    crate::export::export_segments_with_summary(
+        &segments,
+        &formats,
+        &PathBuf::from(output_dir),
+        &title,
+        &summary,
+    )
+}
+
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
 /// recording as WAV files into the same session folder `export_session`
 /// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after
@@ -272,6 +291,28 @@ pub fn progressive_transcribe_file(
     crate::progressive::filter_loops(&mut quick_segments);
     crate::progressive::filter_loops(&mut refined_segments);
 
+    // Speaker labels, same as the single-model file path. Both passes are
+    // labelled from a single diarizer over the same audio so the quick and
+    // refined rows for one utterance agree — a label that flips when the
+    // refine pass lands reads as a bug to the user.
+    let mut diarizer = crate::diarization::Diarizer::new();
+    crate::diarization::label_segments(&mut diarizer, &audio.samples, &mut refined_segments);
+    let labels: std::collections::HashMap<String, String> = refined_segments
+        .iter()
+        .map(|s| {
+            (
+                format!("{}@{:.2}", s.source, s.timestamp),
+                s.speaker.clone(),
+            )
+        })
+        .collect();
+    for segment in quick_segments.iter_mut() {
+        let key = format!("{}@{:.2}", segment.source, segment.timestamp);
+        if let Some(label) = labels.get(&key) {
+            segment.speaker = label.clone();
+        }
+    }
+
     Ok(ProgressiveFileResult {
         filename: std::path::Path::new(&path)
             .file_name()
@@ -312,6 +353,50 @@ pub fn transcribe_files_batch(
     );
 
     Ok(results)
+}
+
+/// Which file [`transcribe_files_batch`] is currently on. Poll this while the
+/// batch future is in flight — that call only returns once *every* file is
+/// done, so without it a long import shows a spinner that never moves.
+pub fn get_batch_progress() -> Option<crate::stt::file::BatchProgressSnapshot> {
+    crate::stt::file::read_batch_progress()
+}
+
+// --- AI summary (the only networked feature; opt-in) -----------------------
+//
+// See `summary.rs` for the full privacy contract. In short: these two
+// functions are the ONLY place user content leaves the process, they run
+// only when the user presses a button, and the default endpoint is loopback.
+
+/// Generates a Markdown meeting summary for `segments` using `config`.
+///
+/// Only the rendered transcript text is sent — no audio, no file paths, no
+/// device names. Returns a `TranscribeError::Summary` (never a panic, never
+/// a partial write) when the endpoint is unreachable or rejects the request,
+/// so a failed summary can never look like a lost transcript.
+pub async fn generate_summary(
+    segments: Vec<Segment>,
+    config: crate::summary::SummaryConfig,
+) -> Result<String, TranscribeError> {
+    let transcript = crate::summary::transcript_text(&segments);
+    crate::summary::generate_summary(config, transcript).await
+}
+
+/// Lists the models the configured summary endpoint offers, so the settings
+/// UI can show a dropdown instead of a free-text field. Sends no transcript.
+pub async fn list_summary_models(
+    provider: crate::summary::SummaryProvider,
+    base_url: String,
+    api_key: String,
+) -> Result<Vec<String>, TranscribeError> {
+    crate::summary::list_summary_models(provider, base_url, api_key).await
+}
+
+/// Renders `segments` the way [`generate_summary`] would send them. Exposed
+/// so the UI can show the user exactly what would be transmitted before they
+/// opt in — no network access.
+pub fn summary_preview_transcript(segments: Vec<Segment>) -> String {
+    crate::summary::transcript_text(&segments)
 }
 
 // --- Settings -----------------------------------------------------

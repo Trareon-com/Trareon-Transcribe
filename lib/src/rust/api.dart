@@ -15,6 +15,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
+import 'summary.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
@@ -134,6 +135,23 @@ Future<List<ExportedFile>> exportSession({
   title: title,
 );
 
+/// As [`export_session`], but leads the Markdown/TXT/HTML/DOCX output with
+/// `summary` (Markdown, from [`generate_summary`]). An empty `summary`
+/// produces byte-identical output to [`export_session`].
+Future<List<ExportedFile>> exportSessionWithSummary({
+  required List<Segment> segments,
+  required List<ExportFormat> formats,
+  required String outputDir,
+  required String title,
+  required String summary,
+}) => RustLib.instance.api.crateApiExportSessionWithSummary(
+  segments: segments,
+  formats: formats,
+  outputDir: outputDir,
+  title: title,
+  summary: summary,
+);
+
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
 /// recording as WAV files into the same session folder `export_session`
 /// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after
@@ -192,6 +210,44 @@ Future<List<TranscribeFileResult>> transcribeFilesBatch({
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
 );
+
+/// Which file [`transcribe_files_batch`] is currently on. Poll this while the
+/// batch future is in flight — that call only returns once *every* file is
+/// done, so without it a long import shows a spinner that never moves.
+Future<BatchProgressSnapshot?> getBatchProgress() =>
+    RustLib.instance.api.crateApiGetBatchProgress();
+
+/// Generates a Markdown meeting summary for `segments` using `config`.
+///
+/// Only the rendered transcript text is sent — no audio, no file paths, no
+/// device names. Returns a `TranscribeError::Summary` (never a panic, never
+/// a partial write) when the endpoint is unreachable or rejects the request,
+/// so a failed summary can never look like a lost transcript.
+Future<String> generateSummary({
+  required List<Segment> segments,
+  required SummaryConfig config,
+}) => RustLib.instance.api.crateApiGenerateSummary(
+  segments: segments,
+  config: config,
+);
+
+/// Lists the models the configured summary endpoint offers, so the settings
+/// UI can show a dropdown instead of a free-text field. Sends no transcript.
+Future<List<String>> listSummaryModels({
+  required SummaryProvider provider,
+  required String baseUrl,
+  required String apiKey,
+}) => RustLib.instance.api.crateApiListSummaryModels(
+  provider: provider,
+  baseUrl: baseUrl,
+  apiKey: apiKey,
+);
+
+/// Renders `segments` the way [`generate_summary`] would send them. Exposed
+/// so the UI can show the user exactly what would be transmitted before they
+/// opt in — no network access.
+Future<String> summaryPreviewTranscript({required List<Segment> segments}) =>
+    RustLib.instance.api.crateApiSummaryPreviewTranscript(segments: segments);
 
 Future<AppSettings> loadSettings() =>
     RustLib.instance.api.crateApiLoadSettings();

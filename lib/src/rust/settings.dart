@@ -7,10 +7,11 @@ import 'audio.dart';
 import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'summary.dart';
 
-// These functions are ignored because they are not marked as `pub`: `load_settings_from`, `settings_path`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `config_path`, `doctor_check_on_start`, `load`, `on_stop_hook`, `resolve_recordings_dir`, `transcription_enabled`
+// These functions are ignored because they are not marked as `pub`: `default_true`, `load_settings_from`, `settings_path`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `config_path`, `doctor_check_on_start`, `load`, `on_stop_hook`, `resolve_recordings_dir`, `to_config`, `transcription_enabled`
 
 Future<String> defaultLibraryPath() =>
     RustLib.instance.api.crateSettingsDefaultLibraryPath();
@@ -76,6 +77,17 @@ class AppSettings {
   /// GPU device index to use when `gpu_enabled` is true (0 = default).
   final int gpuDevice;
 
+  /// Stop recording automatically after this many minutes without new
+  /// transcript segments. `None` = never. Previously Dart-only, which meant
+  /// it silently reset to "off" on every launch.
+  final int? autoStopMinutes;
+
+  /// Hybrid Progressive Transcription: quick (base) pass then refine (q5).
+  final bool progressiveEnabled;
+
+  /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
+  final SummarySettings summary;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -88,6 +100,9 @@ class AppSettings {
     this.language,
     required this.gpuEnabled,
     required this.gpuDevice,
+    this.autoStopMinutes,
+    required this.progressiveEnabled,
+    required this.summary,
   });
 
   static Future<AppSettings> default_() =>
@@ -105,7 +120,10 @@ class AppSettings {
       echoDedupeEnabled.hashCode ^
       language.hashCode ^
       gpuEnabled.hashCode ^
-      gpuDevice.hashCode;
+      gpuDevice.hashCode ^
+      autoStopMinutes.hashCode ^
+      progressiveEnabled.hashCode ^
+      summary.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -122,7 +140,65 @@ class AppSettings {
           echoDedupeEnabled == other.echoDedupeEnabled &&
           language == other.language &&
           gpuEnabled == other.gpuEnabled &&
-          gpuDevice == other.gpuDevice;
+          gpuDevice == other.gpuDevice &&
+          autoStopMinutes == other.autoStopMinutes &&
+          progressiveEnabled == other.progressiveEnabled &&
+          summary == other.summary;
+}
+
+/// Persisted configuration for the opt-in AI summary feature.
+///
+/// `api_key` is stored in the same plaintext settings JSON as everything
+/// else (OS config dir, user-private permissions). There is no OS keychain
+/// dependency in this project, so this is a deliberate trade-off: it is
+/// documented in `SECURITY.md`, the field is empty by default, and the
+/// default provider (local Ollama) needs no key at all.
+class SummarySettings {
+  /// Master switch. While false, no summary UI is offered and no request
+  /// can be made — the app stays fully offline.
+  final bool enabled;
+  final SummaryProvider provider;
+  final String baseUrl;
+  final String apiKey;
+  final String model;
+  final SummaryTemplate template;
+  final String customPrompt;
+
+  const SummarySettings({
+    required this.enabled,
+    required this.provider,
+    required this.baseUrl,
+    required this.apiKey,
+    required this.model,
+    required this.template,
+    required this.customPrompt,
+  });
+
+  static Future<SummarySettings> default_() =>
+      RustLib.instance.api.crateSettingsSummarySettingsDefault();
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^
+      provider.hashCode ^
+      baseUrl.hashCode ^
+      apiKey.hashCode ^
+      model.hashCode ^
+      template.hashCode ^
+      customPrompt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SummarySettings &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          provider == other.provider &&
+          baseUrl == other.baseUrl &&
+          apiKey == other.apiKey &&
+          model == other.model &&
+          template == other.template &&
+          customPrompt == other.customPrompt;
 }
 
 enum Theme { light, dark }

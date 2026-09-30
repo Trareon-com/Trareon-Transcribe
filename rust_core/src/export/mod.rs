@@ -128,6 +128,25 @@ pub fn export_segments(
     output_dir: &Path,
     title: &str,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
+    export_segments_with_summary(segments, formats, output_dir, title, "")
+}
+
+/// As [`export_segments`], but prepends `summary` (Markdown, as produced by
+/// [`crate::summary`]) to the document formats.
+///
+/// Meetily-parity: an exported meeting is expected to lead with its summary —
+/// the transcript is the appendix. Subtitle formats (SRT/VTT) and the
+/// machine-readable JSON are untouched, since a prose block would corrupt
+/// them.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn export_segments_with_summary(
+    segments: &[Segment],
+    formats: &[ExportFormat],
+    output_dir: &Path,
+    title: &str,
+    summary: &str,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    let summary = Arc::<str>::from(summary.trim());
     let safe_title = sanitize_filename(title);
     let session_dir = session_dir_for(output_dir, title);
     fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
@@ -141,6 +160,7 @@ pub fn export_segments(
 
     for format in formats {
         let segments = Arc::clone(&segments);
+        let summary = Arc::clone(&summary);
         let session_dir = session_dir.clone();
         let safe_title = safe_title.clone();
         let title = title.to_string();
@@ -150,9 +170,12 @@ pub fn export_segments(
             let (filename, content): (String, Vec<u8>) = match format {
                 ExportFormat::Markdown => (
                     format!("{safe_title}.md"),
-                    to_markdown(&*segments, &title).into_bytes(),
+                    to_markdown(&segments, &title, &summary).into_bytes(),
                 ),
-                ExportFormat::Txt => (format!("{safe_title}.txt"), to_txt(&*segments).into_bytes()),
+                ExportFormat::Txt => (
+                    format!("{safe_title}.txt"),
+                    to_txt(&segments, &summary).into_bytes(),
+                ),
                 ExportFormat::Json => (
                     format!("{safe_title}.json"),
                     serde_json::to_string_pretty(&*segments)
@@ -163,11 +186,11 @@ pub fn export_segments(
                 ExportFormat::Vtt => (format!("{safe_title}.vtt"), to_vtt(&*segments).into_bytes()),
                 ExportFormat::Html => (
                     format!("{safe_title}.html"),
-                    to_html(&*segments, &title).into_bytes(),
+                    to_html(&segments, &title, &summary).into_bytes(),
                 ),
                 ExportFormat::Docx => (
                     format!("{safe_title}.docx"),
-                    to_docx_bytes(&*segments, &title)?,
+                    to_docx_bytes(&segments, &title, &summary)?,
                 ),
             };
 
@@ -274,8 +297,13 @@ pub fn write_wav(samples: &[f32], sample_rate: u32, path: &Path) -> Result<(), T
         .map_err(|e| TranscribeError::Export(e.to_string()))
 }
 
-fn to_markdown(segments: &[Segment], title: &str) -> String {
+fn to_markdown(segments: &[Segment], title: &str, summary: &str) -> String {
     let mut out = format!("# {title}\n\n");
+    if !summary.trim().is_empty() {
+        out.push_str("## Ringkasan\n\n");
+        out.push_str(summary.trim());
+        out.push_str("\n\n## Transkrip\n\n");
+    }
     for seg in segments {
         out.push_str(&format!(
             "**[{}]** `{}` — {}\n\n",
@@ -287,12 +315,20 @@ fn to_markdown(segments: &[Segment], title: &str) -> String {
     out
 }
 
-fn to_txt(segments: &[Segment]) -> String {
-    segments
+fn to_txt(segments: &[Segment], summary: &str) -> String {
+    let transcript = segments
         .iter()
         .map(|s| s.text.clone())
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+    if summary.trim().is_empty() {
+        transcript
+    } else {
+        format!(
+            "RINGKASAN\n=========\n{}\n\nTRANSKRIP\n=========\n{transcript}",
+            summary.trim()
+        )
+    }
 }
 
 fn to_srt(segments: &[Segment]) -> String {
@@ -324,8 +360,13 @@ fn to_vtt(segments: &[Segment]) -> String {
     out
 }
 
-fn to_html(segments: &[Segment], title: &str) -> String {
+fn to_html(segments: &[Segment], title: &str, summary: &str) -> String {
     let mut body = String::new();
+    if !summary.trim().is_empty() {
+        body.push_str("<h2>Ringkasan</h2>\n<pre>");
+        body.push_str(&html_escape(summary.trim()));
+        body.push_str("</pre>\n<h2>Transkrip</h2>\n");
+    }
     for seg in segments {
         body.push_str(&format!(
             "<p><strong>[{}] {}</strong> — {}</p>\n",
@@ -349,11 +390,27 @@ fn html_escape(raw: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn to_docx_bytes(segments: &[Segment], title: &str) -> Result<Vec<u8>, TranscribeError> {
+fn to_docx_bytes(
+    segments: &[Segment],
+    title: &str,
+    summary: &str,
+) -> Result<Vec<u8>, TranscribeError> {
     use docx_rs::{Docx, Paragraph, Run};
 
     let mut docx = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text(title).bold().size(32)));
+
+    if !summary.trim().is_empty() {
+        docx = docx.add_paragraph(
+            Paragraph::new().add_run(Run::new().add_text("Ringkasan").bold().size(26)),
+        );
+        for line in summary.trim().lines() {
+            docx = docx.add_paragraph(Paragraph::new().add_run(Run::new().add_text(line)));
+        }
+        docx = docx.add_paragraph(
+            Paragraph::new().add_run(Run::new().add_text("Transkrip").bold().size(26)),
+        );
+    }
 
     for seg in segments {
         let line = format!(
@@ -497,7 +554,7 @@ mod tests {
             is_partial: false,
             low_confidence: false,
         }];
-        let html = to_html(&segments, "Rapat <Q3>");
+        let html = to_html(&segments, "Rapat <Q3>", "");
         assert!(!html.contains("<script>alert"));
         assert!(html.contains("&lt;script&gt;"));
         assert!(html.contains("&amp;"));
@@ -505,9 +562,82 @@ mod tests {
     }
 
     #[test]
+    fn summary_leads_the_document_formats() {
+        let segments = sample_segments();
+        let summary = "## Keputusan\n- Pakai Rust";
+
+        let md = to_markdown(&segments, "Rapat Q3", summary);
+        assert!(md.contains("## Ringkasan"));
+        assert!(md.contains("- Pakai Rust"));
+        assert!(
+            md.find("## Ringkasan") < md.find("## Transkrip"),
+            "summary must come before the transcript"
+        );
+
+        let txt = to_txt(&segments, summary);
+        assert!(txt.starts_with("RINGKASAN"));
+        assert!(txt.contains("halo dunia"));
+
+        let html = to_html(&segments, "Rapat Q3", summary);
+        assert!(html.contains("<h2>Ringkasan</h2>"));
+        assert!(html.contains("<h2>Transkrip</h2>"));
+    }
+
+    #[test]
+    fn summary_is_html_escaped() {
+        let segments = sample_segments();
+        let html = to_html(&segments, "Rapat", "<script>alert(1)</script>");
+        assert!(!html.contains("<script>alert"));
+        assert!(html.contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn empty_summary_leaves_every_format_byte_identical() {
+        // An un-summarised session must export exactly as it did before the
+        // summary feature existed — no stray headings, no blank sections.
+        let segments = sample_segments();
+        for blank in ["", "   ", "\n\t "] {
+            assert_eq!(
+                to_markdown(&segments, "Rapat", blank),
+                to_markdown(&segments, "Rapat", "")
+            );
+            assert!(!to_markdown(&segments, "Rapat", blank).contains("Ringkasan"));
+            assert!(!to_txt(&segments, blank).contains("RINGKASAN"));
+            assert!(!to_html(&segments, "Rapat", blank).contains("Ringkasan"));
+        }
+    }
+
+    #[test]
+    fn subtitle_and_json_formats_never_carry_the_summary() {
+        // Prose in an SRT cue or a JSON segment array corrupts the file for
+        // every downstream consumer.
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_summary_fmt_{}", uuid::Uuid::new_v4()));
+        let segments = sample_segments();
+        let files = export_segments_with_summary(
+            &segments,
+            &[ExportFormat::Srt, ExportFormat::Vtt, ExportFormat::Json],
+            &dir,
+            "Rapat",
+            "RAHASIA-RINGKASAN",
+        )
+        .unwrap();
+        assert_eq!(files.len(), 3);
+        for file in &files {
+            let content = fs::read_to_string(&file.path).unwrap();
+            assert!(
+                !content.contains("RAHASIA-RINGKASAN"),
+                "{} leaked the summary",
+                file.filename
+            );
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn docx_export_produces_valid_zip() {
         let segments = sample_segments();
-        let bytes = to_docx_bytes(&segments, "Rapat Q3").unwrap();
+        let bytes = to_docx_bytes(&segments, "Rapat Q3", "").unwrap();
         // DOCX is a ZIP container; the local file header signature is a
         // cheap, dependency-free sanity check that we produced real output.
         assert!(bytes.len() > 4);

@@ -5,10 +5,12 @@
 //! *next* file can run ahead of time on a Rayon thread pool.
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use serde::Serialize;
 
 use crate::decode::{decode_audio_file, TARGET_SAMPLE_RATE};
+use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::stt::WhisperEngine;
@@ -51,6 +53,13 @@ pub fn transcribe_file(
         }
     }
 
+    // Speaker labels. Live capture gets these from the per-source pipeline
+    // (`pipeline::LivePipeline`); imported files used to come back with the
+    // raw source string as the speaker, so a multi-person recording exported
+    // as one undifferentiated wall of text.
+    let mut diarizer = Diarizer::new();
+    label_segments(&mut diarizer, &audio.samples, &mut all_segments);
+
     Ok(TranscribeFileResult {
         filename: path
             .file_name()
@@ -81,6 +90,45 @@ pub struct BatchFileProgress {
     pub error: Option<String>,
 }
 
+/// Which file a batch run is currently on, without the (potentially huge)
+/// segment payload.
+///
+/// `transcribe_files_batch` takes an `on_progress` callback, but the FRB
+/// wrapper can only return once the whole batch is done — so a Dart caller
+/// importing a one-hour recording used to watch a spinner that never moved.
+/// This snapshot is polled from Dart the same way model-download progress is.
+#[derive(Debug, Clone, Serialize)]
+pub struct BatchProgressSnapshot {
+    /// 0-based index of the file being worked on.
+    pub file_index: u32,
+    pub total_files: u32,
+    pub filename: String,
+    pub status: BatchFileStatus,
+}
+
+static BATCH_PROGRESS: Mutex<Option<BatchProgressSnapshot>> = Mutex::new(None);
+
+/// Clears the snapshot. Called at the start of every batch so a caller can't
+/// read the *previous* run's "Done" before the first real update lands.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn reset_batch_progress() {
+    if let Ok(mut guard) = BATCH_PROGRESS.lock() {
+        *guard = None;
+    }
+}
+
+/// Latest batch progress, or `None` when no batch is running.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn read_batch_progress() -> Option<BatchProgressSnapshot> {
+    BATCH_PROGRESS.lock().ok()?.clone()
+}
+
+fn set_batch_progress(snapshot: BatchProgressSnapshot) {
+    if let Ok(mut guard) = BATCH_PROGRESS.lock() {
+        *guard = Some(snapshot);
+    }
+}
+
 /// Sequential batch: whisper.cpp inference must be serialized through one
 /// engine, so this is deliberately not parallel on the STT step. Decode
 /// happens inline per-file too, for simplicity — a follow-up can pipeline
@@ -93,12 +141,23 @@ pub fn transcribe_files_batch(
     mut on_progress: impl FnMut(BatchFileProgress),
 ) {
     let total_files = files.len();
+    reset_batch_progress();
     for (index, path) in files.iter().enumerate() {
         let filename = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
+        let publish = |status: BatchFileStatus| {
+            set_batch_progress(BatchProgressSnapshot {
+                file_index: index as u32,
+                total_files: total_files as u32,
+                filename: filename.clone(),
+                status,
+            });
+        };
+
+        publish(BatchFileStatus::Decoding);
         on_progress(BatchFileProgress {
             file_index: index,
             total_files,
@@ -109,22 +168,28 @@ pub fn transcribe_files_batch(
         });
 
         match transcribe_file(engine, path, language) {
-            Ok(result) => on_progress(BatchFileProgress {
-                file_index: index,
-                total_files,
-                filename,
-                status: BatchFileStatus::Done,
-                result: Some(result),
-                error: None,
-            }),
-            Err(e) => on_progress(BatchFileProgress {
-                file_index: index,
-                total_files,
-                filename,
-                status: BatchFileStatus::Error,
-                result: None,
-                error: Some(e.to_string()),
-            }),
+            Ok(result) => {
+                publish(BatchFileStatus::Done);
+                on_progress(BatchFileProgress {
+                    file_index: index,
+                    total_files,
+                    filename,
+                    status: BatchFileStatus::Done,
+                    result: Some(result),
+                    error: None,
+                });
+            }
+            Err(e) => {
+                publish(BatchFileStatus::Error);
+                on_progress(BatchFileProgress {
+                    file_index: index,
+                    total_files,
+                    filename,
+                    status: BatchFileStatus::Error,
+                    result: None,
+                    error: Some(e.to_string()),
+                });
+            }
         }
     }
 }
@@ -158,5 +223,27 @@ mod tests {
             seen_indices.push((i, files.len()));
         }
         assert_eq!(seen_indices, vec![(0, 2), (1, 2)]);
+    }
+
+    #[test]
+    fn batch_progress_slot_is_reset_then_published() {
+        reset_batch_progress();
+        assert!(read_batch_progress().is_none());
+
+        set_batch_progress(BatchProgressSnapshot {
+            file_index: 2,
+            total_files: 5,
+            filename: "rapat.m4a".into(),
+            status: BatchFileStatus::Transcribing,
+        });
+        let snapshot = read_batch_progress().expect("progress must be readable");
+        assert_eq!(snapshot.file_index, 2);
+        assert_eq!(snapshot.total_files, 5);
+        assert_eq!(snapshot.filename, "rapat.m4a");
+        assert_eq!(snapshot.status, BatchFileStatus::Transcribing);
+
+        // A stale "Done" from a previous run must not be visible to the next.
+        reset_batch_progress();
+        assert!(read_batch_progress().is_none());
     }
 }

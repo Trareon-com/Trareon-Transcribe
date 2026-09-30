@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1374276253;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 207621769;
 
 // Section: executor
 
@@ -457,6 +457,49 @@ fn wire__crate__api__export_session_audio_impl(
         },
     )
 }
+fn wire__crate__api__export_session_with_summary_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "export_session_with_summary",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
+            let api_formats = <Vec<crate::export::ExportFormat>>::sse_decode(&mut deserializer);
+            let api_output_dir = <String>::sse_decode(&mut deserializer);
+            let api_title = <String>::sse_decode(&mut deserializer);
+            let api_summary = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::TranscribeError>((move || {
+                    let output_ok = crate::api::export_session_with_summary(
+                        api_segments,
+                        api_formats,
+                        api_output_dir,
+                        api_title,
+                        api_summary,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__flight_clear_log_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -813,6 +856,82 @@ fn wire__crate__api__format_preflight_checks_impl(
         },
     )
 }
+fn wire__crate__api__generate_summary_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "generate_summary",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
+            let api_config = <crate::summary::SummaryConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::TranscribeError>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::generate_summary(api_segments, api_config).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__summary__generate_summary_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "generate_summary",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::summary::SummaryConfig>::sse_decode(&mut deserializer);
+            let api_transcript = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::TranscribeError>(
+                    (move || async move {
+                        let output_ok =
+                            crate::summary::generate_summary(api_config, api_transcript).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__get_app_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -839,6 +958,38 @@ fn wire__crate__api__get_app_config_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>(crate::api::get_app_config())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__get_batch_progress_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_batch_progress",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::get_batch_progress())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1398,6 +1549,92 @@ fn wire__crate__session__list_recoverable_sessions_impl(
                     let output_ok = crate::session::list_recoverable_sessions()?;
                     std::result::Result::Ok(output_ok)
                 })())
+            }
+        },
+    )
+}
+fn wire__crate__api__list_summary_models_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_summary_models",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_provider = <crate::summary::SummaryProvider>::sse_decode(&mut deserializer);
+            let api_base_url = <String>::sse_decode(&mut deserializer);
+            let api_api_key = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::TranscribeError>(
+                    (move || async move {
+                        let output_ok = crate::api::list_summary_models(
+                            api_provider,
+                            api_base_url,
+                            api_api_key,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__summary__list_summary_models_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_summary_models",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_provider = <crate::summary::SummaryProvider>::sse_decode(&mut deserializer);
+            let api_base_url = <String>::sse_decode(&mut deserializer);
+            let api_api_key = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::TranscribeError>(
+                    (move || async move {
+                        let output_ok = crate::summary::list_summary_models(
+                            api_provider,
+                            api_base_url,
+                            api_api_key,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
         },
     )
@@ -2246,6 +2483,104 @@ fn wire__crate__session__stop_session_impl(
         },
     )
 }
+fn wire__crate__summary__summary_config_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "summary_config_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::summary::SummaryConfig::default())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__summary_preview_transcript_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "summary_preview_transcript",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::summary_preview_transcript(api_segments))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__settings__summary_settings_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "summary_settings_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::settings::SummarySettings::default())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__session__take_raw_audio_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2507,6 +2842,9 @@ impl SseDecode for crate::settings::AppSettings {
         let mut var_language = <Option<String>>::sse_decode(deserializer);
         let mut var_gpuEnabled = <bool>::sse_decode(deserializer);
         let mut var_gpuDevice = <i32>::sse_decode(deserializer);
+        let mut var_autoStopMinutes = <Option<u32>>::sse_decode(deserializer);
+        let mut var_progressiveEnabled = <bool>::sse_decode(deserializer);
+        let mut var_summary = <crate::settings::SummarySettings>::sse_decode(deserializer);
         return crate::settings::AppSettings {
             theme: var_theme,
             default_model: var_defaultModel,
@@ -2519,6 +2857,9 @@ impl SseDecode for crate::settings::AppSettings {
             language: var_language,
             gpu_enabled: var_gpuEnabled,
             gpu_device: var_gpuDevice,
+            auto_stop_minutes: var_autoStopMinutes,
+            progressive_enabled: var_progressiveEnabled,
+            summary: var_summary,
         };
     }
 }
@@ -2565,6 +2906,37 @@ impl SseDecode for crate::session::AutoSplitReason {
             0 => crate::session::AutoSplitReason::TimeBoundary,
             1 => crate::session::AutoSplitReason::MemoryPressure,
             _ => unreachable!("Invalid variant for AutoSplitReason: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::stt::file::BatchFileStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::stt::file::BatchFileStatus::Queued,
+            1 => crate::stt::file::BatchFileStatus::Decoding,
+            2 => crate::stt::file::BatchFileStatus::Transcribing,
+            3 => crate::stt::file::BatchFileStatus::Done,
+            4 => crate::stt::file::BatchFileStatus::Error,
+            _ => unreachable!("Invalid variant for BatchFileStatus: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::stt::file::BatchProgressSnapshot {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_fileIndex = <u32>::sse_decode(deserializer);
+        let mut var_totalFiles = <u32>::sse_decode(deserializer);
+        let mut var_filename = <String>::sse_decode(deserializer);
+        let mut var_status = <crate::stt::file::BatchFileStatus>::sse_decode(deserializer);
+        return crate::stt::file::BatchProgressSnapshot {
+            file_index: var_fileIndex,
+            total_files: var_totalFiles,
+            filename: var_filename,
+            status: var_status,
         };
     }
 }
@@ -2909,6 +3281,19 @@ impl SseDecode for Option<crate::session::AutoSplitReason> {
     }
 }
 
+impl SseDecode for Option<crate::stt::file::BatchProgressSnapshot> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::stt::file::BatchProgressSnapshot>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<bool> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2925,6 +3310,17 @@ impl SseDecode for Option<(u64, u64)> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<(u64, u64)>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u32>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3034,8 +3430,6 @@ impl SseDecode for crate::audio::SessionConfig {
         let mut var_refineModelPath = <Option<String>>::sse_decode(deserializer);
         let mut var_hptMode = <crate::audio::HptMode>::sse_decode(deserializer);
         let mut var_vadEnabled = <bool>::sse_decode(deserializer);
-        let mut var_sampleRate = <u32>::sse_decode(deserializer);
-        let mut var_chunkDurationSecs = <u32>::sse_decode(deserializer);
         let mut var_gpuEnabled = <bool>::sse_decode(deserializer);
         let mut var_gpuDevice = <i32>::sse_decode(deserializer);
         return crate::audio::SessionConfig {
@@ -3048,8 +3442,6 @@ impl SseDecode for crate::audio::SessionConfig {
             refine_model_path: var_refineModelPath,
             hpt_mode: var_hptMode,
             vad_enabled: var_vadEnabled,
-            sample_rate: var_sampleRate,
-            chunk_duration_secs: var_chunkDurationSecs,
             gpu_enabled: var_gpuEnabled,
             gpu_device: var_gpuDevice,
         };
@@ -3131,6 +3523,79 @@ impl SseDecode for crate::session::SessionStatus {
     }
 }
 
+impl SseDecode for crate::summary::SummaryConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_provider = <crate::summary::SummaryProvider>::sse_decode(deserializer);
+        let mut var_baseUrl = <String>::sse_decode(deserializer);
+        let mut var_apiKey = <String>::sse_decode(deserializer);
+        let mut var_model = <String>::sse_decode(deserializer);
+        let mut var_template = <crate::summary::SummaryTemplate>::sse_decode(deserializer);
+        let mut var_customPrompt = <String>::sse_decode(deserializer);
+        let mut var_language = <String>::sse_decode(deserializer);
+        let mut var_timeoutSecs = <u64>::sse_decode(deserializer);
+        return crate::summary::SummaryConfig {
+            provider: var_provider,
+            base_url: var_baseUrl,
+            api_key: var_apiKey,
+            model: var_model,
+            template: var_template,
+            custom_prompt: var_customPrompt,
+            language: var_language,
+            timeout_secs: var_timeoutSecs,
+        };
+    }
+}
+
+impl SseDecode for crate::summary::SummaryProvider {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::summary::SummaryProvider::Ollama,
+            1 => crate::summary::SummaryProvider::OpenAiCompatible,
+            _ => unreachable!("Invalid variant for SummaryProvider: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::settings::SummarySettings {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_provider = <crate::summary::SummaryProvider>::sse_decode(deserializer);
+        let mut var_baseUrl = <String>::sse_decode(deserializer);
+        let mut var_apiKey = <String>::sse_decode(deserializer);
+        let mut var_model = <String>::sse_decode(deserializer);
+        let mut var_template = <crate::summary::SummaryTemplate>::sse_decode(deserializer);
+        let mut var_customPrompt = <String>::sse_decode(deserializer);
+        return crate::settings::SummarySettings {
+            enabled: var_enabled,
+            provider: var_provider,
+            base_url: var_baseUrl,
+            api_key: var_apiKey,
+            model: var_model,
+            template: var_template,
+            custom_prompt: var_customPrompt,
+        };
+    }
+}
+
+impl SseDecode for crate::summary::SummaryTemplate {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::summary::SummaryTemplate::NotulenRapat,
+            1 => crate::summary::SummaryTemplate::RingkasanEksekutif,
+            2 => crate::summary::SummaryTemplate::ActionItems,
+            3 => crate::summary::SummaryTemplate::Standup,
+            4 => crate::summary::SummaryTemplate::Kustom,
+            _ => unreachable!("Invalid variant for SummaryTemplate: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::settings::Theme {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3179,6 +3644,10 @@ impl SseDecode for crate::error::TranscribeError {
             7 => {
                 let mut var_field0 = <String>::sse_decode(deserializer);
                 return crate::error::TranscribeError::SessionNotFound(var_field0);
+            }
+            8 => {
+                let mut var_field0 = <String>::sse_decode(deserializer);
+                return crate::error::TranscribeError::Summary(var_field0);
             }
             _ => {
                 unimplemented!("");
@@ -3264,84 +3733,95 @@ fn pde_ffi_dispatcher_primary_impl(
         10 => wire__crate__api__export_sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
         11 => wire__crate__api__export_session_impl(port, ptr, rust_vec_len, data_len),
         12 => wire__crate__api__export_session_audio_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__get_app_config_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__get_loopback_device_impl(port, ptr, rust_vec_len, data_len),
-        26 => {
+        13 => wire__crate__api__export_session_with_summary_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__generate_summary_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__summary__generate_summary_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__get_app_config_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__get_batch_progress_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__get_loopback_device_impl(port, ptr, rust_vec_len, data_len),
+        30 => {
             wire__crate__audio__device__get_loopback_device_impl(port, ptr, rust_vec_len, data_len)
         }
-        27 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__session__get_status_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__audio__hpt_mode_default_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__is_another_instance_running_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
-        37 => {
+        31 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__session__get_status_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__audio__hpt_mode_default_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__is_another_instance_running_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
+        41 => {
             wire__crate__audio__device__list_input_devices_impl(port, ptr, rust_vec_len, data_len)
         }
-        38 => {
+        42 => {
             wire__crate__audio__device__list_output_devices_impl(port, ptr, rust_vec_len, data_len)
         }
-        39 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
-        40 => {
+        43 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
+        44 => {
             wire__crate__session__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len)
         }
-        41 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__session__mark_split_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__session__poll_events_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__session__record_segment_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__session__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__release_instance_lock_impl(port, ptr, rust_vec_len, data_len),
-        51 => {
+        45 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__summary__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__settings__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__session__mark_split_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__session__poll_events_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__session__record_segment_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__session__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__release_instance_lock_impl(port, ptr, rust_vec_len, data_len),
+        57 => {
             wire__crate__api__resume_pending_transcriptions_impl(port, ptr, rust_vec_len, data_len)
         }
-        52 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__export__sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__audio__session_config_for_mode_impl(port, ptr, rust_vec_len, data_len),
-        57 => {
+        58 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__export__sanitize_filename_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__settings__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__audio__session_config_for_mode_impl(port, ptr, rust_vec_len, data_len),
+        63 => {
             wire__crate__audio__session_config_hpt_enabled_impl(port, ptr, rust_vec_len, data_len)
         }
-        58 => {
+        64 => {
             wire__crate__audio__session_mode_default_toggles_impl(port, ptr, rust_vec_len, data_len)
         }
-        59 => wire__crate__audio__session_mode_echo_dedupe_enabled_impl(
+        65 => wire__crate__audio__session_mode_echo_dedupe_enabled_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        60 => wire__crate__api__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__session__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__session__start_session_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__session__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__session__take_raw_audio_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__session__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__session__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__session__set_session_mode_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__session__start_session_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__session__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__summary__summary_config_default_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        74 => {
+            wire__crate__settings__summary_settings_default_impl(port, ptr, rust_vec_len, data_len)
+        }
+        75 => wire__crate__session__take_raw_audio_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__session__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__session__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3393,6 +3873,9 @@ impl flutter_rust_bridge::IntoDart for crate::settings::AppSettings {
             self.language.into_into_dart().into_dart(),
             self.gpu_enabled.into_into_dart().into_dart(),
             self.gpu_device.into_into_dart().into_dart(),
+            self.auto_stop_minutes.into_into_dart().into_dart(),
+            self.progressive_enabled.into_into_dart().into_dart(),
+            self.summary.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3465,6 +3948,53 @@ impl flutter_rust_bridge::IntoIntoDart<crate::session::AutoSplitReason>
     for crate::session::AutoSplitReason
 {
     fn into_into_dart(self) -> crate::session::AutoSplitReason {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchFileStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Queued => 0.into_dart(),
+            Self::Decoding => 1.into_dart(),
+            Self::Transcribing => 2.into_dart(),
+            Self::Done => 3.into_dart(),
+            Self::Error => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::stt::file::BatchFileStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::stt::file::BatchFileStatus>
+    for crate::stt::file::BatchFileStatus
+{
+    fn into_into_dart(self) -> crate::stt::file::BatchFileStatus {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::stt::file::BatchProgressSnapshot {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.file_index.into_into_dart().into_dart(),
+            self.total_files.into_into_dart().into_dart(),
+            self.filename.into_into_dart().into_dart(),
+            self.status.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::stt::file::BatchProgressSnapshot
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::stt::file::BatchProgressSnapshot>
+    for crate::stt::file::BatchProgressSnapshot
+{
+    fn into_into_dart(self) -> crate::stt::file::BatchProgressSnapshot {
         self
     }
 }
@@ -3648,8 +4178,6 @@ impl flutter_rust_bridge::IntoDart for crate::audio::SessionConfig {
             self.refine_model_path.into_into_dart().into_dart(),
             self.hpt_mode.into_into_dart().into_dart(),
             self.vad_enabled.into_into_dart().into_dart(),
-            self.sample_rate.into_into_dart().into_dart(),
-            self.chunk_duration_secs.into_into_dart().into_dart(),
             self.gpu_enabled.into_into_dart().into_dart(),
             self.gpu_device.into_into_dart().into_dart(),
         ]
@@ -3755,6 +4283,101 @@ impl flutter_rust_bridge::IntoIntoDart<crate::session::SessionStatus>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::summary::SummaryConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.provider.into_into_dart().into_dart(),
+            self.base_url.into_into_dart().into_dart(),
+            self.api_key.into_into_dart().into_dart(),
+            self.model.into_into_dart().into_dart(),
+            self.template.into_into_dart().into_dart(),
+            self.custom_prompt.into_into_dart().into_dart(),
+            self.language.into_into_dart().into_dart(),
+            self.timeout_secs.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::summary::SummaryConfig {}
+impl flutter_rust_bridge::IntoIntoDart<crate::summary::SummaryConfig>
+    for crate::summary::SummaryConfig
+{
+    fn into_into_dart(self) -> crate::summary::SummaryConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::summary::SummaryProvider {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Ollama => 0.into_dart(),
+            Self::OpenAiCompatible => 1.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::summary::SummaryProvider
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::summary::SummaryProvider>
+    for crate::summary::SummaryProvider
+{
+    fn into_into_dart(self) -> crate::summary::SummaryProvider {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::settings::SummarySettings {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.enabled.into_into_dart().into_dart(),
+            self.provider.into_into_dart().into_dart(),
+            self.base_url.into_into_dart().into_dart(),
+            self.api_key.into_into_dart().into_dart(),
+            self.model.into_into_dart().into_dart(),
+            self.template.into_into_dart().into_dart(),
+            self.custom_prompt.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::settings::SummarySettings
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::settings::SummarySettings>
+    for crate::settings::SummarySettings
+{
+    fn into_into_dart(self) -> crate::settings::SummarySettings {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::summary::SummaryTemplate {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::NotulenRapat => 0.into_dart(),
+            Self::RingkasanEksekutif => 1.into_dart(),
+            Self::ActionItems => 2.into_dart(),
+            Self::Standup => 3.into_dart(),
+            Self::Kustom => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::summary::SummaryTemplate
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::summary::SummaryTemplate>
+    for crate::summary::SummaryTemplate
+{
+    fn into_into_dart(self) -> crate::summary::SummaryTemplate {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::settings::Theme {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -3797,6 +4420,9 @@ impl flutter_rust_bridge::IntoDart for crate::error::TranscribeError {
             }
             crate::error::TranscribeError::SessionNotFound(field0) => {
                 [7.into_dart(), field0.into_into_dart().into_dart()].into_dart()
+            }
+            crate::error::TranscribeError::Summary(field0) => {
+                [8.into_dart(), field0.into_into_dart().into_dart()].into_dart()
             }
             _ => {
                 unimplemented!("");
@@ -3874,6 +4500,9 @@ impl SseEncode for crate::settings::AppSettings {
         <Option<String>>::sse_encode(self.language, serializer);
         <bool>::sse_encode(self.gpu_enabled, serializer);
         <i32>::sse_encode(self.gpu_device, serializer);
+        <Option<u32>>::sse_encode(self.auto_stop_minutes, serializer);
+        <bool>::sse_encode(self.progressive_enabled, serializer);
+        <crate::settings::SummarySettings>::sse_encode(self.summary, serializer);
     }
 }
 
@@ -3911,6 +4540,35 @@ impl SseEncode for crate::session::AutoSplitReason {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::stt::file::BatchFileStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::stt::file::BatchFileStatus::Queued => 0,
+                crate::stt::file::BatchFileStatus::Decoding => 1,
+                crate::stt::file::BatchFileStatus::Transcribing => 2,
+                crate::stt::file::BatchFileStatus::Done => 3,
+                crate::stt::file::BatchFileStatus::Error => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::stt::file::BatchProgressSnapshot {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.file_index, serializer);
+        <u32>::sse_encode(self.total_files, serializer);
+        <String>::sse_encode(self.filename, serializer);
+        <crate::stt::file::BatchFileStatus>::sse_encode(self.status, serializer);
     }
 }
 
@@ -4203,6 +4861,16 @@ impl SseEncode for Option<crate::session::AutoSplitReason> {
     }
 }
 
+impl SseEncode for Option<crate::stt::file::BatchProgressSnapshot> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::stt::file::BatchProgressSnapshot>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<bool> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4219,6 +4887,16 @@ impl SseEncode for Option<(u64, u64)> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <(u64, u64)>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u32>::sse_encode(value, serializer);
         }
     }
 }
@@ -4303,8 +4981,6 @@ impl SseEncode for crate::audio::SessionConfig {
         <Option<String>>::sse_encode(self.refine_model_path, serializer);
         <crate::audio::HptMode>::sse_encode(self.hpt_mode, serializer);
         <bool>::sse_encode(self.vad_enabled, serializer);
-        <u32>::sse_encode(self.sample_rate, serializer);
-        <u32>::sse_encode(self.chunk_duration_secs, serializer);
         <bool>::sse_encode(self.gpu_enabled, serializer);
         <i32>::sse_encode(self.gpu_device, serializer);
     }
@@ -4370,6 +5046,68 @@ impl SseEncode for crate::session::SessionStatus {
     }
 }
 
+impl SseEncode for crate::summary::SummaryConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::summary::SummaryProvider>::sse_encode(self.provider, serializer);
+        <String>::sse_encode(self.base_url, serializer);
+        <String>::sse_encode(self.api_key, serializer);
+        <String>::sse_encode(self.model, serializer);
+        <crate::summary::SummaryTemplate>::sse_encode(self.template, serializer);
+        <String>::sse_encode(self.custom_prompt, serializer);
+        <String>::sse_encode(self.language, serializer);
+        <u64>::sse_encode(self.timeout_secs, serializer);
+    }
+}
+
+impl SseEncode for crate::summary::SummaryProvider {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::summary::SummaryProvider::Ollama => 0,
+                crate::summary::SummaryProvider::OpenAiCompatible => 1,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::settings::SummarySettings {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.enabled, serializer);
+        <crate::summary::SummaryProvider>::sse_encode(self.provider, serializer);
+        <String>::sse_encode(self.base_url, serializer);
+        <String>::sse_encode(self.api_key, serializer);
+        <String>::sse_encode(self.model, serializer);
+        <crate::summary::SummaryTemplate>::sse_encode(self.template, serializer);
+        <String>::sse_encode(self.custom_prompt, serializer);
+    }
+}
+
+impl SseEncode for crate::summary::SummaryTemplate {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::summary::SummaryTemplate::NotulenRapat => 0,
+                crate::summary::SummaryTemplate::RingkasanEksekutif => 1,
+                crate::summary::SummaryTemplate::ActionItems => 2,
+                crate::summary::SummaryTemplate::Standup => 3,
+                crate::summary::SummaryTemplate::Kustom => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::settings::Theme {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4420,6 +5158,10 @@ impl SseEncode for crate::error::TranscribeError {
             }
             crate::error::TranscribeError::SessionNotFound(field0) => {
                 <i32>::sse_encode(7, serializer);
+                <String>::sse_encode(field0, serializer);
+            }
+            crate::error::TranscribeError::Summary(field0) => {
+                <i32>::sse_encode(8, serializer);
                 <String>::sse_encode(field0, serializer);
             }
             _ => {

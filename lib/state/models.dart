@@ -5,7 +5,54 @@ library;
 
 import 'dart:io';
 
+import '../src/rust/settings.dart' show SummarySettings;
+import '../src/rust/summary.dart'
+    show SummaryConfig, SummaryProvider, SummaryTemplate;
+
+export '../src/rust/settings.dart' show SummarySettings;
+export '../src/rust/summary.dart'
+    show SummaryConfig, SummaryProvider, SummaryTemplate;
+
 enum SessionMode { webinar, online, offline }
+
+/// The AI-summary configuration a fresh install starts from: disabled, no
+/// key, pointing at a loopback Ollama. Mirrors `SummarySettings::default()`
+/// on the Rust side — FRB generates no Dart-side constructor default, so the
+/// value has to be spelled out once here rather than at each call site.
+const SummarySettings kDefaultSummarySettings = SummarySettings(
+  enabled: false,
+  provider: SummaryProvider.ollama,
+  baseUrl: 'http://localhost:11434',
+  apiKey: '',
+  model: '',
+  template: SummaryTemplate.notulenRapat,
+  customPrompt: '',
+);
+
+/// Indonesian label for each built-in summary template.
+String summaryTemplateLabel(SummaryTemplate template) => switch (template) {
+  SummaryTemplate.notulenRapat => 'Notulen Rapat',
+  SummaryTemplate.ringkasanEksekutif => 'Ringkasan Eksekutif',
+  SummaryTemplate.actionItems => 'Keputusan & Action Items',
+  SummaryTemplate.standup => 'Standup Harian',
+  SummaryTemplate.kustom => 'Kustom',
+};
+
+/// One-line description shown under the template picker.
+String summaryTemplateHint(SummaryTemplate template) => switch (template) {
+  SummaryTemplate.notulenRapat =>
+    'Ringkasan, peserta, pembahasan, keputusan, tindak lanjut',
+  SummaryTemplate.ringkasanEksekutif =>
+    'Paragraf singkat untuk yang tidak hadir',
+  SummaryTemplate.actionItems => 'Hanya keputusan dan tugas beserta pemiliknya',
+  SummaryTemplate.standup => 'Per orang: selesai, berikutnya, hambatan',
+  SummaryTemplate.kustom => 'Instruksi sendiri',
+};
+
+String summaryProviderLabel(SummaryProvider provider) => switch (provider) {
+  SummaryProvider.ollama => 'Ollama (lokal)',
+  SummaryProvider.openAiCompatible => 'OpenAI-compatible',
+};
 
 /// Resolves a leading `~` in [path] to the user's home directory.
 String resolveTilde(String path) {
@@ -316,6 +363,11 @@ class AppSettings {
   final bool gpuEnabled;
   final int gpuDevice;
 
+  /// Opt-in AI-summary endpoint configuration. Persisted by Rust alongside
+  /// the rest of the settings; `enabled == false` means the app makes no
+  /// outbound request at all.
+  final SummarySettings summary;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -332,6 +384,7 @@ class AppSettings {
     this.hptMode = HptMode.auto,
     this.gpuEnabled = false,
     this.gpuDevice = 0,
+    this.summary = kDefaultSummarySettings,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -359,6 +412,7 @@ class AppSettings {
     HptMode? hptMode,
     bool? gpuEnabled,
     int? gpuDevice,
+    SummarySettings? summary,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -382,6 +436,52 @@ class AppSettings {
       hptMode: hptMode ?? this.hptMode,
       gpuEnabled: gpuEnabled ?? this.gpuEnabled,
       gpuDevice: gpuDevice ?? this.gpuDevice,
+      summary: summary ?? this.summary,
+    );
+  }
+}
+
+/// Field-level update for [SummarySettings]. FRB generates the class without
+/// a `copyWith`, and respelling seven required fields at every settings
+/// callback is where a typo silently swaps `baseUrl` and `apiKey`.
+extension SummarySettingsCopy on SummarySettings {
+  SummarySettings copyWith({
+    bool? enabled,
+    SummaryProvider? provider,
+    String? baseUrl,
+    String? apiKey,
+    String? model,
+    SummaryTemplate? template,
+    String? customPrompt,
+  }) {
+    return SummarySettings(
+      enabled: enabled ?? this.enabled,
+      provider: provider ?? this.provider,
+      baseUrl: baseUrl ?? this.baseUrl,
+      apiKey: apiKey ?? this.apiKey,
+      model: model ?? this.model,
+      template: template ?? this.template,
+      customPrompt: customPrompt ?? this.customPrompt,
+    );
+  }
+
+  /// Whether a summary can actually be requested: the feature is on and both
+  /// the endpoint and the model are filled in.
+  bool get isUsable =>
+      enabled && baseUrl.trim().isNotEmpty && model.trim().isNotEmpty;
+
+  /// Runtime config for the bridge call. Kept here so every caller sends the
+  /// same timeout and language.
+  SummaryConfig toConfig({String? language, SummaryTemplate? template}) {
+    return SummaryConfig(
+      provider: provider,
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      model: model,
+      template: template ?? this.template,
+      customPrompt: customPrompt,
+      language: language ?? 'id',
+      timeoutSecs: BigInt.from(180),
     );
   }
 }

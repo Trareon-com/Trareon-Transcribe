@@ -4,7 +4,12 @@
 //! |----------|-----------|
 //! | macOS    | BlackHole 2ch via cpal (primary) + ffmpeg avfoundation (fallback) |
 //! | Windows  | WASAPI loopback (`AUDCLNT_STREAMFLAGS_LOOPBACK`) |
-//! | Linux    | ffmpeg PulseAudio monitor (primary) + parec (fallback) |
+//! | Linux    | PulseAudio/PipeWire `<sink>.monitor` via ffmpeg (primary) + parec (fallback) |
+//!
+//! On Linux the monitor source is resolved explicitly (see
+//! [`resolve_monitor_source`]) rather than recording `default` — the default
+//! *source* is the microphone, so recording it as "system audio" produced a
+//! transcript of the user's own mic on both channels.
 
 use crate::audio::capture::AudioCapture;
 use crate::error::TranscribeError;
@@ -387,10 +392,75 @@ pub(crate) mod windows {
 }
 
 // ---------------------------------------------------------------------------
+// Linux — PulseAudio/PipeWire *monitor* source resolution
+// ---------------------------------------------------------------------------
+//
+// Kept out of the `#[cfg(target_os = "linux")]` module on purpose: the
+// resolution rules are pure string logic and are worth unit-testing on every
+// CI runner, not only the Linux one.
+
+/// Picks the PulseAudio/PipeWire source to record **system audio** from.
+///
+/// This is the fix for the long-standing Linux bug where loopback recorded
+/// the microphone: `-i default` (ffmpeg) and a bare `parec` both open the
+/// default *source*, which is the mic. System audio lives on the default
+/// *sink*'s monitor, conventionally named `<sink>.monitor`.
+///
+/// Resolution order:
+/// 1. `hint` that already names a `.monitor` source present in `sources`
+/// 2. `hint` naming a sink whose `<hint>.monitor` is present in `sources`
+/// 3. `<default_sink>.monitor` when present in `sources`
+/// 4. the first `.monitor` source in `sources`
+/// 5. `None` — no monitor source exists, so the caller must not silently
+///    fall through to the microphone
+#[flutter_rust_bridge::frb(ignore)]
+pub fn resolve_monitor_source(
+    hint: Option<&str>,
+    default_sink: Option<&str>,
+    sources: &[String],
+) -> Option<String> {
+    let has = |name: &str| sources.iter().any(|s| s == name);
+
+    if let Some(hint) = hint.map(str::trim).filter(|h| {
+        !h.is_empty() && !h.eq_ignore_ascii_case("default") && !h.eq_ignore_ascii_case("auto")
+    }) {
+        if hint.ends_with(".monitor") && has(hint) {
+            return Some(hint.to_string());
+        }
+        let as_monitor = format!("{hint}.monitor");
+        if has(&as_monitor) {
+            return Some(as_monitor);
+        }
+    }
+
+    if let Some(sink) = default_sink.map(str::trim).filter(|s| !s.is_empty()) {
+        let as_monitor = format!("{sink}.monitor");
+        if has(&as_monitor) {
+            return Some(as_monitor);
+        }
+    }
+
+    sources.iter().find(|s| s.ends_with(".monitor")).cloned()
+}
+
+/// Parses `pactl list short sources` output into source names (column 2).
+#[flutter_rust_bridge::frb(ignore)]
+pub fn parse_pactl_sources(stdout: &str) -> Vec<String> {
+    stdout
+        .lines()
+        .filter_map(|line| line.split('\t').nth(1))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
 // Linux — ffmpeg PulseAudio monitor, fallback to parec
 // ---------------------------------------------------------------------------
 #[cfg(target_os = "linux")]
 pub(crate) mod linux {
+    use super::{parse_pactl_sources, resolve_monitor_source};
     use crate::audio::capture::AudioCapture;
     use crate::error::TranscribeError;
     use std::io::Read;
@@ -399,14 +469,17 @@ pub(crate) mod linux {
 
     #[flutter_rust_bridge::frb(ignore)]
     pub fn capture_loopback(
-        _device_hint: Option<String>,
+        device_hint: Option<String>,
         samples_tx: mpsc::Sender<Vec<f32>>,
     ) -> Result<AudioCapture, TranscribeError> {
+        let monitor = monitor_source(device_hint.as_deref())?;
+        tracing::info!(source = %monitor, "linux loopback: recording system audio monitor");
+
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let (ready_tx, ready_rx) = mpsc::channel::<Result<(), TranscribeError>>();
 
         let thread = std::thread::spawn(move || {
-            let result = run_linux_loopback(&samples_tx, &stop_rx, &ready_tx);
+            let result = run_linux_loopback(&monitor, &samples_tx, &stop_rx, &ready_tx);
             let _ = ready_tx.send(result);
         });
 
@@ -422,13 +495,42 @@ pub(crate) mod linux {
         }
     }
 
+    /// Asks PulseAudio/PipeWire (via `pactl`) which monitor source carries
+    /// system audio. Errors instead of guessing: falling back to `default`
+    /// here is what used to make Trareon record the microphone and label it
+    /// as system audio.
+    fn monitor_source(hint: Option<&str>) -> Result<String, TranscribeError> {
+        let sources =
+            parse_pactl_sources(&pactl(&["list", "short", "sources"]).unwrap_or_default());
+        let default_sink = pactl(&["get-default-sink"]);
+
+        resolve_monitor_source(hint, default_sink.as_deref(), &sources).ok_or_else(|| {
+            TranscribeError::AudioDevice(
+                "Tidak menemukan monitor source PulseAudio/PipeWire untuk audio sistem. \
+                 Pastikan PipeWire atau PulseAudio berjalan (`pactl info`), \
+                 lalu coba lagi."
+                    .into(),
+            )
+        })
+    }
+
+    fn pactl(args: &[&str]) -> Option<String> {
+        let out = Command::new("pactl").args(args).output().ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        (!text.is_empty()).then_some(text)
+    }
+
     fn run_linux_loopback(
+        monitor: &str,
         samples_tx: &mpsc::Sender<Vec<f32>>,
         stop_rx: &mpsc::Receiver<()>,
         ready_tx: &mpsc::Sender<Result<(), TranscribeError>>,
     ) -> Result<(), TranscribeError> {
-        // ffmpeg -f pulse -i default -ac 1 -ar 16000 -f f32le -
-        // fallback: parec --rate=16000 --channels=1 --format=float32le
+        // ffmpeg -f pulse -i <sink>.monitor -ac 1 -ar 16000 -f f32le -
+        // fallback: parec -d <sink>.monitor --rate=16000 ...
         let mut child = Command::new("ffmpeg")
             .args([
                 "-hide_banner",
@@ -437,7 +539,7 @@ pub(crate) mod linux {
                 "-f",
                 "pulse",
                 "-i",
-                "default",
+                monitor,
                 "-ac",
                 "1",
                 "-ar",
@@ -452,7 +554,13 @@ pub(crate) mod linux {
 
         if child.is_err() {
             child = Command::new("parec")
-                .args(["--rate=16000", "--channels=1", "--format=float32le"])
+                .args([
+                    "-d",
+                    monitor,
+                    "--rate=16000",
+                    "--channels=1",
+                    "--format=float32le",
+                ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
                 .spawn();
@@ -496,5 +604,112 @@ pub(crate) mod linux {
         }
         let _ = child.wait();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod monitor_resolution_tests {
+    use super::{parse_pactl_sources, resolve_monitor_source};
+
+    fn sources() -> Vec<String> {
+        vec![
+            "alsa_input.pci-0000_00_1f.3.analog-stereo".to_string(),
+            "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor".to_string(),
+            "alsa_output.usb-Generic_USB_Audio.analog-stereo.monitor".to_string(),
+        ]
+    }
+
+    #[test]
+    fn prefers_default_sink_monitor_over_first_monitor() {
+        let picked = resolve_monitor_source(
+            None,
+            Some("alsa_output.usb-Generic_USB_Audio.analog-stereo"),
+            &sources(),
+        );
+        assert_eq!(
+            picked.as_deref(),
+            Some("alsa_output.usb-Generic_USB_Audio.analog-stereo.monitor")
+        );
+    }
+
+    #[test]
+    fn never_picks_a_plain_input_source() {
+        // The whole point of this resolver: an input (microphone) source must
+        // never be returned as the system-audio source.
+        for hint in [None, Some("default"), Some("auto"), Some("")] {
+            let picked = resolve_monitor_source(hint, None, &sources()).unwrap();
+            assert!(
+                picked.ends_with(".monitor"),
+                "hint {hint:?} resolved to non-monitor source {picked}"
+            );
+        }
+    }
+
+    #[test]
+    fn hint_naming_a_sink_is_expanded_to_its_monitor() {
+        let picked = resolve_monitor_source(
+            Some("alsa_output.pci-0000_00_1f.3.analog-stereo"),
+            Some("alsa_output.usb-Generic_USB_Audio.analog-stereo"),
+            &sources(),
+        );
+        assert_eq!(
+            picked.as_deref(),
+            Some("alsa_output.pci-0000_00_1f.3.analog-stereo.monitor")
+        );
+    }
+
+    #[test]
+    fn hint_already_naming_a_monitor_is_used_verbatim() {
+        let picked = resolve_monitor_source(
+            Some("alsa_output.usb-Generic_USB_Audio.analog-stereo.monitor"),
+            None,
+            &sources(),
+        );
+        assert_eq!(
+            picked.as_deref(),
+            Some("alsa_output.usb-Generic_USB_Audio.analog-stereo.monitor")
+        );
+    }
+
+    #[test]
+    fn unknown_hint_falls_back_instead_of_failing() {
+        let picked = resolve_monitor_source(
+            Some("bluez_output.AA_BB_CC"),
+            Some("alsa_output.pci-0000_00_1f.3.analog-stereo"),
+            &sources(),
+        );
+        assert_eq!(
+            picked.as_deref(),
+            Some("alsa_output.pci-0000_00_1f.3.analog-stereo.monitor")
+        );
+    }
+
+    #[test]
+    fn no_monitor_source_yields_none_rather_than_the_microphone() {
+        let only_mic = vec!["alsa_input.pci-0000_00_1f.3.analog-stereo".to_string()];
+        assert_eq!(
+            resolve_monitor_source(None, Some("some-sink"), &only_mic),
+            None
+        );
+        assert_eq!(resolve_monitor_source(None, None, &[]), None);
+    }
+
+    #[test]
+    fn parses_pactl_short_source_listing() {
+        let stdout = "0\talsa_output.pci-0000_00_1f.3.analog-stereo.monitor\tPipeWire\ts16le 2ch 48000Hz\tSUSPENDED\n\
+                      1\talsa_input.pci-0000_00_1f.3.analog-stereo\tPipeWire\ts16le 2ch 48000Hz\tSUSPENDED\n";
+        assert_eq!(
+            parse_pactl_sources(stdout),
+            vec![
+                "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor".to_string(),
+                "alsa_input.pci-0000_00_1f.3.analog-stereo".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_empty_and_malformed_pactl_output() {
+        assert!(parse_pactl_sources("").is_empty());
+        assert!(parse_pactl_sources("no tabs here\n").is_empty());
     }
 }

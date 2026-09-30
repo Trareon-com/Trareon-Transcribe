@@ -78,8 +78,6 @@ void main() {
         gpuEnabled: false,
         gpuDevice: 0,
         vadEnabled: true,
-        sampleRate: 16000,
-        chunkDurationSecs: 30,
       );
       final sessionId = await rust_api.startSession(config: config);
       expect(sessionId, isNotEmpty);

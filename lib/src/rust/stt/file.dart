@@ -7,6 +7,47 @@ import '../export.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+enum BatchFileStatus { queued, decoding, transcribing, done, error }
+
+/// Which file a batch run is currently on, without the (potentially huge)
+/// segment payload.
+///
+/// `transcribe_files_batch` takes an `on_progress` callback, but the FRB
+/// wrapper can only return once the whole batch is done — so a Dart caller
+/// importing a one-hour recording used to watch a spinner that never moved.
+/// This snapshot is polled from Dart the same way model-download progress is.
+class BatchProgressSnapshot {
+  /// 0-based index of the file being worked on.
+  final int fileIndex;
+  final int totalFiles;
+  final String filename;
+  final BatchFileStatus status;
+
+  const BatchProgressSnapshot({
+    required this.fileIndex,
+    required this.totalFiles,
+    required this.filename,
+    required this.status,
+  });
+
+  @override
+  int get hashCode =>
+      fileIndex.hashCode ^
+      totalFiles.hashCode ^
+      filename.hashCode ^
+      status.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BatchProgressSnapshot &&
+          runtimeType == other.runtimeType &&
+          fileIndex == other.fileIndex &&
+          totalFiles == other.totalFiles &&
+          filename == other.filename &&
+          status == other.status;
+}
+
 class TranscribeFileResult {
   final String filename;
   final double durationSecs;

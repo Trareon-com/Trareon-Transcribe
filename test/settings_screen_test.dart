@@ -11,8 +11,9 @@ import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'test_helpers.dart';
 
-class _TestBridge implements RustBridge {
+class _TestBridge with SummaryBridgeStubs implements RustBridge {
   AppSettings savedSettings = AppSettings.defaults();
 
   @override

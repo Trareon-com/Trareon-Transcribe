@@ -8,6 +8,7 @@ import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
 import 'package:transcribe/state/batch_upload_model.dart';
 import 'package:transcribe/state/models.dart';
+import 'test_helpers.dart';
 
 void main() {
   group('BatchUploadNotifier', () {
@@ -113,7 +114,7 @@ void main() {
   });
 }
 
-class _NoopBridge implements RustBridge {
+class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<String> startSession(SessionConfig config) async => '';
   @override
