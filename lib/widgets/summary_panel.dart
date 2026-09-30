@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/session_store.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
@@ -53,6 +54,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
         ref.read(rustBridgeProvider),
         widget.sessionDirPath,
         initialMeta: widget.initialMeta,
+        onNetworkRequest: (endpoint) => ref
+            .read(privacyReportProvider.notifier)
+            .recordSummaryRequest(endpoint),
       );
     });
   }

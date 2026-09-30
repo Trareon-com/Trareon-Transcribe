@@ -63,10 +63,14 @@ class SummaryUiState {
 class SummaryNotifier extends StateNotifier<SummaryUiState> {
   /// Positional dependencies: initializing formals for private fields can't
   /// be named parameters in Dart.
+  ///
+  /// [onNetworkRequest] is invoked with the endpoint immediately before the
+  /// only outbound request this app makes, so the Privacy Report can show it.
   SummaryNotifier(
     this._bridge,
     this._sessionDirPath, {
     SessionMeta initialMeta = SessionMeta.empty,
+    this.onNetworkRequest,
   }) : super(
          SummaryUiState(
            status: initialMeta.hasSummary
@@ -79,6 +83,9 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
 
   final RustBridge _bridge;
   final String _sessionDirPath;
+
+  /// Notified with the endpoint just before each outbound request.
+  final void Function(String endpoint)? onNetworkRequest;
 
   void setTemplate(SummaryTemplate template) {
     state = state.copyWith(template: template);
@@ -127,6 +134,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     }
 
     state = state.copyWith(status: SummaryStatus.generating, clearError: true);
+    onNetworkRequest?.call(settings.summary.baseUrl);
     try {
       final markdown = await _bridge.generateSummary(
         segments: segments,

@@ -2,16 +2,45 @@
 
 ## Core Privacy Guarantee
 
-Trareon Transcribe performs 100% offline speech-to-text. During any active transcription
-(live capture or file transcription), the application makes **zero network
-calls**. The only network activity that ever occurs is:
+Trareon Transcribe performs 100% offline speech-to-text. During any active
+transcription (live capture or file transcription), the application makes
+**zero network calls**, and **audio never leaves the device under any
+configuration**.
 
-- Downloading an optional Whisper model the user explicitly selects (HTTPS,
-  checksum-verified with a SHA256 bundled in the binary).
+There are exactly two features that can open a socket. Both are started by an
+explicit user action, and neither can be reached from the transcription path:
+
+1. **Model download** — an optional Whisper model the user selects (HTTPS,
+   verified against a SHA256 pinned in the binary).
+2. **AI summary** — sends the *text* of a finished transcript to an endpoint
+   the user configures. Never audio, never file paths, never device names.
+
+### AI summary specifics
+
+- **Off by default.** With it off, the app is fully offline.
+- **Defaults to loopback** (`http://localhost:11434`, Ollama), so even the
+  enabled default configuration does not leave the machine.
+- **Per-request, never automatic.** Nothing is sent until the user presses
+  "Buat Ringkasan".
+- **Audited in-app.** Every request increments the counter in the Privacy
+  Report screen and is logged there with its destination endpoint.
+- **API key storage.** When an OpenAI-compatible endpoint is used, the key is
+  stored in the same plaintext settings JSON as every other setting, under
+  the per-user OS config directory. There is no OS-keychain dependency in
+  this project; this is a deliberate, documented trade-off. The field is
+  empty by default and the default provider needs no key.
+
+These boundaries are enforced by tests, not just documented:
+`rust_core/src/privacy.rs` fails the build if any capture/inference/export
+module gains an HTTP client or references the summary module, if a third
+module starts using `reqwest::Client`, or if the shipped summary default
+stops being disabled-and-loopback. `test/privacy_proof_test.dart` mirrors
+this on the Dart side and additionally asserts that every summary request
+notifies the Privacy Report counter *before* the request is sent.
 
 There is no telemetry, no analytics, and no crash reporting enabled by
 default. Any future opt-in diagnostics will be documented here before
-release and will never transmit audio or transcript content.
+release and will never transmit audio.
 
 ## Reporting a Vulnerability
 
@@ -51,4 +80,4 @@ is pre-1.0.
   `pubspec.lock` are committed and never deleted.
 - This policy is reviewed at least every 6 months.
 
-Last reviewed: 2026-07-28.
+Last reviewed: 2026-09-30.

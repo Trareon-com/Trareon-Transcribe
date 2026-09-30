@@ -70,9 +70,15 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
           const SizedBox(height: 16),
           const Text(
             'Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi '
-            'berlangsung — baik live capture maupun file upload. Satu-satunya aktivitas '
-            'jaringan yang sah adalah unduhan model whisper yang kamu pilih sendiri di wizard '
-            'atau pengaturan.',
+            'berlangsung — baik live capture maupun upload berkas. Audio tidak pernah keluar '
+            'dari perangkat ini.\n\n'
+            'Hanya ada dua aktivitas jaringan yang sah, dan keduanya Anda mulai sendiri:\n'
+            '1. Unduh model whisper yang Anda pilih.\n'
+            '2. Ringkasan AI — mengirim teks transkrip (bukan audio) ke endpoint yang Anda '
+            'atur sendiri. Fitur ini mati secara bawaan dan defaultnya menunjuk ke Ollama '
+            'di komputer ini (localhost), jadi bawaannya pun tidak keluar dari perangkat.\n\n'
+            'Setiap permintaan ringkasan tercatat di riwayat di bawah, lengkap dengan '
+            'endpoint tujuannya.',
           ),
           const SizedBox(height: 16),
           if (report.events.isEmpty)
