@@ -239,7 +239,7 @@ class _SummarySettingsSectionState
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 _modelsError!,
-                style: const TextStyle(color: AppColors.warning, fontSize: 11.5),
+                style: TextStyle(color: colors.error, fontSize: 11.5),
               ),
             ),
           _Field(

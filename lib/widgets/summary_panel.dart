@@ -270,7 +270,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                     _Notice(
                       icon: Icons.error_outline,
                       message: state.error!,
-                      color: AppColors.warning,
+                      color: colors.error,
                     ),
                   ],
                 ],

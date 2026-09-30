@@ -295,7 +295,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.warning, fontSize: 12),
+                      style: TextStyle(color: colors.error, fontSize: 12),
                     ),
                   ),
                   const SizedBox(height: 8),
