@@ -76,7 +76,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Timer? _elapsedTimer;
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
-  String _libraryPath = '~/Documents/TrareonTranscribe';
+  String _libraryPath = kDefaultLibraryPath;
   // Recorded into the session's metadata sidecar on stop, so the library and
   // "Transkrip Ulang" know what produced the transcript.
   String? _language;

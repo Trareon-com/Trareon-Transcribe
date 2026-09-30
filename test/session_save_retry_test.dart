@@ -172,7 +172,7 @@ void main() {
     expect(bridge.exportDirs, ['/tmp/lokasi-lain']);
     expect(
       bridge.audioDirs,
-      ['/home/kali/Documents/TrareonTranscribe'],
+      [resolveTilde(kDefaultLibraryPath)],
       reason: 'the audio landed on the first attempt; only the transcript '
           'still needed a home',
     );

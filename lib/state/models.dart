@@ -54,6 +54,10 @@ String summaryProviderLabel(SummaryProvider provider) => switch (provider) {
   SummaryProvider.openAiCompatible => 'OpenAI-compatible',
 };
 
+/// Where sessions are saved until the user points Settings elsewhere.
+/// Still tilde-form: pass it through [resolveTilde] before touching disk.
+const String kDefaultLibraryPath = '~/Documents/TrareonTranscribe';
+
 /// Resolves a leading `~` in [path] to the user's home directory.
 String resolveTilde(String path) {
   if (path.startsWith('~/')) {
@@ -434,7 +438,7 @@ class AppSettings {
     theme: AppThemeMode.light,
     defaultModel: 'base',
     defaultMode: SessionMode.online,
-    libraryPath: '~/Documents/TrareonTranscribe',
+    libraryPath: kDefaultLibraryPath,
     vadEnabled: true,
   );
 
