@@ -1829,6 +1829,18 @@ impl SseDecode for crate::session::ChannelCapture {
     }
 }
 
+impl SseDecode for crate::session::ChannelCounters {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_totalSamples = <u64>::sse_decode(deserializer);
+        let mut var_voicedSamples = <u64>::sse_decode(deserializer);
+        return crate::session::ChannelCounters {
+            total_samples: var_totalSamples,
+            voiced_samples: var_voicedSamples,
+        };
+    }
+}
+
 impl SseDecode for crate::doctor::Check {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2443,6 +2455,8 @@ impl SseDecode for crate::session::SessionRecoverySnapshot {
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_updatedAtUnixMs = <u64>::sse_decode(deserializer);
         let mut var_elapsedSecs = <f64>::sse_decode(deserializer);
+        let mut var_micCounters = <crate::session::ChannelCounters>::sse_decode(deserializer);
+        let mut var_speakerCounters = <crate::session::ChannelCounters>::sse_decode(deserializer);
         return crate::session::SessionRecoverySnapshot {
             session_id: var_sessionId,
             config: var_config,
@@ -2452,6 +2466,8 @@ impl SseDecode for crate::session::SessionRecoverySnapshot {
             title: var_title,
             updated_at_unix_ms: var_updatedAtUnixMs,
             elapsed_secs: var_elapsedSecs,
+            mic_counters: var_micCounters,
+            speaker_counters: var_speakerCounters,
         };
     }
 }
@@ -2913,6 +2929,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::session::ChannelCapture>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::session::ChannelCounters {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.total_samples.into_into_dart().into_dart(),
+            self.voiced_samples.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::session::ChannelCounters
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::session::ChannelCounters>
+    for crate::session::ChannelCounters
+{
+    fn into_into_dart(self) -> crate::session::ChannelCounters {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::doctor::Check {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3281,6 +3318,8 @@ impl flutter_rust_bridge::IntoDart for crate::session::SessionRecoverySnapshot {
             self.title.into_into_dart().into_dart(),
             self.updated_at_unix_ms.into_into_dart().into_dart(),
             self.elapsed_secs.into_into_dart().into_dart(),
+            self.mic_counters.into_into_dart().into_dart(),
+            self.speaker_counters.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3613,6 +3652,14 @@ impl SseEncode for crate::session::ChannelCapture {
         <f64>::sse_encode(self.percent_silent, serializer);
         <f64>::sse_encode(self.silent_for_secs, serializer);
         <bool>::sse_encode(self.writing_to_disk, serializer);
+    }
+}
+
+impl SseEncode for crate::session::ChannelCounters {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.total_samples, serializer);
+        <u64>::sse_encode(self.voiced_samples, serializer);
     }
 }
 
@@ -4123,6 +4170,8 @@ impl SseEncode for crate::session::SessionRecoverySnapshot {
         <String>::sse_encode(self.title, serializer);
         <u64>::sse_encode(self.updated_at_unix_ms, serializer);
         <f64>::sse_encode(self.elapsed_secs, serializer);
+        <crate::session::ChannelCounters>::sse_encode(self.mic_counters, serializer);
+        <crate::session::ChannelCounters>::sse_encode(self.speaker_counters, serializer);
     }
 }
 

@@ -110,6 +110,29 @@ class ChannelCapture {
           writingToDisk == other.writingToDisk;
 }
 
+/// How much audio one source has delivered, and how much of it was above
+/// the noise floor. Persisted so it survives a crash.
+class ChannelCounters {
+  final BigInt totalSamples;
+  final BigInt voicedSamples;
+
+  const ChannelCounters({
+    required this.totalSamples,
+    required this.voicedSamples,
+  });
+
+  @override
+  int get hashCode => totalSamples.hashCode ^ voicedSamples.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelCounters &&
+          runtimeType == other.runtimeType &&
+          totalSamples == other.totalSamples &&
+          voicedSamples == other.voicedSamples;
+}
+
 enum NoticeLevel {
   /// The session is running, but with less than the user asked for.
   warning,
@@ -255,6 +278,13 @@ class SessionRecoverySnapshot {
   /// accumulating rather than restarting its clock.
   final double elapsedSecs;
 
+  /// Capture counters from earlier runs, so the integrity summary of a
+  /// recovered session describes the whole meeting. Without these it
+  /// reports the session's full duration next to only the seconds
+  /// captured since the restart.
+  final ChannelCounters micCounters;
+  final ChannelCounters speakerCounters;
+
   const SessionRecoverySnapshot({
     required this.sessionId,
     required this.config,
@@ -264,6 +294,8 @@ class SessionRecoverySnapshot {
     required this.title,
     required this.updatedAtUnixMs,
     required this.elapsedSecs,
+    required this.micCounters,
+    required this.speakerCounters,
   });
 
   @override
@@ -275,7 +307,9 @@ class SessionRecoverySnapshot {
       segmentsCount.hashCode ^
       title.hashCode ^
       updatedAtUnixMs.hashCode ^
-      elapsedSecs.hashCode;
+      elapsedSecs.hashCode ^
+      micCounters.hashCode ^
+      speakerCounters.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -289,7 +323,9 @@ class SessionRecoverySnapshot {
           segmentsCount == other.segmentsCount &&
           title == other.title &&
           updatedAtUnixMs == other.updatedAtUnixMs &&
-          elapsedSecs == other.elapsedSecs;
+          elapsedSecs == other.elapsedSecs &&
+          micCounters == other.micCounters &&
+          speakerCounters == other.speakerCounters;
 }
 
 class SessionStatus {

@@ -350,6 +350,14 @@ void main() {
       title: 'orphan-candidate',
       updatedAtUnixMs: BigInt.zero,
       elapsedSecs: 0,
+      micCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
+      speakerCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
     );
 
     await notifier.recoverFromSnapshot(snapshot);
@@ -406,15 +414,20 @@ void main() {
     );
     addTearDown(notifier.dispose);
 
-    // Not recording yet: nothing to mirror into.
+    // Not recording yet: there is no session to mirror into.
     notifier.setTitle('sebelum mulai');
     expect(bridge.titles, isEmpty);
 
     await notifier.recoverFromSnapshot(_snapshot('crash-1', title: 'awal'));
+    await Future<void>.delayed(Duration.zero);
+    // The title is pushed once the session exists, not only on the next
+    // keystroke — the usual order is to type a title and then press Mulai,
+    // which left the snapshot nameless.
+    expect(bridge.titles, [('crash-1', 'awal')]);
+
     notifier.setTitle('Rapat Koordinasi');
     await Future<void>.delayed(Duration.zero);
-
-    expect(bridge.titles, [('crash-1', 'Rapat Koordinasi')]);
+    expect(bridge.titles.last, ('crash-1', 'Rapat Koordinasi'));
   });
 }
 
@@ -441,6 +454,14 @@ rust_session.SessionRecoverySnapshot _snapshot(
     title: title,
     updatedAtUnixMs: BigInt.zero,
     elapsedSecs: 5400,
+    micCounters: rust_session.ChannelCounters(
+      totalSamples: BigInt.zero,
+      voicedSamples: BigInt.zero,
+    ),
+    speakerCounters: rust_session.ChannelCounters(
+      totalSamples: BigInt.zero,
+      voicedSamples: BigInt.zero,
+    ),
   );
 }
 

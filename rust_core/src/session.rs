@@ -282,6 +282,22 @@ pub struct SessionRecoverySnapshot {
     /// accumulating rather than restarting its clock.
     #[serde(default)]
     pub elapsed_secs: f64,
+    /// Capture counters from earlier runs, so the integrity summary of a
+    /// recovered session describes the whole meeting. Without these it
+    /// reports the session's full duration next to only the seconds
+    /// captured since the restart.
+    #[serde(default)]
+    pub mic_counters: ChannelCounters,
+    #[serde(default)]
+    pub speaker_counters: ChannelCounters,
+}
+
+/// How much audio one source has delivered, and how much of it was above
+/// the noise floor. Persisted so it survives a crash.
+#[derive(Debug, Clone, Copy, Default, Serialize, serde::Deserialize)]
+pub struct ChannelCounters {
+    pub total_samples: u64,
+    pub voiced_samples: u64,
 }
 
 /// One entry in the recovery dialog: the snapshot plus what is actually
@@ -434,6 +450,8 @@ pub fn recover_session(
         segments: segments.clone(),
         resume_offset_secs,
         elapsed_secs: snapshot.elapsed_secs.max(resume_offset_secs),
+        mic_counters: snapshot.mic_counters,
+        speaker_counters: snapshot.speaker_counters,
     };
     let session_id = start_session_with_id(snapshot.session_id, snapshot.config, resume)?;
 
@@ -451,6 +469,7 @@ fn start_capture(
     device_name: Option<String>,
     worker_config: LiveWorkerConfig,
     audio_path: Option<PathBuf>,
+    resumed: ChannelCounters,
 ) -> Result<(Option<CaptureChannel>, CaptureAttempt), TranscribeError> {
     if !enabled {
         return Ok((None, CaptureAttempt::Disabled));
@@ -496,7 +515,11 @@ fn start_capture(
         },
         None => AudioSink::ram(),
     };
-    let health = Arc::new(ChannelHealth::new(sink.is_disk()));
+    let health = Arc::new(ChannelHealth::resumed(
+        sink.is_disk(),
+        resumed.total_samples,
+        resumed.voiced_samples,
+    ));
     let sink = Arc::new(Mutex::new(sink));
     let sink_errors = Arc::new(Mutex::new(sink_errors));
 
@@ -877,6 +900,8 @@ struct ResumeState {
     segments: Vec<Segment>,
     resume_offset_secs: f64,
     elapsed_secs: f64,
+    mic_counters: ChannelCounters,
+    speaker_counters: ChannelCounters,
 }
 
 fn start_session_with_id(
@@ -914,12 +939,14 @@ fn start_session_with_id(
         config.mic_device_id.clone(),
         worker_config("mic"),
         audio_path(MIC_AUDIO_FILE),
+        resume.mic_counters,
     )?;
     let (speaker_capture, speaker_attempt) = start_capture(
         config.speaker_enabled,
         config.speaker_device_id.clone(),
         worker_config("spk"),
         audio_path(SPEAKER_AUDIO_FILE),
+        resume.speaker_counters,
     )?;
     let mut pending_events = Vec::new();
     match decide_start(&mic_attempt, &speaker_attempt) {
@@ -1004,6 +1031,15 @@ fn start_session_with_id(
     Ok(id)
 }
 
+fn counters_of(channel: Option<&CaptureChannel>) -> ChannelCounters {
+    channel
+        .map(|c| ChannelCounters {
+            total_samples: c.health.total_samples(),
+            voiced_samples: c.health.voiced_samples(),
+        })
+        .unwrap_or_default()
+}
+
 fn persist_session_snapshot(session_id: &str) -> Result<(), TranscribeError> {
     let snapshot = {
         let reg = registry()
@@ -1021,6 +1057,8 @@ fn persist_session_snapshot(session_id: &str) -> Result<(), TranscribeError> {
             title: state.title.clone(),
             updated_at_unix_ms: unix_ms_now().unwrap_or(state.started_at_unix_ms),
             elapsed_secs: state.elapsed_secs(),
+            mic_counters: counters_of(state.mic_capture.as_ref()),
+            speaker_counters: counters_of(state.speaker_capture.as_ref()),
         }
     };
     write_snapshot_file(&snapshot)
@@ -1623,6 +1661,11 @@ mod tests {
             title: "Rapat Anggaran".to_string(),
             updated_at_unix_ms: 1_000_000 + 90 * 60 * 1000,
             elapsed_secs: 90.0 * 60.0,
+            mic_counters: ChannelCounters {
+                total_samples: TARGET_SAMPLE_RATE as u64 * 300,
+                voiced_samples: TARGET_SAMPLE_RATE as u64 * 120,
+            },
+            speaker_counters: ChannelCounters::default(),
         };
         std::fs::write(
             dir.join(SNAPSHOT_FILE),
@@ -1700,6 +1743,53 @@ mod tests {
         assert!(part.exists(), "the recording in progress is still there");
         assert_eq!(std::fs::metadata(&part).unwrap().len(), bytes_before);
         stop_session(&recovered.session_id).unwrap();
+    }
+
+    /// The integrity summary of a recovered session has to describe the
+    /// whole meeting: it used to report the full duration next to only the
+    /// seconds captured since the restart, because the counters restarted
+    /// with the capture threads while the clock and the audio file did not.
+    /// The counters therefore have to survive in the snapshot; what a
+    /// seeded [`ChannelHealth`] then reports is covered in `audio::sink`.
+    #[test]
+    fn capture_counters_survive_a_crash_in_the_snapshot() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 5.0);
+        let path = home.path().join(&staged.session_id).join(SNAPSHOT_FILE);
+
+        let reloaded = load_snapshot_file(&path).unwrap();
+        assert_eq!(
+            reloaded.mic_counters.total_samples,
+            TARGET_SAMPLE_RATE as u64 * 300
+        );
+        assert_eq!(
+            reloaded.mic_counters.voiced_samples,
+            TARGET_SAMPLE_RATE as u64 * 120
+        );
+        // A source that never ran carries zeroes, not garbage.
+        assert_eq!(reloaded.speaker_counters.total_samples, 0);
+
+        // And the recovered session is seeded from them.
+        let recovered = recover_session(reloaded).unwrap();
+        stop_session(&recovered.session_id).unwrap();
+    }
+
+    /// Snapshots written before the counters existed must still load.
+    #[test]
+    fn a_snapshot_without_counters_loads_with_zeroes() {
+        let home = RecoveryHome::new();
+        let staged = stage_crashed_session(&home, &["satu"], 0.0);
+        let path = home.path().join(&staged.session_id).join(SNAPSHOT_FILE);
+        let mut value: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("mic_counters");
+        object.remove("speaker_counters");
+        std::fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+
+        let reloaded = load_snapshot_file(&path).unwrap();
+        assert_eq!(reloaded.mic_counters.total_samples, 0);
+        assert_eq!(reloaded.segments_count, 1, "the rest still loads");
     }
 
     #[test]

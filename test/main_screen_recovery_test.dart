@@ -65,6 +65,14 @@ rust_session.RecoverableSession recoverable({
       title: title,
       updatedAtUnixMs: BigInt.from(1700000000000 + 5400000),
       elapsedSecs: durationSecs,
+      micCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
+      speakerCounters: rust_session.ChannelCounters(
+        totalSamples: BigInt.zero,
+        voicedSamples: BigInt.zero,
+      ),
     ),
     title: title,
     startedAtUnixMs: BigInt.from(1700000000000),

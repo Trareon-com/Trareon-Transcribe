@@ -1924,6 +1924,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChannelCounters dco_decode_channel_counters(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ChannelCounters(
+      totalSamples: dco_decode_u_64(arr[0]),
+      voicedSamples: dco_decode_u_64(arr[1]),
+    );
+  }
+
+  @protected
   Check dco_decode_check(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2311,8 +2323,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SessionRecoverySnapshot dco_decode_session_recovery_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return SessionRecoverySnapshot(
       sessionId: dco_decode_String(arr[0]),
       config: dco_decode_session_config(arr[1]),
@@ -2322,6 +2334,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       title: dco_decode_String(arr[5]),
       updatedAtUnixMs: dco_decode_u_64(arr[6]),
       elapsedSecs: dco_decode_f_64(arr[7]),
+      micCounters: dco_decode_channel_counters(arr[8]),
+      speakerCounters: dco_decode_channel_counters(arr[9]),
     );
   }
 
@@ -2699,6 +2713,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       percentSilent: var_percentSilent,
       silentForSecs: var_silentForSecs,
       writingToDisk: var_writingToDisk,
+    );
+  }
+
+  @protected
+  ChannelCounters sse_decode_channel_counters(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_totalSamples = sse_decode_u_64(deserializer);
+    var var_voicedSamples = sse_decode_u_64(deserializer);
+    return ChannelCounters(
+      totalSamples: var_totalSamples,
+      voicedSamples: var_voicedSamples,
     );
   }
 
@@ -3268,6 +3293,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_title = sse_decode_String(deserializer);
     var var_updatedAtUnixMs = sse_decode_u_64(deserializer);
     var var_elapsedSecs = sse_decode_f_64(deserializer);
+    var var_micCounters = sse_decode_channel_counters(deserializer);
+    var var_speakerCounters = sse_decode_channel_counters(deserializer);
     return SessionRecoverySnapshot(
       sessionId: var_sessionId,
       config: var_config,
@@ -3277,6 +3304,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       title: var_title,
       updatedAtUnixMs: var_updatedAtUnixMs,
       elapsedSecs: var_elapsedSecs,
+      micCounters: var_micCounters,
+      speakerCounters: var_speakerCounters,
     );
   }
 
@@ -3649,6 +3678,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_64(self.percentSilent, serializer);
     sse_encode_f_64(self.silentForSecs, serializer);
     sse_encode_bool(self.writingToDisk, serializer);
+  }
+
+  @protected
+  void sse_encode_channel_counters(
+    ChannelCounters self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.totalSamples, serializer);
+    sse_encode_u_64(self.voicedSamples, serializer);
   }
 
   @protected
@@ -4123,6 +4162,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.title, serializer);
     sse_encode_u_64(self.updatedAtUnixMs, serializer);
     sse_encode_f_64(self.elapsedSecs, serializer);
+    sse_encode_channel_counters(self.micCounters, serializer);
+    sse_encode_channel_counters(self.speakerCounters, serializer);
   }
 
   @protected

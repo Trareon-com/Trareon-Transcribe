@@ -57,9 +57,31 @@ pub struct ChannelHealth {
 impl ChannelHealth {
     #[flutter_rust_bridge::frb(ignore)]
     pub fn new(on_disk: bool) -> Self {
+        Self::resumed(on_disk, 0, 0)
+    }
+
+    /// Starts from the counts a previous run of this session accumulated.
+    ///
+    /// Without this a recovered session reports "13 menit" of duration next
+    /// to "38 detik terekam" per channel, because the counters restart with
+    /// the capture threads while the clock and the audio file do not.
+    /// `first_voiced` is intentionally left unset when `voiced_samples` is
+    /// zero: a channel that had produced nothing before the crash is still
+    /// unconfirmed.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn resumed(on_disk: bool, total_samples: u64, voiced_samples: u64) -> Self {
         Self {
+            total_samples: AtomicU64::new(total_samples),
+            voiced_samples: AtomicU64::new(voiced_samples),
+            // A sentinel, not a real timestamp: it only has to be non-zero
+            // for `confirmed()`, and `silent_for_secs` reads
+            // `last_voiced_unix_ms`, which stays 0 until sound arrives in
+            // *this* run — so a source that has gone quiet across a restart
+            // still reports as quiet.
+            first_voiced_unix_ms: AtomicU64::new(if voiced_samples > 0 { 1 } else { 0 }),
+            last_voiced_unix_ms: AtomicU64::new(0),
+            write_failures: AtomicU64::new(0),
             on_disk: AtomicBool::new(on_disk),
-            ..Default::default()
         }
     }
 
@@ -345,6 +367,31 @@ mod tests {
         let health = ChannelHealth::new(true);
         health.observe(&loud(1600), 60_000);
         assert_eq!(health.silent_for_secs(125_000, 200.0), 65.0);
+    }
+
+    /// A recovered session's summary has to describe the whole meeting,
+    /// not just the minutes since the restart.
+    #[test]
+    fn resumed_counters_carry_the_previous_run_forward() {
+        let health = ChannelHealth::resumed(true, 16_000 * 600, 16_000 * 300);
+        assert_eq!(health.seconds_captured(TARGET_SAMPLE_RATE), 600.0);
+        assert_eq!(health.seconds_voiced(TARGET_SAMPLE_RATE), 300.0);
+        assert_eq!(health.percent_silent(), 50.0);
+        assert!(health.confirmed(), "it had produced sound before the crash");
+        // But it has not been heard from in *this* run, so the silence
+        // clock runs from the session, not from a fabricated timestamp.
+        assert_eq!(health.silent_for_secs(10_000, 42.0), 42.0);
+
+        health.observe(&loud(16_000), 20_000);
+        assert_eq!(health.seconds_captured(TARGET_SAMPLE_RATE), 601.0);
+        assert_eq!(health.silent_for_secs(20_500, 42.0), 0.5);
+    }
+
+    #[test]
+    fn a_channel_that_was_silent_before_the_crash_stays_unconfirmed() {
+        let health = ChannelHealth::resumed(true, 16_000 * 600, 0);
+        assert!(!health.confirmed());
+        assert_eq!(health.percent_silent(), 100.0);
     }
 
     #[test]

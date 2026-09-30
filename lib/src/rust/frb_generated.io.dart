@@ -96,6 +96,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChannelCapture dco_decode_channel_capture(dynamic raw);
 
   @protected
+  ChannelCounters dco_decode_channel_counters(dynamic raw);
+
+  @protected
   Check dco_decode_check(dynamic raw);
 
   @protected
@@ -345,6 +348,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChannelCapture sse_decode_channel_capture(SseDeserializer deserializer);
+
+  @protected
+  ChannelCounters sse_decode_channel_counters(SseDeserializer deserializer);
 
   @protected
   Check sse_decode_check(SseDeserializer deserializer);
@@ -647,6 +653,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_channel_capture(
     ChannelCapture self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_channel_counters(
+    ChannelCounters self,
     SseSerializer serializer,
   );
 

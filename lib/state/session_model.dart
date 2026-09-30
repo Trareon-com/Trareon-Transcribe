@@ -204,6 +204,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       Duration(milliseconds: (recovered.resumeOffsetSecs * 1000).round()),
     );
     _subscribeToLiveStreams(recovered.sessionId);
+    _mirrorTitleToSnapshot();
     _resetAutoStopTimer();
     return recovered;
   }
@@ -237,6 +238,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
     );
     _subscribeToLiveStreams(id);
+    _mirrorTitleToSnapshot();
     _resetAutoStopTimer();
   }
 
@@ -498,13 +500,25 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
 
   void setTitle(String title) {
     state = state.copyWith(sessionTitle: title);
-    // Mirrored into the recovery snapshot so a crash shows the session
-    // under the name the user gave it, not a UUID. Fire-and-forget: the
-    // title field must stay responsive, and a failed mirror costs a label.
-    final id = state.sessionId;
-    if (id != null && state.lifecycle == SessionLifecycle.recording) {
-      unawaited(_bridge.setSessionTitle(id, title).catchError((_) {}));
+    if (state.lifecycle == SessionLifecycle.recording) {
+      _mirrorTitleToSnapshot();
     }
+  }
+
+  /// Pushes the current title into the recovery snapshot, so a crashed
+  /// session shows up under the name the user gave it rather than a UUID.
+  ///
+  /// Called both on edit *and* right after the session starts: the usual
+  /// order is to type the title first and then press Mulai, in which case
+  /// there was no session to mirror into at the time it was typed.
+  ///
+  /// Fire-and-forget: the title field has to stay responsive, and a failed
+  /// mirror costs a label in one dialog.
+  void _mirrorTitleToSnapshot() {
+    final id = state.sessionId;
+    final title = state.sessionTitle;
+    if (id == null || title.isEmpty) return;
+    unawaited(_bridge.setSessionTitle(id, title).catchError((_) {}));
   }
 
   void updateAutoStopMinutes(int? minutes) {
