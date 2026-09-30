@@ -6,6 +6,7 @@
 import 'audio.dart';
 import 'audio/device.dart';
 import 'decode.dart';
+import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
 import 'export.dart';
@@ -127,6 +128,13 @@ Future<void> setSessionTitle({
   sessionId: sessionId,
   title: title,
 );
+
+/// Free space on the volume holding `path`, plus whether that is enough to
+/// keep recording. Called before a session starts and periodically while
+/// one runs — three hours of "Rapat Online" is ~1.4 GB of WAV, and nothing
+/// used to check.
+Future<DiskSpaceStatus> checkDiskSpace({required String path}) =>
+    RustLib.instance.api.crateApiCheckDiskSpace(path: path);
 
 /// Benchmark a model's realtime factor (seconds of audio transcribed per
 /// second of wall-clock) using a 5s calibration chunk. Used by adaptive

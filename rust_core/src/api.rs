@@ -145,6 +145,16 @@ pub fn set_session_title(session_id: String, title: String) -> Result<(), Transc
     crate::session::set_session_title(&session_id, &title)
 }
 
+// --- Disk space -----------------------------------------------------
+
+/// Free space on the volume holding `path`, plus whether that is enough to
+/// keep recording. Called before a session starts and periodically while
+/// one runs — three hours of "Rapat Online" is ~1.4 GB of WAV, and nothing
+/// used to check.
+pub fn check_disk_space(path: String) -> crate::disk::DiskSpaceStatus {
+    crate::disk::status_for(std::path::Path::new(&path))
+}
+
 // --- Model management -----------------------------------------------------
 
 /// Benchmark a model's realtime factor (seconds of audio transcribed per

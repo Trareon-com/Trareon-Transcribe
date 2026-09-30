@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'decode.dart';
+import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
 import 'export.dart';
@@ -102,6 +103,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
   CaptureHealth dco_decode_capture_health(dynamic raw);
 
   @protected
@@ -112,6 +116,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CheckStatus dco_decode_check_status(dynamic raw);
+
+  @protected
+  DiskSpaceLevel dco_decode_disk_space_level(dynamic raw);
+
+  @protected
+  DiskSpaceStatus dco_decode_disk_space_status(dynamic raw);
 
   @protected
   ExportFormat dco_decode_export_format(dynamic raw);
@@ -209,6 +219,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
 
   @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
@@ -370,6 +383,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
   CaptureHealth sse_decode_capture_health(SseDeserializer deserializer);
 
   @protected
@@ -380,6 +396,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CheckStatus sse_decode_check_status(SseDeserializer deserializer);
+
+  @protected
+  DiskSpaceLevel sse_decode_disk_space_level(SseDeserializer deserializer);
+
+  @protected
+  DiskSpaceStatus sse_decode_disk_space_status(SseDeserializer deserializer);
 
   @protected
   ExportFormat sse_decode_export_format(SseDeserializer deserializer);
@@ -499,6 +521,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
   ProgressiveFileResult sse_decode_progressive_file_result(
@@ -694,6 +719,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_capture_health(CaptureHealth self, SseSerializer serializer);
 
   @protected
@@ -707,6 +735,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_check_status(CheckStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_disk_space_level(
+    DiskSpaceLevel self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_disk_space_status(
+    DiskSpaceStatus self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_export_format(ExportFormat self, SseSerializer serializer);
@@ -851,6 +891,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
 
   @protected
   void sse_encode_progressive_file_result(

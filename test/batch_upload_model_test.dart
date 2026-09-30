@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
+import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -163,6 +164,14 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
+      rust_disk.DiskSpaceStatus(
+        availableBytes: BigInt.from(64 * 1024 * 1024 * 1024),
+        level: rust_disk.DiskSpaceLevel.ok,
+        message: '',
+      );
   @override
   Future<AppSettings> loadSettings() async => AppSettings.defaults();
   @override

@@ -8,7 +8,11 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:path_provider/path_provider.dart';
+
+import '../utils/atomic_file.dart';
 
 class DartPrefs {
   DartPrefs._();
@@ -40,12 +44,18 @@ class DartPrefs {
   }
 
   /// Persist current in-memory data to disk.
-  Future<void> save() async {
+  ///
+  /// Atomic, and no longer silent: a failed write used to be swallowed
+  /// whole, so settings simply did not do what the UI said they did.
+  /// Returns false instead of throwing — every caller is a settings
+  /// toggle, and a failed preference must not take the UI down with it.
+  Future<bool> save() async {
     try {
-      final file = await _prefsFile();
-      await file.writeAsString(jsonEncode(_data));
-    } catch (_) {
-      // Best-effort; silently ignore write errors.
+      await writeStringAtomic(await _prefsFile(), jsonEncode(_data));
+      return true;
+    } catch (e) {
+      debugPrint('DartPrefs.save failed: $e');
+      return false;
     }
   }
 

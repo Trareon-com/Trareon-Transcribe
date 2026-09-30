@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
+import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/model.dart' as rust_model;
 import '../src/rust/session.dart' as rust_session;
@@ -53,6 +54,10 @@ abstract class RustBridge {
   /// Mirrors the session title into the recovery snapshot, so a crashed
   /// session shows up in the recovery dialog under its name.
   Future<void> setSessionTitle(String sessionId, String title);
+
+  /// Free space on the volume holding [path], and whether that is enough
+  /// to keep recording. Three hours of "Rapat Online" is ~1.4 GB of WAV.
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path);
   Future<AppSettings> loadSettings();
   Future<void> saveSettings(AppSettings settings);
   Future<void> downloadModel(String modelsDir, String modelId);
@@ -317,6 +322,16 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  /// The mock never touches the filesystem, so it reports plenty of room
+  /// rather than blocking a UI test on the host machine's free space.
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
+      rust_disk.DiskSpaceStatus(
+        availableBytes: BigInt.from(64 * 1024 * 1024 * 1024),
+        level: rust_disk.DiskSpaceLevel.ok,
+        message: '',
+      );
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -610,6 +625,10 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<void> setSessionTitle(String sessionId, String title) =>
       rust_api.setSessionTitle(sessionId: sessionId, title: title);
+
+  @override
+  Future<rust_disk.DiskSpaceStatus> diskSpace(String path) =>
+      rust_api.checkDiskSpace(path: path);
 
   Future<void> _poll(String sessionId) async {
     if (!_polling.add(sessionId)) return;

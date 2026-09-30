@@ -294,6 +294,21 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     );
   }
 
+  /// The session id whose audio is still waiting to be exported. Kept
+  /// after `stop()` so a retried save can still place the WAVs — the
+  /// engine holds them until `exportSessionAudio` claims them.
+  String? _pendingAudioSessionId;
+
+  /// Title the save used, so a retry writes to the same folder.
+  String _pendingTitle = '';
+
+  /// Whether the transcript of the last stopped session is on disk.
+  /// `false` after a failed save, until [retrySave] succeeds.
+  bool get hasUnsavedTranscript =>
+      state.lifecycle == SessionLifecycle.stopped &&
+      state.segments.isNotEmpty &&
+      _pendingAudioSessionId != null;
+
   Future<void> stop() async {
     _autoStopTimer?.cancel();
     _autoStopTimer = null;
@@ -306,31 +321,52 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       lifecycle: SessionLifecycle.stopped,
       elapsedSeconds: 0,
     );
+    if (state.segments.isEmpty) return;
+    _pendingAudioSessionId = id;
+    _pendingTitle = state.sessionTitle.isNotEmpty
+        ? state.sessionTitle
+        : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
+    await _saveStoppedSession(resolveTilde(_libraryPath));
+  }
+
+  /// Re-runs the save that failed, optionally somewhere else.
+  ///
+  /// A failed save used to be a three-second toast and nothing else: the
+  /// transcript was still in memory, but the only way to get it onto disk
+  /// was to notice the toast and know to press Ekspor. This is what the
+  /// banner's "Coba lagi" / "Simpan ke folder lain" call.
+  Future<void> retrySave({String? outputDir}) async {
+    if (!hasUnsavedTranscript) return;
+    await _saveStoppedSession(outputDir ?? resolveTilde(_libraryPath));
+  }
+
+  Future<void> _saveStoppedSession(String outputDir) async {
     final segments = state.segments;
-    if (segments.isNotEmpty) {
-      final title = state.sessionTitle.isNotEmpty
-          ? state.sessionTitle
-          : 'Sesi ${DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ')}';
-      final outputDir = resolveTilde(_libraryPath);
-      // Rethrown (not swallowed) so the caller can tell the user their
-      // transcript failed to save — previously a failed auto-save here was
-      // silently lost with zero feedback, leaving the user unable to tell
-      // a real save from a failed one.
-      final List<rust_export.ExportedFile> exported;
-      try {
-        exported = await _bridge.exportSession(
-          segments: segments,
-          outputDir: outputDir,
-          title: title,
-        );
-      } catch (e) {
-        throw TranscribeSaveError(
-          'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
-        );
-      }
-      // Best-effort from here on: the transcript (the primary artifact) is
-      // already saved, so a failure writing the raw audio or the metadata
-      // sidecar shouldn't surface as a save error to the user.
+    final id = _pendingAudioSessionId;
+    final title = _pendingTitle;
+    // Rethrown (not swallowed) so the caller can tell the user their
+    // transcript failed to save — previously a failed auto-save here was
+    // silently lost with zero feedback, leaving the user unable to tell
+    // a real save from a failed one.
+    final List<rust_export.ExportedFile> exported;
+    try {
+      exported = await _bridge.exportSession(
+        segments: segments,
+        outputDir: outputDir,
+        title: title,
+      );
+    } catch (e) {
+      throw TranscribeSaveError(
+        'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
+      );
+    }
+    // The transcript is on disk; a retry must not write it a second time.
+    _pendingAudioSessionId = null;
+
+    // Best-effort from here on: the transcript (the primary artifact) is
+    // already saved, so a failure writing the raw audio or the metadata
+    // sidecar shouldn't surface as a save error to the user.
+    if (id != null) {
       try {
         await _bridge.exportSessionAudio(
           sessionId: id,
@@ -338,22 +374,18 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
           title: title,
         );
       } catch (_) {}
-      // The sidecar gives the library the user-facing title (instead of the
-      // date-prefixed folder name) and gives "Transkrip Ulang" the model and
-      // language this session was recorded with.
-      if (exported.isNotEmpty) {
-        try {
-          final sessionDir = File(exported.first.path).parent.path;
-          await writeSessionMeta(
-            sessionDir,
-            SessionMeta(
-              title: title,
-              language: _language,
-              model: _modelId,
-            ),
-          );
-        } catch (_) {}
-      }
+    }
+    // The sidecar gives the library the user-facing title (instead of the
+    // date-prefixed folder name) and gives "Transkrip Ulang" the model and
+    // language this session was recorded with.
+    if (exported.isNotEmpty) {
+      try {
+        final sessionDir = File(exported.first.path).parent.path;
+        await writeSessionMeta(
+          sessionDir,
+          SessionMeta(title: title, language: _language, model: _modelId),
+        );
+      } catch (_) {}
     }
   }
 
