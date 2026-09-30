@@ -85,6 +85,11 @@ class AppSettings {
   /// Hybrid Progressive Transcription: quick (base) pass then refine (q5).
   final bool progressiveEnabled;
 
+  /// Stream captured audio straight to disk instead of buffering it in
+  /// RAM until Stop. On by default; see `audio::SessionConfig` for why
+  /// it is a switch at all.
+  final bool audioToDisk;
+
   /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
   final SummarySettings summary;
 
@@ -102,6 +107,7 @@ class AppSettings {
     required this.gpuDevice,
     this.autoStopMinutes,
     required this.progressiveEnabled,
+    required this.audioToDisk,
     required this.summary,
   });
 
@@ -123,6 +129,7 @@ class AppSettings {
       gpuDevice.hashCode ^
       autoStopMinutes.hashCode ^
       progressiveEnabled.hashCode ^
+      audioToDisk.hashCode ^
       summary.hashCode;
 
   @override
@@ -143,6 +150,7 @@ class AppSettings {
           gpuDevice == other.gpuDevice &&
           autoStopMinutes == other.autoStopMinutes &&
           progressiveEnabled == other.progressiveEnabled &&
+          audioToDisk == other.audioToDisk &&
           summary == other.summary;
 }
 

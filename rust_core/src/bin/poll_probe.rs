@@ -27,6 +27,7 @@ fn main() {
         vad_enabled: false,
         gpu_enabled: false,
         gpu_device: 0,
+        audio_to_disk: true,
     };
 
     let session_id = rust_core::api::start_session(config).expect("start_session");

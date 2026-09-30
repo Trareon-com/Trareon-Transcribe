@@ -13,7 +13,10 @@ use crate::doctor::{format_checks, run_checks, Check};
 use crate::error::TranscribeError;
 use crate::export::{ExportFormat, ExportedFile, Segment};
 use crate::model::ModelInfo;
-use crate::session::{SessionEvent, SessionRecoverySnapshot, SessionStatus};
+use crate::session::{
+    CaptureHealth, RecoverableSession, RecoveredSession, SessionEvent, SessionRecoverySnapshot,
+    SessionStatus,
+};
 use crate::settings::{AppConfig, AppSettings};
 
 pub fn get_app_config() -> AppConfig {
@@ -108,12 +111,38 @@ pub fn poll_session_events(session_id: String) -> Result<Vec<SessionEvent>, Tran
     crate::session::poll_events(&session_id)
 }
 
-pub fn list_recoverable_sessions() -> Result<Vec<SessionRecoverySnapshot>, TranscribeError> {
+/// Sessions left behind by a crash, with what is actually recoverable for
+/// each (segment count, audio duration per source) rather than just the
+/// configuration the old snapshot carried.
+pub fn list_recoverable_sessions() -> Result<Vec<RecoverableSession>, TranscribeError> {
     crate::session::list_recoverable_sessions()
 }
 
-pub fn recover_session(snapshot: SessionRecoverySnapshot) -> Result<String, TranscribeError> {
+/// Restores a crashed session: returns its recovered transcript along with
+/// the live session id, and resumes capture into the same audio files.
+pub fn recover_session(
+    snapshot: SessionRecoverySnapshot,
+) -> Result<RecoveredSession, TranscribeError> {
     crate::session::recover_session(snapshot)
+}
+
+/// Discards one recoverable session and everything it held.
+pub fn delete_recoverable_session(session_id: String) -> Result<(), TranscribeError> {
+    crate::session::delete_recoverable_session(&session_id)
+}
+
+/// Live capture health: how much audio each source has actually delivered,
+/// whether it has ever been above the noise floor ("rekaman terkonfirmasi")
+/// and how long it has been quiet. Drives both the recording indicator and
+/// the integrity summary shown at Stop.
+pub fn get_capture_health(session_id: String) -> Result<CaptureHealth, TranscribeError> {
+    crate::session::get_capture_health(&session_id)
+}
+
+/// Mirrors the user-entered title into the recovery snapshot, so a crashed
+/// session appears in the recovery dialog under its name.
+pub fn set_session_title(session_id: String, title: String) -> Result<(), TranscribeError> {
+    crate::session::set_session_title(&session_id, &title)
 }
 
 // --- Model management -----------------------------------------------------
@@ -211,13 +240,24 @@ pub fn export_session_audio(
     output_dir: String,
     title: String,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
-    let (mic, speaker) = crate::session::take_raw_audio(&session_id);
-    crate::export::export_session_audio(
-        mic.as_deref(),
-        speaker.as_deref(),
-        &PathBuf::from(output_dir),
-        &title,
-    )
+    use crate::export::CapturedTrack;
+    let audio = crate::session::take_session_audio(&session_id);
+    let mic = audio
+        .mic_file
+        .as_deref()
+        .map(CapturedTrack::File)
+        .or_else(|| audio.mic_samples.as_deref().map(CapturedTrack::Samples));
+    let speaker = audio
+        .speaker_file
+        .as_deref()
+        .map(CapturedTrack::File)
+        .or_else(|| audio.speaker_samples.as_deref().map(CapturedTrack::Samples));
+    let exported =
+        crate::export::export_session_audio(mic, speaker, &PathBuf::from(output_dir), &title)?;
+    // The staged WAVs were the last thing holding the session's recovery
+    // directory open.
+    crate::session::release_recovery_dir(&session_id);
+    Ok(exported)
 }
 
 /// Sanitize a candidate filename so it is safe to use on all target

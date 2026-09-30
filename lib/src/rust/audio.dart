@@ -6,6 +6,7 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `default_audio_to_disk`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`
 
 /// User-chosen strategy for Hybrid Progressive Transcription (HPT).
@@ -56,6 +57,13 @@ class SessionConfig {
   /// GPU device index to use when `gpu_enabled` is true (0 = default).
   final int gpuDevice;
 
+  /// Stream captured audio to disk as it arrives instead of holding it
+  /// in RAM until Stop. On by default; the switch exists because this
+  /// touches the capture path that was only just stabilised, so a
+  /// release can fall back without a rebuild. `session` keeps a bounded
+  /// RAM buffer as the fallback either way.
+  final bool audioToDisk;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -68,6 +76,7 @@ class SessionConfig {
     required this.vadEnabled,
     required this.gpuEnabled,
     required this.gpuDevice,
+    required this.audioToDisk,
   });
 
   static Future<SessionConfig> forMode({
@@ -95,7 +104,8 @@ class SessionConfig {
       hptMode.hashCode ^
       vadEnabled.hashCode ^
       gpuEnabled.hashCode ^
-      gpuDevice.hashCode;
+      gpuDevice.hashCode ^
+      audioToDisk.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -112,7 +122,8 @@ class SessionConfig {
           hptMode == other.hptMode &&
           vadEnabled == other.vadEnabled &&
           gpuEnabled == other.gpuEnabled &&
-          gpuDevice == other.gpuDevice;
+          gpuDevice == other.gpuDevice &&
+          audioToDisk == other.audioToDisk;
 }
 
 enum SessionMode {

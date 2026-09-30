@@ -55,6 +55,11 @@ pub struct AppSettings {
     /// Hybrid Progressive Transcription: quick (base) pass then refine (q5).
     #[serde(default = "default_true")]
     pub progressive_enabled: bool,
+    /// Stream captured audio straight to disk instead of buffering it in
+    /// RAM until Stop. On by default; see `audio::SessionConfig` for why
+    /// it is a switch at all.
+    #[serde(default = "default_true")]
+    pub audio_to_disk: bool,
     /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
     #[serde(default)]
     pub summary: SummarySettings,
@@ -131,6 +136,7 @@ impl Default for AppSettings {
             gpu_device: 0,
             auto_stop_minutes: None,
             progressive_enabled: true,
+            audio_to_disk: true,
             summary: SummarySettings::default(),
         }
     }

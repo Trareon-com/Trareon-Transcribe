@@ -95,11 +95,38 @@ Future<SessionStatus> getSessionStatus({required String sessionId}) =>
 Future<List<SessionEvent>> pollSessionEvents({required String sessionId}) =>
     RustLib.instance.api.crateApiPollSessionEvents(sessionId: sessionId);
 
-Future<List<SessionRecoverySnapshot>> listRecoverableSessions() =>
+/// Sessions left behind by a crash, with what is actually recoverable for
+/// each (segment count, audio duration per source) rather than just the
+/// configuration the old snapshot carried.
+Future<List<RecoverableSession>> listRecoverableSessions() =>
     RustLib.instance.api.crateApiListRecoverableSessions();
 
-Future<String> recoverSession({required SessionRecoverySnapshot snapshot}) =>
-    RustLib.instance.api.crateApiRecoverSession(snapshot: snapshot);
+/// Restores a crashed session: returns its recovered transcript along with
+/// the live session id, and resumes capture into the same audio files.
+Future<RecoveredSession> recoverSession({
+  required SessionRecoverySnapshot snapshot,
+}) => RustLib.instance.api.crateApiRecoverSession(snapshot: snapshot);
+
+/// Discards one recoverable session and everything it held.
+Future<void> deleteRecoverableSession({required String sessionId}) =>
+    RustLib.instance.api.crateApiDeleteRecoverableSession(sessionId: sessionId);
+
+/// Live capture health: how much audio each source has actually delivered,
+/// whether it has ever been above the noise floor ("rekaman terkonfirmasi")
+/// and how long it has been quiet. Drives both the recording indicator and
+/// the integrity summary shown at Stop.
+Future<CaptureHealth> getCaptureHealth({required String sessionId}) =>
+    RustLib.instance.api.crateApiGetCaptureHealth(sessionId: sessionId);
+
+/// Mirrors the user-entered title into the recovery snapshot, so a crashed
+/// session appears in the recovery dialog under its name.
+Future<void> setSessionTitle({
+  required String sessionId,
+  required String title,
+}) => RustLib.instance.api.crateApiSetSessionTitle(
+  sessionId: sessionId,
+  title: title,
+);
 
 /// Benchmark a model's realtime factor (seconds of audio transcribed per
 /// second of wall-clock) using a 5s calibration chunk. Used by adaptive

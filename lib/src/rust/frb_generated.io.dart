@@ -102,6 +102,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
+  CaptureHealth dco_decode_capture_health(dynamic raw);
+
+  @protected
+  ChannelCapture dco_decode_channel_capture(dynamic raw);
+
+  @protected
   Check dco_decode_check(dynamic raw);
 
   @protected
@@ -135,6 +141,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
 
   @protected
+  List<ChannelCapture> dco_decode_list_channel_capture(dynamic raw);
+
+  @protected
   List<Check> dco_decode_list_check(dynamic raw);
 
   @protected
@@ -159,15 +168,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
 
   @protected
+  List<RecoverableSession> dco_decode_list_recoverable_session(dynamic raw);
+
+  @protected
   List<Segment> dco_decode_list_segment(dynamic raw);
 
   @protected
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
-
-  @protected
-  List<SessionRecoverySnapshot> dco_decode_list_session_recovery_snapshot(
-    dynamic raw,
-  );
 
   @protected
   ModelInfo dco_decode_model_info(dynamic raw);
@@ -204,25 +211,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
-  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
-
-  @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
 
   @protected
   (bool, bool) dco_decode_record_bool_bool(dynamic raw);
 
   @protected
-  (Float32List?, Float32List?)
-  dco_decode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
-    dynamic raw,
-  );
-
-  @protected
   (String, String) dco_decode_record_string_string(dynamic raw);
 
   @protected
   (BigInt, BigInt) dco_decode_record_u_64_u_64(dynamic raw);
+
+  @protected
+  RecoverableSession dco_decode_recoverable_session(dynamic raw);
+
+  @protected
+  RecoveredSession dco_decode_recovered_session(dynamic raw);
 
   @protected
   Segment dco_decode_segment(dynamic raw);
@@ -366,6 +370,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
+  CaptureHealth sse_decode_capture_health(SseDeserializer deserializer);
+
+  @protected
+  ChannelCapture sse_decode_channel_capture(SseDeserializer deserializer);
+
+  @protected
   Check sse_decode_check(SseDeserializer deserializer);
 
   @protected
@@ -403,6 +413,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ChannelCapture> sse_decode_list_channel_capture(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<Check> sse_decode_list_check(SseDeserializer deserializer);
 
   @protected
@@ -433,15 +448,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
-
-  @protected
-  List<SessionEvent> sse_decode_list_session_event(
+  List<RecoverableSession> sse_decode_list_recoverable_session(
     SseDeserializer deserializer,
   );
 
   @protected
-  List<SessionRecoverySnapshot> sse_decode_list_session_recovery_snapshot(
+  List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
+
+  @protected
+  List<SessionEvent> sse_decode_list_session_event(
     SseDeserializer deserializer,
   );
 
@@ -486,11 +501,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
-  Float32List? sse_decode_opt_list_prim_f_32_strict(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   ProgressiveFileResult sse_decode_progressive_file_result(
     SseDeserializer deserializer,
   );
@@ -499,18 +509,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (bool, bool) sse_decode_record_bool_bool(SseDeserializer deserializer);
 
   @protected
-  (Float32List?, Float32List?)
-  sse_decode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   (String, String) sse_decode_record_string_string(
     SseDeserializer deserializer,
   );
 
   @protected
   (BigInt, BigInt) sse_decode_record_u_64_u_64(SseDeserializer deserializer);
+
+  @protected
+  RecoverableSession sse_decode_recoverable_session(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RecoveredSession sse_decode_recovered_session(SseDeserializer deserializer);
 
   @protected
   Segment sse_decode_segment(SseDeserializer deserializer);
@@ -682,6 +694,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_capture_health(CaptureHealth self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_channel_capture(
+    ChannelCapture self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_check(Check self, SseSerializer serializer);
 
   @protected
@@ -717,6 +738,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_batch_file_outcome(
     List<BatchFileOutcome> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_channel_capture(
+    List<ChannelCapture> self,
     SseSerializer serializer,
   );
 
@@ -766,17 +793,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_recoverable_session(
+    List<RecoverableSession> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_segment(List<Segment> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_session_event(
     List<SessionEvent> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_session_recovery_snapshot(
-    List<SessionRecoverySnapshot> self,
     SseSerializer serializer,
   );
 
@@ -826,12 +853,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_list_prim_f_32_strict(
-    Float32List? self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_progressive_file_result(
     ProgressiveFileResult self,
     SseSerializer serializer,
@@ -839,12 +860,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_record_bool_bool((bool, bool) self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_record_opt_list_prim_f_32_strict_opt_list_prim_f_32_strict(
-    (Float32List?, Float32List?) self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_record_string_string(
@@ -855,6 +870,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_record_u_64_u_64(
     (BigInt, BigInt) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recoverable_session(
+    RecoverableSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_recovered_session(
+    RecoveredSession self,
     SseSerializer serializer,
   );
 
