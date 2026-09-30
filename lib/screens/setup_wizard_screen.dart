@@ -125,7 +125,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   String _suggestModel(int ramMb) {
     if (ramMb >= 8192) return 'large-v3-turbo-q5'; // 8GB+
-    return 'base';                                   // < 8GB
+    return 'base'; // < 8GB
   }
 
   String _availableModel(String preferred) {
@@ -317,9 +317,7 @@ class _WizardNavigation extends StatelessWidget {
               if (onCancel != null)
                 TextButton(
                   onPressed: onCancel,
-                  style: TextButton.styleFrom(
-                    foregroundColor: colors.textSecondary,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: colors.textSecondary),
                   child: const Text('Tutup'),
                 ),
             ],
@@ -440,9 +438,7 @@ class _SpecDetectStep extends StatelessWidget {
                   _SpecRow(
                     icon: Icons.memory_outlined,
                     label: ramIsEstimate ? 'RAM (perkiraan)' : 'RAM',
-                    value: ramMb == null
-                        ? 'tidak diketahui'
-                        : _ramLabel(ramMb!),
+                    value: ramMb == null ? 'tidak diketahui' : _ramLabel(ramMb!),
                   ),
                   const SizedBox(height: 12),
                   _SpecRow(
@@ -482,10 +478,7 @@ class _SpecRow extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: highlighted ? colors.primary : colors.textSecondary),
         const SizedBox(width: 12),
-        Text(
-          label,
-          style: TextStyle(color: colors.textSecondary, fontSize: 13),
-        ),
+        Text(label, style: TextStyle(color: colors.textSecondary, fontSize: 13)),
         const Spacer(),
         Text(
           value,
@@ -544,7 +537,9 @@ class _ModelChoiceStep extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isSelected ? colors.primary.withValues(alpha: 0.1) : colors.surface,
+                  color: isSelected
+                      ? colors.primary.withValues(alpha: 0.1)
+                      : colors.surface,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected ? colors.primary : colors.border,
@@ -563,15 +558,21 @@ class _ModelChoiceStep extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(m.$2, style: TextStyle(
-                            color: colors.text,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                            fontSize: 14,
-                          )),
-                          Text(m.$3, style: TextStyle(
-                            color: isSelected ? colors.primary : colors.textTertiary,
-                            fontSize: 12,
-                          )),
+                          Text(
+                            m.$2,
+                            style: TextStyle(
+                              color: colors.text,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            m.$3,
+                            style: TextStyle(
+                              color: isSelected ? colors.primary : colors.textTertiary,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -621,25 +622,26 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
       final mic = savedMic != null && inputs.any((d) => d.name == savedMic)
           ? savedMic
           : (inputs.isNotEmpty
-              ? inputs.firstWhere((d) => d.isDefault, orElse: () => inputs.first).name
-              : null);
+                ? inputs.firstWhere((d) => d.isDefault, orElse: () => inputs.first).name
+                : null);
       final speaker = savedSpeaker != null && outputs.any((d) => d.name == savedSpeaker)
           ? savedSpeaker
           : outputs
-              .firstWhere(
-                (d) => d.name.toLowerCase().contains('blackhole') ||
-                    d.name.toLowerCase().contains('loopback'),
-                orElse: () => outputs.isNotEmpty
-                    ? outputs.first
-                    : AudioDeviceInfo(
-                        name: 'Default',
-                        deviceId: '',
-                        isDefault: true,
-                        channels: 2,
-                        sampleRates: Uint32List(0),
-                      ),
-              )
-              .name;
+                .firstWhere(
+                  (d) =>
+                      d.name.toLowerCase().contains('blackhole') ||
+                      d.name.toLowerCase().contains('loopback'),
+                  orElse: () => outputs.isNotEmpty
+                      ? outputs.first
+                      : AudioDeviceInfo(
+                          name: 'Default',
+                          deviceId: '',
+                          isDefault: true,
+                          channels: 2,
+                          sampleRates: Uint32List(0),
+                        ),
+                )
+                .name;
       setState(() {
         _loading = false;
         _inputDevices = inputs;
@@ -661,9 +663,11 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
   /// macOS kernel extension (audit A.6, P1).
   bool get _loopbackReady {
     if (Platform.isMacOS) {
-      return _outputDevices.any((d) =>
-          d.name.toLowerCase().contains('blackhole') ||
-          d.name.toLowerCase().contains('loopback'));
+      return _outputDevices.any(
+        (d) =>
+            d.name.toLowerCase().contains('blackhole') ||
+            d.name.toLowerCase().contains('loopback'),
+      );
     }
     if (Platform.isLinux) {
       // PipeWire/PulseAudio expose every sink as a `.monitor` source; the
@@ -691,38 +695,41 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
   String get _loopbackBody {
     if (_loopbackReady) {
       return switch (Platform.operatingSystem) {
-        'macos' =>
-          'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
+        'macos' => 'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
         'linux' =>
           'Trareon merekam suara sistem lewat monitor sink PipeWire/PulseAudio '
               '— tidak perlu memasang apa pun.',
-        _ => 'Trareon merekam suara sistem lewat WASAPI loopback — tidak '
-            'perlu memasang apa pun.',
+        _ =>
+          'Trareon merekam suara sistem lewat WASAPI loopback — tidak '
+              'perlu memasang apa pun.',
       };
     }
     return switch (Platform.operatingSystem) {
-      'macos' =>
-        'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
+      'macos' => 'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
       'linux' =>
         'Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan '
             'PipeWire atau PulseAudio berjalan.',
-      _ => 'Pilih perangkat keluaran di atas. Jika daftarnya kosong, '
-          'pastikan perangkat pemutar suara aktif di Windows.',
+      _ =>
+        'Pilih perangkat keluaran di atas. Jika daftarnya kosong, '
+            'pastikan perangkat pemutar suara aktif di Windows.',
     };
   }
 
   String get _loopbackGuide => switch (Platform.operatingSystem) {
-        'macos' => '1. brew install blackhole-2ch\n'
-            '2. Buka Audio MIDI Setup\n'
-            '3. Buat Multi-Output Device\n'
-            '4. Centang speaker Mac Anda + BlackHole 2ch',
-        'linux' => '1. Pastikan PipeWire atau PulseAudio berjalan\n'
-            '2. Jalankan: pactl list short sources\n'
-            '3. Pilih sumber yang berakhiran .monitor di daftar di atas',
-        _ => '1. Buka Pengaturan Suara Windows\n'
-            '2. Pastikan ada perangkat keluaran yang aktif\n'
-            '3. Pilih perangkat itu di daftar di atas',
-      };
+    'macos' =>
+      '1. brew install blackhole-2ch\n'
+          '2. Buka Audio MIDI Setup\n'
+          '3. Buat Multi-Output Device\n'
+          '4. Centang speaker Mac Anda + BlackHole 2ch',
+    'linux' =>
+      '1. Pastikan PipeWire atau PulseAudio berjalan\n'
+          '2. Jalankan: pactl list short sources\n'
+          '3. Pilih sumber yang berakhiran .monitor di daftar di atas',
+    _ =>
+      '1. Buka Pengaturan Suara Windows\n'
+          '2. Pastikan ada perangkat keluaran yang aktif\n'
+          '3. Pilih perangkat itu di daftar di atas',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -801,9 +808,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                             size: 16,
                           ),
                           label: Text(_showGuide ? 'Sembunyikan' : 'Panduan'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colors.text,
-                          ),
+                          style: OutlinedButton.styleFrom(foregroundColor: colors.text),
                         ),
                         if (_showGuide) ...[
                           const SizedBox(height: 8),
@@ -845,24 +850,49 @@ class _AudioDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.border),
-      ),
-      child: DropdownButton<String>(
-        value: value,
-        isExpanded: true,
-        underline: const SizedBox(),
-        dropdownColor: colors.surface,
-        style: TextStyle(color: colors.text, fontSize: 14),
-        items: devices.isNotEmpty
-            ? devices.map((d) => DropdownMenuItem(value: d.name, child: Text(d.name))).toList()
-            : [DropdownMenuItem(value: value, child: Text(value ?? 'Default'))],
-        onChanged: onChanged,
-      ),
+    // The label used to be a constructor parameter the widget never
+    // rendered, so both pickers were unlabelled dropdowns of device ids.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colors.textSecondary,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colors.border),
+          ),
+          child: DropdownButton<String>(
+            value: value,
+            isExpanded: true,
+            underline: const SizedBox(),
+            dropdownColor: colors.surface,
+            style: TextStyle(color: colors.text, fontSize: 14),
+            items: devices.isNotEmpty
+                ? devices
+                      .map(
+                        (d) => DropdownMenuItem(
+                          value: d.name,
+                          child: Text(d.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList()
+                : [DropdownMenuItem(value: value, child: Text(value ?? 'Bawaan sistem'))],
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -910,25 +940,27 @@ class _ToneTestStepState extends State<_ToneTestStep> {
       [8, 0x57], [9, 0x41], [10, 0x56], [11, 0x45], // "WAVE"
       [12, 0x66], [13, 0x6D], [14, 0x74], [15, 0x20], // "fmt "
       [36, 0x64], [37, 0x61], [38, 0x74], [39, 0x61], // "data"
-    ]) { wav.setUint8(pair[0], pair[1]); }
+    ]) {
+      wav.setUint8(pair[0], pair[1]);
+    }
     wav.setUint32(4, 36 + dataBytes, Endian.little);
-    wav.setUint32(16, 16, Endian.little);   // fmt chunk size
-    wav.setUint16(20, 1, Endian.little);    // PCM
-    wav.setUint16(22, 1, Endian.little);    // mono
+    wav.setUint32(16, 16, Endian.little); // fmt chunk size
+    wav.setUint16(20, 1, Endian.little); // PCM
+    wav.setUint16(22, 1, Endian.little); // mono
     wav.setUint32(24, sampleRate, Endian.little);
     wav.setUint32(28, sampleRate * 2, Endian.little); // byte rate
-    wav.setUint16(32, 2, Endian.little);    // block align
-    wav.setUint16(34, 16, Endian.little);   // bits/sample
+    wav.setUint16(32, 2, Endian.little); // block align
+    wav.setUint16(34, 16, Endian.little); // bits/sample
     wav.setUint32(40, dataBytes, Endian.little);
 
     for (var i = 0; i < numSamples; i++) {
       double envelope = 1.0;
       if (i < fadeLen) envelope = i / fadeLen;
       if (i > numSamples - fadeLen) envelope = (numSamples - i) / fadeLen;
-      final sample = (amplitude * envelope *
-              math.sin(2 * math.pi * frequency * i / sampleRate))
-          .round()
-          .clamp(-32768, 32767);
+      final sample =
+          (amplitude * envelope * math.sin(2 * math.pi * frequency * i / sampleRate))
+              .round()
+              .clamp(-32768, 32767);
       wav.setInt16(44 + i * 2, sample, Endian.little);
     }
 
@@ -981,15 +1013,16 @@ class _ToneTestStepState extends State<_ToneTestStep> {
   }
 
   String get _remediation => switch (Platform.operatingSystem) {
-        'macos' =>
-          'Buka Pengaturan Sistem → Suara, naikkan volume, dan pastikan '
-              'perangkat keluaran yang benar terpilih.',
-        'linux' =>
-          'Periksa volume di pavucontrol atau pengaturan suara desktop Anda, '
-              'lalu pastikan perangkat keluaran yang benar terpilih.',
-        _ => 'Buka Pengaturan Suara Windows, naikkan volume, dan pastikan '
-            'perangkat keluaran yang benar terpilih.',
-      };
+    'macos' =>
+      'Buka Pengaturan Sistem → Suara, naikkan volume, dan pastikan '
+          'perangkat keluaran yang benar terpilih.',
+    'linux' =>
+      'Periksa volume di pavucontrol atau pengaturan suara desktop Anda, '
+          'lalu pastikan perangkat keluaran yang benar terpilih.',
+    _ =>
+      'Buka Pengaturan Suara Windows, naikkan volume, dan pastikan '
+          'perangkat keluaran yang benar terpilih.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -1069,11 +1102,13 @@ class _ToneTestStepState extends State<_ToneTestStep> {
             FilledButton.icon(
               onPressed: _isPlaying ? null : _startToneTest,
               icon: Icon(_isPlaying ? Icons.graphic_eq : Icons.play_arrow),
-              label: Text(_isPlaying
-                  ? 'Memutar...'
-                  : (_outcome == _ToneOutcome.untested && !_awaitingAnswer
-                      ? 'Putar Nada Uji'
-                      : 'Putar Ulang')),
+              label: Text(
+                _isPlaying
+                    ? 'Memutar...'
+                    : (_outcome == _ToneOutcome.untested && !_awaitingAnswer
+                          ? 'Putar Nada Uji'
+                          : 'Putar Ulang'),
+              ),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
@@ -1126,10 +1161,7 @@ class _ToneResultCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  body,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                ),
+                Text(body, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
               ],
             ),
           ),

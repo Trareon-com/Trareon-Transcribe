@@ -845,52 +845,67 @@ class _IdleWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.mic_none_outlined, size: 56, color: colors.textTertiary),
-            const SizedBox(height: 16),
-            Text(
-              'Siap merekam',
-              style: TextStyle(
-                color: colors.text,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Transkrip muncul di sini begitu rekaman berjalan.\n'
-              'Semuanya diproses di komputer Anda.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: busy ? null : onStart,
-                icon: const Icon(Icons.fiber_manual_record, size: 18),
-                label: const Text(
-                  'Mulai Rekam',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // At 800x600 the control groups take most of the window; the one
+        // action this screen exists for must still be fully on screen, so
+        // the illustration and the spacing shrink rather than push it
+        // below the fold.
+        final compact = constraints.maxHeight < 300;
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(compact ? 12 : 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!compact) ...[
+                  Icon(Icons.mic_none_outlined,
+                      size: 56, color: colors.textTertiary),
+                  const SizedBox(height: 16),
+                ],
+                Text(
+                  'Siap merekam',
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: compact ? 16 : 20,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                const SizedBox(height: 6),
+                Text(
+                  compact
+                      ? 'Transkrip muncul di sini, diproses di komputer Anda.'
+                      : 'Transkrip muncul di sini begitu rekaman berjalan.\n'
+                          'Semuanya diproses di komputer Anda.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
-              ),
+                SizedBox(height: compact ? 14 : 24),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: busy ? null : onStart,
+                    icon: const Icon(Icons.fiber_manual_record, size: 18),
+                    label: const Text(
+                      'Mulai Rekam',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'atau tekan Ctrl+R',
+                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'atau tekan Ctrl+R',
-              style: TextStyle(color: colors.textTertiary, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

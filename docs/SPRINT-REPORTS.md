@@ -498,3 +498,428 @@ literal did. App killed with `pkill -9 -x transcribe`.
   A lint or a test helper that forbids `Platform.environment['HOME']`
   literals in expectations would make the class of bug unrepeatable;
   that was out of scope here.
+
+---
+
+# Sprint 2 report — branch `sprint/02-scale`
+
+*"Nyaman untuk rapat 3 jam."*
+
+Base: `13b89d7` (merged PR #7). 6 commits, 57 files, +8 400 / −2 800.
+Covers audit Part D items 13–21, blueprint F1, and the layout redesign
+from blueprint §4 points 1–3, 5 and 7.
+
+## Verification gate
+
+All green, run on the final commit.
+
+```
+$ cd rust_core && cargo fmt --check
+(no output)
+
+$ cargo clippy --all-targets -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s)
+
+$ cargo test --lib
+test result: ok. 315 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ flutter analyze
+No issues found!
+
+$ flutter test
+01:17 +333: All tests passed!
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+Test counts moved from **309 → 315** Rust unit tests (+6) and
+**276 → 333** Dart tests (+57).
+
+## Exit criteria
+
+| Criterion | Result |
+|---|---|
+| 5 000-segment session scrolls without jank | **Met.** Per-frame scroll cost at 5 000 segments is **0.82×** the cost at 40 segments (12.17 ms vs 14.93 ms avg under `flutter test`), i.e. independent of transcript length. Only 12 rows are materialised at rest. |
+| Library open with 200 sessions < 500 ms | **Met.** Warm open **199 ms**; cold index build 1 055 ms, paid once. |
+| Search responsive while typing | **Met.** Keystroke cost 19.5 ms avg at 5 000 segments (debounced, so only the last keystroke filters); one filter pass over 5 000 segments 199 ms; 100 index-level library searches over 200 sessions 54 ms. |
+| Clicking a transcript line seeks the audio | **Met**, verified in the release build — see smoke test. |
+| Setup wizard and preflight reachable | **Met**, verified in the release build. |
+
+## Per item
+
+### 1. Synthetic 5 000-segment / 3-hour fixture as a permanent benchmark · **DONE**
+
+`test/fixtures/large_session.dart` and `rust_core/src/bench_fixture.rs`
+generate the same shape on both sides — 5 000 segments over 3 hours, one
+utterance every 2.16 s, deterministic (fixed mixer, no clock, no I/O) so
+runs are comparable between commits. The Dart fixture also writes a
+200-session library to a temp directory for the library benchmark.
+
+- Files: `test/fixtures/large_session.dart`,
+  `rust_core/src/bench_fixture.rs`, `rust_core/src/lib.rs`
+- Tests: `test/perf/transcript_view_perf_test.dart` (7),
+  `test/perf/session_ingest_perf_test.dart` (3),
+  `test/perf/library_index_perf_test.dart` (6),
+  `test/segment_lookup_test.dart` (6), plus 4 Rust tests (fixture
+  determinism/shape and two journal benchmarks).
+
+The timing assertions are deliberately **ratios measured in the same
+run** (5 000 segments vs 40; 5 000 ingested segments vs 1 250), not
+absolute budgets. Absolute budgets under `flutter test` on shared CI
+hardware would be flaky; the ratios are machine-independent and are what
+actually catch a return of O(n) per frame or O(n²) ingestion. Absolute
+numbers are printed as `[perf] …` lines and quoted below.
+
+### 2. (Item 13) Transcript-list rebuild storm · **DONE**
+
+- The `(index, segment)` tuple list over every segment, rebuilt on every
+  build, is gone. With an empty search box no index list is allocated at
+  all; with a query the match list is computed once per (segments,
+  query, revision) change.
+- Rows carry a `ValueKey`, and the per-row entry animation — which
+  replayed on every scroll and every search keystroke because
+  `ListView.builder` recycles elements — is removed.
+- The playing row arrives as a `ValueListenable<int?>` that only fires
+  when the row changes, so the 5–10 Hz position stream no longer
+  rebuilds anything but the seek bar and the clock.
+- `SegmentTimeline` (`lib/utils/segment_lookup.dart`) replaces the
+  per-tick `lastIndexWhere` with a binary search over sorted starts. It
+  sorts rather than assuming sorted input, because live capture
+  interleaves two pipelines. The highlight is now sticky across silence
+  instead of blinking off in every pause.
+- Seeking across the meeting re-anchors the viewport (a
+  `CustomScrollView` with a reverse leading sliver) instead of scrolling
+  to an estimated offset. Measured first: `jumpTo` across 4 200
+  variable-height rows in a `ListView.builder` builds all of them —
+  **20 193 ms** on this machine. Re-anchoring: **392 ms**.
+
+Files: `lib/widgets/transcript_view.dart`,
+`lib/utils/segment_lookup.dart`, `lib/screens/transcript_player_screen.dart`.
+
+Measured:
+
+```
+[perf] rows materialised at rest: 12
+[perf] scroll @40:   n=40 avg=14.93ms p95=45.57ms max=61.30ms
+[perf] scroll @5000: n=40 avg=12.17ms p95=36.95ms max=41.38ms
+[perf] scroll scale factor: 0.82×
+[perf] rebuild @40:   n=40 avg=117.21ms p95=194.52ms max=245.62ms
+[perf] rebuild @5000: n=40 avg=55.04ms p95=107.32ms max=110.89ms
+[perf] parent-rebuild scale factor: 0.47×
+[perf] unchanged position tick @5000: n=100 avg=0.09ms p95=0.15ms max=0.29ms
+[perf] first build of 5000 segments: 1331ms
+[perf] reveal row 4200 of 5000: 392ms
+```
+
+Read the absolute frame numbers as *test-binding* numbers: a `pump()` in
+`flutter_test` on this weak CPU costs tens of milliseconds regardless of
+what is on screen, which is why the 40-segment control is sometimes
+*slower* than the 5 000-segment one. The scale factor is the signal.
+
+### 3. (Item 14) O(1) segment ingestion · **DONE**
+
+`SessionNotifier` keeps a growable list plus a `segmentKey → index` map
+and publishes an `UnmodifiableListView` of it, instead of an
+`indexWhere` scan plus a full list copy per arriving segment.
+`SessionUiState` gains a `revision` counter, because an in-place edit
+(an HPT refine pass replacing its quick pass) changes neither the list
+identity nor its length and the UI needs something to cache against.
+`setSegments()` is the supported way to seed the list from outside the
+live stream.
+
+- Files: `lib/state/session_model.dart`
+- Tests: `test/perf/session_ingest_perf_test.dart` (3); four existing
+  tests updated to seed through `setSegments`.
+
+```
+[perf] ingest 1250 = 23.78ms, 5000 = 39.13ms, ratio = 1.65× for 4× the segments
+[perf] refine of the 5000th row: 44µs
+```
+
+### 4. (Item 15) Two-phase library load · **DONE**
+
+`lib/services/library_index.dart` is phase 1: one index file
+(`.trareon-library-index.json`, written atomically) holding title, date,
+duration, segment count, snippet, audio path and summary per session.
+Every entry is validated against the transcript's size and mtime, so the
+index is a cache and never a source of truth — corrupt, stale and
+future-versioned index files each cost one slow open, all covered by
+tests. Phase 2 (`loadSessionRecord`) parses segments only when a session
+is opened or exported.
+
+Also in this item, from the same audit section:
+
+- Search: 250 ms debounce, a precomputed lowercased haystack per
+  session, and a background-isolate full-text scan over the transcripts
+  the index cannot answer. Snippets come from that scan instead of
+  being recomputed inside `itemBuilder`.
+- The session date now comes from the exporter's `YYYYMMDD-` directory
+  prefix (A.2-7), so saving a summary no longer relabels an old meeting
+  as today and floats it to the top.
+- `StorageBar` moved out of the list, where it was disposed and
+  recreated on every scroll and walked the whole library each time
+  (A.2-6).
+- Returning from the player re-reads one session, not the corpus (A.2-5).
+- `loadSessionLibrary`, `sessionMatchesQuery` and `matchingSnippet` are
+  deleted: superseded and used only by their own tests.
+
+- Files: `lib/services/library_index.dart`,
+  `lib/services/session_store.dart`, `lib/screens/library_screen.dart`,
+  `lib/state/library_model.dart`
+- Tests: `test/library_index_test.dart` (20),
+  `test/perf/library_index_perf_test.dart` (6)
+
+```
+[perf] cold library open (index build): 1055ms
+[perf] warm library open (index hit): 199ms
+[perf] 100 index-level searches over 200 sessions: 54ms
+[perf] deep scan of 200 transcripts: 96ms
+[perf] phase-2 load of one session: 5ms
+```
+
+The warm path only stats each transcript, so it is independent of how
+long the meetings are; the fixture uses 40-segment sessions because the
+index never reads their contents.
+
+### 5. (F1, item 16) Audio-synced transcript · **DONE**
+
+Click a row → the audio seeks to that segment; the playing row is
+highlighted and scrolled into view; following pauses the moment the user
+scrolls by hand and resumes from the toolbar toggle. Playback speeds are
+0.75 / 1.0 / 1.25 / 1.5 / 1.75 / 2.0×. Keyboard: **Space** or **K** play
+/ pause, **←/→** 5 s, **J/L** 10 s, with a help dialog in the app bar.
+The clock now shows hours, so minute 5 and minute 65 of a three-hour
+recording no longer both read `05:00`.
+
+- Files: `lib/screens/transcript_player_screen.dart`,
+  `lib/widgets/transcript_view.dart`, `lib/utils/segment_lookup.dart`
+- Tests: `test/segment_lookup_test.dart` (6), plus click-to-seek and
+  follow-the-playhead cases in `test/perf/transcript_view_perf_test.dart`
+
+### 6. (Item 17) Settings saves with visible feedback · **DONE**
+
+Every setter goes through one `_apply()` that catches, **rolls the value
+back**, and reports a `SettingsSaveFailure` carrying the value that
+failed — so "Coba lagi" retries that value rather than whatever the
+state has become. A switch that stays flipped after a failed write is
+telling the user something untrue. Found and fixed while doing it:
+turning Auto-Stop off never worked at all, because
+`copyWith(autoStopMinutes: null)` keeps the old value.
+
+- Files: `lib/state/settings_model.dart`, `lib/screens/settings_screen.dart`
+- Tests: `test/settings_screen_test.dart` — a failed save shows the
+  banner, leaves the switch where it was, and the retry lands.
+
+### 7. (Item 19) Preflight + Diagnostik · **DONE**
+
+`doctor.rs` has existed since the first release and nothing ever called
+it. Now:
+
+- `SetupOverlay` runs it **after the first frame**, so the app is on
+  screen before the checks start. Warnings become a dismissible banner;
+  only a hard failure blocks, and even then "Lanjutkan saja" is always
+  there, because a preflight that is wrong about the machine must not
+  lock a user out of their own recordings.
+- Settings → "Diagnostik" re-runs the checks on demand and shows each as
+  ✓ / ! / ✗ with its remediation.
+- `doctor.rs` now speaks Indonesian — those strings go straight to the
+  user — and checks two more things that answer most support questions:
+  at least one audio input device, and free space on the library volume.
+- **Found during the smoke test:** the model check joined
+  `library_path + filename` only, while the downloader writes into an OS
+  cache directory, so the very first launch put "model tidak ditemukan"
+  in front of a perfectly working install. `model::find_model_file` now
+  searches every directory the app itself searches.
+
+- Files: `rust_core/src/doctor.rs`, `rust_core/src/model.rs`,
+  `lib/services/preflight_service.dart`,
+  `lib/screens/diagnostics_screen.dart`, `lib/widgets/setup_overlay.dart`,
+  `lib/main.dart`
+- Tests: `test/diagnostics_screen_test.dart` (8), 3 new Rust tests
+
+### 8. (Item 20) Setup wizard · **DONE**
+
+Reachable from Settings → "Jalankan Ulang Penyiapan", with a "Tutup" it
+never needed when it only ran once. The A.6 platform bugs:
+
+- Loopback guidance is per platform — BlackHole on macOS,
+  PipeWire/PulseAudio monitors on Linux, WASAPI loopback on Windows —
+  instead of telling a Linux user to `brew install` a macOS kernel
+  extension.
+- RAM is read from `/proc/meminfo`, `sysctl` or CIM, and labelled
+  "perkiraan" only when it really is a guess
+  (`lib/utils/system_specs.dart`).
+- The tone test asks "Apakah Anda mendengar nadanya?" and reports a
+  playback exception instead of asserting "Speaker berfungsi dengan
+  baik" on the machine that most needs the warning.
+- The model cards no longer quote accuracy percentages that nothing in
+  this repository measures.
+- Step 4's title matches its content ("4. Uji Suara"), and the device
+  dropdowns finally render the labels they were being passed.
+
+- Files: `lib/screens/setup_wizard_screen.dart`,
+  `lib/utils/system_specs.dart`, `lib/screens/settings_screen.dart`
+- Tests: `test/system_specs_test.dart` (4), wizard reachability in
+  `test/settings_screen_test.dart`
+
+### 9. (Item 21) Batch import · **DONE**
+
+- Progress is real on **both** paths. `BatchProgressSnapshot` gained a
+  per-file fraction; `transcribe_file` reports it every 30-second chunk,
+  and `progressive_transcribe_file` — which published nothing, so
+  turning Progressive Mode on froze the indicator — reports the same
+  snapshot, counting both passes as the unit of work.
+- The `state.firstWhere(...)` that threw a `StateError` and killed the
+  batch when the queue was cleared mid-run is replaced by a nullable
+  `entryFor()`.
+- Per-file cancel and retry. A queued file never reaches the engine and
+  the files behind a running one stop; the file already inside
+  whisper.cpp is *not* claimed to be interruptible, because it isn't.
+- `p.basename`/`p.extension` instead of `split('/')` and `split('.')`.
+- The drop zone lists accepted formats and a 2 GB per-file limit that is
+  actually enforced, shows each file's size, and highlights on drag-over.
+- Language and model are chosen **before** processing, which is now an
+  explicit "Mulai Transkripsi" instead of starting the moment a file
+  lands — that is what made the pickers possible.
+
+- Files: `lib/state/batch_upload_model.dart`,
+  `lib/widgets/file_upload_zone.dart`, `rust_core/src/stt/file.rs`,
+  `rust_core/src/api.rs`
+- Tests: `test/batch_upload_model_test.dart` (16, +6)
+
+### 10. Layout redesign (blueprint §4.1–4.3) · **DONE**
+
+- A permanent left sidebar carries session history (newest first), its
+  own search box and "Sesi baru"; the folder/document header icons are
+  gone. It falls back to a drawer only below 700 px, i.e. below the
+  app's own supported minimum window.
+- The workspace shows the live recording or the selected session, with
+  the player **embedded** rather than pushed as a route.
+- One primary action: a big centred "Mulai Rekam" on the empty state,
+  and "Ekspor" only once a transcript exists.
+- Controls grouped into **Sesi** (title, mode, options menu — where
+  "⚡ Cepat" moved) and **Perangkat** (mic and system-audio pills, each
+  showing the device that will actually be recorded, with a picker and a
+  live level).
+- Ctrl+R and Ctrl+, unchanged; Ctrl+L focuses the sidebar search.
+
+- Files: `lib/screens/main_screen.dart`,
+  `lib/widgets/session_sidebar.dart`,
+  `lib/widgets/session_controls.dart`, `lib/state/library_model.dart`
+- Tests: `test/widget_test.dart` — sidebar present, single primary
+  action, Sesi/Perangkat groups, Ctrl+L focus, and no overflow at
+  800×600, 1280×720 and 1920×1080.
+
+### 11. Settings two-pane + dynamic helper texts · **DONE**
+
+Category list left, content right, using the full window (it was a
+~380 px column in a full-width window). Seven categories; below 640 px
+the rail becomes a chip strip. Helper texts are dynamic, and the GPU one
+describes the **machine**: a new `gpu_capability()` reports whether a GPU
+backend was compiled in, so a plain Linux build says "Build ini
+dikompilasi tanpa dukungan GPU…" instead of claiming "Transkripsi
+menggunakan GPU (Vulkan/CUDA/Metal)".
+
+- Files: `lib/screens/settings_screen.dart`,
+  `lib/widgets/settings_controls.dart` (replacing
+  `lib/widgets/settings_side_panel.dart`), `rust_core/src/api.rs`
+- Tests: `test/settings_screen_test.dart` (7)
+
+## FRB codegen
+
+Two regenerations, both with the scoped command from `ARCHITECTURE.md`
+(`--rust-input crate::api,crate::error`), codegen 2.13.0 matching the
+pinned crate version. No orphan files appeared under `lib/src/rust/`;
+`git status` showed only `api.dart`, `stt/file.dart` and the three
+`frb_generated*` files as modified. New surface: `GpuCapability` /
+`gpu_capability()`, and a `progress` field on `BatchProgressSnapshot`.
+
+## Smoke test
+
+Release build, driven with `xdotool` on a 1920×1080 `Xvfb :9` — the
+physical `:0` session is 1360×768, so a 1920×1080 window cannot be
+captured there, and a 1280×720 window has its bottom 18 px pushed
+off-screen. Launched with the prescribed capped-log form.
+
+What was done and seen:
+
+1. **Start-up.** Main window renders with the new layout; preflight runs
+   after the first frame and shows nothing (all five checks pass). The
+   first run *did* surface "Perlu diperiksa: Model transkripsi" — a real
+   false positive, traced to the library-folder-only model lookup and
+   fixed in `model::find_model_file`; re-verified clean afterwards.
+2. **Recording.** "Mulai Rekam" → the sidebar pins "Sedang merekam", the
+   system-audio pill shows a live level, and the capture badge says
+   "Menunggu suara dari Mikrofon". Played
+   `/home/kali/trareon-sprints/rapat_id.mp3` into the sink; after ~50 s
+   two Indonesian segments appeared ("…diapkan laporan kewangan paling
+   lambat hari jungat.", "Rapat berikutnya"), and **"Ekspor" appeared
+   only at that point** — the empty-state rule working.
+   → `docs/screenshots/sprint-2/live-transcript.png`
+3. **Stop.** Confirmation dialog, then the capture-integrity dialog
+   honestly reporting "Mikrofon: tidak ada suara sama sekali" (this
+   machine's mic is silent) alongside "Audio sistem: 1 menit terekam".
+   The new session appeared in the sidebar immediately, without a
+   restart. → `docs/screenshots/sprint-2/capture-integrity.png`
+4. **Click-to-seek (F1).** Selected that session in the sidebar; the
+   player opened inside the workspace. Clicked the second transcript
+   line: the clock jumped `00:00 → 00:03`, the slider moved, and that
+   row became the highlighted active row.
+   → `docs/screenshots/sprint-2/click-to-seek.png`
+5. **Diagnostik.** Settings → Penyiapan & Diagnostik → Diagnostik: five
+   checks, all ✓, all Indonesian, ending "Semua siap. Aplikasi bisa
+   merekam." → `docs/screenshots/sprint-2/diagnostik.png`
+6. **Wizard.** Settings → "Jalankan Ulang Penyiapan" opens it with
+   "Tutup". Step 1 reads **RAM 16 GB** with no "perkiraan" label, which
+   matches `free -m` (15 885 MB) — the `/proc/meminfo` path. Step 3
+   shows the Linux guidance ("…lewat monitor sink PipeWire/PulseAudio —
+   tidak perlu memasang apa pun") with the real device ids. Step 4 plays
+   the tone and asks "Apakah Anda mendengar nadanya?" with Ya/Tidak.
+   → `docs/screenshots/sprint-2/wizard-audio-linux.png`,
+   `docs/screenshots/sprint-2/wizard-tone-test.png`
+7. **Settings two-pane** → `docs/screenshots/sprint-2/settings-two-pane.png`
+
+`pkill -9 -x transcribe` afterwards.
+
+### Layout screenshots
+
+| Size | Path |
+|---|---|
+| 800×600 | `docs/screenshots/sprint-2/layout-800x600.png` |
+| 1280×720 | `docs/screenshots/sprint-2/layout-1280x720.png` |
+| 1920×1080 | `docs/screenshots/sprint-2/layout-1920x1080.png` |
+
+At 800×600 the first capture showed "Mulai Rekam" half below the fold
+(the control groups take ~340 px of 600). The empty state now collapses
+its illustration and spacing below 300 px of workspace height, so the
+primary action is fully visible; re-captured after the fix.
+
+## Known gaps
+
+- **Cancelling a file mid-transcription is not possible.** whisper.cpp
+  runs a chunk to completion and the FRB call is a single `await`. The
+  UI cancels queued files and stops the ones behind a running one, and
+  says so rather than pretending otherwise. Real cancellation needs a
+  cancellation token threaded through the engine — not attempted here.
+- **The 2 GB import limit is a policy we chose**, not a measured
+  breaking point. It is enforced and advertised consistently, but no
+  test establishes that 2.1 GB actually fails to decode.
+- **The `/proc/meminfo` and CIM RAM paths are only exercised on Linux**
+  here. The macOS `sysctl` and Windows PowerShell branches are written
+  and analysed but unverified on those platforms.
+- **`gpu_capability()` reports what was compiled in, not what the GPU
+  can do.** A build with `gpu-vulkan` on a machine with no usable Vulkan
+  device will still say the backend is available. Detecting that needs a
+  probe at model-load time.
+- **Progress on the progressive import is per chunk of two passes**, so
+  it advances in ~1/(2·chunks) steps; for a file under 30 s it jumps
+  0 → 50 → 100 %.
+- **Accessibility (item 25) is untouched** — it is Sprint 3's, and the
+  new sidebar and control groups will need the same `Semantics` pass as
+  the rest.
+- **i18n (item 26) is untouched.** All new strings are hardcoded
+  Indonesian; no ARB infrastructure exists in this branch to put them in.
+- The smoke test's microphone channel is silent on this machine, so the
+  mic capture path was exercised only to the point of the (correct)
+  "tidak ada suara sama sekali" warning.

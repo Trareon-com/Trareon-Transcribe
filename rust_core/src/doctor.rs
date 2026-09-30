@@ -108,23 +108,27 @@ fn check_library_path(settings: &AppSettings) -> Check {
     }
 }
 /// Check that the default transcription model file exists on disk.
+///
+/// Searches every directory the app itself searches, not just the library
+/// folder: downloaded models land in an OS cache directory, so a
+/// library-folder-only check reported "model tidak ditemukan" on a
+/// perfectly working install.
 fn check_model_available(settings: &AppSettings) -> Check {
-    let model_path = crate::model::resolve_model_path(
-        std::path::Path::new(&settings.library_path),
-        &settings.default_model,
-    )
-    .unwrap_or_else(|_| std::path::PathBuf::from(&settings.library_path));
-    if model_path.exists() {
-        Check::ok("model")
-    } else {
-        Check::warn(
+    let library = std::path::Path::new(&settings.library_path);
+    match crate::model::find_model_file(library, &settings.default_model) {
+        Some(_) => Check::ok("model"),
+        None => Check::warn(
             "model",
             format!(
-                "model \"{}\" tidak ditemukan di {}",
+                "model \"{}\" belum diunduh. Dicari di: {}",
                 settings.default_model,
-                model_path.display()
+                crate::model::model_search_dirs(library)
+                    .iter()
+                    .map(|d| d.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
-        )
+        ),
     }
 }
 

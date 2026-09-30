@@ -106,6 +106,57 @@ pub fn is_model_downloaded(models_dir: &Path, model_id: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Every directory a model file can legitimately live in, in the order
+/// the app itself searches them.
+///
+/// Mirrors Dart's `modelPathForId` (lib/state/models.dart): the download
+/// flow writes into an OS cache directory, *not* into the library folder,
+/// so anything that only joins `library_path + filename` concludes the
+/// model is missing on a machine where it is plainly there. The
+/// start-up preflight did exactly that and put "model tidak ditemukan"
+/// in front of every correctly-installed user.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn model_search_dirs(library_dir: &Path) -> Vec<PathBuf> {
+    let mut dirs = vec![library_dir.to_path_buf()];
+    if let Some(home) = dirs::home_dir() {
+        dirs.push(
+            home.join("Library")
+                .join("Caches")
+                .join("TrareonTranscribe")
+                .join("models"),
+        );
+    }
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        dirs.push(
+            PathBuf::from(local_app_data)
+                .join("TrareonTranscribe")
+                .join("models"),
+        );
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            dirs.push(exe_dir.join("models"));
+            // macOS app bundle: Contents/MacOS/<exe> → Contents/Resources.
+            dirs.push(exe_dir.join("..").join("Resources").join("models"));
+        }
+    }
+    dirs
+}
+
+/// The first existing file for `model_id` across [`model_search_dirs`], or
+/// `None` when the model really is not installed anywhere.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn find_model_file(library_dir: &Path, model_id: &str) -> Option<PathBuf> {
+    let filename = KNOWN_MODELS
+        .iter()
+        .find(|(id, ..)| *id == model_id)
+        .map(|(_, filename, ..)| *filename)?;
+    model_search_dirs(library_dir)
+        .into_iter()
+        .map(|dir| dir.join(filename))
+        .find(|candidate| candidate.exists())
+}
+
 #[flutter_rust_bridge::frb(ignore)]
 pub fn resolve_model_path(models_dir: &Path, model_id: &str) -> Result<PathBuf, TranscribeError> {
     KNOWN_MODELS
@@ -393,6 +444,34 @@ mod tests {
     fn resolve_unknown_model_errors() {
         let dir = std::env::temp_dir();
         assert!(resolve_model_path(&dir, "not-a-real-model").is_err());
+    }
+
+    /// The preflight used to look only in the library folder, so every
+    /// user whose model sat in the OS cache directory — which is where
+    /// the downloader puts it — was told it was missing.
+    #[test]
+    fn model_search_covers_more_than_the_library_folder() {
+        let dir = std::env::temp_dir().join(format!("trareon_models_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let dirs = model_search_dirs(&dir);
+        assert_eq!(
+            dirs.first().unwrap(),
+            &dir,
+            "the library folder comes first"
+        );
+        assert!(
+            dirs.len() > 1,
+            "a cache directory and the bundle must also be searched, got {dirs:?}"
+        );
+
+        std::fs::write(dir.join("ggml-base.bin"), b"stub").unwrap();
+        assert_eq!(
+            find_model_file(&dir, "base"),
+            Some(dir.join("ggml-base.bin"))
+        );
+        assert!(find_model_file(&dir, "not-a-real-model").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
