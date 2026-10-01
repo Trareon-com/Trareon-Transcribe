@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/flight_recorder_service.dart';
 import 'services/rust_library_loader.dart';
 import 'services/tray_service.dart';
 import 'src/rust/api.dart' as rust_api;
@@ -40,6 +41,10 @@ void main() async {
   await _applyWindowConstraints();
   await RustLib.init(externalLibrary: tryLoadRustCoreLibrary());
   await rust_api.initLogging();
+  // The flight recorder has existed in the engine since the first release
+  // and nothing ever called it, so no user could produce a log (audit
+  // item 27). Metadata only — see flight_recorder_service.dart.
+  await FlightRecorder.instance.init();
 
   try {
     await rust_api.acquireInstanceLock();

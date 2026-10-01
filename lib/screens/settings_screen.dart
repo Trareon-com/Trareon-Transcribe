@@ -407,10 +407,11 @@ class _CategoryContent extends ConsumerWidget {
             const SettingsDivider(),
             SettingsSwitch(
               icon: Icons.speed_outlined,
-              label: 'Progressive Mode',
+              label: 'Cepat dulu, lalu diperhalus',
               subtitle: settings.progressiveEnabled
-                  ? 'Mulai cepat → sempurnakan jadi akurat di latar belakang'
-                  : 'Gunakan satu model saja (lebih cepat)',
+                  ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
+                      'yang lebih teliti.'
+                  : 'Pakai satu model saja — teks muncul sekali, sudah final.',
               value: settings.progressiveEnabled,
               onChanged: notifier.setProgressiveEnabled,
             ),
@@ -465,8 +466,9 @@ class _CategoryContent extends ConsumerWidget {
               icon: Icons.speed_outlined,
               label: 'Perbandingan Kecepatan',
               subtitle:
-                  'Bahasa Indonesia: ringan 3s · cepat 10s · akurat 56s per 1 menit audio.\n'
-                  'Model akurat disarankan untuk meeting & wawancara.',
+                  'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
+                  'akurat 56 detik untuk tiap 1 menit audio.\n'
+                  'Model akurat disarankan untuk rapat dan wawancara.',
               trailing: const SizedBox.shrink(),
             ),
           ],
@@ -496,33 +498,33 @@ class _CategoryContent extends ConsumerWidget {
           children: [
             SettingsSwitch(
               icon: Icons.graphic_eq_outlined,
-              label: 'VAD (deteksi suara)',
+              label: 'Abaikan jeda sunyi',
               subtitle: settings.vadEnabled
-                  ? 'Jeda sunyi dilewati, jadi transkripsi lebih cepat. '
+                  ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
                       'Berlaku mulai sesi berikutnya.'
-                  : 'Semua audio ditranskrip, termasuk jeda sunyi.',
+                  : 'Semua audio ditranskrip, termasuk bagian yang sunyi.',
               value: settings.vadEnabled,
               onChanged: notifier.setVadEnabled,
             ),
             const SettingsDivider(),
             SettingsTile(
               icon: Icons.spatial_audio_outlined,
-              label: 'Echo Dedupe',
+              label: 'Hapus suara ganda',
               subtitle: settings.defaultMode == SessionMode.online
                   ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
                   : 'Hanya berlaku di mode Rapat Online.',
               trailing: const InfoBadge(
                 message:
-                    'Membandingkan kemiripan audio dari mikrofon dan speaker, '
-                    'lalu menghapus duplikat.',
+                    'Membandingkan kemiripan audio dari mikrofon dan '
+                    'pengeras suara, lalu menghapus yang terdengar dua kali.',
               ),
             ),
             const SettingsDivider(),
             SettingsSwitch(
               icon: Icons.timer_outlined,
-              label: 'Auto-Stop saat diam',
+              label: 'Berhenti sendiri saat sunyi',
               subtitle: settings.autoStopMinutes != null
-                  ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara'
+                  ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
                   : 'Rekaman berjalan sampai Anda menghentikannya sendiri.',
               value: settings.autoStopMinutes != null,
               onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
@@ -531,7 +533,7 @@ class _CategoryContent extends ConsumerWidget {
               const SettingsDivider(),
               SettingsTile(
                 icon: Icons.timer_10_outlined,
-                label: 'Durasi diam',
+                label: 'Lama sunyi sebelum berhenti',
                 trailing: CompactDropdown<int>(
                   value: settings.autoStopMinutes!,
                   items: const [1, 2, 3, 5, 10, 15],

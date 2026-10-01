@@ -198,7 +198,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         state.copyWith(progressiveEnabled: enabled),
         // Rust owns this now. It used to be written to DartPrefs and never
         // read back, so the toggle silently reverted to "on" on every launch.
-        label: 'Progressive Mode',
+        label: 'Cepat dulu, lalu diperhalus',
       );
 
   Future<void> setGpuEnabled(bool enabled) =>
@@ -219,7 +219,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setHptMode(HptMode mode) => _apply(
         state.copyWith(hptMode: mode),
-        label: 'Mode transkripsi bertahap',
+        label: 'Cara transkripsi bertahap',
         savePrefs: () async {
           DartPrefs.instance.setInt('hptMode', mode.index);
           await DartPrefs.instance.save();
@@ -304,13 +304,13 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _apply(state.copyWith(defaultMode: mode), label: 'Mode default');
 
   Future<void> setVadEnabled(bool enabled) =>
-      _apply(state.copyWith(vadEnabled: enabled), label: 'VAD (deteksi suara)');
+      _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
         minutes == null
             ? state.copyWith(clearAutoStop: true)
             : state.copyWith(autoStopMinutes: minutes),
-        label: 'Auto-Stop saat diam',
+        label: 'Berhenti sendiri saat sunyi',
       );
 
   Future<void> setDefaultExportFormat(String format) => _apply(

@@ -244,7 +244,7 @@ class _DropZone extends StatelessWidget {
       onDragExited: (_) => onDragExited(),
       onDragDone: (details) => onFilesDropped(details.files.map((f) => f.path).toList()),
       child: Semantics(
-        label: 'Area upload file, tarik dan lepas file audio atau video ke sini',
+        label: 'Area impor berkas, tarik dan lepas berkas audio atau video ke sini',
         // Intrinsic height, not a fixed one: the format list wraps to two
         // lines in a narrow window, and a fixed box clipped it.
         child: AnimatedContainer(

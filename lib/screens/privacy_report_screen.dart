@@ -91,7 +91,8 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
           const SizedBox(height: 16),
           const Text(
             'Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi '
-            'berlangsung — baik live capture maupun upload berkas. Audio tidak pernah keluar '
+            'berlangsung — baik saat merekam langsung maupun saat mengimpor berkas. '
+            'Audio tidak pernah keluar '
             'dari perangkat ini.\n\n'
             'Ada empat aktivitas jaringan yang sah, dan semuanya Anda mulai sendiri:\n'
             '1. Unduh model whisper — dari huggingface.co, hanya saat Anda memilih model '

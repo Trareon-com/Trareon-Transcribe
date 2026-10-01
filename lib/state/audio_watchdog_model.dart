@@ -64,7 +64,9 @@ class AudioWatchdogNotifier extends StateNotifier<String?> {
       final hasEnabledSource = current.config.micEnabled || current.config.speakerEnabled;
       if (!hasEnabledSource) return;
       state =
-          'Belum ada suara terdeteksi. Cek izin Mikrofon / "Rekam Layar & Audio Sistem" di System Settings, atau pastikan sumber audio yang dipilih benar.';
+          'Belum ada suara terdeteksi. Periksa izin Mikrofon dan "Rekam Layar & '
+      'Audio Sistem" di Pengaturan Sistem, atau pastikan sumber audio yang '
+      'dipilih sudah benar.';
     });
   }
 

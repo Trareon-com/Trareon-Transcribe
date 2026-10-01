@@ -262,7 +262,7 @@ class InfoBadge extends StatelessWidget {
             Icon(Icons.info_outline, size: 14, color: colors.primary),
             const SizedBox(width: 4),
             Text(
-              'Info',
+              'Penjelasan',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

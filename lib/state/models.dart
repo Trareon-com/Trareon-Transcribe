@@ -58,8 +58,8 @@ const NotulenDefaults kDefaultNotulenDefaults = NotulenDefaults(
 String summaryTemplateLabel(SummaryTemplate template) => switch (template) {
   SummaryTemplate.notulenRapat => 'Notulen Rapat',
   SummaryTemplate.ringkasanEksekutif => 'Ringkasan Eksekutif',
-  SummaryTemplate.actionItems => 'Keputusan & Action Items',
-  SummaryTemplate.standup => 'Standup Harian',
+  SummaryTemplate.actionItems => 'Keputusan & Tindak Lanjut',
+  SummaryTemplate.standup => 'Laporan Harian',
   SummaryTemplate.kustom => 'Kustom',
 };
 
@@ -69,14 +69,15 @@ String summaryTemplateHint(SummaryTemplate template) => switch (template) {
     'Ringkasan, peserta, pembahasan, keputusan, tindak lanjut',
   SummaryTemplate.ringkasanEksekutif =>
     'Paragraf singkat untuk yang tidak hadir',
-  SummaryTemplate.actionItems => 'Hanya keputusan dan tugas beserta pemiliknya',
+  SummaryTemplate.actionItems =>
+    'Hanya keputusan dan tugas beserta penanggung jawabnya',
   SummaryTemplate.standup => 'Per orang: selesai, berikutnya, hambatan',
   SummaryTemplate.kustom => 'Instruksi sendiri',
 };
 
 String summaryProviderLabel(SummaryProvider provider) => switch (provider) {
   SummaryProvider.ollama => 'Ollama (lokal)',
-  SummaryProvider.openAiCompatible => 'OpenAI-compatible',
+  SummaryProvider.openAiCompatible => 'Layanan serupa OpenAI',
 };
 
 /// Where sessions are saved until the user points Settings elsewhere.

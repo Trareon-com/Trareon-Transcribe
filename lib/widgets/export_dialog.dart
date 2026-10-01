@@ -66,13 +66,13 @@ Future<bool> showEksporDialog(
                   ),
                   const SizedBox(height: 8),
                   for (final format in const [
-                    ('md', 'Markdown', 'Dengan timestamp & label speaker', Icons.description_outlined),
-                    ('txt', 'TXT', 'Plain text tanpa timestamp', Icons.text_snippet_outlined),
-                    ('json', 'JSON', 'Full metadata terstruktur', Icons.data_object_outlined),
-                    ('srt', 'SRT', 'Subtitle format', Icons.closed_caption_outlined),
-                    ('vtt', 'VTT', 'Web subtitle', Icons.language_outlined),
-                    ('html', 'HTML', 'Dokumen dengan styling', Icons.web_outlined),
-                    ('docx', 'DOCX', 'Microsoft Word document', Icons.article_outlined),
+                    ('md', 'Markdown', 'Dengan waktu & nama pembicara', Icons.description_outlined),
+                    ('txt', 'TXT', 'Teks biasa tanpa waktu', Icons.text_snippet_outlined),
+                    ('json', 'JSON', 'Data lengkap untuk program lain', Icons.data_object_outlined),
+                    ('srt', 'SRT', 'Takarir untuk pemutar video', Icons.closed_caption_outlined),
+                    ('vtt', 'VTT', 'Takarir untuk web', Icons.language_outlined),
+                    ('html', 'HTML', 'Halaman web yang sudah ditata', Icons.web_outlined),
+                    ('docx', 'DOCX', 'Dokumen Microsoft Word', Icons.article_outlined),
                   ])
                     CheckboxListTile(
                       dense: true,

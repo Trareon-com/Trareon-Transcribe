@@ -815,7 +815,8 @@ class TranscriptSegmentTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text('Ganti Nama Speaker', style: TextStyle(color: colors.text, fontSize: 16)),
+            Text('Ganti Nama Pembicara',
+                style: TextStyle(color: colors.text, fontSize: 16)),
           ],
         ),
         content: TextField(

@@ -13,7 +13,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: StreamToggle(
-            label: 'Mic',
+            source: StreamSource.mic,
             enabled: true,
             accent: AppColors.micAccent,
             onChanged: (_) {},
@@ -22,10 +22,46 @@ void main() {
       ),
     );
 
-    expect(find.text('Mic'), findsOneWidget);
-
+    // The visible label is Indonesian …
+    expect(find.text('Mikrofon'), findsOneWidget);
+    // … and so is the screen-reader announcement, which also carries the
+    // on/off state. Deriving it from the visible label (as this widget used
+    // to) broke the moment that label was translated.
     final semantics = tester.getSemantics(find.byType(StreamToggle));
-    expect(semantics.label, contains('Mic'));
+    // Exactly one sentence: the chip's own Text is excluded from the
+    // semantics tree, so a screen reader does not read "Mikrofon aktif,
+    // Mikrofon, HIDUP".
+    expect(semantics.label, 'Mikrofon aktif');
+    // The on/off state is also in the label, which is what a screen reader
+    // actually reads out; `toggled:` on the Semantics node carries it for
+    // assistive tech that queries the flag instead.
+    expect(semantics.label, contains('aktif'));
+
+    handle.dispose();
+  });
+
+  testWidgets('announces the off state and the system-audio source', (
+    WidgetTester tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StreamToggle(
+            source: StreamSource.speaker,
+            enabled: false,
+            accent: AppColors.spkAccent,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Suara sistem'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byType(StreamToggle)).label,
+      'Pengeras suara nonaktif',
+    );
 
     handle.dispose();
   });

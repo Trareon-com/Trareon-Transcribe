@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
+import '../services/flight_recorder_service.dart';
 import '../services/session_store.dart';
 import 'enhance_queue_model.dart';
 import '../src/rust/audio.dart' as rust_audio;
@@ -567,10 +568,22 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   void _notifyLiveChanged() {
     final live = state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused;
+    if (state.lifecycle != _lastLifecycle) {
+      // Metadata only: the session id and the two state names. This is the
+      // trail a bug report needs and the reason the recorder exists.
+      unawaited(FlightRecorder.instance.logLifecycle(
+        state.sessionId ?? '-',
+        _lastLifecycle.name,
+        state.lifecycle.name,
+      ));
+      _lastLifecycle = state.lifecycle;
+    }
     if (live == _lastLive) return;
     _lastLive = live;
     _onLiveChanged?.call(live);
   }
+
+  SessionLifecycle _lastLifecycle = SessionLifecycle.idle;
 
   bool _progressiveEnabled = true;
   bool? _autoRetranscribe;

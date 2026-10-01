@@ -99,7 +99,7 @@ class OnboardingScreen extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 allReady
-                    ? 'Siap. Model tidak akan pernah dikirim ke cloud.'
+                    ? 'Siap. Model tidak akan pernah dikirim ke mana pun.'
                     : 'Anda boleh menutup aplikasi — unduhan akan dilanjutkan di latar belakang.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: colors.textTertiary),
