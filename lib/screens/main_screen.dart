@@ -1143,11 +1143,11 @@ class _FooterBar extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isRecording ? AppColors.statusActive : Colors.orange,
+                color: isRecording ? colors.success : colors.warning,
                 boxShadow: isRecording
                     ? [
                         BoxShadow(
-                          color: AppColors.statusActive.withValues(alpha: 0.5),
+                          color: colors.success.withValues(alpha: 0.5),
                           blurRadius: 4,
                           spreadRadius: 1,
                         ),
@@ -1206,7 +1206,7 @@ class _ShortcutsPanel extends StatelessWidget {
         border: Border(top: BorderSide(color: colors.divider)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: colors.shadow,
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),

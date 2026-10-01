@@ -195,10 +195,12 @@ Future<bool> showEksporDialog(
     if (!context.mounted) return false;
     // Tutup loading dialog
     Navigator.of(context, rootNavigator: true).pop();
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Ekspor gagal: $e'),
-        backgroundColor: AppColors.warning,
+        backgroundColor: colors.error,
         behavior: SnackBarBehavior.floating,
       ),
     );

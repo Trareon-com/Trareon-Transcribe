@@ -326,7 +326,7 @@ class _WizardNavigation extends StatelessWidget {
             onPressed: onNext,
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: colors.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -735,7 +735,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final ready = _loopbackReady;
-    final accent = ready ? AppColors.statusActive : const Color(0xFFD97706);
+    final accent = ready ? colors.success : colors.warning;
     return _StepContent(
       icon: Icons.speaker_group_outlined,
       title: '3. Setup Audio',
@@ -1074,7 +1074,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
             ],
             if (_outcome == _ToneOutcome.heard) ...[
               _ToneResultCard(
-                color: AppColors.statusActive,
+                color: colors.success,
                 icon: Icons.check_circle,
                 title: 'Speaker berfungsi',
                 body: 'Tes mikrofon akan aktif saat sesi dimulai.',
@@ -1083,7 +1083,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
             ],
             if (_outcome == _ToneOutcome.notHeard) ...[
               _ToneResultCard(
-                color: const Color(0xFFD97706),
+                color: colors.warning,
                 icon: Icons.volume_off,
                 title: 'Nada tidak terdengar',
                 body: _remediation,

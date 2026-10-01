@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/src/rust/audio.dart' as rust_audio;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -58,7 +59,7 @@ rust_session.RecoverableSession recoverable({
         gpuDevice: 0,
         vadEnabled: true,
         audioToDisk: true,
-      ),
+      glossary: kEmptyGlossary,),
       startedAtUnixMs: BigInt.from(1700000000000),
       lastSplitAtUnixMs: BigInt.from(1700000000000),
       segmentsCount: segmentCount,

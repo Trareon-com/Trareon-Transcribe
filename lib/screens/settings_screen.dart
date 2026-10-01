@@ -10,6 +10,7 @@ import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
@@ -740,7 +741,12 @@ class _CategoryContent extends ConsumerWidget {
       context: context,
       applicationName: 'Trareon Transcribe',
       applicationVersion: kAppVersion,
-      applicationIcon: const Icon(Icons.mic, size: 48, color: Colors.teal),
+      applicationIcon: Icon(
+        Icons.mic,
+        size: IconSizes.hero,
+        color: Theme.of(context).extension<AppColorSet>()?.primary ??
+            AppColors.light.primary,
+      ),
       children: [
         const Text('Transkripsi offline, privasi terjamin.'),
         const SizedBox(height: 16),

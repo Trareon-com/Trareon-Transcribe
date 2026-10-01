@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 
 class AnimatedRecordButton extends StatefulWidget {
   final bool isRecording;
@@ -49,25 +50,25 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton> with Single
     return ScaleTransition(scale: _scale, child: AnimatedContainer(
       duration: const Duration(milliseconds: 200), curve: Curves.easeInOut,
       decoration: BoxDecoration(
-        color: isActive ? AppColors.recordingDot : colors.primary,
+        color: isActive ? colors.recording : colors.primary,
         borderRadius: BorderRadius.circular(10),
-        boxShadow: isActive ? [BoxShadow(color: AppColors.recordingDot.withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 2)] : null,
+        boxShadow: isActive ? [BoxShadow(color: colors.recording.withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 2)] : null,
       ),
       child: Material(color: Colors.transparent, borderRadius: BorderRadius.circular(10),
         child: InkWell(borderRadius: BorderRadius.circular(10), onTap: widget.isBusy ? null : widget.onPressed,
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               if (widget.isBusy)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                SizedBox(
+                  width: IconSizes.sm,
+                  height: IconSizes.sm,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: colors.onPrimary),
                 )
               else
-                Icon(isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic, color: Colors.white, size: 16),
+                Icon(isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic, color: colors.onPrimary, size: IconSizes.sm),
               const SizedBox(width: 6),
               Text(widget.isBusy ? widget.busyLabel : (isActive ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti') : 'Mulai'),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                style: TextStyle(color: colors.onPrimary, fontWeight: FontWeight.w600, fontSize: FontSizes.body)),
             ])))),
     ));
   }

@@ -274,6 +274,8 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return ControlGroup(
       title: 'Perangkat',
       child: Wrap(
@@ -290,7 +292,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
             onDeviceSelected: notifier.setMicDeviceName,
             level: widget.micLevel,
             showLevel: widget.live && widget.micEnabled,
-            accent: const Color(0xFF2E7D32),
+            accent: colors.success,
             onRefresh: _loadDevices,
           ),
           DevicePill(
@@ -303,7 +305,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
             onDeviceSelected: notifier.setSpeakerDeviceName,
             level: widget.speakerLevel,
             showLevel: widget.live && widget.speakerEnabled,
-            accent: const Color(0xFFE65100),
+            accent: colors.warning,
             onRefresh: _loadDevices,
           ),
         ],

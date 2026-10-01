@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../screens/diagnostics_screen.dart';
 import '../services/preflight_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 
 /// Set to true before running tests so preflight does not reach for the
 /// native library.
@@ -85,15 +86,15 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
     return Column(
       children: [
         Material(
-          color: const Color(0xFFD97706).withValues(alpha: 0.12),
+          color: colors.warning.withValues(alpha: 0.12),
           child: SafeArea(
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 18, color: Color(0xFFD97706)),
+                  Icon(Icons.warning_amber_rounded,
+                      size: IconSizes.md, color: colors.warning),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Semantics(

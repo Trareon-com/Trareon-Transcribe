@@ -435,7 +435,7 @@ class _QueueTileState extends State<_QueueTile> {
               child: Center(
                 child: Semantics(
                   label: _statusLabel(entry.status),
-                  child: _statusIcon(entry.status),
+                  child: _statusIcon(entry.status, colors),
                 ),
               ),
             ),
@@ -513,15 +513,16 @@ class _QueueTileState extends State<_QueueTile> {
     BatchFileStatus.cancelled => 'Dibatalkan',
   };
 
-  Widget _statusIcon(BatchFileStatus status) => switch (status) {
+  Widget _statusIcon(BatchFileStatus status, AppColorSet colors) =>
+      switch (status) {
     BatchFileStatus.queued => const Icon(Icons.schedule),
     BatchFileStatus.decoding || BatchFileStatus.transcribing => const SizedBox(
       width: 20,
       height: 20,
       child: CircularProgressIndicator(strokeWidth: 2),
     ),
-    BatchFileStatus.done => const Icon(Icons.check_circle, color: AppColors.statusActive),
-    BatchFileStatus.error => const Icon(Icons.error, color: AppColors.warning),
+    BatchFileStatus.done => Icon(Icons.check_circle, color: colors.success),
+    BatchFileStatus.error => Icon(Icons.error, color: colors.error),
     BatchFileStatus.cancelled => const Icon(Icons.block),
   };
 }

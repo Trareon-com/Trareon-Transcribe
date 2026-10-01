@@ -687,17 +687,17 @@ class TranscriptSegmentTile extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.warning_amber_rounded,
                                 size: 12,
-                                color: Color(0xFFD97706),
+                                color: colors.warning,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Kepercayaan rendah',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: const Color(0xFFD97706),
+                                  color: colors.warning,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),

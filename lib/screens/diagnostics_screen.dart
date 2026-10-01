@@ -92,8 +92,8 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
                 _DiagnosticCard(
                   marker: markerOf(check),
                   color: switch (severityOf(check)) {
-                    PreflightSeverity.ok => AppColors.statusActive,
-                    PreflightSeverity.warn => const Color(0xFFD97706),
+                    PreflightSeverity.ok => colors.success,
+                    PreflightSeverity.warn => colors.warning,
                     PreflightSeverity.fail => colors.error,
                   },
                   title: checkTitle(check.name),

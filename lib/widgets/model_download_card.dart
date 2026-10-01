@@ -86,7 +86,7 @@ class ModelDownloadCard extends StatelessWidget {
             errorText ?? _statusText(),
             style: TextStyle(
               fontSize: 11,
-              color: errorText != null ? Colors.red.shade700 : colors.textTertiary,
+              color: errorText != null ? colors.error : colors.textTertiary,
             ),
           ),
         ],
@@ -102,8 +102,8 @@ class ModelDownloadCard extends StatelessWidget {
       };
 
   Color _colorFor(DownloadStatus s, AppColorSet c) => switch (s) {
-        DownloadStatus.ready => const Color(0xFF2E7D32),
-        DownloadStatus.error => Colors.red.shade700,
+        DownloadStatus.ready => c.success,
+        DownloadStatus.error => c.error,
         _ => c.primary,
       };
 

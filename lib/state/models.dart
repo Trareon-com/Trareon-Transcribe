@@ -5,11 +5,19 @@ library;
 
 import 'dart:io';
 
-import '../src/rust/settings.dart' show SummarySettings;
+
+import '../src/rust/glossary.dart' show GlossaryConfig;
+import '../src/rust/settings.dart'
+    show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
 import '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
-export '../src/rust/settings.dart' show SummarySettings;
+export '../src/rust/export.dart' show Bookmark;
+export '../src/rust/export/notulen.dart'
+    show NotulenDraft, NotulenForm, NotulenVariant, TindakLanjut;
+export '../src/rust/glossary.dart' show GlossaryConfig;
+export '../src/rust/settings.dart'
+    show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
 export '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
@@ -27,6 +35,23 @@ const SummarySettings kDefaultSummarySettings = SummarySettings(
   model: '',
   template: SummaryTemplate.notulenRapat,
   customPrompt: '',
+);
+
+/// A fresh install's kamus istilah: on, but empty, so it is a no-op until the
+/// user adds a term. Mirrors `GlossarySettings::default()` — FRB generates no
+/// Dart-side defaults.
+const GlossarySettings kDefaultGlossarySettings = GlossarySettings(
+  enabled: true,
+  terms: [],
+  postCorrection: true,
+);
+
+/// Office-level notulen defaults, all blank on a fresh install.
+const NotulenDefaults kDefaultNotulenDefaults = NotulenDefaults(
+  unitKerja: '',
+  tempat: '',
+  notulis: '',
+  kopSuratPath: '',
 );
 
 /// Indonesian label for each built-in summary template.
@@ -221,6 +246,10 @@ class SessionConfig {
   /// in RAM until Stop. On by default; see `AppSettings.audioToDisk`.
   final bool audioToDisk;
 
+  /// Kamus istilah for this session — global terms plus whatever was typed
+  /// for this meeting. Empty is a no-op.
+  final GlossaryConfig glossary;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -234,6 +263,11 @@ class SessionConfig {
     this.gpuEnabled = false,
     this.gpuDevice = 0,
     this.audioToDisk = true,
+    this.glossary = const GlossaryConfig(
+      sessionTerms: [],
+      globalTerms: [],
+      postCorrection: false,
+    ),
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -258,6 +292,7 @@ class SessionConfig {
     bool? gpuEnabled,
     int? gpuDevice,
     bool? audioToDisk,
+    GlossaryConfig? glossary,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -274,6 +309,7 @@ class SessionConfig {
       gpuEnabled: gpuEnabled ?? this.gpuEnabled,
       gpuDevice: gpuDevice ?? this.gpuDevice,
       audioToDisk: audioToDisk ?? this.audioToDisk,
+      glossary: glossary ?? this.glossary,
     );
   }
 }
@@ -414,6 +450,19 @@ class AppSettings {
   /// outbound request at all.
   final SummarySettings summary;
 
+  /// Kamus istilah (F3): the global term list plus its two switches.
+  final GlossarySettings glossary;
+
+  /// Summary templates the user wrote or duplicated (F8).
+  final List<CustomSummaryTemplate> summaryTemplates;
+
+  /// Kop surat / notulis defaults reused by every notulen export (F2).
+  final NotulenDefaults notulen;
+
+  /// Re-run the transcript with the accurate model after the meeting (F5).
+  /// `null` = decide from the live model: on when the quick model was used.
+  final bool? autoRetranscribe;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -432,6 +481,10 @@ class AppSettings {
     this.gpuDevice = 0,
     this.audioToDisk = true,
     this.summary = kDefaultSummarySettings,
+    this.glossary = kDefaultGlossarySettings,
+    this.summaryTemplates = const [],
+    this.notulen = kDefaultNotulenDefaults,
+    this.autoRetranscribe,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -459,7 +512,14 @@ class AppSettings {
     HptMode? hptMode,
     bool? gpuEnabled,
     int? gpuDevice,
+    // `audioToDisk` used to be missing here, so every copyWith silently
+    // reset the user's choice to the default.
+    bool? audioToDisk,
     SummarySettings? summary,
+    GlossarySettings? glossary,
+    List<CustomSummaryTemplate>? summaryTemplates,
+    NotulenDefaults? notulen,
+    Object? autoRetranscribe = _sentinel,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -483,7 +543,82 @@ class AppSettings {
       hptMode: hptMode ?? this.hptMode,
       gpuEnabled: gpuEnabled ?? this.gpuEnabled,
       gpuDevice: gpuDevice ?? this.gpuDevice,
+      audioToDisk: audioToDisk ?? this.audioToDisk,
       summary: summary ?? this.summary,
+      glossary: glossary ?? this.glossary,
+      summaryTemplates: summaryTemplates ?? this.summaryTemplates,
+      notulen: notulen ?? this.notulen,
+      autoRetranscribe: autoRetranscribe == _sentinel
+          ? this.autoRetranscribe
+          : autoRetranscribe as bool?,
+    );
+  }
+}
+
+/// Field-level update for [GlossarySettings]. FRB generates no `copyWith`,
+/// and respelling three required fields per settings callback is how a
+/// toggle ends up clearing the term list.
+extension GlossarySettingsCopy on GlossarySettings {
+  GlossarySettings copyWith({
+    bool? enabled,
+    List<String>? terms,
+    bool? postCorrection,
+  }) {
+    return GlossarySettings(
+      enabled: enabled ?? this.enabled,
+      terms: terms ?? this.terms,
+      postCorrection: postCorrection ?? this.postCorrection,
+    );
+  }
+
+  /// Per-session glossary config: `sessionTerms` on top of the global list.
+  /// Returns an empty config when the feature is off, so callers need no
+  /// special case (mirrors `GlossarySettings::to_config` in Rust).
+  GlossaryConfig toConfig({List<String> sessionTerms = const []}) {
+    if (!enabled) {
+      return const GlossaryConfig(
+        sessionTerms: [],
+        globalTerms: [],
+        postCorrection: false,
+      );
+    }
+    return GlossaryConfig(
+      sessionTerms: sessionTerms,
+      globalTerms: terms,
+      postCorrection: postCorrection,
+    );
+  }
+}
+
+/// Field-level update for [NotulenDefaults].
+extension NotulenDefaultsCopy on NotulenDefaults {
+  NotulenDefaults copyWith({
+    String? unitKerja,
+    String? tempat,
+    String? notulis,
+    String? kopSuratPath,
+  }) {
+    return NotulenDefaults(
+      unitKerja: unitKerja ?? this.unitKerja,
+      tempat: tempat ?? this.tempat,
+      notulis: notulis ?? this.notulis,
+      kopSuratPath: kopSuratPath ?? this.kopSuratPath,
+    );
+  }
+}
+
+/// Field-level update for a user-authored summary template.
+extension CustomSummaryTemplateCopy on CustomSummaryTemplate {
+  CustomSummaryTemplate copyWith({
+    String? name,
+    String? instructions,
+    List<String>? headings,
+  }) {
+    return CustomSummaryTemplate(
+      id: id,
+      name: name ?? this.name,
+      instructions: instructions ?? this.instructions,
+      headings: headings ?? this.headings,
     );
   }
 }

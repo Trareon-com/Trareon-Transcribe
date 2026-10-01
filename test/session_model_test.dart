@@ -118,6 +118,7 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async => [];
 
   @override
@@ -341,7 +342,7 @@ void main() {
         gpuDevice: 0,
         vadEnabled: false,
         audioToDisk: true,
-      ),
+      glossary: kEmptyGlossary,),
       startedAtUnixMs: BigInt.zero,
       lastSplitAtUnixMs: BigInt.zero,
       segmentsCount: 0,
@@ -445,7 +446,7 @@ rust_session.SessionRecoverySnapshot _snapshot(
       gpuDevice: 0,
       vadEnabled: false,
       audioToDisk: true,
-    ),
+    glossary: kEmptyGlossary,),
     startedAtUnixMs: BigInt.zero,
     lastSplitAtUnixMs: BigInt.zero,
     segmentsCount: 2,

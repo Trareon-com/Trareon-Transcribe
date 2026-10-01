@@ -14,6 +14,8 @@ import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
+import 'package:transcribe/src/rust/export/notulen.dart' as rust_notulen;
+import 'package:transcribe/src/rust/glossary.dart' as rust_glossary;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
 
@@ -32,6 +34,7 @@ mixin SummaryBridgeStubs {
     required String outputDir,
     required String title,
     required String summary,
+    List<Bookmark> bookmarks = const [],
     List<rust_export.ExportFormat> formats = const [
       rust_export.ExportFormat.markdown,
       rust_export.ExportFormat.txt,
@@ -46,6 +49,7 @@ mixin SummaryBridgeStubs {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split('/').last,
     quickSegments: const [],
@@ -58,6 +62,7 @@ mixin SummaryBridgeStubs {
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
   }) async => throw UnsupportedError('test bridge does not generate summaries');
 
   Future<List<String>> listSummaryModels({
@@ -69,6 +74,75 @@ mixin SummaryBridgeStubs {
   Future<String> summaryPreviewTranscript(
     List<TranscriptSegment> segments,
   ) async => segments.map((s) => '${s.speaker}: ${s.text}').join('\n');
+
+  // ── Sprint 3 surface: notulen, kamus istilah, templates, diagnostics ──
+  //
+  // All inert. A test that needs real behaviour overrides the one method it
+  // exercises; everything else must be impossible to depend on by accident.
+
+  Future<rust_export.ExportedFile> exportNotulen({
+    required rust_notulen.NotulenForm form,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) async => rust_export.ExportedFile(
+    filename: 'Notulen - $title.docx',
+    path: '$outputDir/Notulen - $title.docx',
+    sizeBytes: BigInt.from(2048),
+  );
+
+  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(
+    String summary,
+  ) async => rust_notulen.NotulenDraft(
+    pembahasan: summary,
+    keputusan: const [],
+    tindakLanjut: const [],
+    peserta: const [],
+  );
+
+  Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
+    required rust_glossary.GlossaryConfig glossary,
+    String contextTail = '',
+  }) async {
+    final terms = [...glossary.sessionTerms, ...glossary.globalTerms]
+        .where((t) => t.trim().isNotEmpty)
+        .toList();
+    return rust_api.GlossaryPromptInfo(
+      prompt: terms.isEmpty ? contextTail : 'Istilah: ${terms.join(', ')}.',
+      termsUsed: terms.length,
+      termsTotal: terms.length,
+    );
+  }
+
+  Future<List<String>> parseGlossaryFile(String content) async => content
+      .split('\n')
+      .map((line) => line.split(',').first.trim())
+      .where((line) => line.isNotEmpty && !line.startsWith('#'))
+      .toList();
+
+  Future<String> renderGlossaryFile(
+    List<String> terms, {
+    bool csv = false,
+  }) async => '${csv ? 'istilah\n' : ''}${terms.join('\n')}\n';
+
+  Future<List<String>> summaryTemplateHeadings(
+    SummaryTemplate template,
+  ) async => const ['Ringkasan', 'Keputusan'];
+
+  Future<String> composeSummaryInstruction({
+    required String instructions,
+    required List<String> headings,
+  }) async => headings.isEmpty
+      ? instructions
+      : '$instructions\n\n${headings.map((h) => '## $h').join('\n')}';
+
+  Future<String> exportDiagnostics({
+    required String destination,
+    required String doctorReport,
+    required String environment,
+  }) async => destination;
+
+  Future<int> diagnosticLogFileCount() async => 1;
 }
 
 /// Timer-free test double for RustBridge that persists settings in memory
@@ -176,6 +250,7 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) async => [];
 
   @override

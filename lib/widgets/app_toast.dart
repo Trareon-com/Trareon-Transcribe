@@ -97,8 +97,8 @@ class _ToastWidgetState extends State<_ToastWidget>
       ToastType.info => Icons.info_outline,
     };
     final iconColor = switch (widget.type) {
-      ToastType.success => const Color(0xFF2E7D32),
-      ToastType.error => const Color(0xFFD32F2F),
+      ToastType.success => widget.colors.success,
+      ToastType.error => widget.colors.error,
       ToastType.info => widget.colors.primary,
     };
 
