@@ -14,7 +14,10 @@ import '../utils/segment_lookup.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
+import '../widgets/bookmark_bar.dart';
 import '../widgets/export_dialog.dart';
+import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
 import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
@@ -111,14 +114,142 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// with it without re-reading the sidecar.
   late String _summary;
 
+  /// Markers from the recording (F9), editable here too: reviewing is when a
+  /// notulis realises which moments actually mattered.
+  late List<Bookmark> _bookmarks;
+
+  /// The notulen form as last filled in, so reopening the dialog does not
+  /// present an empty form.
+  NotulenFormData? _notulenForm;
+
   @override
   void initState() {
     super.initState();
     _segments = List.of(widget.segments);
     _timeline = SegmentTimeline(_segments);
     _summary = widget.meta.summary;
+    _bookmarks = List.of(widget.meta.bookmarks);
+    _notulenForm = widget.meta.notulen;
     _refreshBackupAvailability();
     _initPlayer();
+  }
+
+  // ── Bookmarks ─────────────────────────────────────────────────────────
+
+  /// Persists the sidecar fields this screen owns (bookmarks, notulen form).
+  ///
+  /// Best effort and separate from [_persistSegments]: the transcript is the
+  /// primary artifact and must not fail to save because a marker did.
+  Future<void> _persistMeta() async {
+    final dirPath = _sessionDirPath;
+    if (dirPath == null) return;
+    try {
+      final existing = await readSessionMeta(dirPath);
+      await writeSessionMeta(
+        dirPath,
+        existing.copyWith(bookmarks: _bookmarks, notulen: _notulenForm),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saveError = 'Tanda poin gagal disimpan: $e');
+      }
+    }
+  }
+
+  void _addBookmarkHere() {
+    final bookmark = Bookmark(timestamp: _position.value, note: '');
+    setState(() {
+      _bookmarks = [..._bookmarks, bookmark]
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    });
+    unawaited(_persistMeta());
+  }
+
+  void _removeBookmark(Bookmark bookmark) {
+    setState(() {
+      _bookmarks = _bookmarks
+          .where((b) => b.timestamp != bookmark.timestamp)
+          .toList();
+    });
+    unawaited(_persistMeta());
+  }
+
+  Future<void> _editBookmarkNote(Bookmark bookmark) async {
+    final note = await showBookmarkNoteDialog(
+      context,
+      timestamp: bookmark.timestamp,
+      initial: bookmark.note,
+    );
+    if (note == null || !mounted) return;
+    setState(() {
+      _bookmarks = [
+        for (final b in _bookmarks)
+          if (b.timestamp == bookmark.timestamp)
+            Bookmark(timestamp: b.timestamp, note: note.trim())
+          else
+            b,
+      ];
+    });
+    unawaited(_persistMeta());
+  }
+
+  // ── Notulen resmi (F2) ────────────────────────────────────────────────
+
+  Future<void> _openNotulen() async {
+    final session = SessionSummary(
+      id: _sessionDirPath ?? widget.title,
+      title: widget.title,
+      date: DateTime.now().toIso8601String().substring(0, 10),
+      segmentsCount: _segments.length,
+      segments: _segments,
+      durationSeconds: widget.durationSeconds,
+    );
+    final saved = await showNotulenDialog(
+      context,
+      session: session,
+      recordedAt: _recordedAt,
+      summary: _summary,
+      bookmarks: _bookmarks,
+      saved: _notulenForm,
+    );
+    if (saved == null || !mounted) return;
+    setState(() => _notulenForm = saved);
+    await _persistMeta();
+  }
+
+  /// When the meeting happened, for the notulen's hari/tanggal fields.
+  ///
+  /// Taken from the session folder's name (`YYYYMMDD-…`), which the exporter
+  /// writes, falling back to the directory's modification time and finally to
+  /// now — a notulen dated today for a meeting from last week is a document
+  /// the secretariat would have to correct by hand.
+  DateTime get _recordedAt {
+    final dirPath = _sessionDirPath;
+    if (dirPath != null) {
+      final name = dirPath.split(Platform.pathSeparator).last;
+      final match = RegExp(r'^(\d{4})(\d{2})(\d{2})-').firstMatch(name);
+      if (match != null) {
+        final parsed = DateTime.tryParse(
+          '${match.group(1)}-${match.group(2)}-${match.group(3)}',
+        );
+        if (parsed != null) {
+          // Keep the time of day from the folder's mtime when we have it.
+          try {
+            final stat = Directory(dirPath).statSync();
+            return DateTime(
+              parsed.year,
+              parsed.month,
+              parsed.day,
+              stat.modified.hour,
+              stat.modified.minute,
+            );
+          } catch (_) {
+            return parsed;
+          }
+        }
+      }
+    }
+    return DateTime.now();
   }
 
   void _refreshBackupAvailability() {
@@ -516,6 +647,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   sessionDirPath: _sessionDirPath!,
                   segments: () => _segments,
                   initialMeta: widget.meta,
+                  bookmarks: _bookmarks,
                   onSummaryChanged: (text) => setState(() => _summary = text),
                 ),
 
@@ -550,6 +682,13 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                       ),
                       const SizedBox(height: 8),
                     ],
+                    BookmarkTicks(
+                      bookmarks: _bookmarks,
+                      maxSeconds: maxSeconds,
+                      onJump: (bookmark) => unawaited(
+                        _seekTo(bookmark.timestamp),
+                      ),
+                    ),
                     // Seek slider — the only part of the screen that follows
                     // the 5–10 Hz position stream.
                     ValueListenableBuilder<double>(
@@ -632,11 +771,58 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                       ],
                     ),
 
+                    if (_bookmarks.isNotEmpty) ...[
+                      Spacing.gapSm,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: BookmarkJumpList(
+                          bookmarks: _bookmarks,
+                          onJump: (bookmark) =>
+                              unawaited(_seekTo(bookmark.timestamp)),
+                          onRemove: _removeBookmark,
+                          onEditNote: (bookmark) =>
+                              unawaited(_editBookmarkNote(bookmark)),
+                        ),
+                      ),
+                    ],
+
                     // Export button row
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: Spacing.sm,
+                      runSpacing: Spacing.sm,
                       children: [
+                        if (hasAudio)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.bookmark_add_outlined,
+                                size: IconSizes.sm),
+                            label: const Text(
+                              'Tandai di sini',
+                              style: TextStyle(fontSize: FontSizes.body),
+                            ),
+                            onPressed: _addBookmarkHere,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.textSecondary,
+                              side: BorderSide(color: colors.border),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: Radii.smAll,
+                              ),
+                            ),
+                          ),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.description_outlined,
+                              size: IconSizes.sm),
+                          label: const Text(
+                            'Notulen Rapat',
+                            style: TextStyle(fontSize: FontSizes.body),
+                          ),
+                          onPressed: () => unawaited(_openNotulen()),
+                        ),
                         if (_hasBackup) ...[
                           OutlinedButton.icon(
                             icon: const Icon(Icons.undo, size: 16),
@@ -657,7 +843,6 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                         ],
                         if (hasAudio && _sessionDirPath != null) ...[
                           OutlinedButton.icon(
@@ -681,7 +866,6 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                         ],
                         OutlinedButton.icon(
                           icon: const Icon(Icons.upload_outlined, size: 16),
@@ -725,6 +909,8 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
             Text('J / L — mundur / maju 10 detik'),
             SizedBox(height: 6),
             Text('Klik baris transkrip — lompat ke waktu itu'),
+            SizedBox(height: 6),
+            Text('Klik tanda di garis waktu — lompat ke poin yang ditandai'),
           ],
         ),
         actions: [
@@ -765,6 +951,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       defaultOutputDir: defaultDir,
       defaultFormat: settings.defaultExportFormat,
       summary: _summary,
+      bookmarks: _bookmarks,
     );
   }
 }

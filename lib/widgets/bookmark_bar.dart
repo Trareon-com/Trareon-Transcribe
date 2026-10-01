@@ -53,6 +53,138 @@ Future<String?> showBookmarkNoteDialog(
   ).whenComplete(controller.dispose);
 }
 
+/// Marker ticks drawn above the player's seek bar.
+///
+/// A tick is 3 px wide inside a 24 px hit area — below the 48 px minimum, and
+/// deliberately so: a tick's position *is* its meaning, and widening it would
+/// put the marker somewhere other than where the user placed it. Every tick
+/// has an equivalent ≥48 px control in [BookmarkJumpList], which is the
+/// accessible path to the same action, and each tick carries a Semantics
+/// label so a screen reader announces it.
+class BookmarkTicks extends StatelessWidget {
+  const BookmarkTicks({
+    super.key,
+    required this.bookmarks,
+    required this.maxSeconds,
+    required this.onJump,
+  });
+
+  final List<Bookmark> bookmarks;
+  final double maxSeconds;
+  final void Function(Bookmark) onJump;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bookmarks.isEmpty || maxSeconds <= 0) {
+      return const SizedBox(height: 0);
+    }
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return SizedBox(
+      height: 14,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return Stack(
+            children: [
+              for (final bookmark in bookmarks)
+                Positioned(
+                  left: ((bookmark.timestamp / maxSeconds).clamp(0.0, 1.0) *
+                              width -
+                          12)
+                      .clamp(0.0, width - 24),
+                  top: 0,
+                  child: Semantics(
+                    button: true,
+                    label: 'Poin ditandai pada '
+                        '${formatTimestamp(bookmark.timestamp)}'
+                        '${bookmark.note.trim().isEmpty ? '' : ', ${bookmark.note.trim()}'}',
+                    child: Tooltip(
+                      message: bookmark.note.trim().isEmpty
+                          ? formatTimestamp(bookmark.timestamp)
+                          : '${formatTimestamp(bookmark.timestamp)} · '
+                              '${bookmark.note.trim()}',
+                      child: InkWell(
+                        onTap: () => onJump(bookmark),
+                        child: SizedBox(
+                          width: 24,
+                          height: 14,
+                          child: Center(
+                            child: Container(
+                              width: 3,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: colors.primary,
+                                borderRadius: Radii.smAll,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The jump list: one ≥48 px row per marker, with its note and a delete.
+class BookmarkJumpList extends StatelessWidget {
+  const BookmarkJumpList({
+    super.key,
+    required this.bookmarks,
+    required this.onJump,
+    required this.onRemove,
+    required this.onEditNote,
+  });
+
+  final List<Bookmark> bookmarks;
+  final void Function(Bookmark) onJump;
+  final void Function(Bookmark) onRemove;
+  final void Function(Bookmark) onEditNote;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bookmarks.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: [
+        for (final bookmark in bookmarks)
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: TouchTarget.minimum),
+            // Tap jumps — that is what a reviewer wants nine times out of ten
+            // — and a long press edits the note. Both are named in the
+            // tooltip, so neither is a hidden gesture.
+            child: GestureDetector(
+              onLongPress: () => onEditNote(bookmark),
+              child: InputChip(
+                avatar: Icon(Icons.bookmark,
+                    size: IconSizes.sm, color: colors.primary),
+                label: Text(
+                  bookmark.note.trim().isEmpty
+                      ? formatTimestamp(bookmark.timestamp)
+                      : '${formatTimestamp(bookmark.timestamp)} · '
+                          '${bookmark.note.trim()}',
+                ),
+                tooltip: 'Klik: lompat ke ${formatTimestamp(bookmark.timestamp)} · '
+                    'Tahan: ubah catatan',
+                onPressed: () => onJump(bookmark),
+                onDeleted: () => onRemove(bookmark),
+                deleteButtonTooltipMessage:
+                    'Hapus tanda ${formatTimestamp(bookmark.timestamp)}',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// The "Tandai" button plus the markers dropped so far.
 class BookmarkBar extends StatelessWidget {
   const BookmarkBar({

@@ -28,6 +28,7 @@ Future<bool> showEksporDialog(
   String defaultOutputDir = '',
   String defaultFormat = 'markdown',
   String summary = '',
+  List<Bookmark> bookmarks = const [],
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
@@ -93,6 +94,25 @@ Future<bool> showEksporDialog(
                       },
                     ),
                   const Divider(height: 16),
+                  if (bookmarks.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.bookmark_outline,
+                              size: 13, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${bookmarks.length} poin penting disertakan '
+                              'sebagai bagian "Poin Penting"',
+                              style:
+                                  TextStyle(color: colors.primary, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (summary.trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -179,6 +199,7 @@ Future<bool> showEksporDialog(
       outputDir: outputDir,
       title: session.title,
       summary: summary,
+      bookmarks: bookmarks,
       formats: formats,
     );
     // Tutup loading dialog

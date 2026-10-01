@@ -8,6 +8,8 @@ import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
+import 'summary_template_editor.dart';
 
 /// Editable AI summary for one session.
 ///
@@ -21,7 +23,13 @@ class SummaryPanel extends ConsumerStatefulWidget {
     required this.segments,
     this.initialMeta = SessionMeta.empty,
     this.onSummaryChanged,
+    this.bookmarks = const [],
   });
+
+  /// Markers the notulis dropped during the meeting. Passed to the model as a
+  /// "prioritise these" block after the transcript, so a three-hour meeting
+  /// cannot truncate away the moments the user explicitly flagged.
+  final List<Bookmark> bookmarks;
 
   /// Directory the sidecar is written to.
   final String sessionDirPath;
@@ -69,9 +77,11 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
 
   Future<void> _generate() async {
     final settings = ref.read(settingsProvider);
-    await ref
-        .read(_provider.notifier)
-        .generate(segments: widget.segments(), settings: settings);
+    await ref.read(_provider.notifier).generate(
+          segments: widget.segments(),
+          settings: settings,
+          bookmarks: widget.bookmarks,
+        );
     if (!mounted) return;
     final generated = ref.read(_provider).text;
     if (generated.isNotEmpty && generated != _controller.text) {
@@ -171,12 +181,19 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<SummaryTemplate>(
-                            initialValue: state.template,
+                          child: DropdownButtonFormField<String>(
+                            // The value space is "built-in name or template
+                            // id", because a user template is also a choice
+                            // in this one picker — two pickers for one
+                            // decision is worse than a prefixed key.
+                            initialValue: state.customTemplateId ??
+                                state.template.name,
                             isDense: true,
                             decoration: InputDecoration(
                               labelText: 'Template',
-                              helperText: summaryTemplateHint(state.template),
+                              helperText: state.customTemplateId != null
+                                  ? 'Template buatan sendiri'
+                                  : summaryTemplateHint(state.template),
                               helperMaxLines: 2,
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(
@@ -187,20 +204,42 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                             items: [
                               for (final t in SummaryTemplate.values)
                                 DropdownMenuItem(
-                                  value: t,
+                                  value: t.name,
                                   child: Text(summaryTemplateLabel(t)),
+                                ),
+                              for (final custom in settings.summaryTemplates)
+                                DropdownMenuItem(
+                                  value: custom.id,
+                                  child: Text('★ ${custom.name}'),
                                 ),
                             ],
                             onChanged: busy
                                 ? null
-                                : (t) {
-                                    if (t != null) {
-                                      ref.read(_provider.notifier).setTemplate(t);
+                                : (value) {
+                                    if (value == null) return;
+                                    final builtin = SummaryTemplate.values
+                                        .where((t) => t.name == value)
+                                        .firstOrNull;
+                                    final notifier =
+                                        ref.read(_provider.notifier);
+                                    if (builtin != null) {
+                                      notifier.setTemplate(builtin);
+                                    } else {
+                                      notifier.setCustomTemplate(value);
                                     }
                                   },
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: Spacing.sm),
+                        IconButton(
+                          tooltip: 'Kelola template ringkasan',
+                          constraints: TouchTarget.constraints,
+                          icon: const Icon(Icons.tune, size: IconSizes.md),
+                          onPressed: busy
+                              ? null
+                              : () => showSummaryTemplateManager(context),
+                        ),
+                        const SizedBox(width: Spacing.sm),
                         FilledButton.icon(
                           onPressed: busy ? null : _generate,
                           icon: Icon(

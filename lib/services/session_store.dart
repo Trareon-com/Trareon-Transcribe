@@ -52,6 +52,12 @@ class SessionMeta {
   final String? title;
   final String summary;
   final SummaryTemplate? summaryTemplate;
+
+  /// Id of the user-authored template the summary came from (F8), when it was
+  /// not a built-in. Recorded so "which template produced this?" has an
+  /// answer six months later.
+  final String? summaryCustomTemplateId;
+
   final DateTime? summaryGeneratedAt;
 
   /// Language and model the transcript was produced with, so "Transkrip
@@ -77,6 +83,7 @@ class SessionMeta {
     this.title,
     this.summary = '',
     this.summaryTemplate,
+    this.summaryCustomTemplateId,
     this.summaryGeneratedAt,
     this.language,
     this.model,
@@ -93,6 +100,7 @@ class SessionMeta {
     String? title,
     String? summary,
     SummaryTemplate? summaryTemplate,
+    String? summaryCustomTemplateId,
     DateTime? summaryGeneratedAt,
     String? language,
     String? model,
@@ -104,6 +112,8 @@ class SessionMeta {
       title: title ?? this.title,
       summary: summary ?? this.summary,
       summaryTemplate: summaryTemplate ?? this.summaryTemplate,
+      summaryCustomTemplateId:
+          summaryCustomTemplateId ?? this.summaryCustomTemplateId,
       summaryGeneratedAt: summaryGeneratedAt ?? this.summaryGeneratedAt,
       language: language ?? this.language,
       model: model ?? this.model,
@@ -118,6 +128,8 @@ class SessionMeta {
     if (title != null) 'title': title,
     if (summary.isNotEmpty) 'summary': summary,
     if (summaryTemplate != null) 'summary_template': summaryTemplate!.name,
+    if (summaryCustomTemplateId != null)
+      'summary_custom_template': summaryCustomTemplateId,
     if (summaryGeneratedAt != null)
       'summary_generated_at': summaryGeneratedAt!.toIso8601String(),
     if (language != null) 'language': language,
@@ -143,6 +155,9 @@ class SessionMeta {
           ? SummaryTemplate.values
                 .where((t) => t.name == templateName)
                 .firstOrNull
+          : null,
+      summaryCustomTemplateId: json['summary_custom_template'] is String
+          ? json['summary_custom_template'] as String
           : null,
       summaryGeneratedAt: json['summary_generated_at'] is String
           ? DateTime.tryParse(json['summary_generated_at'] as String)
