@@ -202,6 +202,10 @@ abstract class RustBridge {
   /// Parses an AI summary into the notulen form's body sections. Local only.
   Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary);
 
+  /// Renders bookmarks as the `"[mm:ss] catatan"` lines every export and the
+  /// notulen's "Poin Penting" section use.
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks);
+
   /// Kamus istilah helpers — all pure and local.
   Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
     required rust_glossary.GlossaryConfig glossary,
@@ -664,6 +668,20 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<int> diagnosticLogFileCount() async => 1;
+
+  @override
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) async => [
+    for (final bookmark in bookmarks)
+      '[${_mmss(bookmark.timestamp)}] '
+          '${bookmark.note.trim().isEmpty ? 'Poin penting' : bookmark.note.trim()}',
+  ];
+}
+
+/// `mm:ss` for the mock's bookmark formatter.
+String _mmss(double seconds) {
+  final total = seconds.isFinite && seconds > 0 ? seconds.floor() : 0;
+  final minutes = (total ~/ 60).toString().padLeft(2, '0');
+  return '$minutes:${(total % 60).toString().padLeft(2, '0')}';
 }
 
 /// Real bridge backed by the flutter_rust_bridge-generated bindings in
@@ -1011,6 +1029,10 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Future<int> diagnosticLogFileCount() => rust_api.flightLogFileCount();
+
+  @override
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) =>
+      rust_api.formatBookmarks(bookmarks: bookmarks);
 
   @override
   Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({

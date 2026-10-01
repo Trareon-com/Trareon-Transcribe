@@ -19,6 +19,7 @@ import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/bookmark_bar.dart';
 import '../widgets/capture_health_view.dart';
 import '../widgets/recovery_dialog.dart';
 import '../widgets/session_controls.dart';
@@ -407,6 +408,64 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (mounted) setState(() => _captureHealth = null);
   }
 
+  // ── Bookmarks (F9) ────────────────────────────────────────────────────
+
+  /// Ctrl+B: drops a marker at the current position and says so. Deliberately
+  /// no dialog — the point of a one-key marker is that it does not interrupt
+  /// the meeting.
+  void _addBookmark() {
+    final bookmark = ref.read(sessionProvider.notifier).addBookmark();
+    if (!mounted) return;
+    if (bookmark == null) {
+      AppToast.show(
+        context,
+        'Belum ada rekaman untuk ditandai.',
+        type: ToastType.info,
+      );
+      return;
+    }
+    AppToast.show(
+      context,
+      'Ditandai di ${formatTimestamp(bookmark.timestamp)}.',
+      type: ToastType.success,
+    );
+  }
+
+  /// Drops the marker first, then asks for the note: the timestamp must be
+  /// the moment the user acted, not the moment they finished typing.
+  Future<void> _addBookmarkWithNote() async {
+    final notifier = ref.read(sessionProvider.notifier);
+    final bookmark = notifier.addBookmark();
+    if (bookmark == null) {
+      if (mounted) {
+        AppToast.show(
+          context,
+          'Belum ada rekaman untuk ditandai.',
+          type: ToastType.info,
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final note = await showBookmarkNoteDialog(
+      context,
+      timestamp: bookmark.timestamp,
+    );
+    if (note != null && note.trim().isNotEmpty) {
+      notifier.setBookmarkNote(bookmark.timestamp, note);
+    }
+  }
+
+  Future<void> _editBookmarkNote(Bookmark bookmark) async {
+    final note = await showBookmarkNoteDialog(
+      context,
+      timestamp: bookmark.timestamp,
+      initial: bookmark.note,
+    );
+    if (note == null || !mounted) return;
+    ref.read(sessionProvider.notifier).setBookmarkNote(bookmark.timestamp, note);
+  }
+
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
     final lifecycle = ref.read(sessionProvider).lifecycle;
     final isActive =
@@ -610,6 +669,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             setState(() => _showShortcuts = !_showShortcuts),
         SingleActivator(LogicalKeyboardKey.slash, control: true): () =>
             setState(() => _showShortcuts = !_showShortcuts),
+        // Tandai poin penting (F9). One key, no dialog — the note is a
+        // separate, optional step.
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
+            _addBookmark,
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true):
+            _addBookmark,
       },
       child: Focus(
         autofocus: true,
@@ -655,6 +720,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       showShortcuts: _showShortcuts,
                       onCloseShortcuts: () =>
                           setState(() => _showShortcuts = false),
+                      onAddBookmark: _addBookmark,
+                      onAddBookmarkWithNote: () =>
+                          unawaited(_addBookmarkWithNote()),
+                      onRemoveBookmark: (bookmark) => ref
+                          .read(sessionProvider.notifier)
+                          .removeBookmark(bookmark.timestamp),
+                      onEditBookmarkNote: (bookmark) =>
+                          unawaited(_editBookmarkNote(bookmark)),
                       onSessionEdited: (dirPath) => unawaited(
                         ref.read(libraryListProvider.notifier).refreshOne(dirPath),
                       ),
@@ -697,6 +770,10 @@ class _Workspace extends StatelessWidget {
     required this.onOpenRecovery,
     required this.showShortcuts,
     required this.onCloseShortcuts,
+    required this.onAddBookmark,
+    required this.onAddBookmarkWithNote,
+    required this.onRemoveBookmark,
+    required this.onEditBookmarkNote,
     required this.onSessionEdited,
   });
 
@@ -725,6 +802,10 @@ class _Workspace extends StatelessWidget {
   final VoidCallback onOpenRecovery;
   final bool showShortcuts;
   final VoidCallback onCloseShortcuts;
+  final VoidCallback onAddBookmark;
+  final VoidCallback onAddBookmarkWithNote;
+  final void Function(Bookmark) onRemoveBookmark;
+  final void Function(Bookmark) onEditBookmarkNote;
   final ValueChanged<String> onSessionEdited;
 
   @override
@@ -803,6 +884,14 @@ class _Workspace extends StatelessWidget {
           isBusy: isBusy,
           busyLabel: busyLabel,
           hasTranscript: hasTranscript,
+        ),
+        BookmarkBar(
+          bookmarks: session.bookmarks,
+          live: isActive,
+          onAdd: onAddBookmark,
+          onAddWithNote: onAddBookmarkWithNote,
+          onRemove: onRemoveBookmark,
+          onEditNote: onEditBookmarkNote,
         ),
         Expanded(
           child: Stack(
@@ -1238,6 +1327,8 @@ class _ShortcutsPanel extends StatelessWidget {
           const _ShortcutRow(label: 'Mulai / Berhenti merekam', shortcut: 'Ctrl+R'),
           const _ShortcutRow(label: 'Jeda / Lanjutkan', shortcut: 'Ctrl+P'),
           const _ShortcutRow(label: 'Cari di riwayat sesi', shortcut: 'Ctrl+L'),
+          const _ShortcutRow(
+              label: 'Tandai poin penting', shortcut: 'Ctrl+B'),
           const _ShortcutRow(label: 'Buka Pengaturan', shortcut: 'Ctrl+,'),
           const _ShortcutRow(label: 'Tampilkan panel pintasan', shortcut: 'Ctrl+/'),
         ],

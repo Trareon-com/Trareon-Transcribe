@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
 import '../services/session_store.dart';
+import 'enhance_queue_model.dart';
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/session.dart' as rust_session;
@@ -49,6 +50,18 @@ class SessionUiState {
   final String sessionTitle;
   final double elapsedSeconds;
 
+  /// Markers dropped during the meeting (F9), sorted by timestamp.
+  ///
+  /// A notulis' real workflow is *flagging* while the meeting runs — "this is
+  /// the decision", "follow up on this" — and before this existed nothing in
+  /// the app let them do it.
+  final List<Bookmark> bookmarks;
+
+  /// Glossary terms added for this meeting only, on top of the global list.
+  /// Highest priority when the `initial_prompt` budget cannot hold
+  /// everything.
+  final List<String> sessionGlossaryTerms;
+
   const SessionUiState({
     required this.lifecycle,
     required this.config,
@@ -57,6 +70,8 @@ class SessionUiState {
     this.revision = 0,
     this.sessionTitle = '',
     this.elapsedSeconds = 0,
+    this.bookmarks = const [],
+    this.sessionGlossaryTerms = const [],
   });
 
   /// Average confidence across current segments, or null if there are none
@@ -75,6 +90,8 @@ class SessionUiState {
     int? revision,
     String? sessionTitle,
     double? elapsedSeconds,
+    List<Bookmark>? bookmarks,
+    List<String>? sessionGlossaryTerms,
   }) {
     return SessionUiState(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -84,12 +101,22 @@ class SessionUiState {
       revision: revision ?? this.revision,
       sessionTitle: sessionTitle ?? this.sessionTitle,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      bookmarks: bookmarks ?? this.bookmarks,
+      sessionGlossaryTerms: sessionGlossaryTerms ?? this.sessionGlossaryTerms,
     );
   }
 }
 
 class SessionNotifier extends StateNotifier<SessionUiState> {
   final RustBridge _bridge;
+
+  /// Every write to [state] goes through here so lifecycle transitions can
+  /// notify the enhance queue in one place instead of six.
+  @override
+  set state(SessionUiState value) {
+    super.state = value;
+    _notifyLiveChanged();
+  }
   StreamSubscription<TranscriptSegment>? _transcriptSub;
   Timer? _autoStopTimer;
   Timer? _elapsedTimer;
@@ -306,6 +333,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       segments: _segmentsView,
       revision: _revision,
       sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
+      // A new meeting starts with no markers; carrying the previous
+      // session's over would put them at timestamps that no longer exist.
+      bookmarks: const [],
     );
     _subscribeToLiveStreams(id);
     _mirrorTitleToSnapshot();
@@ -481,11 +511,69 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       try {
         await writeSessionMeta(
           File(anchor.path).parent.path,
-          SessionMeta(title: title, language: _language, model: _modelId),
+          SessionMeta(
+            title: title,
+            language: _language,
+            model: _modelId,
+            bookmarks: state.bookmarks,
+          ),
         );
       } catch (_) {}
     }
+    // Hand the finished session to the background "perhalus transkrip" pass
+    // (F5). Deliberately after the sidecar write: the queue reads the session
+    // folder from disk, and the backup it makes before replacing anything
+    // depends on the transcript already being there.
+    final directory = anchor == null ? null : File(anchor.path).parent.path;
+    if (directory != null) {
+      _onSessionSaved?.call(
+        SavedSessionHandoff(
+          directoryPath: directory,
+          title: title,
+          modelId: _modelId,
+          language: _language,
+          usedQuickModel: _progressiveEnabled || _modelId != kAccurateModelId,
+          autoRetranscribePreference: _autoRetranscribe,
+          segments: segments,
+        ),
+      );
+    }
   }
+
+  /// Called with every session that lands on disk, so the enhance queue can
+  /// pick it up without `SessionNotifier` depending on the queue.
+  void Function(SavedSessionHandoff)? _onSessionSaved;
+
+  // ignore: use_setters_to_change_properties
+  void onSessionSaved(void Function(SavedSessionHandoff)? callback) {
+    _onSessionSaved = callback;
+  }
+
+  /// Called whenever the session becomes (or stops being) live, so the
+  /// enhance queue can yield to it.
+  ///
+  /// A callback rather than `ref.listen(sessionProvider, …)` inside the
+  /// provider that *creates* this notifier: that would be a provider
+  /// depending on itself.
+  // ignore: use_setters_to_change_properties
+  void onLiveChanged(void Function(bool live)? callback) {
+    _onLiveChanged = callback;
+  }
+
+  void Function(bool live)? _onLiveChanged;
+
+  bool _lastLive = false;
+
+  void _notifyLiveChanged() {
+    final live = state.lifecycle == SessionLifecycle.recording ||
+        state.lifecycle == SessionLifecycle.paused;
+    if (live == _lastLive) return;
+    _lastLive = live;
+    _onLiveChanged?.call(live);
+  }
+
+  bool _progressiveEnabled = true;
+  bool? _autoRetranscribe;
 
   /// Pauses live transcript updates without tearing down the session —
   /// distinct from stop(), which ends it entirely (PP: pause/resume
@@ -524,6 +612,82 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     );
     if (id != null) await _bridge.toggleSpeaker(id, enabled);
   }
+
+  // ── Bookmarks (F9) ────────────────────────────────────────────────────
+
+  /// Offset into the recording *right now*, to sub-second precision.
+  ///
+  /// [SessionUiState.elapsedSeconds] only ticks once a second, so using it
+  /// would quantise every marker to the nearest second — enough to land a
+  /// bookmark on the wrong utterance in a fast exchange.
+  double get _currentOffsetSeconds {
+    final started = _recordingStartedAt;
+    if (started == null) return state.elapsedSeconds;
+    return DateTime.now().difference(started).inMilliseconds / 1000.0;
+  }
+
+  /// Drops a marker at the current position. `note` is optional — the
+  /// timestamp is the point, and stopping to type during a meeting is exactly
+  /// what this feature exists to avoid.
+  ///
+  /// Returns the bookmark that was added, or `null` when there is no
+  /// recording to mark.
+  Bookmark? addBookmark({String note = ''}) {
+    if (state.lifecycle != SessionLifecycle.recording &&
+        state.lifecycle != SessionLifecycle.paused) {
+      return null;
+    }
+    final bookmark = Bookmark(
+      timestamp: _currentOffsetSeconds.clamp(0, double.maxFinite),
+      note: note.trim(),
+    );
+    final next = [...state.bookmarks, bookmark]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    state = state.copyWith(bookmarks: next);
+    return bookmark;
+  }
+
+  /// Attaches or replaces the note on the bookmark at [timestamp].
+  void setBookmarkNote(double timestamp, String note) {
+    final next = [
+      for (final bookmark in state.bookmarks)
+        if (bookmark.timestamp == timestamp)
+          Bookmark(timestamp: bookmark.timestamp, note: note.trim())
+        else
+          bookmark,
+    ];
+    state = state.copyWith(bookmarks: next);
+  }
+
+  void removeBookmark(double timestamp) {
+    state = state.copyWith(
+      bookmarks: state.bookmarks
+          .where((bookmark) => bookmark.timestamp != timestamp)
+          .toList(),
+    );
+  }
+
+  // ── Per-session kamus istilah (F3) ────────────────────────────────────
+
+  /// Replaces this meeting's extra glossary terms and pushes them into the
+  /// session config, so a term added before Mulai is in effect from the first
+  /// chunk.
+  ///
+  /// Terms added *during* a recording apply to subsequent chunks only: the
+  /// engine's worker already holds its glossary, and restarting capture to
+  /// pick up a term would cost the audio in flight.
+  void setSessionGlossaryTerms(List<String> terms, {GlossarySettings? global}) {
+    final cleaned = dedupeTerms(terms);
+    final settings = global ?? _glossarySettings;
+    state = state.copyWith(
+      sessionGlossaryTerms: cleaned,
+      config: state.config.copyWith(
+        glossary: settings.toConfig(sessionTerms: cleaned),
+      ),
+    );
+  }
+
+  GlossarySettings _glossarySettings = kDefaultGlossarySettings;
 
   /// Edits one row in place. The segment key is `(source, timestamp)`, and
   /// neither changes here, so [_segmentIndexByKey] stays valid.
@@ -565,6 +729,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     _autoStopMinutes = settings.autoStopMinutes;
     _language = settings.language;
     _modelId = settings.defaultModel;
+    _glossarySettings = settings.glossary;
+    _progressiveEnabled = settings.progressiveEnabled;
+    _autoRetranscribe = settings.autoRetranscribe;
     final (mic, speaker) = settings.defaultMode.defaultToggles;
     // HPT: quick pass uses the default model; refine pass always targets
     // large-v3-turbo-q5 when progressive is enabled (and the quick model
@@ -593,6 +760,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         gpuEnabled: settings.gpuEnabled,
         gpuDevice: settings.gpuDevice,
         audioToDisk: settings.audioToDisk,
+        glossary: settings.glossary
+            .toConfig(sessionTerms: state.sessionGlossaryTerms),
       ),
     );
   }
@@ -636,9 +805,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   }
 }
 
-final sessionProvider = StateNotifierProvider<SessionNotifier, SessionUiState>((
-  ref,
-) {
+final StateNotifierProvider<SessionNotifier, SessionUiState> sessionProvider =
+    StateNotifierProvider<SessionNotifier, SessionUiState>((ref) {
   // Use ref.read (not watch) — watching would recreate the SessionNotifier on
   // every settings change, destroying the active session (transcript subs,
   // timers, segments).  ref.listen below handles updates reactively.
@@ -654,6 +822,15 @@ final sessionProvider = StateNotifierProvider<SessionNotifier, SessionUiState>((
     if (previous?.autoStopMinutes != next.autoStopMinutes) {
       notifier.updateAutoStopMinutes(next.autoStopMinutes);
     }
+  });
+  // "Perhalus transkrip" (F5): every saved session is offered to the queue,
+  // which decides for itself whether it qualifies. The queue also yields
+  // while a session is live — Whisper cannot usefully run twice at once.
+  notifier.onSessionSaved((handoff) {
+    unawaited(ref.read(enhanceQueueProvider.notifier).considerSession(handoff));
+  });
+  notifier.onLiveChanged((live) {
+    ref.read(enhanceQueueProvider.notifier).setPaused(live);
   });
   return notifier;
 });

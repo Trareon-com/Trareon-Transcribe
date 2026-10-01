@@ -12,8 +12,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../src/rust/audio/device.dart' as rust_device;
 import '../state/models.dart';
+import '../state/session_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
 import '../widgets/mode_selector.dart';
 import 'model_download_dialog.dart';
@@ -119,9 +121,114 @@ class SessionGroup extends ConsumerWidget {
             ),
           ),
           const SessionOptionsMenu(),
+          const SessionGlossaryPill(),
         ],
       ),
     );
+  }
+}
+
+/// Per-session kamus istilah (F3): terms that matter for *this* meeting only.
+///
+/// Separate from the global list in Settings because the two have different
+/// lifetimes and different priorities — the names of today's attendees are not
+/// vocabulary the office always wants, and when Whisper's 224-token prompt
+/// cannot hold everything these are the terms that must survive.
+class SessionGlossaryPill extends ConsumerWidget {
+  const SessionGlossaryPill({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final terms = ref.watch(sessionProvider).sessionGlossaryTerms;
+    final globalCount = ref.watch(settingsProvider).glossary.terms.length;
+
+    return Tooltip(
+      message: 'Istilah khusus rapat ini, di atas $globalCount istilah '
+          'di Pengaturan',
+      child: InkWell(
+        borderRadius: Radii.smAll,
+        onTap: () => _edit(context, ref, terms),
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+          decoration: BoxDecoration(
+            color: colors.chipBackground,
+            borderRadius: Radii.smAll,
+            border: Border.all(color: colors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book_outlined,
+                  size: IconSizes.sm, color: colors.textSecondary),
+              const SizedBox(width: Spacing.sm),
+              Text(
+                terms.isEmpty ? 'Istilah rapat' : 'Istilah rapat (${terms.length})',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: FontSizes.caption,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _edit(
+    BuildContext context,
+    WidgetRef ref,
+    List<String> terms,
+  ) async {
+    final controller = TextEditingController(text: terms.join('\n'));
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Istilah khusus rapat ini'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Satu istilah per baris: nama peserta, singkatan, nama '
+                'program. Diutamakan di atas kamus di Pengaturan.',
+              ),
+              Spacing.gapMd,
+              TextField(
+                controller: controller,
+                autofocus: true,
+                minLines: 4,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Pak Budi Santoso\nSPBE\nRKAKL',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (saved == null) return;
+    ref.read(sessionProvider.notifier).setSessionGlossaryTerms(
+          saved.split(RegExp(r'[,\n;]')),
+          global: ref.read(settingsProvider).glossary,
+        );
   }
 }
 

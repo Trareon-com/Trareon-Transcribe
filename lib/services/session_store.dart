@@ -59,6 +59,20 @@ class SessionMeta {
   final String? language;
   final String? model;
 
+  /// Markers the notulis dropped during the meeting (F9). Kept here rather
+  /// than in the transcript JSON because that file is a bare segment array
+  /// and also an export artifact the user may hand to other tools.
+  final List<Bookmark> bookmarks;
+
+  /// The official-notulen form as last filled in (F2), so re-exporting a
+  /// meeting months later reproduces the same document instead of an empty
+  /// form.
+  final NotulenFormData? notulen;
+
+  /// Set once the background "perhalus transkrip" pass (F5) has finished for
+  /// this session, so it is never queued twice.
+  final bool autoRetranscribeDone;
+
   const SessionMeta({
     this.title,
     this.summary = '',
@@ -66,6 +80,9 @@ class SessionMeta {
     this.summaryGeneratedAt,
     this.language,
     this.model,
+    this.bookmarks = const [],
+    this.notulen,
+    this.autoRetranscribeDone = false,
   });
 
   static const SessionMeta empty = SessionMeta();
@@ -79,6 +96,9 @@ class SessionMeta {
     DateTime? summaryGeneratedAt,
     String? language,
     String? model,
+    List<Bookmark>? bookmarks,
+    NotulenFormData? notulen,
+    bool? autoRetranscribeDone,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -87,6 +107,9 @@ class SessionMeta {
       summaryGeneratedAt: summaryGeneratedAt ?? this.summaryGeneratedAt,
       language: language ?? this.language,
       model: model ?? this.model,
+      bookmarks: bookmarks ?? this.bookmarks,
+      notulen: notulen ?? this.notulen,
+      autoRetranscribeDone: autoRetranscribeDone ?? this.autoRetranscribeDone,
     );
   }
 
@@ -99,6 +122,13 @@ class SessionMeta {
       'summary_generated_at': summaryGeneratedAt!.toIso8601String(),
     if (language != null) 'language': language,
     if (model != null) 'model': model,
+    if (bookmarks.isNotEmpty)
+      'bookmarks': [
+        for (final bookmark in bookmarks)
+          {'timestamp': bookmark.timestamp, 'note': bookmark.note},
+      ],
+    if (notulen != null) 'notulen': notulen!.toJson(),
+    if (autoRetranscribeDone) 'auto_retranscribe_done': true,
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -119,8 +149,247 @@ class SessionMeta {
           : null,
       language: json['language'] is String ? json['language'] as String : null,
       model: json['model'] is String ? json['model'] as String : null,
+      bookmarks: _bookmarksFromJson(json['bookmarks']),
+      notulen: json['notulen'] is Map<String, dynamic>
+          ? NotulenFormData.fromJson(json['notulen'] as Map<String, dynamic>)
+          : null,
+      autoRetranscribeDone: json['auto_retranscribe_done'] == true,
     );
   }
+}
+
+/// Bookmarks, sorted by timestamp and with nonsense dropped. A hand-edited
+/// sidecar must not be able to put a marker at NaN or before the recording
+/// started.
+List<Bookmark> _bookmarksFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  final out = <Bookmark>[];
+  for (final entry in raw) {
+    if (entry is! Map) continue;
+    final timestamp = (entry['timestamp'] as num?)?.toDouble();
+    if (timestamp == null || timestamp.isNaN || timestamp < 0) continue;
+    out.add(Bookmark(
+      timestamp: timestamp,
+      note: entry['note'] is String ? entry['note'] as String : '',
+    ));
+  }
+  out.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  return out;
+}
+
+/// The "Notulen Rapat" form as the user last filled it in.
+///
+/// A Dart-side mirror of the Rust `NotulenForm` rather than the generated
+/// class itself: this one has to serialise to JSON for the sidecar, and the
+/// FRB-generated class has neither `toJson` nor a `copyWith`. [toRust]
+/// converts at the call boundary.
+class NotulenFormData {
+  const NotulenFormData({
+    this.variant = NotulenVariant.dinas,
+    this.instansi = '',
+    this.unitKerja = '',
+    this.nomor = '',
+    this.judul = '',
+    this.hari = '',
+    this.tanggal = '',
+    this.waktu = '',
+    this.tempat = '',
+    this.pimpinan = '',
+    this.notulis = '',
+    this.peserta = const [],
+    this.agenda = const [],
+    this.pembahasan = '',
+    this.keputusan = const [],
+    this.tindakLanjut = const [],
+    this.kopSuratPath = '',
+    this.lampirkanTranskrip = false,
+  });
+
+  final NotulenVariant variant;
+  final String instansi;
+  final String unitKerja;
+  final String nomor;
+  final String judul;
+  final String hari;
+  final String tanggal;
+  final String waktu;
+  final String tempat;
+  final String pimpinan;
+  final String notulis;
+  final List<String> peserta;
+  final List<String> agenda;
+  final String pembahasan;
+  final List<String> keputusan;
+  final List<NotulenTask> tindakLanjut;
+  final String kopSuratPath;
+  final bool lampirkanTranskrip;
+
+  NotulenFormData copyWith({
+    NotulenVariant? variant,
+    String? instansi,
+    String? unitKerja,
+    String? nomor,
+    String? judul,
+    String? hari,
+    String? tanggal,
+    String? waktu,
+    String? tempat,
+    String? pimpinan,
+    String? notulis,
+    List<String>? peserta,
+    List<String>? agenda,
+    String? pembahasan,
+    List<String>? keputusan,
+    List<NotulenTask>? tindakLanjut,
+    String? kopSuratPath,
+    bool? lampirkanTranskrip,
+  }) {
+    return NotulenFormData(
+      variant: variant ?? this.variant,
+      instansi: instansi ?? this.instansi,
+      unitKerja: unitKerja ?? this.unitKerja,
+      nomor: nomor ?? this.nomor,
+      judul: judul ?? this.judul,
+      hari: hari ?? this.hari,
+      tanggal: tanggal ?? this.tanggal,
+      waktu: waktu ?? this.waktu,
+      tempat: tempat ?? this.tempat,
+      pimpinan: pimpinan ?? this.pimpinan,
+      notulis: notulis ?? this.notulis,
+      peserta: peserta ?? this.peserta,
+      agenda: agenda ?? this.agenda,
+      pembahasan: pembahasan ?? this.pembahasan,
+      keputusan: keputusan ?? this.keputusan,
+      tindakLanjut: tindakLanjut ?? this.tindakLanjut,
+      kopSuratPath: kopSuratPath ?? this.kopSuratPath,
+      lampirkanTranskrip: lampirkanTranskrip ?? this.lampirkanTranskrip,
+    );
+  }
+
+  /// Converts to the engine's form. `poinPenting` is derived from the
+  /// session's bookmarks at export time rather than stored, so editing a
+  /// bookmark is reflected in the next export without re-saving the form.
+  NotulenForm toRust({List<String> poinPenting = const []}) => NotulenForm(
+    variant: variant,
+    instansi: instansi,
+    unitKerja: unitKerja,
+    nomor: nomor,
+    judul: judul,
+    hari: hari,
+    tanggal: tanggal,
+    waktu: waktu,
+    tempat: tempat,
+    pimpinan: pimpinan,
+    notulis: notulis,
+    peserta: peserta,
+    agenda: agenda,
+    pembahasan: pembahasan,
+    keputusan: keputusan,
+    tindakLanjut: [
+      for (final task in tindakLanjut)
+        TindakLanjut(
+          tugas: task.tugas,
+          penanggungJawab: task.penanggungJawab,
+          tenggat: task.tenggat,
+        ),
+    ],
+    poinPenting: poinPenting,
+    kopSuratPath: kopSuratPath,
+    lampirkanTranskrip: lampirkanTranskrip,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'variant': variant.name,
+    'instansi': instansi,
+    'unit_kerja': unitKerja,
+    'nomor': nomor,
+    'judul': judul,
+    'hari': hari,
+    'tanggal': tanggal,
+    'waktu': waktu,
+    'tempat': tempat,
+    'pimpinan': pimpinan,
+    'notulis': notulis,
+    'peserta': peserta,
+    'agenda': agenda,
+    'pembahasan': pembahasan,
+    'keputusan': keputusan,
+    'tindak_lanjut': [for (final task in tindakLanjut) task.toJson()],
+    'kop_surat_path': kopSuratPath,
+    'lampirkan_transkrip': lampirkanTranskrip,
+  };
+
+  factory NotulenFormData.fromJson(Map<String, dynamic> json) {
+    List<String> strings(Object? raw) => raw is List
+        ? raw.whereType<String>().toList()
+        : const <String>[];
+    String text(String key) => json[key] is String ? json[key] as String : '';
+    return NotulenFormData(
+      variant: NotulenVariant.values
+              .where((v) => v.name == json['variant'])
+              .firstOrNull ??
+          NotulenVariant.dinas,
+      instansi: text('instansi'),
+      unitKerja: text('unit_kerja'),
+      nomor: text('nomor'),
+      judul: text('judul'),
+      hari: text('hari'),
+      tanggal: text('tanggal'),
+      waktu: text('waktu'),
+      tempat: text('tempat'),
+      pimpinan: text('pimpinan'),
+      notulis: text('notulis'),
+      peserta: strings(json['peserta']),
+      agenda: strings(json['agenda']),
+      pembahasan: text('pembahasan'),
+      keputusan: strings(json['keputusan']),
+      tindakLanjut: json['tindak_lanjut'] is List
+          ? (json['tindak_lanjut'] as List)
+                .whereType<Map>()
+                .map(NotulenTask.fromJson)
+                .toList()
+          : const [],
+      kopSuratPath: text('kop_surat_path'),
+      lampirkanTranskrip: json['lampirkan_transkrip'] == true,
+    );
+  }
+}
+
+/// One tugas / penanggung jawab / tenggat row, JSON-serialisable.
+class NotulenTask {
+  const NotulenTask({
+    this.tugas = '',
+    this.penanggungJawab = '',
+    this.tenggat = '',
+  });
+
+  final String tugas;
+  final String penanggungJawab;
+  final String tenggat;
+
+  NotulenTask copyWith({
+    String? tugas,
+    String? penanggungJawab,
+    String? tenggat,
+  }) => NotulenTask(
+    tugas: tugas ?? this.tugas,
+    penanggungJawab: penanggungJawab ?? this.penanggungJawab,
+    tenggat: tenggat ?? this.tenggat,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'tugas': tugas,
+    'penanggung_jawab': penanggungJawab,
+    'tenggat': tenggat,
+  };
+
+  factory NotulenTask.fromJson(Map<dynamic, dynamic> json) => NotulenTask(
+    tugas: json['tugas'] is String ? json['tugas'] as String : '',
+    penanggungJawab: json['penanggung_jawab'] is String
+        ? json['penanggung_jawab'] as String
+        : '',
+    tenggat: json['tenggat'] is String ? json['tenggat'] as String : '',
+  );
 }
 
 /// One session as the library screen sees it: transcript plus sidecar.

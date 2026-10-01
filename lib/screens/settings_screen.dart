@@ -14,6 +14,8 @@ import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
+import '../widgets/glossary_settings_section.dart';
+import '../widgets/notulen_settings_section.dart';
 import '../widgets/settings_controls.dart';
 import '../widgets/summary_settings_section.dart';
 import 'diagnostics_screen.dart';
@@ -31,8 +33,10 @@ enum SettingsCategory {
   tampilan,
   modelMode,
   audio,
+  kamus,
   penyimpanan,
   ringkasan,
+  notulen,
   penyiapan,
   tentang,
 }
@@ -42,8 +46,10 @@ extension on SettingsCategory {
         SettingsCategory.tampilan => 'Tampilan',
         SettingsCategory.modelMode => 'Model & Mode',
         SettingsCategory.audio => 'Audio & Suara',
+        SettingsCategory.kamus => 'Kamus Istilah',
         SettingsCategory.penyimpanan => 'Penyimpanan',
         SettingsCategory.ringkasan => 'Ringkasan AI',
+        SettingsCategory.notulen => 'Notulen Resmi',
         SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
         SettingsCategory.tentang => 'Tentang',
       };
@@ -52,8 +58,10 @@ extension on SettingsCategory {
         SettingsCategory.tampilan => Icons.palette_outlined,
         SettingsCategory.modelMode => Icons.psychology_outlined,
         SettingsCategory.audio => Icons.graphic_eq_outlined,
+        SettingsCategory.kamus => Icons.menu_book_outlined,
         SettingsCategory.penyimpanan => Icons.folder_outlined,
         SettingsCategory.ringkasan => Icons.auto_awesome_outlined,
+        SettingsCategory.notulen => Icons.description_outlined,
         SettingsCategory.penyiapan => Icons.health_and_safety_outlined,
         SettingsCategory.tentang => Icons.info_outlined,
       };
@@ -308,6 +316,7 @@ class _CategoryContent extends ConsumerWidget {
         SettingsCategory.modelMode =>
           _modelMode(context, ref, settings, notifier, colors),
         SettingsCategory.audio => _audio(settings, notifier),
+        SettingsCategory.kamus => const [GlossarySettingsSection()],
         SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
         SettingsCategory.ringkasan => const [
             SettingsSection(
@@ -315,6 +324,7 @@ class _CategoryContent extends ConsumerWidget {
               children: [SummarySettingsSection()],
             ),
           ],
+        SettingsCategory.notulen => const [NotulenDefaultsSection()],
         SettingsCategory.penyiapan => _penyiapan(context, ref),
         SettingsCategory.tentang => _tentang(context, ref, colors),
       },

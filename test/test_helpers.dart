@@ -143,6 +143,13 @@ mixin SummaryBridgeStubs {
   }) async => destination;
 
   Future<int> diagnosticLogFileCount() async => 1;
+
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) async => [
+    for (final bookmark in bookmarks)
+      '[${(bookmark.timestamp ~/ 60).toString().padLeft(2, '0')}:'
+          '${(bookmark.timestamp % 60).floor().toString().padLeft(2, '0')}] '
+          '${bookmark.note.trim().isEmpty ? 'Poin penting' : bookmark.note.trim()}',
+  ];
 }
 
 /// Timer-free test double for RustBridge that persists settings in memory
