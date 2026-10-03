@@ -66,45 +66,50 @@ class _StorageBarState extends State<StorageBar> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Icon(Icons.storage_outlined, size: 14, color: colors.textTertiary),
-          const SizedBox(width: 6),
-          FutureBuilder<int>(
-            future: _bytesFuture,
-            builder: (context, snapshot) {
-              final sessionLabel = widget.totalSessions > 0
-                  ? '${widget.totalSessions} sesi'
-                  : 'Belum ada sesi';
-              if (snapshot.connectionState == ConnectionState.done &&
-                  snapshot.hasData &&
-                  snapshot.data! > 0) {
+      child: Semantics(
+        label: widget.totalSessions > 0
+            ? 'Penyimpanan: ${widget.totalSessions} sesi tersimpan'
+            : 'Penyimpanan: belum ada sesi tersimpan',
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: Icon(Icons.storage_outlined, size: 14, color: colors.textTertiary),
+            ),
+            const SizedBox(width: 6),
+            FutureBuilder<int>(
+              future: _bytesFuture,
+              builder: (context, snapshot) {
+                final sessionLabel = widget.totalSessions > 0
+                    ? '${widget.totalSessions} sesi'
+                    : 'Belum ada sesi';
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.hasData &&
+                    snapshot.data! > 0) {
+                  return Text(
+                    '$sessionLabel · ${_formatBytes(snapshot.data!)}',
+                    style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  );
+                }
                 return Text(
-                  '$sessionLabel · ${_formatBytes(snapshot.data!)}',
+                  sessionLabel,
                   style: TextStyle(color: colors.textTertiary, fontSize: 12),
                 );
-              }
-              return Text(
-                sessionLabel,
-                style: TextStyle(color: colors.textTertiary, fontSize: 12),
-              );
-            },
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: colors.chipBackground,
-              borderRadius: BorderRadius.circular(10),
+              },
             ),
-            child: Text(
-              widget.totalSessions > 0
-                  ? '📁 ${widget.totalSessions}'
-                  : '📂 Kosong',
-              style: TextStyle(color: colors.textSecondary, fontSize: 11),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colors.chipBackground,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                widget.totalSessions > 0 ? '📁 ${widget.totalSessions}' : '📂 Kosong',
+                style: TextStyle(color: colors.textSecondary, fontSize: 11),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

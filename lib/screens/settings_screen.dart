@@ -41,7 +41,10 @@ enum SettingsCategory {
   tentang,
 }
 
-extension on SettingsCategory {
+/// Named (not anonymous) so tests can enumerate the panes: the text-scaling
+/// gate walks every category, and a pane nobody opens is a pane nobody
+/// notices is broken.
+extension SettingsCategoryLabel on SettingsCategory {
   String get label => switch (this) {
         SettingsCategory.tampilan => 'Tampilan',
         SettingsCategory.modelMode => 'Model & Mode',

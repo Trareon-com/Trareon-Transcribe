@@ -58,7 +58,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     final result = _result;
     final destination = await FilePicker.platform.saveFile(
       dialogTitle: 'Simpan log diagnostik',
-      fileName: 'trareon-diagnostik-'
+      fileName:
+          'trareon-diagnostik-'
           '${DateTime.now().toIso8601String().substring(0, 10)}.zip',
       type: FileType.custom,
       allowedExtensions: const ['zip'],
@@ -66,26 +67,20 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     if (destination == null || !mounted) return;
     setState(() => _exporting = true);
     try {
-      final written = await ref.read(rustBridgeProvider).exportDiagnostics(
+      final written = await ref
+          .read(rustBridgeProvider)
+          .exportDiagnostics(
             destination: destination,
             doctorReport: _doctorReport(result),
             environment: environmentSummary(),
           );
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(
-        context,
-        'Log diagnostik tersimpan: $written',
-        type: ToastType.success,
-      );
+      AppToast.show(context, 'Log diagnostik tersimpan: $written', type: ToastType.success);
     } catch (e) {
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(
-        context,
-        'Gagal menyimpan log diagnostik: $e',
-        type: ToastType.error,
-      );
+      AppToast.show(context, 'Gagal menyimpan log diagnostik: $e', type: ToastType.error);
     }
   }
 
@@ -160,9 +155,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     PreflightSeverity.fail => colors.error,
                   },
                   title: checkTitle(check.name),
-                  message: messageOf(check).isEmpty
-                      ? checkPurpose(check.name)
-                      : messageOf(check),
+                  message: messageOf(check).isEmpty ? checkPurpose(check.name) : messageOf(check),
                   remediation: check.remediation,
                 ),
             const SizedBox(height: 12),
@@ -170,14 +163,10 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               result.hasFailures
                   ? 'Ada masalah yang perlu diperbaiki sebelum merekam.'
                   : result.hasWarnings
-                      ? 'Aplikasi bisa dipakai, tapi ada hal yang sebaiknya '
-                          'diperiksa.'
-                      : 'Semua siap. Aplikasi bisa merekam.',
-              style: TextStyle(
-                color: colors.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+                  ? 'Aplikasi bisa dipakai, tapi ada hal yang sebaiknya '
+                        'diperiksa.'
+                  : 'Semua siap. Aplikasi bisa merekam.',
+              style: TextStyle(color: colors.text, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
           // Last: exporting the log is what you do *after* reading the
@@ -226,12 +215,18 @@ class _DiagnosticCard extends StatelessWidget {
           children: [
             SizedBox(
               width: 22,
-              child: Text(
-                marker,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              // "✓" / "!" / "✗" carry the severity visually; read aloud they
+              // are a punctuation mark. The label says it in words.
+              child: Semantics(
+                label: switch (marker) {
+                  '✓' => 'Baik',
+                  '!' => 'Perlu diperiksa',
+                  _ => 'Gagal',
+                },
+                excludeSemantics: true,
+                child: Text(
+                  marker,
+                  style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -241,18 +236,11 @@ class _DiagnosticCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: colors.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(color: colors.text, fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   if (message.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      message,
-                      style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                    ),
+                    Text(message, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
                   ],
                   if (remediation != null && remediation!.isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -264,11 +252,7 @@ class _DiagnosticCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             remediation!,
-                            style: TextStyle(
-                              color: colors.text,
-                              fontSize: 12,
-                              height: 1.35,
-                            ),
+                            style: TextStyle(color: colors.text, fontSize: 12, height: 1.35),
                           ),
                         ),
                       ],
@@ -286,11 +270,10 @@ class _DiagnosticCard extends StatelessWidget {
 
 /// Convenience for the Settings tile.
 Future<void> openDiagnostics(BuildContext context) {
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const DiagnosticsScreen()),
-  );
+  return Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const DiagnosticsScreen()));
 }
-
 
 /// "Ekspor Log Diagnostik" (audit item 27).
 ///
@@ -320,8 +303,7 @@ class _DiagnosticsExportCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.bug_report_outlined,
-              size: IconSizes.lg, color: colors.textSecondary),
+          Icon(Icons.bug_report_outlined, size: IconSizes.lg, color: colors.textSecondary),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
