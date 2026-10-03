@@ -735,7 +735,12 @@ pub fn poll_events(session_id: &str) -> Result<Vec<SessionEvent>, TranscribeErro
     };
 
     drop(reg);
-    persist_session_snapshot(session_id)?;
+    // Best-effort, exactly like `get_status` above: `events` have already
+    // been removed from `pending_events` by the `mem::take`, so propagating a
+    // persist failure with `?` here would discard transcript and VU events
+    // that are never re-delivered — the UI would simply lose that speech.
+    // Snapshotting is crash recovery; it is never worth a live event.
+    let _ = persist_session_snapshot(session_id);
     Ok(events)
 }
 
@@ -2026,6 +2031,64 @@ mod tests {
         record_segment(&id).unwrap();
         let status = get_status(&id).unwrap();
         assert_eq!(status.segments_count, 2);
+        stop_session(&id).unwrap();
+    }
+
+    /// `poll_events` drains `pending_events` before it snapshots, so a
+    /// snapshot failure must not be propagated: the events are already gone
+    /// from the registry and nothing re-delivers them. Returning `Err` here
+    /// silently deleted transcript text and VU levels — the UI showed a gap
+    /// in the meeting with no error anywhere.
+    #[test]
+    fn poll_events_keeps_drained_events_when_the_snapshot_cannot_be_written() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+
+        with_session_mut(&id, |s| {
+            s.pending_events.push(SessionEvent::Transcript(Segment {
+                source: "mic".into(),
+                speaker: "MIC".into(),
+                text: "satu dua tiga".into(),
+                timestamp: 1.0,
+                duration: 1.5,
+                language: "id".into(),
+                confidence: 0.9,
+                is_partial: false,
+                low_confidence: false,
+                avg_log_prob: -0.2,
+            }));
+            s.pending_events.push(SessionEvent::Vu {
+                source: "mic".into(),
+                level: 0.4,
+            });
+        })
+        .unwrap();
+
+        // Make the snapshot write fail for real rather than mocking it: a
+        // recovery root that is a regular file makes `create_dir_all` fail,
+        // which is what a read-only or full volume looks like here.
+        let blocked = home.path().join("not-a-directory");
+        std::fs::write(&blocked, b"x").unwrap();
+        set_recovery_dir_override(Some(blocked.join("recovery")));
+        assert!(
+            persist_session_snapshot(&id).is_err(),
+            "precondition: the snapshot write has to be failing"
+        );
+
+        let events = poll_events(&id).expect("a failed snapshot must not fail the poll");
+        assert_eq!(
+            events.len(),
+            2,
+            "both drained events are still delivered: {events:?}"
+        );
+        assert!(matches!(events[0], SessionEvent::Transcript(_)));
+        assert!(matches!(events[1], SessionEvent::Vu { .. }));
+
+        // And they really were drained — a second poll is empty, which is
+        // why losing them the first time would have been permanent.
+        assert!(poll_events(&id).unwrap().is_empty());
+
+        set_recovery_dir_override(Some(home.path().to_path_buf()));
         stop_session(&id).unwrap();
     }
 
