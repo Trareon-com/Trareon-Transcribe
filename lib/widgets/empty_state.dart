@@ -18,8 +18,13 @@ class EmptyState extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return LayoutBuilder(builder: (context, constraints) {
-      final compact = constraints.maxHeight < 220;
-      return Center(child: SingleChildScrollView(padding: EdgeInsets.all(compact ? 16 : 40), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      // Every current caller sits in an Expanded, but a scroll view given
+      // unbounded height throws outright — a worse failure than the overflow
+      // above — so the scrolling is conditional on actually having a height.
+      final bounded = constraints.hasBoundedHeight;
+      final compact = bounded && constraints.maxHeight < 220;
+      final padding = EdgeInsets.all(compact ? 16 : 40);
+      final body = Column(mainAxisSize: MainAxisSize.min, children: [
         if (!compact) ...[
           Icon(icon, size: 40, color: colors.textTertiary),
           const SizedBox(height: 16),
@@ -27,7 +32,10 @@ class EmptyState extends StatelessWidget {
         Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
         if (subtitle != null) ...[const SizedBox(height: 6), Text(subtitle!, style: TextStyle(fontSize: 13, color: colors.textTertiary), textAlign: TextAlign.center)],
         if (action != null) ...[SizedBox(height: compact ? 12 : 20), action!],
-      ])));
+      ]);
+      return Center(child: bounded
+          ? SingleChildScrollView(padding: padding, child: body)
+          : Padding(padding: padding, child: body));
     });
   }
 }

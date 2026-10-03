@@ -131,5 +131,31 @@ void main() {
       // Reachable by scrolling instead of painted over the edge.
       expect(find.byType(Scrollable), findsOneWidget);
     });
+
+    testWidgets('survives being given unbounded height', (tester) async {
+      // No current caller does this — they all sit in an Expanded — but a
+      // scroll view with an unbounded height throws outright, which would
+      // be a worse failure than the overflow this fix is about.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: const [
+                EmptyState(
+                  icon: Icons.folder_open_outlined,
+                  title: 'Belum ada sesi tersimpan',
+                  subtitle: 'Sesi transkripsi akan muncul di sini',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Belum ada sesi tersimpan'), findsOneWidget);
+      expect(find.byIcon(Icons.folder_open_outlined), findsOneWidget);
+    });
   });
 }
