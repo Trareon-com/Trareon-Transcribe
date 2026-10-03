@@ -2,14 +2,16 @@
 //!
 //! | Platform | Technique |
 //! |----------|-----------|
-//! | macOS    | BlackHole 2ch via cpal (primary) + ffmpeg avfoundation (fallback) |
+//! | macOS    | ScreenCaptureKit (zero-setup) or the user's chosen loopback device via cpal |
 //! | Windows  | WASAPI loopback (`AUDCLNT_STREAMFLAGS_LOOPBACK`) |
 //! | Linux    | PulseAudio/PipeWire `<sink>.monitor` via [`crate::audio::pulse`] (ffmpeg, then parec) |
 //!
-//! On Linux the monitor source is resolved explicitly (see
-//! [`resolve_monitor_source`]) rather than recording `default` — the default
-//! *source* is the microphone, so recording it as "system audio" produced a
-//! transcript of the user's own mic on both channels.
+//! No platform here ever falls back to the default *input* device. On Linux
+//! the monitor source is resolved explicitly (see [`resolve_monitor_source`])
+//! rather than recording `default`, and on macOS a failed capture returns an
+//! actionable error instead of `ffmpeg -f avfoundation -i :default` — because
+//! the default source is the microphone, and recording it as "system audio"
+//! produced a transcript of the user's own mic on both channels.
 
 use crate::audio::capture::AudioCapture;
 use crate::error::TranscribeError;
@@ -41,15 +43,52 @@ pub fn start_loopback(
     }
 }
 
+/// Turns `SCStream::add_output_handler`'s return value into a `Result`.
+///
+/// The registration returns `Option<usize>`: `Some(handler_id)` on success,
+/// `None` on failure. The call site used to write that as
+/// `.map_or(Ok(()), |e| Err(..))`, which is the mapping *inverted* — every
+/// successful registration became an `Err` (so ScreenCaptureKit "failed" on
+/// every healthy machine and macOS fell through to the mic-recording
+/// fallback), and a genuine `None` became `Ok` (starting a handler-less
+/// stream that captured silence).
+///
+/// Deliberately lives outside the `#[cfg(target_os = "macos")]` module and is
+/// generic over the handler id: the inversion is a logic bug, not a platform
+/// one, so [`sck_handler_registration_is_ok_only_on_some`] compiles and runs
+/// on Linux and Windows CI too. Nothing about this can regress unnoticed
+/// again just because the gate has no Mac.
+// Only the macOS module calls it; off a Mac it exists purely so the tests can.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn sck_handler_registration<T>(handler_id: Option<T>) -> Result<(), TranscribeError> {
+    handler_id.map(|_| ()).ok_or_else(|| {
+        TranscribeError::AudioDevice(
+            "ScreenCaptureKit: failed to register audio output handler".into(),
+        )
+    })
+}
+
+/// Whether macOS should try ScreenCaptureKit's zero-setup system-audio
+/// capture instead of opening a named device.
+///
+/// True exactly when the user has not picked a concrete output device — an
+/// absent, empty or `"default"` hint. Pure and cfg-independent so the policy
+/// is tested everywhere, not only on a Mac.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn wants_zero_setup_capture(device_hint: Option<&str>) -> bool {
+    device_hint
+        .map(|hint| hint.trim().is_empty() || hint.eq_ignore_ascii_case("default"))
+        .unwrap_or(true)
+}
+
 // ---------------------------------------------------------------------------
-// macOS — ScreenCaptureKit (primary, zero-setup), BlackHole/ffmpeg (fallback)
+// macOS — ScreenCaptureKit (primary, zero-setup), chosen device via cpal
 // ---------------------------------------------------------------------------
 #[cfg(target_os = "macos")]
 pub(crate) mod macos {
+    use super::{sck_handler_registration, wants_zero_setup_capture};
     use crate::audio::capture::AudioCapture;
     use crate::error::TranscribeError;
-    use std::io::Read;
-    use std::process::{Command, Stdio};
     use std::sync::mpsc;
 
     #[flutter_rust_bridge::frb(ignore)]
@@ -57,37 +96,43 @@ pub(crate) mod macos {
         device_hint: Option<String>,
         samples_tx: mpsc::Sender<Vec<f32>>,
     ) -> Result<AudioCapture, TranscribeError> {
-        // ScreenCaptureKit: zero-setup system audio on macOS 13+
-        // Skip if user explicitly requested a specific device (e.g. BlackHole)
-        let wants_sck = device_hint
-            .as_deref()
-            .map(|h| h.is_empty() || h.eq_ignore_ascii_case("default"))
-            .unwrap_or(true);
-
-        if wants_sck {
-            match try_sck_capture(&samples_tx) {
+        // ScreenCaptureKit: zero-setup system audio on macOS 13+.
+        // Skipped only when the user explicitly picked a device (e.g. BlackHole).
+        if wants_zero_setup_capture(device_hint.as_deref()) {
+            return match try_sck_capture(&samples_tx) {
                 Ok(capture) => {
                     tracing::info!("using ScreenCaptureKit for system audio");
-                    return Ok(capture);
+                    Ok(capture)
                 }
+                // No fallthrough. The only fallbacks available here are
+                // BlackHole-by-name (usually not installed, since the user
+                // picked nothing) and `ffmpeg -f avfoundation -i :default`,
+                // which is the MICROPHONE — avfoundation has no system-audio
+                // device. Recording the mic and labelling it "Audio sistem",
+                // possibly with the mic toggle off, is the worst outcome for a
+                // privacy-first app, so surface the actionable error (almost
+                // always: grant Screen & System Audio Recording permission).
+                // Same rule as Linux, where `pulse::monitor_source` errors
+                // rather than recording `default`.
                 Err(e) => {
-                    tracing::warn!("ScreenCaptureKit unavailable: {e}, falling back");
+                    tracing::warn!(%e, "ScreenCaptureKit unavailable; not falling back to mic");
+                    Err(e)
                 }
-            }
+            };
         }
 
-        // Fallback: BlackHole 2ch via cpal (or requested device)
-        let device_name = device_hint
-            .filter(|s| !s.is_empty())
-            .or_else(|| Some("BlackHole 2ch".to_string()));
-
-        let cpal_result = AudioCapture::start("spk", device_name.clone(), samples_tx.clone());
-        if cpal_result.is_ok() {
-            return cpal_result;
-        }
-
-        // Final fallback: ffmpeg avfoundation
-        ffmpeg_fallback(samples_tx)
+        // Explicitly requested device (BlackHole 2ch and friends) via cpal.
+        let device_name = device_hint.filter(|s| !s.trim().is_empty());
+        AudioCapture::start("spk", device_name.clone(), samples_tx).map_err(|e| {
+            // Again no `ffmpeg -i :default` fallback: it would quietly swap
+            // the device the user chose for their microphone.
+            let requested = device_name.unwrap_or_else(|| "BlackHole 2ch".to_string());
+            TranscribeError::AudioDevice(format!(
+                "Tidak bisa membuka \"{requested}\" untuk audio sistem ({e}). Pilih perangkat \
+                 loopback lain di Pengaturan, atau kosongkan pilihan perangkat agar Trareon \
+                 memakai ScreenCaptureKit (butuh izin Screen & System Audio Recording)."
+            ))
+        })
     }
 
     /// ScreenCaptureKit-based system audio capture — no driver install needed.
@@ -128,30 +173,27 @@ pub(crate) mod macos {
         let tx = samples_tx.clone();
 
         // Closure-based audio handler — fires on ScreenCaptureKit's internal queue
-        stream
-            .add_output_handler(
-                move |sample: CMSampleBuffer, of_type: SCStreamOutputType| {
-                    if of_type != SCStreamOutputType::Audio {
-                        return;
-                    }
-                    if let Some(list) = sample.audio_buffer_list() {
-                        for buf in list.iter() {
-                            let ptr = buf.data().as_ptr() as *const f32;
-                            let len = buf.data_byte_size() / 4;
-                            if !ptr.is_null() && len > 0 {
-                                let samples = unsafe { std::slice::from_raw_parts(ptr, len) };
-                                let _ = tx.send(samples.to_vec());
-                            }
+        let handler = stream.add_output_handler(
+            move |sample: CMSampleBuffer, of_type: SCStreamOutputType| {
+                if of_type != SCStreamOutputType::Audio {
+                    return;
+                }
+                if let Some(list) = sample.audio_buffer_list() {
+                    for buf in list.iter() {
+                        let ptr = buf.data().as_ptr() as *const f32;
+                        let len = buf.data_byte_size() / 4;
+                        if !ptr.is_null() && len > 0 {
+                            let samples = unsafe { std::slice::from_raw_parts(ptr, len) };
+                            let _ = tx.send(samples.to_vec());
                         }
                     }
-                },
-                SCStreamOutputType::Audio,
-            )
-            .map_or(Ok(()), |e| {
-                Err(TranscribeError::AudioDevice(format!(
-                    "ScreenCaptureKit: add handler failed: {e}"
-                )))
-            })?;
+                }
+            },
+            SCStreamOutputType::Audio,
+        );
+        // `Some(handler_id)` means the handler is registered; see
+        // `sck_handler_registration` for the inversion this replaces.
+        sck_handler_registration(handler)?;
 
         stream.start_capture().map_err(|e| {
             TranscribeError::AudioDevice(format!("ScreenCaptureKit: start failed: {e}"))
@@ -164,89 +206,6 @@ pub(crate) mod macos {
         });
 
         Ok(AudioCapture::new(stop_tx, thread))
-    }
-
-    /// ffmpeg avfoundation fallback for macOS versions < 13 or when
-    /// ScreenCaptureKit permission is unavailable.
-    fn ffmpeg_fallback(
-        samples_tx: mpsc::Sender<Vec<f32>>,
-    ) -> Result<AudioCapture, TranscribeError> {
-        let (stop_tx, stop_rx) = mpsc::channel::<()>();
-        let (ready_tx, ready_rx) = mpsc::channel::<Result<(), TranscribeError>>();
-
-        let thread = std::thread::spawn(move || {
-            let result = (|| -> Result<(), TranscribeError> {
-                let mut child = Command::new("ffmpeg")
-                    .args([
-                        "-hide_banner",
-                        "-loglevel",
-                        "error",
-                        "-f",
-                        "avfoundation",
-                        "-i",
-                        ":default",
-                        "-ac",
-                        "1",
-                        "-ar",
-                        "16000",
-                        "-f",
-                        "f32le",
-                        "-",
-                    ])
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::null())
-                    .spawn()
-                    .map_err(|e| {
-                        TranscribeError::AudioDevice(format!(
-                            "ffmpeg not found. Install: brew install ffmpeg ({e})"
-                        ))
-                    })?;
-
-                let stdout = child
-                    .stdout
-                    .take()
-                    .ok_or_else(|| TranscribeError::AudioDevice("no stdout from ffmpeg".into()))?;
-
-                let _ = ready_tx.send(Ok(()));
-                let mut reader = std::io::BufReader::new(stdout);
-                let mut buf = [0u8; 8192];
-
-                loop {
-                    if stop_rx.try_recv().is_ok() {
-                        let _ = child.kill();
-                        break;
-                    }
-                    match reader.read(&mut buf) {
-                        Ok(0) => break,
-                        Ok(n) if n >= 4 => {
-                            let f32s: Vec<f32> = buf[..n]
-                                .chunks(4)
-                                .filter_map(|c| {
-                                    if c.len() == 4 {
-                                        Some(f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect();
-                            if !f32s.is_empty() {
-                                let _ = samples_tx.send(f32s);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                let _ = child.wait();
-                Ok(())
-            })();
-            let _ = ready_tx.send(result);
-        });
-
-        match ready_rx.recv() {
-            Ok(Ok(())) => Ok(AudioCapture::new(stop_tx, thread)),
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err(TranscribeError::AudioDevice("ffmpeg thread failed".into())),
-        }
     }
 }
 
@@ -546,6 +505,53 @@ pub(crate) mod linux {
             };
             assert_ne!(mic, monitor);
         }
+    }
+}
+
+/// macOS capture policy, tested on every platform.
+///
+/// The ScreenCaptureKit path itself cannot be compiled off a Mac, so the two
+/// decisions that actually broke system-audio capture live in pure helpers
+/// that CI (Linux) does exercise.
+#[cfg(test)]
+mod macos_policy_tests {
+    use super::{sck_handler_registration, wants_zero_setup_capture};
+
+    /// The regression that made ScreenCaptureKit unusable: `Some(handler_id)`
+    /// is success. Before this, a healthy registration was reported as an
+    /// error and macOS fell through to recording the microphone.
+    #[test]
+    fn sck_handler_registration_is_ok_only_on_some() {
+        assert!(sck_handler_registration(Some(7usize)).is_ok());
+        // A handler id of 0 is still a handler id, not a failure.
+        assert!(sck_handler_registration(Some(0usize)).is_ok());
+
+        let err = sck_handler_registration(None::<usize>).expect_err("None must be an error");
+        assert!(
+            err.to_string().contains("output handler"),
+            "error should name what failed to register, got: {err}"
+        );
+    }
+
+    #[test]
+    fn zero_setup_capture_is_used_when_no_device_was_chosen() {
+        assert!(wants_zero_setup_capture(None));
+        assert!(wants_zero_setup_capture(Some("")));
+        // Settings round-trips can leave whitespace behind; it is still
+        // "the user picked nothing", not a device named " ".
+        assert!(wants_zero_setup_capture(Some("   ")));
+        assert!(wants_zero_setup_capture(Some("default")));
+        assert!(wants_zero_setup_capture(Some("Default")));
+    }
+
+    #[test]
+    fn a_chosen_device_skips_zero_setup_capture() {
+        assert!(!wants_zero_setup_capture(Some("BlackHole 2ch")));
+        assert!(!wants_zero_setup_capture(Some("Loopback Audio")));
+        // Not a prefix/substring match: a device merely containing "default"
+        // is a real device the user picked.
+        assert!(!wants_zero_setup_capture(Some("MacBook Pro Speakers")));
+        assert!(!wants_zero_setup_capture(Some("default-ish Mixer")));
     }
 }
 
