@@ -95,6 +95,14 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   Timer? _elapsedTimer;
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
+
+  /// Synchronous re-entrancy guard for [start] and [recoverFromSnapshot].
+  ///
+  /// Both only set `lifecycle` to `recording` *after* their awaits, so the
+  /// lifecycle check cannot see a launch that is already in flight. Set
+  /// before the first await and cleared in a `finally`, so a failed start
+  /// still leaves the app able to try again.
+  bool _launching = false;
   String _libraryPath = kDefaultLibraryPath;
   // Recorded into the session's metadata sidecar on stop, so the library and
   // "Transkrip Ulang" know what produced the transcript.
@@ -250,66 +258,85 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     // Mulai first) silently orphans that session's Rust-side capture —
     // its registry entry and audio threads keep running with nothing left
     // to stop them — while this one clobbers the visible state.
-    if (state.lifecycle == SessionLifecycle.recording ||
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return null;
     }
-    seedRecovery(snapshot);
-    final recovered = await _bridge.recoverSession(snapshot);
-    _loadSegments(recovered.segments.map(fromRustSegment));
-    state = state.copyWith(
-      lifecycle: SessionLifecycle.recording,
-      sessionId: recovered.sessionId,
-      segments: _segmentsView,
-      revision: _revision,
-      sessionTitle: snapshot.title.isNotEmpty
-          ? snapshot.title
-          : state.sessionTitle,
-    );
-    // The elapsed timer continues from where the crashed run left off
-    // rather than restarting at 00:00 — the audio and transcript did.
-    _recordingStartedAt = DateTime.now().subtract(
-      Duration(milliseconds: (recovered.resumeOffsetSecs * 1000).round()),
-    );
-    _subscribeToLiveStreams(recovered.sessionId);
-    _mirrorTitleToSnapshot();
-    _resetAutoStopTimer();
-    return recovered;
+    _launching = true;
+    try {
+      seedRecovery(snapshot);
+      final recovered = await _bridge.recoverSession(snapshot);
+      _loadSegments(recovered.segments.map(fromRustSegment));
+      state = state.copyWith(
+        lifecycle: SessionLifecycle.recording,
+        sessionId: recovered.sessionId,
+        segments: _segmentsView,
+        revision: _revision,
+        sessionTitle: snapshot.title.isNotEmpty
+            ? snapshot.title
+            : state.sessionTitle,
+      );
+      // The elapsed timer continues from where the crashed run left off
+      // rather than restarting at 00:00 — the audio and transcript did.
+      _recordingStartedAt = DateTime.now().subtract(
+        Duration(milliseconds: (recovered.resumeOffsetSecs * 1000).round()),
+      );
+      _subscribeToLiveStreams(recovered.sessionId);
+      _mirrorTitleToSnapshot();
+      _resetAutoStopTimer();
+      return recovered;
+    } finally {
+      _launching = false;
+    }
   }
 
   Future<void> start() async {
-    // Guard against double-start: if already recording/paused, ignore.
-    if (state.lifecycle == SessionLifecycle.recording ||
+    // Guard against double-start. The lifecycle check alone is not enough:
+    // lifecycle only flips to `recording` after the awaits below, so a
+    // second call arriving inside that window — a double-click on Mulai, or
+    // Ctrl+R held down — passed the check and started a *second* live Rust
+    // session. The first one was then orphaned: its capture threads and
+    // registry entry kept running with no id left in Dart to stop them, so
+    // it recorded to disk until the app exited. `_launching` is set
+    // synchronously, before the first await, which is what closes the gap.
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return;
     }
-    // Model existence is checked by the Rust side's own resolve_model_path(),
-    // which handles tilde expansion, sandbox paths, and multiple search
-    // locations. The old File.existsSync() check here was unreliable because
-    // modelPath can be a relative path (fallback from modelPathForId) that
-    // doesn't resolve against the Flutter app bundle's CWD, or contain an
-    // unexpanded '~' in the library path — producing false-positive "model
-    // tidak ditemukan" errors even when the model file exists.
-    // Auto-detect frontmost window title as default session name.
-    final detected = await _bridge.detectFrontmostWindowTitle();
-    // start_capture() on the Rust side treats a null device id as "setup not
-    // completed" and skips spawning the capture thread entirely — so a
-    // concrete device name must be resolved here, or mic/speaker audio is
-    // silently never captured regardless of the mic/speaker toggles.
-    final configWithDevices = await _resolveDevices(state.config);
-    state = state.copyWith(config: configWithDevices);
-    final id = await _bridge.startSession(state.config);
-    _loadSegments(const []);
-    state = state.copyWith(
-      lifecycle: SessionLifecycle.recording,
-      sessionId: id,
-      segments: _segmentsView,
-      revision: _revision,
-      sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
-    );
-    _subscribeToLiveStreams(id);
-    _mirrorTitleToSnapshot();
-    _resetAutoStopTimer();
+    _launching = true;
+    try {
+      // Model existence is checked by the Rust side's own resolve_model_path(),
+      // which handles tilde expansion, sandbox paths, and multiple search
+      // locations. The old File.existsSync() check here was unreliable because
+      // modelPath can be a relative path (fallback from modelPathForId) that
+      // doesn't resolve against the Flutter app bundle's CWD, or contain an
+      // unexpanded '~' in the library path — producing false-positive "model
+      // tidak ditemukan" errors even when the model file exists.
+      // Auto-detect frontmost window title as default session name.
+      final detected = await _bridge.detectFrontmostWindowTitle();
+      // start_capture() on the Rust side treats a null device id as "setup not
+      // completed" and skips spawning the capture thread entirely — so a
+      // concrete device name must be resolved here, or mic/speaker audio is
+      // silently never captured regardless of the mic/speaker toggles.
+      final configWithDevices = await _resolveDevices(state.config);
+      state = state.copyWith(config: configWithDevices);
+      final id = await _bridge.startSession(state.config);
+      _loadSegments(const []);
+      state = state.copyWith(
+        lifecycle: SessionLifecycle.recording,
+        sessionId: id,
+        segments: _segmentsView,
+        revision: _revision,
+        sessionTitle: detected.isNotEmpty ? detected : state.sessionTitle,
+      );
+      _subscribeToLiveStreams(id);
+      _mirrorTitleToSnapshot();
+      _resetAutoStopTimer();
+    } finally {
+      _launching = false;
+    }
   }
 
   /// Resolves concrete mic/speaker device names when the config doesn't
