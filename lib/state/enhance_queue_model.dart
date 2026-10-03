@@ -19,7 +19,6 @@
 /// * **Never twice.** A finished pass is recorded in the sidecar.
 library;
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -226,12 +225,32 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
 
   bool _draining = false;
   bool _cancelCurrent = false;
+  Future<void> _drainTask = Future<void>.value();
+
+  /// Completes when the queue has nothing left to run.
+  ///
+  /// The drain loop is deliberately fire-and-forget — queueing a job must not
+  /// block the save that triggered it — so this is the only honest way for a
+  /// caller (a test, or a shutdown path that wants the last write to land) to
+  /// know the pass finished. Waiting a fixed number of milliseconds instead
+  /// looks like it works and fails on a slow disk.
+  Future<void> get idle => _drainTask;
 
   /// Yields to a live recording and resumes when it ends.
   void setPaused(bool paused) {
     if (state.paused == paused) return;
     state = state.copyWith(paused: paused);
-    if (!paused) unawaited(_drain());
+    if (!paused) _schedule();
+  }
+
+  /// Starts a drain pass unless one is already running — an in-flight loop
+  /// re-reads [EnhanceQueueState.pending] each iteration, so it picks up
+  /// whatever was just added without a second loop.
+  void _schedule() {
+    if (_draining) return;
+    // `_drain` sets `_draining` before its first `await`, so this assignment
+    // always captures the real loop rather than an early return.
+    _drainTask = _drain();
   }
 
   /// Queues [handoff] if the rules say it should be enhanced. Returns true
@@ -268,7 +287,7 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
         language: handoff.language,
       ),
     ]);
-    unawaited(_drain());
+    _schedule();
     return true;
   }
 

@@ -245,8 +245,7 @@ void main() {
         );
 
         await queue.considerSession(handoff(dir.path));
-        // Let the drain loop finish.
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
 
         expect(bridge.calls, 1);
         final transcript = await File(
@@ -275,7 +274,7 @@ void main() {
           () => AppSettings.defaults().copyWith(libraryPath: dir.path),
         );
         await queue.considerSession(handoff(dir.path));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
 
         final transcript = await File(
           '${dir.path}${Platform.pathSeparator}Rapat.json',
@@ -308,7 +307,7 @@ void main() {
           ),
         );
         await queue.considerSession(handoff(dir.path));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
         expect(bridge.lastGlossary?.globalTerms, ['PPBJ']);
       } finally {
         await dir.delete(recursive: true);
@@ -327,12 +326,12 @@ void main() {
         );
         queue.setPaused(true);
         await queue.considerSession(handoff(dir.path));
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
         expect(bridge.calls, 0, reason: 'Whisper cannot usefully run twice');
         expect(queue.state.pending.length, 1);
 
         queue.setPaused(false);
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
         expect(bridge.calls, 1);
       } finally {
         await dir.delete(recursive: true);
@@ -384,7 +383,7 @@ void main() {
         await queue.considerSession(handoff(dir.path));
         queue.cancel(dir.path);
         queue.setPaused(false);
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await queue.idle;
         expect(bridge.calls, 0);
         expect(queue.state.jobs.single.status, EnhanceJobStatus.cancelled);
         expect(queue.state.visible, isEmpty);
