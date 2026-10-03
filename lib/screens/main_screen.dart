@@ -97,7 +97,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Future<void> _loadRecoveries() async {
     final bridge = ref.read(rustBridgeProvider);
-    final recoveries = await bridge.listRecoverableSessions();
+    var recoveries = const <rust_session.RecoverableSession>[];
+    try {
+      recoveries = await bridge.listRecoverableSessions();
+    } catch (e) {
+      // A throw here — an unreadable recovery directory, a bridge that
+      // failed to load — used to leave `_loadingRecoveries` true forever:
+      // a sidebar stuck on "Memeriksa sesi…" that also hid the recovery
+      // entry point entirely, so a crashed meeting became unreachable.
+      // Clearing the loading state matters more than the list; the error is
+      // reported rather than swallowed.
+      debugPrint('gagal membaca sesi yang bisa dipulihkan: $e');
+    }
     if (!mounted) return;
     setState(() {
       _recoverableSessions = recoveries;
