@@ -316,10 +316,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       // tidak ditemukan" errors even when the model file exists.
       // Auto-detect frontmost window title as default session name.
       final detected = await _bridge.detectFrontmostWindowTitle();
-      // start_capture() on the Rust side treats a null device id as "setup not
-      // completed" and skips spawning the capture thread entirely — so a
-      // concrete device name must be resolved here, or mic/speaker audio is
-      // silently never captured regardless of the mic/speaker toggles.
+      // The microphone needs a concrete device name resolved here (cpal has
+      // no "default input" concept the engine can use). System audio does
+      // not — see _resolveDevices.
       final configWithDevices = await _resolveDevices(state.config);
       state = state.copyWith(config: configWithDevices);
       final id = await _bridge.startSession(state.config);
@@ -339,13 +338,14 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     }
   }
 
-  /// Resolves concrete mic/speaker device names when the config doesn't
-  /// already carry one. Mirrors the setup wizard's own default-selection
-  /// heuristic: system default input device for mic, first loopback-looking
-  /// output device (BlackHole/WASAPI loopback) for speaker.
+  /// Resolves a concrete microphone name when the config doesn't already
+  /// carry one, mirroring the setup wizard's choice (the OS default input).
+  ///
+  /// The speaker hint is passed through as-is — see below for why guessing
+  /// one breaks system-audio capture on every platform.
   Future<SessionConfig> _resolveDevices(SessionConfig config) async {
     var micDeviceId = config.micDeviceId;
-    var speakerDeviceId = config.speakerDeviceId;
+    final speakerDeviceId = config.speakerDeviceId;
     if (micDeviceId == null && config.micEnabled) {
       final inputs = await _bridge.listAudioDevices();
       if (inputs.isNotEmpty) {
@@ -360,33 +360,21 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
             .name;
       }
     }
-    if (speakerDeviceId == null && config.speakerEnabled) {
-      final outputs = await _bridge.listOutputAudioDevices();
-      if (outputs.isNotEmpty) {
-        speakerDeviceId = outputs
-            .firstWhere(
-              (d) =>
-                  d.name.toLowerCase().contains('blackhole') ||
-                  d.name.toLowerCase().contains('loopback'),
-              orElse: () => outputs.first,
-            )
-            .name;
-      }
-      // Fallback: search listAudioDevices() for BlackHole/loopback too
-      if (speakerDeviceId == null) {
-        final inputs = await _bridge.listAudioDevices();
-        if (inputs.isNotEmpty) {
-          speakerDeviceId = inputs
-              .firstWhere(
-                (d) =>
-                    d.name.toLowerCase().contains('blackhole') ||
-                    d.name.toLowerCase().contains('loopback'),
-                orElse: () => inputs.first,
-              )
-              .name;
-        }
-      }
-    }
+    // speakerDeviceId is deliberately left as the user set it, including
+    // null. A null/empty hint is what tells the engine to resolve system
+    // audio itself — ScreenCaptureKit's zero-setup capture on macOS, the
+    // default sink's `.monitor` on Linux, the default render device on
+    // Windows — and that is right on all three.
+    //
+    // Guessing one here is what used to break it. The old heuristic picked
+    // the first output whose name contained "blackhole"/"loopback" and
+    // otherwise `outputs.first`, then fell back to searching the *input*
+    // list the same way. On macOS that concrete name made
+    // `capture_loopback` skip ScreenCaptureKit entirely and try to open a
+    // playback device ("MacBook Pro Speakers") as a capture source; on
+    // Linux it handed `resolve_monitor_source` a sink name that is not a
+    // monitor. Whatever the user actually chose in the setup wizard is
+    // already in the config and is passed through untouched.
     return config.copyWith(
       micDeviceId: micDeviceId,
       speakerDeviceId: speakerDeviceId,
