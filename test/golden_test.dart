@@ -317,12 +317,26 @@ TranscriptSegment _seg(String speaker, String text, double at) =>
 /// The transcript player creates an `AudioPlayer` as soon as it builds, and a
 /// widget test has no plugin behind it. Without these stubs the player golden
 /// fails on a MissingPluginException before it has drawn anything.
+///
+/// The event channels are answered with a plain method-call handler rather
+/// than `setMockStreamHandler`. That helper opens a `StreamController` and
+/// registers `addTearDown(controller.close)` behind
+/// `addTearDown(subscription.cancel)`; the plugin never listens to these two
+/// names (its real event channel carries a per-player UUID), so nothing ever
+/// closes the controller and the teardown pair cancels the only subscription
+/// before closing it — `close()` then waits forever for a done event that can
+/// no longer be delivered. Registered from `setUpAll` that hung the suite's
+/// `(tearDownAll)` until its fixed twelve-minute timeout, which is what
+/// `flutter test` tripped over. `listen`/`cancel` answered with null is the
+/// whole EventChannel protocol a silent stream needs.
 void _stubAudioPlayers() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   for (final name in [
     'xyz.luan/audioplayers',
     'xyz.luan/audioplayers.global',
+    'xyz.luan/audioplayers/events',
+    'xyz.luan/audioplayers.global/events',
   ]) {
     messenger.setMockMethodCallHandler(MethodChannel(name), (call) async {
       return switch (call.method) {
@@ -330,16 +344,5 @@ void _stubAudioPlayers() {
         _ => null,
       };
     });
-  }
-  for (final name in [
-    'xyz.luan/audioplayers/events',
-    'xyz.luan/audioplayers.global/events',
-  ]) {
-    messenger.setMockStreamHandler(
-      EventChannel(name),
-      MockStreamHandler.inline(
-        onListen: (arguments, sink) => sink.endOfStream(),
-      ),
-    );
   }
 }
