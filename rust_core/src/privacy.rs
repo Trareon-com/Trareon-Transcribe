@@ -28,6 +28,9 @@ mod tests {
         "stt/whisper_cd.rs",
         "progressive.rs",
         "pipeline.rs",
+        "completion.rs",
+        "coverage.rs",
+        "hallucination.rs",
         "decode/mod.rs",
         "preprocess.rs",
         "vad/mod.rs",
@@ -111,6 +114,56 @@ mod tests {
         }
     }
 
+    /// Features the app describes as local must be local.
+    ///
+    /// Each of these was added as a *local* capability and each has an
+    /// obvious cloud version someone could reach for later: an archive
+    /// index that calls an embedding API, a compliance log that ships to
+    /// a server, a WER benchmark that uploads its audio. The Privacy
+    /// Report tells the user none of that happens, so the claim is
+    /// checked here rather than maintained by memory.
+    ///
+    /// `archive` is the interesting one: the "Tanya arsip rapat" answer
+    /// *is* networked, deliberately. It reaches the network by handing a
+    /// prompt to `summary::ask` — the one place in the crate that owns an
+    /// HTTP client — and this test is what keeps it that way.
+    #[test]
+    fn local_only_features_stay_local() {
+        let base = manifest_dir().join("src");
+        let local_only = [
+            "archive.rs",
+            "pdp/mod.rs",
+            "pdp/audit.rs",
+            "pdp/redaction.rs",
+            "pdp/retention.rs",
+            "actions.rs",
+            "provenance.rs",
+            "mapreduce.rs",
+            "coverage.rs",
+            "completion.rs",
+            "hallucination.rs",
+        ];
+        let forbidden = [
+            "reqwest",
+            "http://",
+            "https://",
+            "tokio::net",
+            "download_with_resume",
+        ];
+        for relative in local_only {
+            let path = base.join(relative);
+            let content = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("{relative} must exist for this scan: {e}"));
+            for pattern in &forbidden {
+                assert!(
+                    !content.contains(pattern),
+                    "{relative} contains '{pattern}' — it is documented as a \
+                     local-only feature"
+                );
+            }
+        }
+    }
+
     /// Enumerates every module performing HTTP, so adding a third one is a
     /// deliberate, reviewed act rather than an accident.
     #[test]
@@ -155,6 +208,65 @@ mod tests {
             offenders.is_empty(),
             "unexpected HTTP client outside {allowed:?}: {offenders:?}"
         );
+    }
+
+    /// The capability table the user reads and this gate must agree.
+    ///
+    /// This is what makes `crate::capabilities` a source of truth rather
+    /// than a second place to keep the same claim. A row saying "Lokal"
+    /// whose module contains a network primitive fails here, and so does
+    /// a row claiming to use the network from a module that is not one of
+    /// the two allowed to.
+    #[test]
+    fn the_capability_table_matches_what_the_source_actually_does() {
+        use crate::capabilities::{capabilities, RunsAt, NETWORKED_MODULES};
+
+        let base = manifest_dir().join("src");
+        let forbidden = [
+            "reqwest::get",
+            "reqwest::Client",
+            "download_with_resume",
+            "TcpStream",
+            "tokio::net",
+        ];
+
+        for capability in capabilities(&crate::settings::AppSettings::default()) {
+            let path = base.join(&capability.module);
+            let content = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+                panic!(
+                    "capability '{}' names {} which cannot be read: {e}",
+                    capability.id, capability.module
+                )
+            });
+
+            match capability.runs_at {
+                RunsAt::Local => {
+                    for pattern in &forbidden {
+                        assert!(
+                            !content.contains(pattern),
+                            "capability '{}' is advertised as local, but {} \
+                             contains '{pattern}'",
+                            capability.id,
+                            capability.module
+                        );
+                    }
+                }
+                RunsAt::SummaryEndpoint | RunsAt::Internet => {
+                    assert!(
+                        NETWORKED_MODULES.contains(&capability.module.as_str()),
+                        "capability '{}' is advertised as networked from {}, \
+                         which is not one of the modules allowed to open a \
+                         socket ({NETWORKED_MODULES:?})",
+                        capability.id,
+                        capability.module
+                    );
+                }
+            }
+        }
+
+        // And the allow-list the table shares with the HTTP scan above is
+        // the same list, not a copy that drifted.
+        assert_eq!(NETWORKED_MODULES, &["model.rs", "summary.rs"]);
     }
 
     /// The shipped default must not reach the public internet.

@@ -6,9 +6,14 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'actions.dart';
 import 'api.dart';
+import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'capabilities.dart';
+import 'completion.dart';
+import 'coverage.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'disk.dart';
@@ -18,8 +23,14 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'mapreduce.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
+import 'pdp.dart';
+import 'pdp/audit.dart';
+import 'pdp/redaction.dart';
+import 'pdp/retention.dart';
+import 'provenance.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
@@ -40,10 +51,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ActionItem dco_decode_action_item(dynamic raw);
+
+  @protected
+  ActionStatus dco_decode_action_status(dynamic raw);
+
+  @protected
   AppSettings dco_decode_app_settings(dynamic raw);
 
   @protected
+  ArchiveAnswer dco_decode_archive_answer(dynamic raw);
+
+  @protected
+  ArchiveHit dco_decode_archive_hit(dynamic raw);
+
+  @protected
+  ArchiveStats dco_decode_archive_stats(dynamic raw);
+
+  @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
+
+  @protected
+  AuditAction dco_decode_audit_action(dynamic raw);
+
+  @protected
+  AuditEntry dco_decode_audit_entry(dynamic raw);
 
   @protected
   BatchFileOutcome dco_decode_batch_file_outcome(dynamic raw);
@@ -75,10 +107,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GlossaryConfig dco_decode_box_autoadd_glossary_config(dynamic raw);
 
   @protected
+  MapReduceProgress dco_decode_box_autoadd_map_reduce_progress(dynamic raw);
+
+  @protected
   NotulenForm dco_decode_box_autoadd_notulen_form(dynamic raw);
 
   @protected
   (BigInt, BigInt) dco_decode_box_autoadd_record_u_64_u_64(dynamic raw);
+
+  @protected
+  RedactionConfig dco_decode_box_autoadd_redaction_config(dynamic raw);
+
+  @protected
+  RetentionPlan dco_decode_box_autoadd_retention_plan(dynamic raw);
+
+  @protected
+  RetentionPolicy dco_decode_box_autoadd_retention_policy(dynamic raw);
 
   @protected
   Segment dco_decode_box_autoadd_segment(dynamic raw);
@@ -106,6 +150,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  Capability dco_decode_capability(dynamic raw);
+
+  @protected
   CaptureHealth dco_decode_capture_health(dynamic raw);
 
   @protected
@@ -119,6 +166,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CheckStatus dco_decode_check_status(dynamic raw);
+
+  @protected
+  Citation dco_decode_citation(dynamic raw);
+
+  @protected
+  CompletionOutcome dco_decode_completion_outcome(dynamic raw);
+
+  @protected
+  CompletionProgress dco_decode_completion_progress(dynamic raw);
+
+  @protected
+  CoverageReport dco_decode_coverage_report(dynamic raw);
 
   @protected
   CustomSummaryTemplate dco_decode_custom_summary_template(dynamic raw);
@@ -160,10 +219,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_i_32(dynamic raw);
 
   @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<ActionItem> dco_decode_list_action_item(dynamic raw);
+
+  @protected
+  List<ArchiveHit> dco_decode_list_archive_hit(dynamic raw);
+
+  @protected
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
+
+  @protected
+  List<AuditEntry> dco_decode_list_audit_entry(dynamic raw);
 
   @protected
   List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
@@ -172,10 +243,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Bookmark> dco_decode_list_bookmark(dynamic raw);
 
   @protected
+  List<Capability> dco_decode_list_capability(dynamic raw);
+
+  @protected
   List<ChannelCapture> dco_decode_list_channel_capture(dynamic raw);
 
   @protected
   List<Check> dco_decode_list_check(dynamic raw);
+
+  @protected
+  List<Citation> dco_decode_list_citation(dynamic raw);
+
+  @protected
+  List<CompletionProgress> dco_decode_list_completion_progress(dynamic raw);
 
   @protected
   List<CustomSummaryTemplate> dco_decode_list_custom_summary_template(
@@ -192,6 +272,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> dco_decode_list_model_info(dynamic raw);
 
   @protected
+  List<PiiMatch> dco_decode_list_pii_match(dynamic raw);
+
+  @protected
   Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
   @protected
@@ -204,13 +287,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RecoverableSession> dco_decode_list_recoverable_session(dynamic raw);
 
   @protected
+  List<RetentionItem> dco_decode_list_retention_item(dynamic raw);
+
+  @protected
   List<Segment> dco_decode_list_segment(dynamic raw);
+
+  @protected
+  List<SessionAge> dco_decode_list_session_age(dynamic raw);
 
   @protected
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
 
   @protected
+  List<SummaryLine> dco_decode_list_summary_line(dynamic raw);
+
+  @protected
+  List<TimeRange> dco_decode_list_time_range(dynamic raw);
+
+  @protected
   List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
+
+  @protected
+  MapReduceProgress dco_decode_map_reduce_progress(dynamic raw);
 
   @protected
   ModelInfo dco_decode_model_info(dynamic raw);
@@ -245,6 +343,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
+  MapReduceProgress? dco_decode_opt_box_autoadd_map_reduce_progress(
+    dynamic raw,
+  );
+
+  @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
 
   @protected
@@ -257,6 +360,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  PdpSettings dco_decode_pdp_settings(dynamic raw);
+
+  @protected
+  PiiKind dco_decode_pii_kind(dynamic raw);
+
+  @protected
+  PiiMatch dco_decode_pii_match(dynamic raw);
 
   @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
@@ -274,7 +386,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveredSession dco_decode_recovered_session(dynamic raw);
 
   @protected
+  RedactionConfig dco_decode_redaction_config(dynamic raw);
+
+  @protected
+  RetentionItem dco_decode_retention_item(dynamic raw);
+
+  @protected
+  RetentionOutcome dco_decode_retention_outcome(dynamic raw);
+
+  @protected
+  RetentionPlan dco_decode_retention_plan(dynamic raw);
+
+  @protected
+  RetentionPolicy dco_decode_retention_policy(dynamic raw);
+
+  @protected
+  RunsAt dco_decode_runs_at(dynamic raw);
+
+  @protected
   Segment dco_decode_segment(dynamic raw);
+
+  @protected
+  SessionAge dco_decode_session_age(dynamic raw);
 
   @protected
   SessionConfig dco_decode_session_config(dynamic raw);
@@ -295,6 +428,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SummaryConfig dco_decode_summary_config(dynamic raw);
 
   @protected
+  SummaryLine dco_decode_summary_line(dynamic raw);
+
+  @protected
+  SummaryProvenance dco_decode_summary_provenance(dynamic raw);
+
+  @protected
   SummaryProvider dco_decode_summary_provider(dynamic raw);
 
   @protected
@@ -305,6 +444,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Theme dco_decode_theme(dynamic raw);
+
+  @protected
+  TimeRange dco_decode_time_range(dynamic raw);
 
   @protected
   TindakLanjut dco_decode_tindak_lanjut(dynamic raw);
@@ -342,10 +484,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ActionItem sse_decode_action_item(SseDeserializer deserializer);
+
+  @protected
+  ActionStatus sse_decode_action_status(SseDeserializer deserializer);
+
+  @protected
   AppSettings sse_decode_app_settings(SseDeserializer deserializer);
 
   @protected
+  ArchiveAnswer sse_decode_archive_answer(SseDeserializer deserializer);
+
+  @protected
+  ArchiveHit sse_decode_archive_hit(SseDeserializer deserializer);
+
+  @protected
+  ArchiveStats sse_decode_archive_stats(SseDeserializer deserializer);
+
+  @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
+
+  @protected
+  AuditAction sse_decode_audit_action(SseDeserializer deserializer);
+
+  @protected
+  AuditEntry sse_decode_audit_entry(SseDeserializer deserializer);
 
   @protected
   BatchFileOutcome sse_decode_batch_file_outcome(SseDeserializer deserializer);
@@ -381,10 +544,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MapReduceProgress sse_decode_box_autoadd_map_reduce_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   NotulenForm sse_decode_box_autoadd_notulen_form(SseDeserializer deserializer);
 
   @protected
   (BigInt, BigInt) sse_decode_box_autoadd_record_u_64_u_64(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedactionConfig sse_decode_box_autoadd_redaction_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RetentionPlan sse_decode_box_autoadd_retention_plan(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RetentionPolicy sse_decode_box_autoadd_retention_policy(
     SseDeserializer deserializer,
   );
 
@@ -418,6 +601,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  Capability sse_decode_capability(SseDeserializer deserializer);
+
+  @protected
   CaptureHealth sse_decode_capture_health(SseDeserializer deserializer);
 
   @protected
@@ -431,6 +617,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CheckStatus sse_decode_check_status(SseDeserializer deserializer);
+
+  @protected
+  Citation sse_decode_citation(SseDeserializer deserializer);
+
+  @protected
+  CompletionOutcome sse_decode_completion_outcome(SseDeserializer deserializer);
+
+  @protected
+  CompletionProgress sse_decode_completion_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CoverageReport sse_decode_coverage_report(SseDeserializer deserializer);
 
   @protected
   CustomSummaryTemplate sse_decode_custom_summary_template(
@@ -476,12 +676,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<ActionItem> sse_decode_list_action_item(SseDeserializer deserializer);
+
+  @protected
+  List<ArchiveHit> sse_decode_list_archive_hit(SseDeserializer deserializer);
 
   @protected
   List<AudioDeviceInfo> sse_decode_list_audio_device_info(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<AuditEntry> sse_decode_list_audit_entry(SseDeserializer deserializer);
 
   @protected
   List<BatchFileOutcome> sse_decode_list_batch_file_outcome(
@@ -492,12 +704,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Bookmark> sse_decode_list_bookmark(SseDeserializer deserializer);
 
   @protected
+  List<Capability> sse_decode_list_capability(SseDeserializer deserializer);
+
+  @protected
   List<ChannelCapture> sse_decode_list_channel_capture(
     SseDeserializer deserializer,
   );
 
   @protected
   List<Check> sse_decode_list_check(SseDeserializer deserializer);
+
+  @protected
+  List<Citation> sse_decode_list_citation(SseDeserializer deserializer);
+
+  @protected
+  List<CompletionProgress> sse_decode_list_completion_progress(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<CustomSummaryTemplate> sse_decode_list_custom_summary_template(
@@ -518,6 +741,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> sse_decode_list_model_info(SseDeserializer deserializer);
 
   @protected
+  List<PiiMatch> sse_decode_list_pii_match(SseDeserializer deserializer);
+
+  @protected
   Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -534,7 +760,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RetentionItem> sse_decode_list_retention_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
+
+  @protected
+  List<SessionAge> sse_decode_list_session_age(SseDeserializer deserializer);
 
   @protected
   List<SessionEvent> sse_decode_list_session_event(
@@ -542,7 +776,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SummaryLine> sse_decode_list_summary_line(SseDeserializer deserializer);
+
+  @protected
+  List<TimeRange> sse_decode_list_time_range(SseDeserializer deserializer);
+
+  @protected
   List<TindakLanjut> sse_decode_list_tindak_lanjut(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MapReduceProgress sse_decode_map_reduce_progress(
     SseDeserializer deserializer,
   );
 
@@ -581,6 +826,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  MapReduceProgress? sse_decode_opt_box_autoadd_map_reduce_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
     SseDeserializer deserializer,
   );
@@ -595,6 +845,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  PdpSettings sse_decode_pdp_settings(SseDeserializer deserializer);
+
+  @protected
+  PiiKind sse_decode_pii_kind(SseDeserializer deserializer);
+
+  @protected
+  PiiMatch sse_decode_pii_match(SseDeserializer deserializer);
 
   @protected
   ProgressiveFileResult sse_decode_progressive_file_result(
@@ -618,7 +877,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveredSession sse_decode_recovered_session(SseDeserializer deserializer);
 
   @protected
+  RedactionConfig sse_decode_redaction_config(SseDeserializer deserializer);
+
+  @protected
+  RetentionItem sse_decode_retention_item(SseDeserializer deserializer);
+
+  @protected
+  RetentionOutcome sse_decode_retention_outcome(SseDeserializer deserializer);
+
+  @protected
+  RetentionPlan sse_decode_retention_plan(SseDeserializer deserializer);
+
+  @protected
+  RetentionPolicy sse_decode_retention_policy(SseDeserializer deserializer);
+
+  @protected
+  RunsAt sse_decode_runs_at(SseDeserializer deserializer);
+
+  @protected
   Segment sse_decode_segment(SseDeserializer deserializer);
+
+  @protected
+  SessionAge sse_decode_session_age(SseDeserializer deserializer);
 
   @protected
   SessionConfig sse_decode_session_config(SseDeserializer deserializer);
@@ -641,6 +921,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SummaryConfig sse_decode_summary_config(SseDeserializer deserializer);
 
   @protected
+  SummaryLine sse_decode_summary_line(SseDeserializer deserializer);
+
+  @protected
+  SummaryProvenance sse_decode_summary_provenance(SseDeserializer deserializer);
+
+  @protected
   SummaryProvider sse_decode_summary_provider(SseDeserializer deserializer);
 
   @protected
@@ -651,6 +937,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Theme sse_decode_theme(SseDeserializer deserializer);
+
+  @protected
+  TimeRange sse_decode_time_range(SseDeserializer deserializer);
 
   @protected
   TindakLanjut sse_decode_tindak_lanjut(SseDeserializer deserializer);
@@ -691,13 +980,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_action_item(ActionItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_action_status(ActionStatus self, SseSerializer serializer);
+
+  @protected
   void sse_encode_app_settings(AppSettings self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_answer(ArchiveAnswer self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_hit(ArchiveHit self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_stats(ArchiveStats self, SseSerializer serializer);
 
   @protected
   void sse_encode_audio_device_info(
     AudioDeviceInfo self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_audit_action(AuditAction self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_audit_entry(AuditEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_batch_file_outcome(
@@ -745,6 +1055,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_map_reduce_progress(
+    MapReduceProgress self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_notulen_form(
     NotulenForm self,
     SseSerializer serializer,
@@ -753,6 +1069,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_record_u_64_u_64(
     (BigInt, BigInt) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_redaction_config(
+    RedactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_retention_plan(
+    RetentionPlan self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_retention_policy(
+    RetentionPolicy self,
     SseSerializer serializer,
   );
 
@@ -790,6 +1124,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_capability(Capability self, SseSerializer serializer);
+
+  @protected
   void sse_encode_capture_health(CaptureHealth self, SseSerializer serializer);
 
   @protected
@@ -809,6 +1146,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_check_status(CheckStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_citation(Citation self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_completion_outcome(
+    CompletionOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_completion_progress(
+    CompletionProgress self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_coverage_report(
+    CoverageReport self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_custom_summary_template(
@@ -868,11 +1226,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_action_item(
+    List<ActionItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_archive_hit(
+    List<ArchiveHit> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_audio_device_info(
     List<AudioDeviceInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_audit_entry(
+    List<AuditEntry> self,
     SseSerializer serializer,
   );
 
@@ -886,6 +1265,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_bookmark(List<Bookmark> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_capability(
+    List<Capability> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_channel_capture(
     List<ChannelCapture> self,
     SseSerializer serializer,
@@ -893,6 +1278,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_check(List<Check> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_citation(List<Citation> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_completion_progress(
+    List<CompletionProgress> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_custom_summary_template(
@@ -919,6 +1313,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_pii_match(List<PiiMatch> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_u_32_strict(
     Uint32List self,
     SseSerializer serializer,
@@ -943,7 +1340,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_retention_item(
+    List<RetentionItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_segment(List<Segment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_session_age(
+    List<SessionAge> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_session_event(
@@ -952,8 +1361,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_summary_line(
+    List<SummaryLine> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_time_range(
+    List<TimeRange> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_tindak_lanjut(
     List<TindakLanjut> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_map_reduce_progress(
+    MapReduceProgress self,
     SseSerializer serializer,
   );
 
@@ -1000,6 +1427,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_map_reduce_progress(
+    MapReduceProgress? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_record_u_64_u_64(
     (BigInt, BigInt)? self,
     SseSerializer serializer,
@@ -1016,6 +1449,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pdp_settings(PdpSettings self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pii_kind(PiiKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pii_match(PiiMatch self, SseSerializer serializer);
 
   @protected
   void sse_encode_progressive_file_result(
@@ -1048,7 +1490,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_redaction_config(
+    RedactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_retention_item(RetentionItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_retention_outcome(
+    RetentionOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_retention_plan(RetentionPlan self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_retention_policy(
+    RetentionPolicy self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_runs_at(RunsAt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_segment(Segment self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_session_age(SessionAge self, SseSerializer serializer);
 
   @protected
   void sse_encode_session_config(SessionConfig self, SseSerializer serializer);
@@ -1072,6 +1544,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_summary_config(SummaryConfig self, SseSerializer serializer);
 
   @protected
+  void sse_encode_summary_line(SummaryLine self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_summary_provenance(
+    SummaryProvenance self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_summary_provider(
     SummaryProvider self,
     SseSerializer serializer,
@@ -1091,6 +1572,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_theme(Theme self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_time_range(TimeRange self, SseSerializer serializer);
 
   @protected
   void sse_encode_tindak_lanjut(TindakLanjut self, SseSerializer serializer);

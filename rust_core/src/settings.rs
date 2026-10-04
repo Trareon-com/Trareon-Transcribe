@@ -79,6 +79,19 @@ pub struct AppSettings {
     /// default ON when the live pass used the quick model.
     #[serde(default)]
     pub auto_retranscribe: Option<bool>,
+    /// Mode Kepatuhan UU PDP (F13): redaction on export, retention limits,
+    /// the audit log and the consent notice. Off by default — every part
+    /// of it either hides or deletes something, so none of it may start
+    /// happening because the app updated.
+    #[serde(default)]
+    pub pdp: crate::pdp::PdpSettings,
+    /// Run RNNoise over the audio before ASR (F17).
+    ///
+    /// Off by default: it is a learned suppressor, so whether it helps is
+    /// a property of the room, and on already-clean speech it can cost a
+    /// consonant. See `crate::denoise` for the trade-off in full.
+    #[serde(default)]
+    pub noise_reduction: bool,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -172,6 +185,13 @@ pub struct SummarySettings {
     pub model: String,
     pub template: SummaryTemplate,
     pub custom_prompt: String,
+    /// Ask the model to cite the transcript segment behind each point,
+    /// and render those as links that jump the player there (F7).
+    #[serde(default)]
+    pub with_citations: bool,
+    /// Ask for the structured tugas / PJ / tenggat checklist (F6).
+    #[serde(default)]
+    pub with_action_items: bool,
 }
 
 impl Default for SummarySettings {
@@ -184,6 +204,8 @@ impl Default for SummarySettings {
             model: String::new(),
             template: SummaryTemplate::NotulenRapat,
             custom_prompt: String::new(),
+            with_citations: false,
+            with_action_items: false,
         }
     }
 }
@@ -201,6 +223,8 @@ impl SummarySettings {
             custom_prompt: self.custom_prompt.clone(),
             language: language.unwrap_or("id").to_string(),
             timeout_secs: crate::summary::DEFAULT_TIMEOUT_SECS,
+            with_citations: self.with_citations,
+            with_action_items: self.with_action_items,
         }
     }
 }
@@ -227,6 +251,8 @@ impl Default for AppSettings {
             summary_templates: Vec::new(),
             notulen: NotulenDefaults::default(),
             auto_retranscribe: None,
+            pdp: crate::pdp::PdpSettings::default(),
+            noise_reduction: false,
         }
     }
 }

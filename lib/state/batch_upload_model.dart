@@ -234,6 +234,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     int gpuDevice = 0,
     String? refineModelPath,
     String? modelId,
+    int speakerHint = 0,
   }) async {
     final paths = state
         .where((e) => e.status == BatchFileStatus.queued)
@@ -253,6 +254,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           gpuEnabled: gpuEnabled,
           gpuDevice: gpuDevice,
           modelId: modelId,
+          speakerHint: speakerHint,
         );
         return;
       }
@@ -265,6 +267,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
         gpuEnabled: gpuEnabled,
         gpuDevice: gpuDevice,
         modelId: modelId,
+        speakerHint: speakerHint,
       );
     } finally {
       _running = false;
@@ -280,6 +283,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     String? modelId,
+    int speakerHint = 0,
   }) async {
     for (final path in paths) {
       updateStatus(path, BatchFileStatus.transcribing, progress: 0);
@@ -296,6 +300,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
         language: language,
         gpuEnabled: gpuEnabled,
         gpuDevice: gpuDevice,
+        speakerHint: speakerHint,
       );
 
       for (final outcome in outcomes) {
@@ -379,6 +384,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     String? modelId,
+    int speakerHint = 0,
   }) async {
     for (final path in paths) {
       if (_cancelRequested.remove(path)) {
@@ -397,6 +403,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           language: language,
           gpuEnabled: gpuEnabled,
           gpuDevice: gpuDevice,
+          speakerHint: speakerHint,
         );
         if (result.refinedSegments.isEmpty) {
           updateStatus(

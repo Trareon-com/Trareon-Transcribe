@@ -37,6 +37,7 @@ class SessionSidebar extends ConsumerStatefulWidget {
     required this.onOpenLibrary,
     required this.onOpenUpload,
     required this.onOpenSettings,
+    required this.onOpenArchiveChat,
     required this.searchFocusNode,
     this.isRecording = false,
   });
@@ -51,6 +52,9 @@ class SessionSidebar extends ConsumerStatefulWidget {
   final VoidCallback onOpenUpload;
   final VoidCallback onOpenSettings;
 
+  /// Opens "Tanya Arsip Rapat" (F12).
+  final VoidCallback onOpenArchiveChat;
+
   /// Focused by Ctrl+L / ⌘L.
   final FocusNode searchFocusNode;
 
@@ -61,6 +65,12 @@ class SessionSidebar extends ConsumerStatefulWidget {
 }
 
 class _SessionSidebarState extends ConsumerState<SessionSidebar> {
+  /// Tags selected in the filter row (F20). Empty means "no filter".
+  ///
+  /// Intersection, not union: picking "Anggaran" and "Mingguan" means the
+  /// weekly budget meetings, which is what someone with two tags
+  /// selected is looking for.
+  final Set<String> _tagFilter = {};
   final TextEditingController _search = TextEditingController();
   Timer? _debounce;
   String _query = '';
@@ -83,9 +93,26 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final library = ref.watch(libraryListProvider);
-    final entries = _query.isEmpty
+    var entries = _query.isEmpty
         ? library.entries
         : library.entries.where((e) => e.haystack.contains(_query)).toList();
+    if (_tagFilter.isNotEmpty) {
+      entries = entries
+          .where((e) => _tagFilter.every(
+                (tag) => e.tags.any(
+                  (t) => t.toLowerCase() == tag.toLowerCase(),
+                ),
+              ))
+          .toList();
+    }
+    // Every tag in the library, so a filter chip exists for one the user
+    // only put on a single meeting.
+    final allTags = <String>{};
+    for (final entry in library.entries) {
+      allTags.addAll(entry.tags);
+    }
+    final sortedTags = allTags.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return Container(
       width: kSidebarWidth,
@@ -146,6 +173,45 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
               ),
             ),
           ),
+          if (sortedTags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  for (final tag in sortedTags)
+                    FilterChip(
+                      label: Text(
+                        tag,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      selected: _tagFilter.contains(tag),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _tagFilter.add(tag);
+                        } else {
+                          _tagFilter.remove(tag);
+                        }
+                      }),
+                    ),
+                  if (_tagFilter.isNotEmpty)
+                    ActionChip(
+                      label: const Text(
+                        'Semua',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                      onPressed: () => setState(_tagFilter.clear),
+                    ),
+                ],
+              ),
+            ),
           const SizedBox(height: 8),
           // Background "perhalus transkrip" jobs (F5). Above the session
           // list so a running pass is never scrolled out of sight.
@@ -194,6 +260,11 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
             icon: Icons.upload_file_outlined,
             label: 'Impor berkas',
             onTap: widget.onOpenUpload,
+          ),
+          _FooterAction(
+            icon: Icons.forum_outlined,
+            label: 'Tanya arsip rapat',
+            onTap: widget.onOpenArchiveChat,
           ),
           _FooterAction(
             icon: Icons.folder_open_outlined,

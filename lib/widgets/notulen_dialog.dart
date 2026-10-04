@@ -98,6 +98,7 @@ NotulenFormData buildNotulenPrefill({
   required List<TranscriptSegment> segments,
   NotulenFormData? saved,
   NotulenDraft? draft,
+  List<ActionItem> actionItems = const [],
 }) {
   if (saved != null) return saved;
   return NotulenFormData(
@@ -114,16 +115,43 @@ NotulenFormData buildNotulenPrefill({
         : pesertaFromSegments(segments),
     pembahasan: draft?.pembahasan ?? '',
     keputusan: draft?.keputusan ?? const [],
-    tindakLanjut: [
-      for (final task in draft?.tindakLanjut ?? const <TindakLanjut>[])
-        NotulenTask(
-          tugas: task.tugas,
-          penanggungJawab: task.penanggungJawab,
-          tenggat: task.tenggat,
-        ),
-    ],
+    // F6: the structured checklist wins over re-parsing the summary
+    // prose. Those rows are what the user actually reviewed and
+    // corrected, and a notulen that disagrees with the checklist on
+    // screen is the version that gets signed.
+    tindakLanjut: _tindakLanjutFrom(actionItems, draft),
     kopSuratPath: defaults.kopSuratPath,
   );
+}
+
+/// The notulen's "Tindak Lanjut" rows.
+///
+/// Cancelled tasks are left out — a document that lists a dropped task
+/// next to live ones reads as an instruction to do it. Anything the
+/// checklist does not cover falls back to the summary draft.
+List<NotulenTask> _tindakLanjutFrom(
+  List<ActionItem> actionItems,
+  NotulenDraft? draft,
+) {
+  final live = [
+    for (final item in actionItems)
+      if (item.tugas.trim().isNotEmpty &&
+          item.status != ActionStatus.dibatalkan)
+        NotulenTask(
+          tugas: item.tugas,
+          penanggungJawab: item.penanggungJawab,
+          tenggat: item.tenggat,
+        ),
+  ];
+  if (live.isNotEmpty) return live;
+  return [
+    for (final task in draft?.tindakLanjut ?? const <TindakLanjut>[])
+      NotulenTask(
+        tugas: task.tugas,
+        penanggungJawab: task.penanggungJawab,
+        tenggat: task.tenggat,
+      ),
+  ];
 }
 
 /// Opens the notulen form for [session] and, on confirm, writes the DOCX.
@@ -137,6 +165,7 @@ Future<NotulenFormData?> showNotulenDialog(
   required String summary,
   required List<Bookmark> bookmarks,
   NotulenFormData? saved,
+  List<ActionItem> actionItems = const [],
 }) {
   return showDialog<NotulenFormData>(
     context: context,
@@ -147,6 +176,7 @@ Future<NotulenFormData?> showNotulenDialog(
       summary: summary,
       bookmarks: bookmarks,
       saved: saved,
+      actionItems: actionItems,
     ),
   );
 }
@@ -158,6 +188,7 @@ class _NotulenDialog extends ConsumerStatefulWidget {
     required this.summary,
     required this.bookmarks,
     this.saved,
+    this.actionItems = const [],
   });
 
   final SessionSummary session;
@@ -165,6 +196,10 @@ class _NotulenDialog extends ConsumerStatefulWidget {
   final String summary;
   final List<Bookmark> bookmarks;
   final NotulenFormData? saved;
+
+  /// The session's reviewed checklist (F6), preferred over whatever the
+  /// summary prose can be parsed into.
+  final List<ActionItem> actionItems;
 
   @override
   ConsumerState<_NotulenDialog> createState() => _NotulenDialogState();
@@ -215,6 +250,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       segments: widget.session.segments,
       saved: widget.saved,
       draft: draft,
+      actionItems: widget.actionItems,
     );
     if (!mounted) return;
     setState(() {

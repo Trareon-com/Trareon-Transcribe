@@ -364,7 +364,18 @@ pub struct ChannelCapture {
     pub silent_for_secs: f64,
     /// False when this source fell back to (or was demoted to) RAM.
     pub writing_to_disk: bool,
+    /// Seconds of captured audio the live worker has not transcribed yet.
+    ///
+    /// Zero on a device that keeps up. On one that does not this climbs for
+    /// the whole meeting, and used to be invisible until Stop threw the
+    /// backlog away — which is how a 6-minute recording ended up with 8
+    /// seconds of transcript and no warning anywhere.
+    pub lag_secs: f64,
 }
+
+/// Lag past which the live transcript is visibly behind the meeting and
+/// the user is told. Below this it is ordinary inference latency.
+pub const LAG_WARNING_SECS: f64 = 20.0;
 
 /// Snapshot of a running session's capture health.
 #[derive(Debug, Clone, Serialize)]
@@ -934,6 +945,12 @@ fn start_session_with_id(
         .clone()
         .filter(|p| !p.is_empty() && p != &config.model_path)
         .map(PathBuf::from);
+    let fallback_model_path = config
+        .fallback_model_path
+        .clone()
+        .filter(|p| !p.is_empty() && p != &config.model_path)
+        .map(PathBuf::from)
+        .filter(|p| p.exists());
     let worker_config = |source: &str| LiveWorkerConfig {
         quick_model_path: PathBuf::from(&config.model_path),
         refine_model_path: refine_model_path.clone(),
@@ -944,6 +961,7 @@ fn start_session_with_id(
         gpu_enabled: config.gpu_enabled,
         gpu_device: config.gpu_device,
         glossary: config.glossary.clone(),
+        fallback_model_path: fallback_model_path.clone(),
     };
     // Audio-to-disk is the default; the setting exists so one release can
     // fall back to the RAM path if streaming turns out to destabilise the
@@ -994,9 +1012,8 @@ fn start_session_with_id(
             level: NoticeLevel::Warning,
             source: "session".to_string(),
             message: "Perangkat ini terlalu lambat untuk model akurat secara langsung, \
-                      jadi transkrip langsung memakai model cepat. Setelah sesi selesai, \
-                      gunakan \"Transkrip Ulang\" untuk menjalankan ulang dengan model \
-                      akurat."
+                      jadi transkrip langsung memakai model cepat. Transkrip akurat \
+                      dibuat otomatis setelah rapat selesai."
                 .to_string(),
         });
     }
@@ -1365,6 +1382,7 @@ impl SessionState {
                         percent_silent: 100.0,
                         silent_for_secs: elapsed,
                         writing_to_disk: false,
+                        lag_secs: 0.0,
                     });
                     warnings.push(format!(
                         "{} tidak pernah berhasil dibuka, jadi tidak ada rekamannya.",
@@ -1383,7 +1401,16 @@ impl SessionState {
                 percent_silent: health.percent_silent(),
                 silent_for_secs: health.silent_for_secs(now_unix_ms, elapsed),
                 writing_to_disk: health.on_disk(),
+                lag_secs: worker_lag_secs(channel),
             };
+            if capture.lag_secs >= LAG_WARNING_SECS {
+                warnings.push(format!(
+                    "Transkrip langsung {} tertinggal {:.0} detik dari rekaman. Sisanya \
+                     diselesaikan otomatis setelah sesi berhenti.",
+                    source_label(source),
+                    capture.lag_secs
+                ));
+            }
             if expected && !capture.confirmed {
                 warnings.push(format!(
                     "{} tidak menghasilkan suara sama sekali ({:.0} detik terekam, \
@@ -1415,6 +1442,17 @@ impl SessionState {
             warnings,
         }
     }
+}
+
+/// How far behind the live worker on `channel` is, in seconds of audio.
+///
+/// Capture counts every sample it hands over; the worker counts every
+/// sample it has actually run through Whisper. The difference is the
+/// backlog, and the backlog is what Stop used to discard.
+fn worker_lag_secs(channel: &CaptureChannel) -> f64 {
+    let delivered = channel.health.total_samples();
+    let processed = channel.worker.processed_samples();
+    delivered.saturating_sub(processed) as f64 / TARGET_SAMPLE_RATE as f64
 }
 
 fn capitalize(text: &str) -> String {

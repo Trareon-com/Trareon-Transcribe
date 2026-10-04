@@ -61,6 +61,18 @@ class SessionConfig {
   /// output. Defaults to empty, which is a no-op.
   final GlossaryConfig glossary;
 
+  /// Fastest model installed on this machine (`tiny`/`base`), used for
+  /// the *live preview only* when `model_path` turns out to be slower
+  /// than real time on this device.
+  ///
+  /// This does not downgrade the transcript the user ends up with: the
+  /// post-stop completion pass re-runs the saved audio with `model_path`
+  /// afterwards. What it prevents is the live worker falling further
+  /// behind every minute until Stop, which on the device this was
+  /// measured on produced a 6-minute recording with 8 seconds of
+  /// transcript. `None` disables the substitution.
+  final String? fallbackModelPath;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -75,6 +87,7 @@ class SessionConfig {
     required this.gpuDevice,
     required this.audioToDisk,
     required this.glossary,
+    this.fallbackModelPath,
   });
 
   @override
@@ -91,7 +104,8 @@ class SessionConfig {
       gpuEnabled.hashCode ^
       gpuDevice.hashCode ^
       audioToDisk.hashCode ^
-      glossary.hashCode;
+      glossary.hashCode ^
+      fallbackModelPath.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -110,7 +124,8 @@ class SessionConfig {
           gpuEnabled == other.gpuEnabled &&
           gpuDevice == other.gpuDevice &&
           audioToDisk == other.audioToDisk &&
-          glossary == other.glossary;
+          glossary == other.glossary &&
+          fallbackModelPath == other.fallbackModelPath;
 }
 
 enum SessionMode { webinar, online, offline }

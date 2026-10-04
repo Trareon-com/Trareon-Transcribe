@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
+import 'settings_controls.dart';
 
 /// Settings for the opt-in AI summary.
 ///
@@ -258,6 +259,31 @@ class _SummarySettingsSectionState
                 if (t != null) _update(summary.copyWith(template: t));
               },
             ),
+          ),
+          // F7 and F6. Both change what is *asked for*, not where it is
+          // sent, so they live under the endpoint rather than next to the
+          // master switch.
+          SettingsSwitch(
+            icon: Icons.format_quote_outlined,
+            label: 'Rujukan ke transkrip',
+            subtitle:
+                'Minta model menyebut nomor segmen untuk setiap poin, '
+                'sehingga tiap baris ringkasan bisa diklik ke menit '
+                'asalnya. Rujukan yang tidak cocok dibuang.',
+            value: summary.withCitations,
+            onChanged: (value) =>
+                _update(summary.copyWith(withCitations: value)),
+          ),
+          SettingsSwitch(
+            icon: Icons.checklist_outlined,
+            label: 'Tindak lanjut terstruktur',
+            subtitle:
+                'Minta daftar tugas, penanggung jawab, dan tenggat dalam '
+                'format yang bisa disunting dan diekspor ke kalender '
+                '(.ics) atau tabel (.csv).',
+            value: summary.withActionItems,
+            onChanged: (value) =>
+                _update(summary.copyWith(withActionItems: value)),
           ),
           if (summary.template == SummaryTemplate.kustom)
             _Field(

@@ -376,6 +376,7 @@ pub fn progressive_transcribe_file(
     gpu_enabled: bool,
     gpu_device: i32,
     glossary: crate::glossary::GlossaryConfig,
+    speaker_hint: u32,
 ) -> Result<ProgressiveFileResult, TranscribeError> {
     let engine = crate::progressive::ProgressiveEngine::load(
         std::path::Path::new(&quick_model_path),
@@ -475,7 +476,9 @@ pub fn progressive_transcribe_file(
     // labelled from a single diarizer over the same audio so the quick and
     // refined rows for one utterance agree — a label that flips when the
     // refine pass lands reads as a bug to the user.
-    let mut diarizer = crate::diarization::Diarizer::new();
+    // `speaker_hint` caps the clustering the same way the single-pass
+    // import does (F10); 0 means "work it out".
+    let mut diarizer = crate::diarization::Diarizer::with_max_speakers(speaker_hint as usize);
     crate::diarization::label_segments(&mut diarizer, &audio.samples, &mut refined_segments);
     let labels: std::collections::HashMap<String, String> = refined_segments
         .iter()
@@ -511,6 +514,8 @@ pub fn progressive_transcribe_file(
 /// per file. Returns one outcome per input file, in input order, carrying
 /// either the transcript or the error — so a single bad file no longer
 /// disappears from the results without explanation.
+/// `speaker_hint` is how many people are in the recordings, or `0` for
+/// "work it out" (F10).
 pub fn transcribe_files_batch(
     model_path: String,
     files: Vec<String>,
@@ -518,6 +523,7 @@ pub fn transcribe_files_batch(
     gpu_enabled: bool,
     gpu_device: i32,
     glossary: crate::glossary::GlossaryConfig,
+    speaker_hint: u32,
 ) -> Result<Vec<crate::stt::file::BatchFileOutcome>, TranscribeError> {
     let engine = crate::stt::WhisperEngine::load_with_gpu(
         &PathBuf::from(&model_path),
@@ -532,6 +538,7 @@ pub fn transcribe_files_batch(
         &file_paths,
         language.as_deref(),
         &glossary,
+        speaker_hint,
         |progress| {
             // Decoding is an interim status; only terminal states produce an
             // outcome, otherwise every file would be reported twice.
@@ -557,6 +564,121 @@ pub fn get_batch_progress() -> Option<crate::stt::file::BatchProgressSnapshot> {
     crate::stt::file::read_batch_progress()
 }
 
+// --- Transcript completion (ITEM 0) ----------------------------------------
+//
+// "Every second recorded ends up in the transcript." The live worker can
+// fall behind the meeting on a slow device, and Stop cannot wait for it —
+// so what it never reached is transcribed afterwards from the saved WAV.
+// Entirely local; this is the transcription path.
+
+/// Length of an audio file in seconds, from its header where possible.
+///
+/// Falls back to a full decode only when the container declares no frame
+/// count, so the coverage check on save stays cheap for a 1.4 GB WAV.
+pub fn audio_duration_secs(path: String) -> Result<f64, TranscribeError> {
+    let path = std::path::PathBuf::from(path);
+    if let Some(secs) = crate::decode::probe_duration_secs(&path)? {
+        return Ok(secs);
+    }
+    Ok(crate::decode::decode_audio_file(&path)?.duration_secs)
+}
+
+/// What `segments` account for across a recording of `total_secs`, and
+/// which stretches they miss. Pure; no decode, no inference.
+pub fn transcript_coverage(
+    segments: Vec<Segment>,
+    total_secs: f64,
+) -> crate::coverage::CoverageReport {
+    crate::coverage::report(&segments, total_secs, crate::coverage::MIN_GAP_SECS)
+}
+
+/// [`transcript_coverage`] against the real length of `audio_path`.
+pub fn transcript_coverage_for_audio(
+    segments: Vec<Segment>,
+    audio_path: String,
+) -> Result<crate::coverage::CoverageReport, TranscribeError> {
+    let total = audio_duration_secs(audio_path)?;
+    Ok(transcript_coverage(segments, total))
+}
+
+/// Folds `incoming` into `existing` by timestamp, keeping every existing
+/// segment. Exposed so the UI can merge without re-running a pass.
+pub fn merge_transcript_segments(existing: Vec<Segment>, incoming: Vec<Segment>) -> Vec<Segment> {
+    crate::coverage::merge_by_timestamp(existing, incoming, crate::coverage::MERGE_TOLERANCE_SECS)
+}
+
+/// Transcribes the stretches of `audio_path` that `existing` does not
+/// cover, and returns the merged transcript.
+///
+/// `job_key` identifies this pass in [`read_completion_progress`] — the
+/// session directory, in practice. Progress is published per source, so a
+/// "Rapat Online" session's two tracks report independently.
+///
+/// Returns `existing` untouched (and `added = 0`) when the transcript
+/// already covers the recording, or when the uncovered stretches hold no
+/// speech — a meeting with ten silent minutes at the end is complete, and
+/// must not sit at "Menyelesaikan transkrip…" forever.
+#[allow(clippy::too_many_arguments)]
+pub fn complete_session_transcript(
+    model_path: String,
+    audio_path: String,
+    job_key: String,
+    existing: Vec<Segment>,
+    language: Option<String>,
+    gpu_enabled: bool,
+    gpu_device: i32,
+    glossary: crate::glossary::GlossaryConfig,
+    vad_enabled: bool,
+) -> Result<crate::completion::CompletionOutcome, TranscribeError> {
+    let audio_path = std::path::PathBuf::from(audio_path);
+    let source = crate::completion::source_for_audio(&audio_path).to_string();
+    let engine = crate::stt::WhisperEngine::load_with_gpu(
+        &PathBuf::from(&model_path),
+        gpu_enabled,
+        gpu_device,
+    )?;
+    let request = crate::completion::CompletionRequest {
+        audio_path,
+        source: source.clone(),
+        language,
+        glossary,
+        vad_enabled,
+    };
+    let progress_key = job_key.clone();
+    let progress_source = source.clone();
+    let outcome =
+        crate::completion::complete_transcript(&engine, &request, existing, |fraction, eta| {
+            crate::completion::publish_progress(crate::completion::CompletionProgress {
+                job_key: progress_key.clone(),
+                source: progress_source.clone(),
+                fraction,
+                eta_secs: eta,
+                done: fraction >= 1.0,
+            });
+        });
+    // The slot is cleared whether the pass succeeded or failed: a stuck
+    // "34%" in the sidebar after an error is its own bug report.
+    crate::completion::clear_progress(&job_key, &source);
+    outcome
+}
+
+/// Per-source progress of every completion pass currently running.
+pub fn read_completion_progress() -> Vec<crate::completion::CompletionProgress> {
+    crate::completion::read_progress()
+}
+
+/// Forgets one source's progress slot — used when a job is cancelled.
+pub fn clear_completion_progress(job_key: String, source: String) {
+    crate::completion::clear_progress(&job_key, &source);
+}
+
+/// Whether `text`, as a whole segment, is a caption Whisper invented over
+/// silence rather than something a person said. Exposed so the UI can
+/// explain a dropped line instead of silently removing it.
+pub fn is_non_speech_text(text: String) -> bool {
+    crate::hallucination::is_non_speech(&text)
+}
+
 // --- AI summary (the only networked feature; opt-in) -----------------------
 //
 // See `summary.rs` for the full privacy contract. In short: these two
@@ -577,6 +699,91 @@ pub async fn generate_summary(
     let transcript = crate::summary::transcript_text(&segments);
     let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
     crate::summary::generate_summary(config, transcript, marks).await
+}
+
+/// Summarises a meeting of any length, splitting it into time windows
+/// and reducing when it does not fit one request (F15).
+///
+/// `progress` is polled from Dart via [`read_summary_progress`]; a
+/// three-hour meeting is around eighteen round trips and the user has to
+/// see which one is running.
+pub async fn generate_summary_long(
+    segments: Vec<Segment>,
+    config: crate::summary::SummaryConfig,
+    bookmarks: Vec<Bookmark>,
+) -> Result<String, TranscribeError> {
+    let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
+    crate::summary::reset_progress();
+    let result = crate::summary::generate_summary_long(
+        config,
+        segments,
+        marks,
+        crate::summary::publish_progress,
+    )
+    .await;
+    crate::summary::reset_progress();
+    result
+}
+
+/// How far a map-reduce summary has got, or `None` when none is running.
+pub fn read_summary_progress() -> Option<crate::mapreduce::MapReduceProgress> {
+    crate::summary::read_progress()
+}
+
+// --- Action items (F6) ------------------------------------------------------
+
+/// Pulls the tugas / PJ / tenggat / status rows out of a summary,
+/// however the model formatted them. Pure and local.
+pub fn parse_action_items(summary: String) -> Vec<crate::actions::ActionItem> {
+    crate::actions::parse_action_items(&summary)
+}
+
+/// Removes the raw JSON block from a summary once it has been parsed, so
+/// the rendered summary does not show the machine-readable copy under
+/// the checklist.
+pub fn strip_action_items_block(summary: String) -> String {
+    crate::actions::strip_json_block(&summary)
+}
+
+/// RFC 5545 calendar for a checklist: one `VTODO` per task, plus a
+/// `VEVENT` for each task whose deadline resolves to a date.
+/// `today` is `YYYY-MM-DD`, used to resolve "Jumat" and "besok".
+pub fn action_items_to_ics(
+    items: Vec<crate::actions::ActionItem>,
+    calendar_name: String,
+    today: String,
+) -> String {
+    crate::actions::to_ics(&items, &calendar_name, &today)
+}
+
+pub fn action_items_to_csv(items: Vec<crate::actions::ActionItem>) -> String {
+    crate::actions::to_csv(&items)
+}
+
+/// Indonesian label for a status, for the checklist's dropdown.
+pub fn action_status_label(status: crate::actions::ActionStatus) -> String {
+    status.label().to_string()
+}
+
+// --- Summary provenance (F7) ------------------------------------------------
+
+/// Splits a summary into lines and resolves each `[#n]` marker to a
+/// transcript timestamp, dropping ids the transcript does not have.
+pub fn parse_summary_provenance(
+    summary: String,
+    segments: Vec<Segment>,
+) -> crate::provenance::SummaryProvenance {
+    crate::provenance::parse_summary(&summary, &segments)
+}
+
+/// [`parse_summary_provenance`] plus the stricter check: a citation whose
+/// segment shares almost no vocabulary with the claim is dropped too.
+pub fn parse_summary_provenance_verified(
+    summary: String,
+    segments: Vec<Segment>,
+) -> crate::provenance::SummaryProvenance {
+    let parsed = crate::provenance::parse_summary(&summary, &segments);
+    crate::provenance::verify_citations(parsed, &segments, crate::provenance::MIN_CITATION_OVERLAP)
 }
 
 /// The section headings a built-in template asks the model for — the starting
@@ -655,13 +862,286 @@ pub fn apply_glossary_corrections(text: String, terms: Vec<String>) -> String {
     crate::glossary::apply_corrections(&text, &terms)
 }
 
+// --- Tanya arsip rapat (F12) ------------------------------------------------
+//
+// A local FTS5 index over every session, plus a question-answering step
+// that reuses the summary endpoint. Indexing and retrieval never touch
+// the network; only the answer does, and only through `summary::ask`.
+
+/// Indexes one session, replacing whatever was indexed for it before.
+/// Returns how many passages went in.
+#[allow(clippy::too_many_arguments)]
+pub fn archive_index_session(
+    library_path: String,
+    dir_path: String,
+    title: String,
+    date: String,
+    segments: Vec<Segment>,
+    summary: String,
+    transcript_size: u64,
+    transcript_mtime_ms: i64,
+) -> Result<u32, TranscribeError> {
+    let mut db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::index_session(
+        &mut db,
+        &dir_path,
+        &title,
+        &date,
+        &segments,
+        &summary,
+        transcript_size,
+        transcript_mtime_ms,
+    )
+}
+
+/// Whether `dir_path`'s transcript has changed since it was indexed.
+pub fn archive_is_stale(
+    library_path: String,
+    dir_path: String,
+    transcript_size: u64,
+    transcript_mtime_ms: i64,
+) -> Result<bool, TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::is_stale(&db, &dir_path, transcript_size, transcript_mtime_ms)
+}
+
+/// Drops a session from the index — called when the user deletes it.
+pub fn archive_forget_session(
+    library_path: String,
+    dir_path: String,
+) -> Result<(), TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::forget_session(&db, &dir_path)
+}
+
+/// Ranked passages for `question`. Purely local; this is what the UI
+/// can show before (or instead of) asking a model anything.
+pub fn archive_search(
+    library_path: String,
+    question: String,
+    limit: u32,
+) -> Result<Vec<crate::archive::ArchiveHit>, TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::search(&db, &question, limit)
+}
+
+pub fn archive_stats(
+    library_path: String,
+) -> Result<crate::archive::ArchiveStats, TranscribeError> {
+    let path = std::path::Path::new(&library_path);
+    let db = crate::archive::open(path)?;
+    crate::archive::stats(&db, path)
+}
+
+pub fn archive_clear(library_path: String) -> Result<(), TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::clear(&db)
+}
+
+/// Answers `question` from the archive.
+///
+/// Retrieval is local. The composed answer comes from the configured
+/// summary endpoint, and **only the retrieved passages** are sent — not
+/// the archive, not the audio, not the file paths. Returns the answer
+/// alongside the passages it was allowed to use, so the UI can render
+/// each `[K1]` as a link into the meeting it came from.
+pub async fn archive_ask(
+    library_path: String,
+    question: String,
+    config: crate::summary::SummaryConfig,
+) -> Result<crate::archive::ArchiveAnswer, TranscribeError> {
+    let sources = archive_search(
+        library_path,
+        question.clone(),
+        crate::archive::MAX_CONTEXT_PASSAGES as u32,
+    )?;
+    if sources.is_empty() {
+        return Ok(crate::archive::ArchiveAnswer {
+            answer: "Tidak ditemukan di arsip rapat.".to_string(),
+            sources,
+        });
+    }
+    let prompt = crate::archive::build_question_prompt(&question, &sources);
+    let answer = crate::summary::ask(config, prompt).await?;
+    Ok(crate::archive::ArchiveAnswer { answer, sources })
+}
+
+// --- Mode Kepatuhan UU PDP (F13) -------------------------------------------
+//
+// Redaction on export, retention limits, a local audit log and the
+// consent notice. Entirely local; see `pdp` for the contract.
+
+/// What `config` would mask in `text`, with byte offsets so the UI can
+/// highlight it before anything is changed.
+pub fn preview_redaction(
+    text: String,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<crate::pdp::redaction::PiiMatch> {
+    crate::pdp::redaction::find_pii(&text, &config)
+}
+
+/// `text` with every match replaced by its Indonesian placeholder.
+pub fn redact_text(text: String, config: crate::pdp::redaction::RedactionConfig) -> String {
+    crate::pdp::redaction::redact(&text, &config)
+}
+
+/// Everything `config` would mask across a whole transcript, for the
+/// pre-export preview.
+pub fn preview_redaction_segments(
+    segments: Vec<Segment>,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<crate::pdp::redaction::PiiMatch> {
+    segments
+        .iter()
+        .flat_map(|segment| crate::pdp::redaction::find_pii(&segment.text, &config))
+        .collect()
+}
+
+/// Returns a redacted **copy** of `segments`. The stored transcript is
+/// never rewritten — a user who cannot get the original back has lost
+/// evidence, not protected it.
+pub fn redact_segments(
+    segments: Vec<Segment>,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<Segment> {
+    let mut copy = segments;
+    let masked = crate::pdp::redaction::redact_segments(&mut copy, &config);
+    if !masked.is_empty() {
+        crate::pdp::audit::record(
+            crate::pdp::audit::AuditEntry::new(
+                crate::pdp::audit::AuditAction::RedactionApplied,
+                "transkrip",
+            )
+            .with_detail(summarise_matches(&masked)),
+        );
+    }
+    copy
+}
+
+/// "3 NIK, 1 email" — the detail line an audit entry carries. Counts
+/// only; the values themselves never reach the log.
+fn summarise_matches(matches: &[crate::pdp::redaction::PiiMatch]) -> String {
+    use std::collections::BTreeMap;
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for found in matches {
+        *counts.entry(found.kind.label()).or_insert(0) += 1;
+    }
+    counts
+        .into_iter()
+        .map(|(label, count)| format!("{count} {label}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Sessions in `library_path`, aged for the retention planner.
+pub fn scan_library_ages(library_path: String) -> Vec<crate::pdp::retention::SessionAge> {
+    crate::pdp::retention::scan_library(std::path::Path::new(&library_path))
+}
+
+/// What `policy` would delete from `library_path` right now. Pure
+/// preview: nothing is removed until [`apply_retention`] runs.
+pub fn preview_retention(
+    library_path: String,
+    policy: crate::pdp::retention::RetentionPolicy,
+) -> crate::pdp::retention::RetentionPlan {
+    let sessions = crate::pdp::retention::scan_library(std::path::Path::new(&library_path));
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    crate::pdp::retention::plan(&sessions, policy, now)
+}
+
+/// One Indonesian sentence describing a plan, for the confirm dialog.
+pub fn describe_retention_plan(plan: crate::pdp::retention::RetentionPlan) -> String {
+    plan.summary()
+}
+
+/// Carries out a plan the user has confirmed, writing an audit entry per
+/// deletion.
+pub fn apply_retention(
+    plan: crate::pdp::retention::RetentionPlan,
+) -> Result<crate::pdp::retention::RetentionOutcome, TranscribeError> {
+    crate::pdp::retention::apply(&plan)
+}
+
+/// The audit log, newest first. `limit = 0` returns everything.
+pub fn read_audit_log(limit: u32) -> Vec<crate::pdp::audit::AuditEntry> {
+    crate::pdp::audit::read(limit)
+}
+
+pub fn audit_entry_count() -> u32 {
+    crate::pdp::audit::entry_count()
+}
+
+/// Indonesian label for an audit action, so the viewer does not have to
+/// keep its own copy of the mapping.
+pub fn audit_action_label(action: crate::pdp::audit::AuditAction) -> String {
+    action.label().to_string()
+}
+
+/// `YYYY-MM-DD HH:MM:SS` in local time.
+pub fn format_audit_time(at_unix_ms: u64) -> String {
+    crate::pdp::audit::format_time(at_unix_ms)
+}
+
+/// Appends one entry. Called by the UI for acts only it knows about —
+/// an export the user confirmed, a summary actually sent.
+pub fn write_audit_entry(
+    action: crate::pdp::audit::AuditAction,
+    subject: String,
+    destination: String,
+    detail: String,
+) -> Result<(), TranscribeError> {
+    crate::pdp::audit::append(
+        &crate::pdp::audit::AuditEntry::new(action, subject)
+            .to(destination)
+            .with_detail(detail),
+    )
+}
+
+/// Writes the audit log to `destination` as CSV and records that it did.
+pub fn export_audit_log(destination: String) -> Result<String, TranscribeError> {
+    let path = crate::pdp::audit::export_csv(std::path::Path::new(&destination))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// The consent notice for a meeting, ready to paste into a meeting chat.
+pub fn consent_notice_text(template: String, title: String, date: String) -> String {
+    crate::pdp::consent_notice(&template, &title, &date)
+}
+
+/// The shipped default notice, for the settings field's placeholder.
+pub fn default_consent_notice() -> String {
+    crate::pdp::DEFAULT_CONSENT_NOTICE.to_string()
+}
+
+/// Records that the notice was delivered for this meeting.
+pub fn acknowledge_consent(title: String, note: String) {
+    crate::pdp::acknowledge_consent(&title, &note);
+}
+
 // --- Settings -----------------------------------------------------
 
+/// Every capability, where it runs, and whether it is on right now (F14).
+///
+/// Generated from `crate::capabilities`, which `crate::privacy`'s tests
+/// check against the source — so this table cannot quietly disagree with
+/// what the code does.
+pub fn describe_capabilities(settings: AppSettings) -> Vec<crate::capabilities::Capability> {
+    crate::capabilities::capabilities(&settings)
+}
+
 pub fn load_settings() -> AppSettings {
-    crate::settings::load_settings()
+    let settings = crate::settings::load_settings();
+    // The ASR path reads this from a process global rather than being
+    // handed settings it has no other use for (F17).
+    crate::denoise::set_enabled(settings.noise_reduction);
+    settings
 }
 
 pub fn save_settings(settings: AppSettings) -> Result<(), TranscribeError> {
+    crate::denoise::set_enabled(settings.noise_reduction);
     crate::settings::save_settings(&settings)
 }
 

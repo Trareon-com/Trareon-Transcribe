@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/global_hotkey_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
+import '../services/tray_service.dart';
 import '../state/audio_stream_model.dart';
+import '../state/enhance_queue_model.dart';
 import '../state/audio_watchdog_model.dart';
 import '../state/library_model.dart';
 import '../state/models.dart';
@@ -26,6 +28,7 @@ import '../widgets/session_controls.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/animated_record_button.dart';
 import '../widgets/transcript_view.dart';
+import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
 import 'transcript_player_screen.dart';
@@ -60,6 +63,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   SessionRecord? _openSession;
   bool _openingSession = false;
 
+  /// Where to land in [_openSession], when it was opened by a citation
+  /// rather than by picking it from the sidebar (F12 / F7).
+  double? _openSessionSeek;
+
   /// Polled while recording so the confirmation badge and the Stop
   /// integrity summary read the same numbers.
   rust_session.CaptureHealth? _captureHealth;
@@ -84,6 +91,90 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       () => ref.read(sessionProvider).lifecycle,
     );
     _loadRecoveries();
+    TrayService.instance.confirmQuit = _confirmQuitWithPendingWork;
+  }
+
+  /// Guards [_resumeUnfinishedTranscripts] so it runs once per launch, on
+  /// the first completed library load rather than on a timer.
+  bool _resumedUnfinished = false;
+
+  /// Gate on the tray's "Keluar" while background work is outstanding.
+  ///
+  /// Quitting with a completion pass in flight does not lose the work —
+  /// the sidecar records which tracks are still untranscribed and
+  /// [_resumeUnfinishedTranscripts] picks them up next launch — but it
+  /// does mean the transcript stays incomplete until then, which is worth
+  /// one dialog.
+  Future<bool> _confirmQuitWithPendingWork() async {
+    if (!mounted) return true;
+    final queue = ref.read(enhanceQueueProvider);
+    final recording =
+        ref.read(sessionProvider).lifecycle == SessionLifecycle.recording;
+    if (!queue.hasPendingWork && !recording) return true;
+    final outstanding = queue.jobs
+        .where((j) =>
+            j.kind == EnhanceJobKind.complete &&
+            (j.status == EnhanceJobStatus.queued ||
+                j.status == EnhanceJobStatus.running))
+        .length;
+    final reasons = [
+      if (recording) 'Rekaman masih berjalan.',
+      if (outstanding > 0)
+        '$outstanding rekaman masih diselesaikan transkripnya — '
+            'pekerjaan ini dilanjutkan otomatis saat aplikasi dibuka lagi.',
+      if (outstanding == 0 && queue.hasPendingWork)
+        'Masih ada transkrip yang sedang diperhalus.',
+    ];
+    if (!mounted) return true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar sekarang?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [for (final reason in reasons) Text('• $reason')],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Tetap di aplikasi'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  /// Re-queues the completion work the sidecars say is outstanding.
+  ///
+  /// The queue lives in memory; which tracks are still untranscribed lives
+  /// on disk next to the session. Without this, quitting while the
+  /// post-stop pass was running would leave those minutes of the meeting
+  /// permanently out of the transcript, with the sidecar still claiming
+  /// they were coming.
+  Future<void> _resumeUnfinishedTranscripts() async {
+    if (_resumedUnfinished || !mounted) return;
+    _resumedUnfinished = true;
+    final entries = ref.read(libraryListProvider).entries;
+    if (entries.isEmpty) return;
+    try {
+      final resumed = await ref
+          .read(enhanceQueueProvider.notifier)
+          .resumePending([
+            for (final entry in entries)
+              (dirPath: entry.dirPath, title: entry.title),
+          ]);
+      if (resumed > 0) {
+        debugPrint('resumed $resumed unfinished transcript pass(es)');
+      }
+    } catch (e) {
+      debugPrint('resume of unfinished transcripts failed: $e');
+    }
   }
 
   @override
@@ -276,7 +367,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!mounted) return;
     _forgetRecoverable(session);
     if (recovered != null) {
-      setState(() => _openSession = null);
+      setState(() {
+      _openSession = null;
+      _openSessionSeek = null;
+    });
       _startHealthPolling(recovered.sessionId);
       _startDiskWatch();
     }
@@ -488,7 +582,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Recording always takes over the workspace: starting a session while
     // reading an old one and having the new transcript appear nowhere
     // visible is how a recording gets lost.
-    if (_openSession != null) setState(() => _openSession = null);
+    if (_openSession != null) {
+      setState(() {
+        _openSession = null;
+        _openSessionSeek = null;
+      });
+    }
     // start() can hang for a long time with zero other feedback while
     // waiting on a native macOS permission dialog (e.g. first-ever Webinar/
     // system-audio capture) — without this the record button just looks
@@ -559,14 +658,40 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (mounted) unawaited(ref.read(libraryListProvider.notifier).refresh());
   }
 
+  /// Opens "Tanya Arsip Rapat" (F12). A citation in an answer brings the
+  /// user back here with the right session open at the right moment.
+  Future<void> _openArchiveChat() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArchiveChatScreen(
+          onOpenSession: (dirPath, timestamp) {
+            Navigator.of(context).pop();
+            final entry = ref
+                .read(libraryListProvider)
+                .entries
+                .where((e) => e.dirPath == dirPath)
+                .firstOrNull;
+            if (entry != null) {
+              unawaited(_selectSession(entry, seekSeconds: timestamp));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   /// Loads a session's transcript and shows it in the workspace.
-  Future<void> _selectSession(LibraryEntry entry) async {
+  ///
+  /// [seekSeconds] is set when a citation chose the moment as well as the
+  /// meeting; null leaves the player at the start as before.
+  Future<void> _selectSession(LibraryEntry entry, {double? seekSeconds}) async {
     setState(() => _openingSession = true);
     final record = await loadSessionRecord(entry.dirPath);
     if (!mounted) return;
     setState(() {
       _openingSession = false;
       _openSession = record;
+      _openSessionSeek = record == null ? null : seekSeconds;
     });
     if (record == null && context.mounted) {
       AppToast.show(context, '"${entry.title}" tidak bisa dibuka.',
@@ -575,7 +700,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _newSession() {
-    setState(() => _openSession = null);
+    setState(() {
+      _openSession = null;
+      _openSessionSeek = null;
+    });
     _sidebarSearchFocus.unfocus();
   }
 
@@ -597,6 +725,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final isPaused = lifecycle == SessionLifecycle.paused;
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
+
+    // The first completed library load is the earliest moment the sidecars
+    // are known, and the latest one at which an unfinished transcript
+    // should still be waiting. Keyed off the load rather than a timer so
+    // nothing is left pending in a widget test.
+    ref.listen<LibraryListState>(libraryListProvider, (previous, next) {
+      if (!next.loading && next.entries.isNotEmpty) {
+        unawaited(_resumeUnfinishedTranscripts());
+      }
+    });
 
     // Keep the title controller in sync with auto-detected session title
     // (set by the Rust bridge on session start via detectFrontmostWindowTitle).
@@ -644,6 +782,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       onOpenLibrary: () => _openLibrary(),
       onOpenUpload: () => _openLibrary(tab: 1),
       onOpenSettings: _openSettings,
+      onOpenArchiveChat: _openArchiveChat,
       searchFocusNode: _sidebarSearchFocus,
       isRecording: isActive,
     );
@@ -710,6 +849,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       isPaused: isPaused,
                       openSession: _openSession,
                       openingSession: _openingSession,
+                      openSessionSeek: _openSessionSeek,
                       onCloseSession: _newSession,
                       vuLevel: vuLevel,
                       captureHealth: _captureHealth,
@@ -764,6 +904,7 @@ class _Workspace extends StatelessWidget {
     required this.isPaused,
     required this.openSession,
     required this.openingSession,
+    this.openSessionSeek,
     required this.onCloseSession,
     required this.vuLevel,
     required this.captureHealth,
@@ -796,6 +937,7 @@ class _Workspace extends StatelessWidget {
   final bool isPaused;
   final SessionRecord? openSession;
   final bool openingSession;
+  final double? openSessionSeek;
   final VoidCallback onCloseSession;
   final VuLevel? vuLevel;
   final rust_session.CaptureHealth? captureHealth;
@@ -831,7 +973,11 @@ class _Workspace extends StatelessWidget {
     final opened = openSession;
     if (opened != null) {
       return TranscriptPlayerScreen(
-        key: ValueKey(opened.dirPath),
+        // The seek is part of the key: a second citation into a session
+        // that is already open has to re-enter the player, otherwise the
+        // jump silently does nothing.
+        key: ValueKey('${opened.dirPath}@${openSessionSeek ?? 0}'),
+        initialSeekSeconds: openSessionSeek,
         title: opened.title,
         durationSeconds: opened.durationSeconds,
         segments: opened.segments,

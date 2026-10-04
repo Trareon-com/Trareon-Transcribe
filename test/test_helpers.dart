@@ -12,6 +12,13 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
+import 'package:transcribe/src/rust/actions.dart' as rust_actions;
+import 'package:transcribe/src/rust/archive.dart' as rust_archive;
+import 'package:transcribe/src/rust/capabilities.dart' as rust_capabilities;
+import 'package:transcribe/src/rust/mapreduce.dart' as rust_mapreduce;
+import 'package:transcribe/src/rust/provenance.dart' as rust_provenance;
+import 'package:transcribe/src/rust/completion.dart' as rust_completion;
+import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/export/notulen.dart' as rust_notulen;
@@ -50,6 +57,7 @@ mixin SummaryBridgeStubs {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split('/').last,
     quickSegments: const [],
@@ -59,11 +67,133 @@ mixin SummaryBridgeStubs {
 
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
 
+  // ── Transcript completion (ITEM 0) ─────────────────────────────────
+  //
+  // Inert and "already complete": a test double must never leave the UI
+  // in "Menyelesaikan transkrip…" with nothing able to finish it.
+
+  Future<double> audioDurationSecs(String path) async => 0;
+
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) async => kCompleteCoverage;
+
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) async => rust_completion.CompletionOutcome(
+    segments: existing.map(toRustSegment).toList(),
+    added: 0,
+    rejected: 0,
+    coverage: kCompleteCoverage,
+    speechSecs: 0,
+    speechCoveredSecs: 0,
+    audioSecs: 0,
+  );
+
+  Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
+      const [];
+
+  // ── Tanya arsip rapat (F12) ────────────────────────────────────────
+  //
+  // Inert: indexing is a no-op, retrieval finds nothing, and asking a
+  // question throws — the archive answer is a networked path, so a test
+  // that reaches it by accident must fail loudly.
+
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => false;
+
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => 0;
+
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) async {}
+
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) async => const [];
+
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) async =>
+      rust_archive.ArchiveStats(sessions: 0, passages: 0, bytes: BigInt.zero);
+
+  Future<void> archiveClear(String libraryPath) async {}
+
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('test bridge does not answer archive questions');
+
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
   }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  // ── Tindak lanjut & provenans (F6/F7/F15) ──────────────────────────
+  //
+  // Pure re-reads of a summary, so they are safe to stub as "finds
+  // nothing"; the long-meeting path throws for the same reason
+  // [generateSummary] does.
+
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
+
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) async => const [];
+
+  Future<List<rust_actions.ActionItem>> parseActionItems(
+    String summary,
+  ) async => const [];
+
+  Future<String> stripActionItemsBlock(String summary) async => summary;
+
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
+
+  Future<String> actionItemsToCsv(
+    List<rust_actions.ActionItem> items,
+  ) async => '';
+
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) async => const rust_provenance.SummaryProvenance(lines: [], dropped: 0);
 
   Future<List<String>> listSummaryModels({
     required SummaryProvider provider,
@@ -258,6 +388,7 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => [];
 
   @override

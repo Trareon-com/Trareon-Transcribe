@@ -17,9 +17,11 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../state/models.dart';
 import '../utils/atomic_file.dart';
+import 'library_index.dart' show normaliseTags;
 
 const String kMetaFilename = 'trareon-session.json';
 
@@ -79,6 +81,37 @@ class SessionMeta {
   /// this session, so it is never queued twice.
   final bool autoRetranscribeDone;
 
+  /// Captured tracks whose audio the transcript does not yet account for.
+  ///
+  /// Written at save time from the engine's coverage check and cleared one
+  /// entry at a time as the completion pass finishes each. It is what makes
+  /// "resume on next launch" work: the queue itself is in memory, but the
+  /// fact that a session is unfinished is on disk, next to the session.
+  ///
+  /// A session with a non-empty list is **not finished** and must never be
+  /// presented as such.
+  final List<String> pendingCompletion;
+
+  /// Fraction of the recording's *speech* the transcript covers, as last
+  /// measured. Null for a session saved before this existed — unknown, not
+  /// incomplete.
+  final double? coverageFraction;
+
+  /// Folders/tags the session is filed under (F20).
+  ///
+  /// Tags, not directories: a meeting is routinely both "Anggaran" and
+  /// "Mingguan", and a folder on disk can only be in one place. Keeping
+  /// them in the sidecar also means renaming a tag never moves a file.
+  final List<String> tags;
+
+  /// "Tindak Lanjut" rows (F6), as the user last left them.
+  ///
+  /// Stored rather than re-parsed from [summary] on every open: the
+  /// checklist is editable — a status ticked to "selesai" or a corrected
+  /// PJ is the user's work, and re-deriving it from the model's text
+  /// would throw that away.
+  final List<ActionItem> actionItems;
+
   const SessionMeta({
     this.title,
     this.summary = '',
@@ -90,11 +123,18 @@ class SessionMeta {
     this.bookmarks = const [],
     this.notulen,
     this.autoRetranscribeDone = false,
+    this.pendingCompletion = const [],
+    this.coverageFraction,
+    this.actionItems = const [],
+    this.tags = const [],
   });
 
   static const SessionMeta empty = SessionMeta();
 
   bool get hasSummary => summary.trim().isNotEmpty;
+
+  /// Whether audio recorded in this session is still untranscribed.
+  bool get isIncomplete => pendingCompletion.isNotEmpty;
 
   SessionMeta copyWith({
     String? title,
@@ -107,6 +147,10 @@ class SessionMeta {
     List<Bookmark>? bookmarks,
     NotulenFormData? notulen,
     bool? autoRetranscribeDone,
+    List<String>? pendingCompletion,
+    double? coverageFraction,
+    List<ActionItem>? actionItems,
+    List<String>? tags,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -120,6 +164,10 @@ class SessionMeta {
       bookmarks: bookmarks ?? this.bookmarks,
       notulen: notulen ?? this.notulen,
       autoRetranscribeDone: autoRetranscribeDone ?? this.autoRetranscribeDone,
+      pendingCompletion: pendingCompletion ?? this.pendingCompletion,
+      coverageFraction: coverageFraction ?? this.coverageFraction,
+      actionItems: actionItems ?? this.actionItems,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -141,6 +189,11 @@ class SessionMeta {
       ],
     if (notulen != null) 'notulen': notulen!.toJson(),
     if (autoRetranscribeDone) 'auto_retranscribe_done': true,
+    if (pendingCompletion.isNotEmpty) 'pending_completion': pendingCompletion,
+    if (coverageFraction != null) 'coverage_fraction': coverageFraction,
+    if (actionItems.isNotEmpty)
+      'action_items': [for (final item in actionItems) _actionItemToJson(item)],
+    if (tags.isNotEmpty) 'tags': tags,
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -169,8 +222,61 @@ class SessionMeta {
           ? NotulenFormData.fromJson(json['notulen'] as Map<String, dynamic>)
           : null,
       autoRetranscribeDone: json['auto_retranscribe_done'] == true,
+      pendingCompletion: json['pending_completion'] is List
+          ? (json['pending_completion'] as List).whereType<String>().toList()
+          : const [],
+      coverageFraction: (json['coverage_fraction'] as num?)?.toDouble(),
+      actionItems: _actionItemsFromJson(json['action_items']),
+      tags: normaliseTags(json['tags']),
     );
   }
+}
+
+Map<String, dynamic> _actionItemToJson(ActionItem item) => {
+  'id': item.id,
+  'tugas': item.tugas,
+  'pj': item.penanggungJawab,
+  'tenggat': item.tenggat,
+  'status': item.status.name,
+  if (item.segmentIds.isNotEmpty) 'segments': item.segmentIds.toList(),
+};
+
+/// Action items from a sidecar, with nonsense dropped.
+///
+/// A row with no `tugas` is not a task, and an unknown status name (a
+/// newer build's, or a hand edit) falls back to "belum" rather than
+/// making the whole session unopenable.
+List<ActionItem> _actionItemsFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  final out = <ActionItem>[];
+  for (final entry in raw) {
+    if (entry is! Map) continue;
+    final tugas = entry['tugas'];
+    if (tugas is! String || tugas.trim().isEmpty) continue;
+    final statusName = entry['status'];
+    final segments = entry['segments'];
+    out.add(ActionItem(
+      id: entry['id'] is String && (entry['id'] as String).isNotEmpty
+          ? entry['id'] as String
+          : 'T${out.length + 1}',
+      tugas: tugas,
+      penanggungJawab: entry['pj'] is String ? entry['pj'] as String : '',
+      tenggat: entry['tenggat'] is String ? entry['tenggat'] as String : '',
+      status: ActionStatus.values
+              .where((s) => s.name == statusName)
+              .firstOrNull ??
+          ActionStatus.belum,
+      segmentIds: Uint32List.fromList(
+        segments is List
+            ? [
+                for (final id in segments)
+                  if (id is int && id >= 0) id,
+              ]
+            : const [],
+      ),
+    ));
+  }
+  return out;
 }
 
 /// Bookmarks, sorted by timestamp and with nonsense dropped. A hand-edited

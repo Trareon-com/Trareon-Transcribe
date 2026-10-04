@@ -32,7 +32,22 @@ class Bookmark {
           note == other.note;
 }
 
-enum ExportFormat { markdown, txt, json, srt, vtt, html, docx }
+enum ExportFormat {
+  markdown,
+  txt,
+  json,
+  srt,
+  vtt,
+  html,
+  docx,
+
+  /// Transcript as a spreadsheet, one row per final segment (F19).
+  csv,
+
+  /// Paginated document with the font embedded, so it reads the same on
+  /// a machine that has never seen this app (F19).
+  pdf,
+}
 
 class ExportedFile {
   final String filename;

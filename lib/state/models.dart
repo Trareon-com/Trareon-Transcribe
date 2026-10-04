@@ -7,15 +7,26 @@ import 'dart:io';
 
 
 import '../src/rust/glossary.dart' show GlossaryConfig;
+import '../src/rust/pdp.dart' show PdpSettings;
+import '../src/rust/pdp/redaction.dart' show RedactionConfig;
+import '../src/rust/pdp/retention.dart' show RetentionPolicy;
 import '../src/rust/settings.dart'
     show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
 import '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
+export '../src/rust/actions.dart' show ActionItem, ActionStatus;
 export '../src/rust/export.dart' show Bookmark;
 export '../src/rust/export/notulen.dart'
     show NotulenDraft, NotulenForm, NotulenVariant, TindakLanjut;
 export '../src/rust/glossary.dart' show GlossaryConfig;
+export '../src/rust/mapreduce.dart' show MapReduceProgress;
+export '../src/rust/pdp.dart' show PdpSettings;
+export '../src/rust/pdp/audit.dart' show AuditAction, AuditEntry;
+export '../src/rust/pdp/redaction.dart' show PiiKind, PiiMatch, RedactionConfig;
+export '../src/rust/pdp/retention.dart'
+    show RetentionItem, RetentionPlan, RetentionPolicy;
+export '../src/rust/provenance.dart' show Citation, SummaryLine, SummaryProvenance;
 export '../src/rust/settings.dart'
     show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
 export '../src/rust/summary.dart'
@@ -35,6 +46,8 @@ const SummarySettings kDefaultSummarySettings = SummarySettings(
   model: '',
   template: SummaryTemplate.notulenRapat,
   customPrompt: '',
+  withCitations: false,
+  withActionItems: false,
 );
 
 /// A fresh install's kamus istilah: on, but empty, so it is a no-op until the
@@ -251,6 +264,16 @@ class SessionConfig {
   /// for this meeting. Empty is a no-op.
   final GlossaryConfig glossary;
 
+  /// Fastest model installed, for the *live preview only* when [modelPath]
+  /// turns out to be slower than real time on this device.
+  ///
+  /// It does not downgrade what the user ends up with: the post-stop
+  /// completion pass re-runs the saved audio with [modelPath]. What it
+  /// prevents is the live worker falling further behind every minute until
+  /// Stop, which on a weak CPU produced a 6-minute recording with 8 seconds
+  /// of transcript. Null disables the substitution.
+  final String? fallbackModelPath;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -269,6 +292,7 @@ class SessionConfig {
       globalTerms: [],
       postCorrection: false,
     ),
+    this.fallbackModelPath,
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -294,6 +318,7 @@ class SessionConfig {
     int? gpuDevice,
     bool? audioToDisk,
     GlossaryConfig? glossary,
+    Object? fallbackModelPath = _sentinel,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -311,8 +336,30 @@ class SessionConfig {
       gpuDevice: gpuDevice ?? this.gpuDevice,
       audioToDisk: audioToDisk ?? this.audioToDisk,
       glossary: glossary ?? this.glossary,
+      fallbackModelPath: fallbackModelPath == _sentinel
+          ? this.fallbackModelPath
+          : fallbackModelPath as String?,
     );
   }
+}
+
+/// The fastest model installed on this machine, for the live preview to
+/// fall back to. Ordered fastest first; `null` when none of them is
+/// installed or the only one installed is [exclude] itself.
+///
+/// `tiny` is not in [kKnownModelIds] — it is not offered in Settings — but
+/// it is bundled in the repo and left behind by older releases, and for a
+/// live preview on a two-core machine it is exactly the right answer.
+String? fastestInstalledModelPath({
+  required String exclude,
+  String? libraryPath,
+}) {
+  for (final id in const ['tiny', 'base']) {
+    if (!isModelAvailable(id, libraryPath: libraryPath)) continue;
+    final path = modelPathForId(id, libraryPath: libraryPath);
+    if (path != exclude) return path;
+  }
+  return null;
 }
 
 class TranscriptSegment {
@@ -464,6 +511,15 @@ class AppSettings {
   /// `null` = decide from the live model: on when the quick model was used.
   final bool? autoRetranscribe;
 
+  /// Mode Kepatuhan UU PDP (F13). Off by default: every part of it either
+  /// hides or deletes something, so none of it may start happening
+  /// because the app updated.
+  final PdpSettings pdp;
+
+  /// Run RNNoise over the audio before transcription (F17). Off by
+  /// default; see rust_core/src/denoise.rs for the trade-off.
+  final bool noiseReduction;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -486,6 +542,8 @@ class AppSettings {
     this.summaryTemplates = const [],
     this.notulen = kDefaultNotulenDefaults,
     this.autoRetranscribe,
+    this.pdp = kDefaultPdpSettings,
+    this.noiseReduction = false,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -521,6 +579,8 @@ class AppSettings {
     List<CustomSummaryTemplate>? summaryTemplates,
     NotulenDefaults? notulen,
     Object? autoRetranscribe = _sentinel,
+    PdpSettings? pdp,
+    bool? noiseReduction,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -552,8 +612,93 @@ class AppSettings {
       autoRetranscribe: autoRetranscribe == _sentinel
           ? this.autoRetranscribe
           : autoRetranscribe as bool?,
+      pdp: pdp ?? this.pdp,
+      noiseReduction: noiseReduction ?? this.noiseReduction,
     );
   }
+}
+
+/// Compliance mode as a brand-new install has it: entirely inert.
+const PdpSettings kDefaultPdpSettings = PdpSettings(
+  enabled: false,
+  redaction: RedactionConfig(
+    nik: true,
+    npwp: true,
+    phone: true,
+    email: true,
+    bankAccount: true,
+    names: [],
+  ),
+  retention: RetentionPolicy(audioDays: 0, transcriptDays: 0),
+  consentReminder: false,
+  consentText: '',
+);
+
+/// Field-level updates for the FRB-generated compliance types, which have
+/// no `copyWith` of their own. Respelling five required fields per toggle
+/// is how a checkbox ends up clearing the name list.
+extension PdpSettingsCopy on PdpSettings {
+  PdpSettings copyWith({
+    bool? enabled,
+    RedactionConfig? redaction,
+    RetentionPolicy? retention,
+    bool? consentReminder,
+    String? consentText,
+  }) => PdpSettings(
+    enabled: enabled ?? this.enabled,
+    redaction: redaction ?? this.redaction,
+    retention: retention ?? this.retention,
+    consentReminder: consentReminder ?? this.consentReminder,
+    consentText: consentText ?? this.consentText,
+  );
+
+  /// The redaction config an export should actually use: empty unless the
+  /// master switch is on, so a caller never has to check both.
+  RedactionConfig get activeRedaction => enabled
+      ? redaction
+      : const RedactionConfig(
+          nik: false,
+          npwp: false,
+          phone: false,
+          email: false,
+          bankAccount: false,
+          names: [],
+        );
+
+  bool get redacts =>
+      enabled &&
+      (redaction.nik ||
+          redaction.npwp ||
+          redaction.phone ||
+          redaction.email ||
+          redaction.bankAccount ||
+          redaction.names.isNotEmpty);
+}
+
+extension RedactionConfigCopy on RedactionConfig {
+  RedactionConfig copyWith({
+    bool? nik,
+    bool? npwp,
+    bool? phone,
+    bool? email,
+    bool? bankAccount,
+    List<String>? names,
+  }) => RedactionConfig(
+    nik: nik ?? this.nik,
+    npwp: npwp ?? this.npwp,
+    phone: phone ?? this.phone,
+    email: email ?? this.email,
+    bankAccount: bankAccount ?? this.bankAccount,
+    names: names ?? this.names,
+  );
+}
+
+extension RetentionPolicyCopy on RetentionPolicy {
+  RetentionPolicy copyWith({int? audioDays, int? transcriptDays}) =>
+      RetentionPolicy(
+        audioDays: audioDays ?? this.audioDays,
+        transcriptDays: transcriptDays ?? this.transcriptDays,
+      );
 }
 
 /// Field-level update for [GlossarySettings]. FRB generates no `copyWith`,
@@ -636,6 +781,8 @@ extension SummarySettingsCopy on SummarySettings {
     String? model,
     SummaryTemplate? template,
     String? customPrompt,
+    bool? withCitations,
+    bool? withActionItems,
   }) {
     return SummarySettings(
       enabled: enabled ?? this.enabled,
@@ -645,6 +792,8 @@ extension SummarySettingsCopy on SummarySettings {
       model: model ?? this.model,
       template: template ?? this.template,
       customPrompt: customPrompt ?? this.customPrompt,
+      withCitations: withCitations ?? this.withCitations,
+      withActionItems: withActionItems ?? this.withActionItems,
     );
   }
 
@@ -665,6 +814,8 @@ extension SummarySettingsCopy on SummarySettings {
       customPrompt: customPrompt,
       language: language ?? 'id',
       timeoutSecs: BigInt.from(180),
+      withCitations: withCitations,
+      withActionItems: withActionItems,
     );
   }
 }

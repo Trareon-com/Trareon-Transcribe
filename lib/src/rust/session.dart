@@ -74,6 +74,14 @@ class ChannelCapture {
   /// False when this source fell back to (or was demoted to) RAM.
   final bool writingToDisk;
 
+  /// Seconds of captured audio the live worker has not transcribed yet.
+  ///
+  /// Zero on a device that keeps up. On one that does not this climbs for
+  /// the whole meeting, and used to be invisible until Stop threw the
+  /// backlog away — which is how a 6-minute recording ended up with 8
+  /// seconds of transcript and no warning anywhere.
+  final double lagSecs;
+
   const ChannelCapture({
     required this.source,
     required this.expected,
@@ -83,6 +91,7 @@ class ChannelCapture {
     required this.percentSilent,
     required this.silentForSecs,
     required this.writingToDisk,
+    required this.lagSecs,
   });
 
   @override
@@ -94,7 +103,8 @@ class ChannelCapture {
       secondsVoiced.hashCode ^
       percentSilent.hashCode ^
       silentForSecs.hashCode ^
-      writingToDisk.hashCode;
+      writingToDisk.hashCode ^
+      lagSecs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -108,7 +118,8 @@ class ChannelCapture {
           secondsVoiced == other.secondsVoiced &&
           percentSilent == other.percentSilent &&
           silentForSecs == other.silentForSecs &&
-          writingToDisk == other.writingToDisk;
+          writingToDisk == other.writingToDisk &&
+          lagSecs == other.lagSecs;
 }
 
 /// How much audio one source has delivered, and how much of it was above

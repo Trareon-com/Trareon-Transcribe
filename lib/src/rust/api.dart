@@ -3,8 +3,13 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import 'actions.dart';
+import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'capabilities.dart';
+import 'completion.dart';
+import 'coverage.dart';
 import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
@@ -12,13 +17,20 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'mapreduce.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'pdp.dart';
+import 'pdp/audit.dart';
+import 'pdp/redaction.dart';
+import 'pdp/retention.dart';
+import 'provenance.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
 import 'summary.dart';
 
+// These functions are ignored because they are not marked as `pub`: `summarise_matches`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 Future<List<Check>> runPreflightChecks() =>
@@ -241,6 +253,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   required bool gpuEnabled,
   required int gpuDevice,
   required GlossaryConfig glossary,
+  required int speakerHint,
 }) => RustLib.instance.api.crateApiProgressiveTranscribeFile(
   quickModelPath: quickModelPath,
   refineModelPath: refineModelPath,
@@ -249,6 +262,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
   glossary: glossary,
+  speakerHint: speakerHint,
 );
 
 /// Transcribes every file in `files` against a single loaded model.
@@ -258,6 +272,8 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
 /// per file. Returns one outcome per input file, in input order, carrying
 /// either the transcript or the error — so a single bad file no longer
 /// disappears from the results without explanation.
+/// `speaker_hint` is how many people are in the recordings, or `0` for
+/// "work it out" (F10).
 Future<List<BatchFileOutcome>> transcribeFilesBatch({
   required String modelPath,
   required List<String> files,
@@ -265,6 +281,7 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
   required bool gpuEnabled,
   required int gpuDevice,
   required GlossaryConfig glossary,
+  required int speakerHint,
 }) => RustLib.instance.api.crateApiTranscribeFilesBatch(
   modelPath: modelPath,
   files: files,
@@ -272,6 +289,7 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
   glossary: glossary,
+  speakerHint: speakerHint,
 );
 
 /// Which file [`transcribe_files_batch`] is currently on. Poll this while the
@@ -279,6 +297,94 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
 /// done, so without it a long import shows a spinner that never moves.
 Future<BatchProgressSnapshot?> getBatchProgress() =>
     RustLib.instance.api.crateApiGetBatchProgress();
+
+/// Length of an audio file in seconds, from its header where possible.
+///
+/// Falls back to a full decode only when the container declares no frame
+/// count, so the coverage check on save stays cheap for a 1.4 GB WAV.
+Future<double> audioDurationSecs({required String path}) =>
+    RustLib.instance.api.crateApiAudioDurationSecs(path: path);
+
+/// What `segments` account for across a recording of `total_secs`, and
+/// which stretches they miss. Pure; no decode, no inference.
+Future<CoverageReport> transcriptCoverage({
+  required List<Segment> segments,
+  required double totalSecs,
+}) => RustLib.instance.api.crateApiTranscriptCoverage(
+  segments: segments,
+  totalSecs: totalSecs,
+);
+
+/// [`transcript_coverage`] against the real length of `audio_path`.
+Future<CoverageReport> transcriptCoverageForAudio({
+  required List<Segment> segments,
+  required String audioPath,
+}) => RustLib.instance.api.crateApiTranscriptCoverageForAudio(
+  segments: segments,
+  audioPath: audioPath,
+);
+
+/// Folds `incoming` into `existing` by timestamp, keeping every existing
+/// segment. Exposed so the UI can merge without re-running a pass.
+Future<List<Segment>> mergeTranscriptSegments({
+  required List<Segment> existing,
+  required List<Segment> incoming,
+}) => RustLib.instance.api.crateApiMergeTranscriptSegments(
+  existing: existing,
+  incoming: incoming,
+);
+
+/// Transcribes the stretches of `audio_path` that `existing` does not
+/// cover, and returns the merged transcript.
+///
+/// `job_key` identifies this pass in [`read_completion_progress`] — the
+/// session directory, in practice. Progress is published per source, so a
+/// "Rapat Online" session's two tracks report independently.
+///
+/// Returns `existing` untouched (and `added = 0`) when the transcript
+/// already covers the recording, or when the uncovered stretches hold no
+/// speech — a meeting with ten silent minutes at the end is complete, and
+/// must not sit at "Menyelesaikan transkrip…" forever.
+Future<CompletionOutcome> completeSessionTranscript({
+  required String modelPath,
+  required String audioPath,
+  required String jobKey,
+  required List<Segment> existing,
+  String? language,
+  required bool gpuEnabled,
+  required int gpuDevice,
+  required GlossaryConfig glossary,
+  required bool vadEnabled,
+}) => RustLib.instance.api.crateApiCompleteSessionTranscript(
+  modelPath: modelPath,
+  audioPath: audioPath,
+  jobKey: jobKey,
+  existing: existing,
+  language: language,
+  gpuEnabled: gpuEnabled,
+  gpuDevice: gpuDevice,
+  glossary: glossary,
+  vadEnabled: vadEnabled,
+);
+
+/// Per-source progress of every completion pass currently running.
+Future<List<CompletionProgress>> readCompletionProgress() =>
+    RustLib.instance.api.crateApiReadCompletionProgress();
+
+/// Forgets one source's progress slot — used when a job is cancelled.
+Future<void> clearCompletionProgress({
+  required String jobKey,
+  required String source,
+}) => RustLib.instance.api.crateApiClearCompletionProgress(
+  jobKey: jobKey,
+  source: source,
+);
+
+/// Whether `text`, as a whole segment, is a caption Whisper invented over
+/// silence rather than something a person said. Exposed so the UI can
+/// explain a dropped line instead of silently removing it.
+Future<bool> isNonSpeechText({required String text}) =>
+    RustLib.instance.api.crateApiIsNonSpeechText(text: text);
 
 /// Generates a Markdown meeting summary for `segments` using `config`.
 ///
@@ -294,6 +400,77 @@ Future<String> generateSummary({
   segments: segments,
   config: config,
   bookmarks: bookmarks,
+);
+
+/// Summarises a meeting of any length, splitting it into time windows
+/// and reducing when it does not fit one request (F15).
+///
+/// `progress` is polled from Dart via [`read_summary_progress`]; a
+/// three-hour meeting is around eighteen round trips and the user has to
+/// see which one is running.
+Future<String> generateSummaryLong({
+  required List<Segment> segments,
+  required SummaryConfig config,
+  required List<Bookmark> bookmarks,
+}) => RustLib.instance.api.crateApiGenerateSummaryLong(
+  segments: segments,
+  config: config,
+  bookmarks: bookmarks,
+);
+
+/// How far a map-reduce summary has got, or `None` when none is running.
+Future<MapReduceProgress?> readSummaryProgress() =>
+    RustLib.instance.api.crateApiReadSummaryProgress();
+
+/// Pulls the tugas / PJ / tenggat / status rows out of a summary,
+/// however the model formatted them. Pure and local.
+Future<List<ActionItem>> parseActionItems({required String summary}) =>
+    RustLib.instance.api.crateApiParseActionItems(summary: summary);
+
+/// Removes the raw JSON block from a summary once it has been parsed, so
+/// the rendered summary does not show the machine-readable copy under
+/// the checklist.
+Future<String> stripActionItemsBlock({required String summary}) =>
+    RustLib.instance.api.crateApiStripActionItemsBlock(summary: summary);
+
+/// RFC 5545 calendar for a checklist: one `VTODO` per task, plus a
+/// `VEVENT` for each task whose deadline resolves to a date.
+/// `today` is `YYYY-MM-DD`, used to resolve "Jumat" and "besok".
+Future<String> actionItemsToIcs({
+  required List<ActionItem> items,
+  required String calendarName,
+  required String today,
+}) => RustLib.instance.api.crateApiActionItemsToIcs(
+  items: items,
+  calendarName: calendarName,
+  today: today,
+);
+
+Future<String> actionItemsToCsv({required List<ActionItem> items}) =>
+    RustLib.instance.api.crateApiActionItemsToCsv(items: items);
+
+/// Indonesian label for a status, for the checklist's dropdown.
+Future<String> actionStatusLabel({required ActionStatus status}) =>
+    RustLib.instance.api.crateApiActionStatusLabel(status: status);
+
+/// Splits a summary into lines and resolves each `[#n]` marker to a
+/// transcript timestamp, dropping ids the transcript does not have.
+Future<SummaryProvenance> parseSummaryProvenance({
+  required String summary,
+  required List<Segment> segments,
+}) => RustLib.instance.api.crateApiParseSummaryProvenance(
+  summary: summary,
+  segments: segments,
+);
+
+/// [`parse_summary_provenance`] plus the stricter check: a citation whose
+/// segment shares almost no vocabulary with the claim is dropped too.
+Future<SummaryProvenance> parseSummaryProvenanceVerified({
+  required String summary,
+  required List<Segment> segments,
+}) => RustLib.instance.api.crateApiParseSummaryProvenanceVerified(
+  summary: summary,
+  segments: segments,
 );
 
 /// The section headings a built-in template asks the model for — the starting
@@ -360,6 +537,205 @@ Future<String> applyGlossaryCorrections({
   text: text,
   terms: terms,
 );
+
+/// Indexes one session, replacing whatever was indexed for it before.
+/// Returns how many passages went in.
+Future<int> archiveIndexSession({
+  required String libraryPath,
+  required String dirPath,
+  required String title,
+  required String date,
+  required List<Segment> segments,
+  required String summary,
+  required BigInt transcriptSize,
+  required PlatformInt64 transcriptMtimeMs,
+}) => RustLib.instance.api.crateApiArchiveIndexSession(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+  title: title,
+  date: date,
+  segments: segments,
+  summary: summary,
+  transcriptSize: transcriptSize,
+  transcriptMtimeMs: transcriptMtimeMs,
+);
+
+/// Whether `dir_path`'s transcript has changed since it was indexed.
+Future<bool> archiveIsStale({
+  required String libraryPath,
+  required String dirPath,
+  required BigInt transcriptSize,
+  required PlatformInt64 transcriptMtimeMs,
+}) => RustLib.instance.api.crateApiArchiveIsStale(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+  transcriptSize: transcriptSize,
+  transcriptMtimeMs: transcriptMtimeMs,
+);
+
+/// Drops a session from the index — called when the user deletes it.
+Future<void> archiveForgetSession({
+  required String libraryPath,
+  required String dirPath,
+}) => RustLib.instance.api.crateApiArchiveForgetSession(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+);
+
+/// Ranked passages for `question`. Purely local; this is what the UI
+/// can show before (or instead of) asking a model anything.
+Future<List<ArchiveHit>> archiveSearch({
+  required String libraryPath,
+  required String question,
+  required int limit,
+}) => RustLib.instance.api.crateApiArchiveSearch(
+  libraryPath: libraryPath,
+  question: question,
+  limit: limit,
+);
+
+Future<ArchiveStats> archiveStats({required String libraryPath}) =>
+    RustLib.instance.api.crateApiArchiveStats(libraryPath: libraryPath);
+
+Future<void> archiveClear({required String libraryPath}) =>
+    RustLib.instance.api.crateApiArchiveClear(libraryPath: libraryPath);
+
+/// Answers `question` from the archive.
+///
+/// Retrieval is local. The composed answer comes from the configured
+/// summary endpoint, and **only the retrieved passages** are sent — not
+/// the archive, not the audio, not the file paths. Returns the answer
+/// alongside the passages it was allowed to use, so the UI can render
+/// each `[K1]` as a link into the meeting it came from.
+Future<ArchiveAnswer> archiveAsk({
+  required String libraryPath,
+  required String question,
+  required SummaryConfig config,
+}) => RustLib.instance.api.crateApiArchiveAsk(
+  libraryPath: libraryPath,
+  question: question,
+  config: config,
+);
+
+/// What `config` would mask in `text`, with byte offsets so the UI can
+/// highlight it before anything is changed.
+Future<List<PiiMatch>> previewRedaction({
+  required String text,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiPreviewRedaction(text: text, config: config);
+
+/// `text` with every match replaced by its Indonesian placeholder.
+Future<String> redactText({
+  required String text,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiRedactText(text: text, config: config);
+
+/// Everything `config` would mask across a whole transcript, for the
+/// pre-export preview.
+Future<List<PiiMatch>> previewRedactionSegments({
+  required List<Segment> segments,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiPreviewRedactionSegments(
+  segments: segments,
+  config: config,
+);
+
+/// Returns a redacted **copy** of `segments`. The stored transcript is
+/// never rewritten — a user who cannot get the original back has lost
+/// evidence, not protected it.
+Future<List<Segment>> redactSegments({
+  required List<Segment> segments,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiRedactSegments(
+  segments: segments,
+  config: config,
+);
+
+/// Sessions in `library_path`, aged for the retention planner.
+Future<List<SessionAge>> scanLibraryAges({required String libraryPath}) =>
+    RustLib.instance.api.crateApiScanLibraryAges(libraryPath: libraryPath);
+
+/// What `policy` would delete from `library_path` right now. Pure
+/// preview: nothing is removed until [`apply_retention`] runs.
+Future<RetentionPlan> previewRetention({
+  required String libraryPath,
+  required RetentionPolicy policy,
+}) => RustLib.instance.api.crateApiPreviewRetention(
+  libraryPath: libraryPath,
+  policy: policy,
+);
+
+/// One Indonesian sentence describing a plan, for the confirm dialog.
+Future<String> describeRetentionPlan({required RetentionPlan plan}) =>
+    RustLib.instance.api.crateApiDescribeRetentionPlan(plan: plan);
+
+/// Carries out a plan the user has confirmed, writing an audit entry per
+/// deletion.
+Future<RetentionOutcome> applyRetention({required RetentionPlan plan}) =>
+    RustLib.instance.api.crateApiApplyRetention(plan: plan);
+
+/// The audit log, newest first. `limit = 0` returns everything.
+Future<List<AuditEntry>> readAuditLog({required int limit}) =>
+    RustLib.instance.api.crateApiReadAuditLog(limit: limit);
+
+Future<int> auditEntryCount() => RustLib.instance.api.crateApiAuditEntryCount();
+
+/// Indonesian label for an audit action, so the viewer does not have to
+/// keep its own copy of the mapping.
+Future<String> auditActionLabel({required AuditAction action}) =>
+    RustLib.instance.api.crateApiAuditActionLabel(action: action);
+
+/// `YYYY-MM-DD HH:MM:SS` in local time.
+Future<String> formatAuditTime({required BigInt atUnixMs}) =>
+    RustLib.instance.api.crateApiFormatAuditTime(atUnixMs: atUnixMs);
+
+/// Appends one entry. Called by the UI for acts only it knows about —
+/// an export the user confirmed, a summary actually sent.
+Future<void> writeAuditEntry({
+  required AuditAction action,
+  required String subject,
+  required String destination,
+  required String detail,
+}) => RustLib.instance.api.crateApiWriteAuditEntry(
+  action: action,
+  subject: subject,
+  destination: destination,
+  detail: detail,
+);
+
+/// Writes the audit log to `destination` as CSV and records that it did.
+Future<String> exportAuditLog({required String destination}) =>
+    RustLib.instance.api.crateApiExportAuditLog(destination: destination);
+
+/// The consent notice for a meeting, ready to paste into a meeting chat.
+Future<String> consentNoticeText({
+  required String template,
+  required String title,
+  required String date,
+}) => RustLib.instance.api.crateApiConsentNoticeText(
+  template: template,
+  title: title,
+  date: date,
+);
+
+/// The shipped default notice, for the settings field's placeholder.
+Future<String> defaultConsentNotice() =>
+    RustLib.instance.api.crateApiDefaultConsentNotice();
+
+/// Records that the notice was delivered for this meeting.
+Future<void> acknowledgeConsent({
+  required String title,
+  required String note,
+}) => RustLib.instance.api.crateApiAcknowledgeConsent(title: title, note: note);
+
+/// Every capability, where it runs, and whether it is on right now (F14).
+///
+/// Generated from `crate::capabilities`, which `crate::privacy`'s tests
+/// check against the source — so this table cannot quietly disagree with
+/// what the code does.
+Future<List<Capability>> describeCapabilities({
+  required AppSettings settings,
+}) => RustLib.instance.api.crateApiDescribeCapabilities(settings: settings);
 
 Future<AppSettings> loadSettings() =>
     RustLib.instance.api.crateApiLoadSettings();

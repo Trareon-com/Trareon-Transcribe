@@ -39,6 +39,21 @@ class _SummaryBridge extends NoopBridge {
     if (failWith != null) throw failWith!;
     return '## Keputusan\n- Pakai Rust';
   }
+
+  /// What `generate()` actually calls since F15: the long path falls back
+  /// to a single request whenever the transcript fits, so the two are one
+  /// request to one endpoint and the double answers both the same way.
+  @override
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) =>
+      generateSummary(
+        segments: segments,
+        config: config,
+        bookmarks: bookmarks,
+      );
 }
 
 AppSettings settingsWithSummary({

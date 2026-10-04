@@ -5,14 +5,21 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import '../src/rust/actions.dart' as rust_actions;
 import '../src/rust/api.dart' as rust_api;
+import '../src/rust/archive.dart' as rust_archive;
+import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
+import '../src/rust/completion.dart' as rust_completion;
+import '../src/rust/coverage.dart' as rust_coverage;
 import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/export/notulen.dart' as rust_notulen;
 import '../src/rust/glossary.dart' as rust_glossary;
+import '../src/rust/mapreduce.dart' as rust_mapreduce;
 import '../src/rust/model.dart' as rust_model;
+import '../src/rust/provenance.dart' as rust_provenance;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
 import '../src/rust/stt/file.dart' as rust_stt_file;
@@ -97,6 +104,7 @@ abstract class RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   });
 
   /// Writes [segments] to `outputDir/<sanitized title>/` in the requested
@@ -152,12 +160,136 @@ abstract class RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   });
 
   /// Which file the in-flight [batchTranscribeFiles] call is currently on.
   /// `null` when no batch is running. [batchTranscribeFiles] only returns
   /// once every file is done, so this is the only way to show real progress.
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress();
+
+  // ── Transcript completion (ITEM 0) ─────────────────────────────────
+  //
+  // The live worker can fall behind the meeting on a slow device, and Stop
+  // cannot wait for it. What it never reached is transcribed afterwards
+  // from the saved WAV. Entirely local.
+
+  /// Length of an audio file in seconds, from its header where possible.
+  Future<double> audioDurationSecs(String path);
+
+  /// What [segments] account for across `audioPath`, and what they miss.
+  /// No inference; this runs on every session save.
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  });
+
+  /// Transcribes the stretches of [audioPath] that [existing] does not
+  /// cover and returns the merged transcript. Long-running; poll
+  /// [completionProgress] while it is in flight.
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  });
+
+  /// Per-source progress of every completion pass currently running.
+  Future<List<rust_completion.CompletionProgress>> completionProgress();
+
+  // ── Tanya arsip rapat (F12) ────────────────────────────────────────
+  //
+  // Indexing and retrieval are local. Only [archiveAsk] leaves the
+  // machine, and only with the passages retrieval already selected.
+
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  });
+
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  });
+
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  });
+
+  /// Ranked passages for a question. No network.
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  });
+
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath);
+
+  Future<void> archiveClear(String libraryPath);
+
+  /// **Networked**, to the configured summary endpoint only. Sends the
+  /// retrieved passages and the question; nothing else.
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  });
+
+  // ── Tindak lanjut & provenans ringkasan (F6/F7/F15) ───────────────
+  //
+  // All pure and local: these only re-read a summary the endpoint has
+  // already returned. [generateSummaryLong] is the exception and is as
+  // networked as [generateSummary].
+
+  /// **Networked.** As [generateSummary], but splits a meeting too long
+  /// for one request into time windows and reduces the partials (F15).
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  });
+
+  /// How far a map-reduce summary has got, or null when none is running.
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress();
+
+  /// The tugas / PJ / tenggat / status rows in a summary (F6).
+  Future<List<rust_actions.ActionItem>> parseActionItems(String summary);
+
+  /// Drops the machine-readable JSON block once it has been parsed, so
+  /// the rendered summary does not show it under the checklist.
+  Future<String> stripActionItemsBlock(String summary);
+
+  /// RFC 5545 calendar: one VTODO per task, plus a VEVENT per resolvable
+  /// deadline. [today] is `YYYY-MM-DD` and resolves "Jumat"/"besok".
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  });
+
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items);
+
+  /// Summary split into lines with each `[#n]` resolved to a timestamp,
+  /// invalid ids dropped and counted (F7).
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  });
 
   /// **The only networked call in the app.** Sends the rendered transcript
   /// text (never audio, never paths) to the user-configured endpoint and
@@ -167,6 +299,15 @@ abstract class RustBridge {
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
   });
+
+  /// Every capability, where it runs and whether it is on (F14).
+  ///
+  /// Comes from the same list `rust_core/src/privacy.rs` checks against
+  /// the source, so the screen cannot drift from what the code does.
+  /// Local and pure.
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  );
 
   /// Lists models offered by the configured summary endpoint. Sends no
   /// transcript content — used to populate the settings dropdown.
@@ -244,6 +385,18 @@ const rust_glossary.GlossaryConfig kEmptyGlossary = rust_glossary.GlossaryConfig
   sessionTerms: [],
   globalTerms: [],
   postCorrection: false,
+);
+
+/// "Nothing is missing." Used by every bridge that does no real coverage
+/// check, so a stand-in can never leave the UI stuck at "Menyelesaikan
+/// transkrip…" with nothing able to finish it.
+const rust_coverage.CoverageReport kCompleteCoverage =
+    rust_coverage.CoverageReport(
+  coveredSecs: 0,
+  totalSecs: 0,
+  fraction: 1,
+  gaps: [],
+  missingSecs: 0,
 );
 
 /// Shared conversion so every bridge method sends the same Segment shape.
@@ -546,6 +699,7 @@ class RustBridgeMock implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => []; // Mock: returns empty results
 
   @override
@@ -599,6 +753,7 @@ class RustBridgeMock implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split(Platform.pathSeparator).last,
     quickSegments: const [],
@@ -609,6 +764,90 @@ class RustBridgeMock implements RustBridge {
   @override
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
 
+  @override
+  Future<double> audioDurationSecs(String path) async => 0;
+
+  /// Mock sessions are always complete: a stand-in bridge must never put the
+  /// UI into "Menyelesaikan transkrip…" with nothing able to finish it.
+  @override
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) async => kCompleteCoverage;
+
+  @override
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) async => rust_completion.CompletionOutcome(
+    segments: existing.map(toRustSegment).toList(),
+    added: 0,
+    rejected: 0,
+    coverage: kCompleteCoverage,
+    speechSecs: 0,
+    speechCoveredSecs: 0,
+    audioSecs: 0,
+  );
+
+  @override
+  Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
+      const [];
+
+  @override
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => false;
+
+  @override
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => 0;
+
+  @override
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) async {}
+
+  @override
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) async => const [];
+
+  @override
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) async =>
+      rust_archive.ArchiveStats(sessions: 0, passages: 0, bytes: BigInt.zero);
+
+  @override
+  Future<void> archiveClear(String libraryPath) async {}
+
+  @override
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not answer archive questions');
+
   /// The mock never performs I/O of any kind — a test that reaches the
   /// summary path must fail loudly rather than silently hit a real endpoint.
   @override
@@ -618,6 +857,49 @@ class RustBridgeMock implements RustBridge {
     List<Bookmark> bookmarks = const [],
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) async => const [];
+
+  @override
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
+
+  @override
+  Future<List<rust_actions.ActionItem>> parseActionItems(
+    String summary,
+  ) async => const [];
+
+  @override
+  Future<String> stripActionItemsBlock(String summary) async => summary;
+
+  @override
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
+
+  @override
+  Future<String> actionItemsToCsv(
+    List<rust_actions.ActionItem> items,
+  ) async => '';
+
+  @override
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) async => const rust_provenance.SummaryProvenance(lines: [], dropped: 0);
 
   @override
   Future<List<String>> listSummaryModels({
@@ -976,6 +1258,7 @@ class RustEngineBridge implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) =>
       rust_api.transcribeFilesBatch(
         modelPath: modelPath,
@@ -984,6 +1267,7 @@ class RustEngineBridge implements RustBridge {
         gpuEnabled: gpuEnabled,
         gpuDevice: gpuDevice,
         glossary: glossary,
+        speakerHint: speakerHint,
       );
 
   @override
@@ -1103,11 +1387,13 @@ class RustEngineBridge implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) => rust_api.progressiveTranscribeFile(
     quickModelPath: quickModelPath,
     refineModelPath: refineModelPath,
     path: path,
     language: language,
+    speakerHint: speakerHint,
     gpuEnabled: gpuEnabled,
     gpuDevice: gpuDevice,
     glossary: glossary,
@@ -1116,6 +1402,119 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() =>
       rust_api.getBatchProgress();
+
+  @override
+  Future<double> audioDurationSecs(String path) =>
+      rust_api.audioDurationSecs(path: path);
+
+  @override
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) => rust_api.transcriptCoverageForAudio(
+    segments: segments.map(toRustSegment).toList(),
+    audioPath: audioPath,
+  );
+
+  @override
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) => rust_api.completeSessionTranscript(
+    modelPath: modelPath,
+    audioPath: audioPath,
+    jobKey: jobKey,
+    existing: existing.map(toRustSegment).toList(),
+    language: language,
+    gpuEnabled: gpuEnabled,
+    gpuDevice: gpuDevice,
+    glossary: glossary,
+    vadEnabled: vadEnabled,
+  );
+
+  @override
+  Future<List<rust_completion.CompletionProgress>> completionProgress() =>
+      rust_api.readCompletionProgress();
+
+  @override
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) => rust_api.archiveIsStale(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+    transcriptSize: BigInt.from(transcriptSize),
+    transcriptMtimeMs: transcriptModifiedMs,
+  );
+
+  @override
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) => rust_api.archiveIndexSession(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+    title: title,
+    date: date,
+    segments: segments.map(toRustSegment).toList(),
+    summary: summary,
+    transcriptSize: BigInt.from(transcriptSize),
+    transcriptMtimeMs: transcriptModifiedMs,
+  );
+
+  @override
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) => rust_api.archiveForgetSession(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+  );
+
+  @override
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) => rust_api.archiveSearch(
+    libraryPath: libraryPath,
+    question: question,
+    limit: limit,
+  );
+
+  @override
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) =>
+      rust_api.archiveStats(libraryPath: libraryPath);
+
+  @override
+  Future<void> archiveClear(String libraryPath) =>
+      rust_api.archiveClear(libraryPath: libraryPath);
+
+  @override
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  }) => rust_api.archiveAsk(
+    libraryPath: libraryPath,
+    question: question,
+    config: config,
+  );
 
   @override
   Future<String> generateSummary({
@@ -1127,6 +1526,67 @@ class RustEngineBridge implements RustBridge {
     config: config,
     bookmarks: bookmarks,
   );
+
+  @override
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) => rust_api.generateSummaryLong(
+    segments: segments.map(toRustSegment).toList(),
+    config: config,
+    bookmarks: bookmarks,
+  );
+
+  @override
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) => rust_api.describeCapabilities(settings: _toRustSettings(settings));
+
+  @override
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() =>
+      rust_api.readSummaryProgress();
+
+  @override
+  Future<List<rust_actions.ActionItem>> parseActionItems(String summary) =>
+      rust_api.parseActionItems(summary: summary);
+
+  @override
+  Future<String> stripActionItemsBlock(String summary) =>
+      rust_api.stripActionItemsBlock(summary: summary);
+
+  @override
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) => rust_api.actionItemsToIcs(
+    items: items,
+    calendarName: calendarName,
+    today: today,
+  );
+
+  @override
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items) =>
+      rust_api.actionItemsToCsv(items: items);
+
+  @override
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) {
+    final rustSegments = segments.map(toRustSegment).toList();
+    return verify
+        ? rust_api.parseSummaryProvenanceVerified(
+            summary: summary,
+            segments: rustSegments,
+          )
+        : rust_api.parseSummaryProvenance(
+            summary: summary,
+            segments: rustSegments,
+          );
+  }
 
   @override
   Future<List<String>> listSummaryModels({
@@ -1171,6 +1631,7 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: config.gpuDevice,
       audioToDisk: config.audioToDisk,
       glossary: config.glossary,
+      fallbackModelPath: config.fallbackModelPath,
     );
   }
 
@@ -1213,6 +1674,8 @@ class RustEngineBridge implements RustBridge {
       summaryTemplates: settings.summaryTemplates,
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
+      pdp: settings.pdp,
+      noiseReduction: settings.noiseReduction,
     );
   }
 
@@ -1238,6 +1701,8 @@ class RustEngineBridge implements RustBridge {
       summaryTemplates: settings.summaryTemplates,
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
+      pdp: settings.pdp,
+      noiseReduction: settings.noiseReduction,
     );
   }
 }

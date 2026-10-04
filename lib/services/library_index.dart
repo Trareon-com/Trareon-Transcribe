@@ -74,6 +74,14 @@ class LibraryEntry {
   final int transcriptSize;
   final int transcriptModifiedMs;
 
+  /// Folders/tags the user filed this session under (F20).
+  ///
+  /// Tags rather than folders on disk: a meeting is routinely both
+  /// "Anggaran" and "Mingguan", and a directory can only be in one place.
+  /// Carried in the index so filtering 200 sessions does not mean opening
+  /// 200 sidecars.
+  final List<String> tags;
+
   LibraryEntry({
     required this.dirPath,
     required this.title,
@@ -85,7 +93,9 @@ class LibraryEntry {
     required this.transcriptModifiedMs,
     this.summary = '',
     this.audioPath,
-  }) : haystack = '$title\n$snippet\n$summary'.toLowerCase();
+    this.tags = const [],
+  }) : haystack = '$title\n$snippet\n$summary\n${tags.join(" ")}'
+            .toLowerCase();
 
   bool get hasSummary => summary.trim().isNotEmpty;
 
@@ -98,7 +108,12 @@ class LibraryEntry {
         audioPath: audioPath,
       );
 
-  LibraryEntry copyWith({String? title, String? summary}) => LibraryEntry(
+  LibraryEntry copyWith({
+    String? title,
+    String? summary,
+    List<String>? tags,
+  }) =>
+      LibraryEntry(
         dirPath: dirPath,
         title: title ?? this.title,
         date: date,
@@ -109,6 +124,7 @@ class LibraryEntry {
         summary: summary ?? this.summary,
         transcriptSize: transcriptSize,
         transcriptModifiedMs: transcriptModifiedMs,
+        tags: tags ?? this.tags,
       );
 
   Map<String, dynamic> toJson(String dirName) => {
@@ -120,6 +136,7 @@ class LibraryEntry {
         'snippet': snippet,
         if (audioPath != null) 'audio': _basename(audioPath!),
         if (summary.isNotEmpty) 'summary': summary,
+        if (tags.isNotEmpty) 'tags': tags,
         'size': transcriptSize,
         'mtime': transcriptModifiedMs,
       };
@@ -142,6 +159,7 @@ class LibraryEntry {
       summary: json['summary'] as String? ?? '',
       transcriptSize: (json['size'] as num?)?.toInt() ?? -1,
       transcriptModifiedMs: (json['mtime'] as num?)?.toInt() ?? -1,
+      tags: normaliseTags(json['tags']),
     );
   }
 }
@@ -227,6 +245,7 @@ Future<LibraryEntry?> buildLibraryEntry(Directory dir) async {
       summary: meta.summary,
       transcriptSize: stat.size,
       transcriptModifiedMs: stat.modified.millisecondsSinceEpoch,
+      tags: meta.tags,
     );
   } catch (_) {
     // One unreadable folder must never empty the user's whole library.
@@ -425,3 +444,24 @@ List<DeepSearchHit> deepSearchLibrarySync(
   int limit = 50,
 }) =>
     _deepSearchSync(dirPaths, query.trim().toLowerCase(), limit);
+
+
+/// Tags from an index entry or a sidecar, cleaned up.
+///
+/// Trimmed, de-duplicated case-insensitively, blanks dropped and sorted,
+/// so "Anggaran" typed twice with different capitalisation is one tag and
+/// the filter row does not reorder itself between launches.
+List<String> normaliseTags(Object? raw) {
+  if (raw is! List) return const [];
+  final seen = <String>{};
+  final out = <String>[];
+  for (final value in raw) {
+    if (value is! String) continue;
+    final tag = value.trim();
+    if (tag.isEmpty) continue;
+    if (!seen.add(tag.toLowerCase())) continue;
+    out.add(tag);
+  }
+  out.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return out;
+}

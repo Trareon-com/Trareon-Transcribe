@@ -90,9 +90,16 @@ void main() {
     // means adding a recorder for it and updating the screen copy.
     const initiators = <String, String>{
       'downloadModel(': 'recordModelDownload',
+      // `generateSummaryLong` (F15) is the same endpoint and the same
+      // recorder: it is `generateSummary` with the transcript cut into
+      // windows, not a second destination.
       'generateSummary(': 'recordSummaryRequest',
       'checkForUpdate(': 'recordUpdateCheck',
       'launchUrl(': 'recordExternalLink',
+      // F12: the archive answer reuses the summary endpoint, but what
+      // it sends is different — passages from several past meetings —
+      // so it is recorded as its own kind of outbound call.
+      'archiveAsk(': 'recordArchiveQuestion',
     };
     final recorders = File(
       'lib/state/privacy_report_model.dart',
@@ -125,7 +132,9 @@ void main() {
     const mustPrecede = <String, String>{
       '.downloadModel(': 'recordModelDownload',
       '.generateSummary(': 'onNetworkRequest',
+      '.generateSummaryLong(': 'onNetworkRequest',
       'launchUrl(': 'recordExternalLink',
+      '.archiveAsk(': '_onNetworkRequest',
     };
 
     /// `constructor` -> `recorder that must be handed to it`. Ordering is
@@ -267,10 +276,20 @@ void main() {
       source.indexOf('Future<void> save()'),
     );
     final notifyIndex = generateBody.indexOf('onNetworkRequest?.call(');
-    final requestIndex = generateBody.indexOf('_bridge.generateSummary(');
+    // Either spelling counts: the long-meeting path (F15) is the same
+    // request to the same endpoint, and pinning this to one method name
+    // would make the invariant stop covering the call that actually runs.
+    final requestIndex = [
+      generateBody.indexOf('_bridge.generateSummary('),
+      generateBody.indexOf('_bridge.generateSummaryLong('),
+    ].where((i) => i >= 0).fold<int>(-1, (a, b) => a < 0 ? b : (b < a ? b : a));
 
     expect(notifyIndex, greaterThan(-1), reason: 'generate() must notify the counter');
-    expect(requestIndex, greaterThan(-1));
+    expect(
+      requestIndex,
+      greaterThan(-1),
+      reason: 'generate() must actually make the summary request',
+    );
     expect(
       notifyIndex,
       lessThan(requestIndex),

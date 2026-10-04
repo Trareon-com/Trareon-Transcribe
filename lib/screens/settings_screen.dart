@@ -16,9 +16,11 @@ import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
 import '../widgets/glossary_settings_section.dart';
 import '../widgets/notulen_settings_section.dart';
+import '../widgets/pdp_settings_section.dart';
 import '../widgets/settings_controls.dart';
 import '../widgets/summary_settings_section.dart';
 import 'diagnostics_screen.dart';
+import 'capabilities_screen.dart';
 import 'privacy_report_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'usage_dashboard_screen.dart';
@@ -37,6 +39,7 @@ enum SettingsCategory {
   penyimpanan,
   ringkasan,
   notulen,
+  kepatuhan,
   penyiapan,
   tentang,
 }
@@ -53,6 +56,7 @@ extension SettingsCategoryLabel on SettingsCategory {
         SettingsCategory.penyimpanan => 'Penyimpanan',
         SettingsCategory.ringkasan => 'Ringkasan AI',
         SettingsCategory.notulen => 'Notulen Resmi',
+        SettingsCategory.kepatuhan => 'Kepatuhan PDP',
         SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
         SettingsCategory.tentang => 'Tentang',
       };
@@ -65,6 +69,7 @@ extension SettingsCategoryLabel on SettingsCategory {
         SettingsCategory.penyimpanan => Icons.folder_outlined,
         SettingsCategory.ringkasan => Icons.auto_awesome_outlined,
         SettingsCategory.notulen => Icons.description_outlined,
+        SettingsCategory.kepatuhan => Icons.verified_user_outlined,
         SettingsCategory.penyiapan => Icons.health_and_safety_outlined,
         SettingsCategory.tentang => Icons.info_outlined,
       };
@@ -233,8 +238,12 @@ class _CategoryRail extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 onTap: () => onSelected(category),
                 child: Padding(
+                  // 10 rather than 12: the tenth category (Kepatuhan PDP)
+                  // pushed the rail past the 600 px minimum window, and a
+                  // settings pane you have to scroll a rail to reach is
+                  // one people do not find.
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 12),
+                      horizontal: 12, vertical: 10),
                   child: Row(
                     children: [
                       Icon(
@@ -328,6 +337,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
           ],
         SettingsCategory.notulen => const [NotulenDefaultsSection()],
+        SettingsCategory.kepatuhan => const [PdpSettingsSection()],
         SettingsCategory.penyiapan => _penyiapan(context, ref),
         SettingsCategory.tentang => _tentang(context, ref, colors),
       },
@@ -510,6 +520,23 @@ class _CategoryContent extends ConsumerWidget {
               onChanged: notifier.setVadEnabled,
             ),
             const SettingsDivider(),
+            // F17. Deliberately described as a trade-off rather than an
+            // improvement: on already-clean speech it can cost a word,
+            // and whether it helps is a property of the room.
+            SettingsSwitch(
+              icon: Icons.noise_control_off_outlined,
+              label: 'Pengurangan derau (RNNoise)',
+              subtitle: settings.noiseReduction
+                  ? 'Derau ruangan — kipas, AC, lalu lintas — ditekan '
+                      'sebelum transkripsi. Berlaku mulai potongan audio '
+                      'berikutnya.'
+                  : 'Mati. Nyalakan bila ruangan Anda berisik; pada '
+                      'rekaman yang sudah bersih ini bisa menghilangkan '
+                      'satu-dua konsonan.',
+              value: settings.noiseReduction,
+              onChanged: notifier.setNoiseReduction,
+            ),
+            const SettingsDivider(),
             SettingsTile(
               icon: Icons.spatial_audio_outlined,
               label: 'Hapus suara ganda',
@@ -621,6 +648,22 @@ class _CategoryContent extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right, size: 18),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => PrivacyReportScreen()),
+              ),
+            ),
+            const SettingsDivider(),
+            // Next to the Privacy Report because they answer two halves
+            // of one question: that one is "what has it sent?", this one
+            // is "what could it send, and what is on?".
+            SettingsTile(
+              icon: Icons.account_tree_outlined,
+              label: 'Apa Jalan di Mana',
+              subtitle: 'Setiap kemampuan, tempatnya berjalan, dan '
+                  'statusnya sekarang.',
+              trailing: const Icon(Icons.chevron_right, size: 18),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CapabilitiesScreen(),
+                ),
               ),
             ),
             const SettingsDivider(),

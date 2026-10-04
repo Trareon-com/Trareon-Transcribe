@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/bridge_service.dart';
@@ -38,6 +41,20 @@ class SummaryUiState {
   /// sidecar — drives the "Simpan" affordance.
   final bool dirty;
 
+  /// "Tindak Lanjut" rows (F6). Editable, and the user's edits win over
+  /// anything re-derivable from [text].
+  final List<ActionItem> actionItems;
+
+  /// [text] split into lines with each citation resolved to a timestamp
+  /// (F7), or null when it has not been computed yet. Empty `lines` means
+  /// "computed, and there was nothing to cite" — the panel then renders
+  /// the summary as plain text.
+  final SummaryProvenance? provenance;
+
+  /// Which window a long-meeting summary is on (F15); null when the
+  /// request was a single round trip.
+  final MapReduceProgress? progress;
+
   const SummaryUiState({
     this.status = SummaryStatus.empty,
     this.text = '',
@@ -45,7 +62,13 @@ class SummaryUiState {
     this.customTemplateId,
     this.error,
     this.dirty = false,
+    this.actionItems = const [],
+    this.provenance,
+    this.progress,
   });
+
+  /// Citations the engine refused to trust, across the whole summary.
+  int get droppedCitations => provenance?.dropped ?? 0;
 
   SummaryUiState copyWith({
     SummaryStatus? status,
@@ -55,6 +78,9 @@ class SummaryUiState {
     String? error,
     bool clearError = false,
     bool? dirty,
+    List<ActionItem>? actionItems,
+    Object? provenance = _keep,
+    Object? progress = _keep,
   }) {
     return SummaryUiState(
       status: status ?? this.status,
@@ -65,6 +91,12 @@ class SummaryUiState {
           : customTemplateId as String?,
       error: clearError ? null : (error ?? this.error),
       dirty: dirty ?? this.dirty,
+      actionItems: actionItems ?? this.actionItems,
+      provenance: provenance == _keep
+          ? this.provenance
+          : provenance as SummaryProvenance?,
+      progress:
+          progress == _keep ? this.progress : progress as MapReduceProgress?,
     );
   }
 }
@@ -96,6 +128,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
            text: initialMeta.summary,
            template: initialMeta.summaryTemplate ?? SummaryTemplate.notulenRapat,
            customTemplateId: initialMeta.summaryCustomTemplateId,
+           actionItems: initialMeta.actionItems,
          ),
        );
 
@@ -104,6 +137,107 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
 
   /// Notified with the endpoint just before each outbound request.
   final void Function(String endpoint)? onNetworkRequest;
+
+  /// Polls the engine's map-reduce progress while a request is in flight.
+  Timer? _progressPoll;
+
+  @override
+  void dispose() {
+    _progressPoll?.cancel();
+    super.dispose();
+  }
+
+  // ── Tindak lanjut (F6) ──────────────────────────────────────────────
+
+  /// Replaces one row. The user's edit wins over the model's text, so this
+  /// also persists — a status ticked to "selesai" that vanishes on close
+  /// is worse than no checklist.
+  void setActionItem(int index, ActionItem item) {
+    if (index < 0 || index >= state.actionItems.length) return;
+    final items = [...state.actionItems]..[index] = item;
+    state = state.copyWith(actionItems: items);
+    unawaited(_saveActionItems());
+  }
+
+  void addActionItem() {
+    final items = [
+      ...state.actionItems,
+      ActionItem(
+        id: _freshActionId(),
+        tugas: '',
+        penanggungJawab: '',
+        tenggat: '',
+        status: ActionStatus.belum,
+        segmentIds: Uint32List(0),
+      ),
+    ];
+    state = state.copyWith(actionItems: items);
+  }
+
+  void removeActionItem(int index) {
+    if (index < 0 || index >= state.actionItems.length) return;
+    final items = [...state.actionItems]..removeAt(index);
+    state = state.copyWith(actionItems: items);
+    unawaited(_saveActionItems());
+  }
+
+  /// An id no existing row uses, so the `.ics` UID of an untouched task
+  /// stays the same across re-exports.
+  String _freshActionId() {
+    final used = state.actionItems.map((i) => i.id).toSet();
+    for (var n = state.actionItems.length + 1;; n++) {
+      final candidate = 'T$n';
+      if (!used.contains(candidate)) return candidate;
+    }
+  }
+
+  /// Rows with an empty `tugas` are dropped: an untouched blank row the
+  /// user added and then ignored is not a task.
+  Future<void> _saveActionItems() async {
+    final items = [
+      for (final item in state.actionItems)
+        if (item.tugas.trim().isNotEmpty) item,
+    ];
+    try {
+      final existing = await readSessionMeta(_sessionDirPath);
+      await writeSessionMeta(
+        _sessionDirPath,
+        existing.copyWith(actionItems: items),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(error: 'Gagal menyimpan tindak lanjut: $e');
+    }
+  }
+
+  // ── Provenans (F7) ──────────────────────────────────────────────────
+
+  /// Resolves the summary's `[#n]` markers against [segments].
+  ///
+  /// Recomputed rather than stored: the transcript is editable, and a
+  /// citation cached against an older numbering would point at the wrong
+  /// line — which is exactly the failure a citation is supposed to make
+  /// impossible.
+  Future<void> refreshProvenance(List<TranscriptSegment> segments) async {
+    if (state.text.trim().isEmpty || segments.isEmpty) {
+      if (!mounted) return;
+      state = state.copyWith(provenance: null);
+      return;
+    }
+    try {
+      final parsed = await _bridge.summaryProvenance(
+        summary: state.text,
+        segments: segments,
+      );
+      if (!mounted) return;
+      state = state.copyWith(provenance: parsed);
+    } catch (_) {
+      // A summary that cannot be parsed into citations still renders as
+      // text; this is a presentation nicety, not the artifact.
+      if (!mounted) return;
+      state = state.copyWith(provenance: null);
+    }
+  }
 
   void setTemplate(SummaryTemplate template) {
     state = state.copyWith(template: template, customTemplateId: null);
@@ -187,6 +321,8 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
           customPrompt: instruction,
           language: config.language,
           timeoutSecs: config.timeoutSecs,
+          withCitations: config.withCitations,
+          withActionItems: config.withActionItems,
         );
       } catch (e) {
         if (!mounted) return;
@@ -198,20 +334,40 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
       }
     }
     onNetworkRequest?.call(settings.summary.baseUrl);
+    _startProgressPoll();
     try {
-      final markdown = await _bridge.generateSummary(
+      // The long path (F15) falls back to a single request whenever the
+      // transcript fits the model's budget, so it is a superset of
+      // `generateSummary` rather than a different mode the user has to
+      // choose. Before this, a three-hour meeting was summarised from a
+      // truncated middle without saying so.
+      final markdown = await _bridge.generateSummaryLong(
         segments: segments,
         config: config,
         bookmarks: bookmarks,
       );
       if (!mounted) return;
+      // F6: lift the checklist out, then drop the machine-readable block
+      // so the user does not read the same tasks twice.
+      var text = markdown;
+      var items = state.actionItems;
+      if (config.withActionItems) {
+        final parsed = await _bridge.parseActionItems(markdown);
+        if (parsed.isNotEmpty) {
+          items = parsed;
+          text = await _bridge.stripActionItemsBlock(markdown);
+        }
+      }
+      if (!mounted) return;
       state = state.copyWith(
         status: SummaryStatus.ready,
-        text: markdown,
+        text: text,
+        actionItems: items,
         dirty: true,
         clearError: true,
       );
       await save();
+      await refreshProvenance(segments);
     } catch (e) {
       if (!mounted) return;
       // The transcript is untouched by a summary failure; say so, because a
@@ -220,7 +376,36 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
         status: SummaryStatus.failed,
         error: 'Gagal membuat ringkasan (transkrip tetap aman): $e',
       );
+    } finally {
+      _stopProgressPoll();
     }
+  }
+
+  /// Mirrors the engine's map-reduce progress into the UI.
+  ///
+  /// Polled rather than streamed because the engine publishes it into a
+  /// static the FFI can read cheaply; a three-hour meeting is around
+  /// eighteen round trips and a panel that shows nothing for twenty
+  /// minutes reads as a hang.
+  void _startProgressPoll() {
+    _progressPoll?.cancel();
+    _progressPoll = Timer.periodic(const Duration(milliseconds: 700), (
+      _,
+    ) async {
+      try {
+        final progress = await _bridge.summaryProgress();
+        if (!mounted) return;
+        state = state.copyWith(progress: progress);
+      } catch (_) {
+        // Progress is decoration; losing it must not fail the summary.
+      }
+    });
+  }
+
+  void _stopProgressPoll() {
+    _progressPoll?.cancel();
+    _progressPoll = null;
+    if (mounted) state = state.copyWith(progress: null);
   }
 
   /// Persists the current text into the session's sidecar.
@@ -234,6 +419,10 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
           summaryTemplate: state.template,
           summaryCustomTemplateId: state.customTemplateId,
           summaryGeneratedAt: DateTime.now(),
+          actionItems: [
+            for (final item in state.actionItems)
+              if (item.tugas.trim().isNotEmpty) item,
+          ],
         ),
       );
       if (!mounted) return;

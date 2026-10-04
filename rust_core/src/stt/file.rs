@@ -33,7 +33,7 @@ pub fn transcribe_file(
     language: Option<&str>,
     glossary: &GlossaryConfig,
 ) -> TranscribeResult<TranscribeFileResult> {
-    transcribe_file_reporting(engine, path, language, glossary, |_| {})
+    transcribe_file_reporting(engine, path, language, glossary, 0, |_| {})
 }
 
 /// [`transcribe_file`], reporting how far through the file it is.
@@ -41,11 +41,16 @@ pub fn transcribe_file(
 /// `on_progress` receives a fraction in `0.0..=1.0` after each 30-second
 /// chunk. A one-hour import is ~120 chunks, so this is a real progress
 /// bar rather than a spinner that only moves between files.
+/// `speaker_hint` is how many people the user says are in the recording,
+/// or `0` for "work it out". The acoustic clustering here over-splits a
+/// long recording of one voice, and an importer who knows the answer can
+/// stop it inventing participants (F10).
 pub fn transcribe_file_reporting(
     engine: &WhisperEngine,
     path: &Path,
     language: Option<&str>,
     glossary: &GlossaryConfig,
+    speaker_hint: u32,
     mut on_progress: impl FnMut(f32),
 ) -> TranscribeResult<TranscribeFileResult> {
     let audio = decode_audio_file(path)?;
@@ -54,36 +59,59 @@ pub fn transcribe_file_reporting(
     let prompt = crate::glossary::build_initial_prompt(glossary, "");
     let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
 
-    // ADR-10 CHUNKED PROCESSING: for large audio files (>30s), split into
-    // 30-second chunks and transcribe each independently. This bounds peak
-    // memory usage (whisper.cpp holds the full chunk's spectrogram + mel
-    // filterbank during inference) and lets the engine free each chunk's
-    // resources before decoding the next.
-    let chunk_samples = (TARGET_SAMPLE_RATE as f64 * CHUNK_DURATION_SECS) as usize;
-    let mut all_segments = Vec::new();
+    // VAD FIRST: silence is never handed to Whisper. Asked to transcribe
+    // nothing, the model answers with the most common caption in its
+    // training data rather than with an empty string — a 6-minute session
+    // recorded by this app came back as 15 lines, 12 of them `[MENGENI]`
+    // over stretches whose RMS was flat. Carving the speech out first both
+    // removes that and skips the inference entirely.
+    //
+    // `speech_regions` returning nothing means the file is silent, which is
+    // a legitimate answer: an empty transcript, not an invented one.
+    let regions = speech_regions_or_whole_file(&audio.samples, audio.duration_secs);
 
-    if audio.samples.len() <= chunk_samples {
-        // Small file — single shot is the fast path.
-        let segments =
-            engine.transcribe_chunk(&audio.samples, "file", 0.0, language, initial_prompt)?;
-        all_segments = segments;
-        on_progress(1.0);
-    } else {
-        let total_chunks = audio.samples.len().div_ceil(chunk_samples);
-        for (chunk_idx, chunk) in audio.samples.chunks(chunk_samples).enumerate() {
-            let chunk_start = chunk_idx as f64 * CHUNK_DURATION_SECS;
-            let segments =
-                engine.transcribe_chunk(chunk, "file", chunk_start, language, initial_prompt)?;
-            all_segments.extend(segments);
-            on_progress((chunk_idx + 1) as f32 / total_chunks as f32);
+    // ADR-10 CHUNKED PROCESSING: each speech region is split into 30-second
+    // chunks. This bounds peak memory usage (whisper.cpp holds the full
+    // chunk's spectrogram + mel filterbank during inference) and lets the
+    // engine free each chunk's resources before decoding the next.
+    let mut all_segments = Vec::new();
+    let total_work: f64 = regions.iter().map(|(start, end)| end - start).sum();
+    let mut done_work = 0.0f64;
+
+    for (region_start, region_end) in &regions {
+        let mut chunk_start = *region_start;
+        while chunk_start < *region_end {
+            let chunk_end = (chunk_start + CHUNK_DURATION_SECS).min(*region_end);
+            let chunk = slice_secs(&audio.samples, chunk_start, chunk_end);
+            if !chunk.is_empty() {
+                all_segments.extend(engine.transcribe_chunk(
+                    chunk,
+                    "file",
+                    chunk_start,
+                    language,
+                    initial_prompt,
+                )?);
+            }
+            done_work += chunk_end - chunk_start;
+            on_progress(if total_work > 0.0 {
+                (done_work / total_work) as f32
+            } else {
+                1.0
+            });
+            chunk_start = chunk_end;
         }
     }
+    on_progress(1.0);
+
+    // Whatever slipped past the VAD — a region of room tone loud enough to
+    // trip the detector — is caught here on the text instead.
+    crate::hallucination::filter_segments(&mut all_segments);
 
     // Speaker labels. Live capture gets these from the per-source pipeline
     // (`pipeline::LivePipeline`); imported files used to come back with the
     // raw source string as the speaker, so a multi-person recording exported
     // as one undifferentiated wall of text.
-    let mut diarizer = Diarizer::new();
+    let mut diarizer = Diarizer::with_max_speakers(speaker_hint as usize);
     label_segments(&mut diarizer, &audio.samples, &mut all_segments);
 
     if glossary.post_correction {
@@ -99,6 +127,32 @@ pub fn transcribe_file_reporting(
         segments: all_segments,
         language: language.unwrap_or("auto").to_string(),
     })
+}
+
+/// Speech spans in `samples`, or the whole file when the detector cannot
+/// be built at all.
+///
+/// Failing open matters: a VAD that refuses to initialise must degrade to
+/// "transcribe everything" (today's behaviour, hallucinations included),
+/// never to "transcribe nothing", which would silently lose a recording.
+fn speech_regions_or_whole_file(samples: &[f32], duration_secs: f64) -> Vec<(f64, f64)> {
+    let regions = crate::vad::DualVad::new(crate::vad::VadConfig::default()).and_then(|mut vad| {
+        crate::vad::speech_regions(&mut vad, samples, crate::vad::SegmentationConfig::default())
+    });
+    match regions {
+        Ok(regions) => regions,
+        Err(e) => {
+            tracing::warn!(%e, "VAD unavailable for file transcription; transcribing whole file");
+            vec![(0.0, duration_secs)]
+        }
+    }
+}
+
+fn slice_secs(samples: &[f32], start_secs: f64, end_secs: f64) -> &[f32] {
+    let rate = TARGET_SAMPLE_RATE as f64;
+    let start = ((start_secs * rate).max(0.0) as usize).min(samples.len());
+    let end = ((end_secs * rate).max(0.0) as usize).clamp(start, samples.len());
+    &samples[start..end]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -209,6 +263,7 @@ pub fn transcribe_files_batch(
     files: &[std::path::PathBuf],
     language: Option<&str>,
     glossary: &GlossaryConfig,
+    speaker_hint: u32,
     mut on_progress: impl FnMut(BatchFileProgress),
 ) {
     let total_files = files.len();
@@ -239,9 +294,16 @@ pub fn transcribe_files_batch(
             error: None,
         });
 
-        match transcribe_file_reporting(engine, path, language, glossary, |fraction| {
-            publish(BatchFileStatus::Transcribing, fraction);
-        }) {
+        match transcribe_file_reporting(
+            engine,
+            path,
+            language,
+            glossary,
+            speaker_hint,
+            |fraction| {
+                publish(BatchFileStatus::Transcribing, fraction);
+            },
+        ) {
             Ok(result) => {
                 publish(BatchFileStatus::Done, 1.0);
                 on_progress(BatchFileProgress {
@@ -297,6 +359,25 @@ mod tests {
             seen_indices.push((i, files.len()));
         }
         assert_eq!(seen_indices, vec![(0, 2), (1, 2)]);
+    }
+
+    #[test]
+    fn silence_yields_no_regions_so_nothing_is_transcribed() {
+        // The hallucination fix at its root: a silent file produces no work
+        // at all, so Whisper is never asked what the silence said.
+        let samples = vec![0.0f32; TARGET_SAMPLE_RATE as usize * 20];
+        assert!(speech_regions_or_whole_file(&samples, 20.0).is_empty());
+    }
+
+    #[test]
+    fn slice_secs_clamps_to_the_buffer() {
+        let samples = vec![0.0f32; TARGET_SAMPLE_RATE as usize * 2];
+        assert_eq!(
+            slice_secs(&samples, 0.0, 1.0).len(),
+            TARGET_SAMPLE_RATE as usize
+        );
+        assert!(slice_secs(&samples, 5.0, 9.0).is_empty());
+        assert!(slice_secs(&samples, 1.0, 0.0).is_empty());
     }
 
     #[test]

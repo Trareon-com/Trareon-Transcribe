@@ -41,6 +41,8 @@ fn config() -> SummaryConfig {
         custom_prompt: String::new(),
         language: "id".to_string(),
         timeout_secs: 300,
+        with_citations: false,
+        with_action_items: false,
     }
 }
 

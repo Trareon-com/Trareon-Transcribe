@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/transcript_player_screen.dart';
@@ -59,7 +60,11 @@ void main() {
     expect(find.text('1.0x'), findsOneWidget);
   });
 
-  testWidgets('tapping a segment opens edit dialog and saves new text', (
+  // Editing in the player is inline and keyboard-driven since F20: a
+  // click selects the row, Enter opens the editor in place, Enter saves
+  // and Esc abandons. The modal "Edit Transkrip" dialog stays only in the
+  // live-recording view, which cannot do the structural edits.
+  testWidgets('Enter on a selected row edits it in place and saves', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -74,18 +79,23 @@ void main() {
 
     await tester.tap(findRichText('Halo semua'));
     await tester.pumpAndSettle();
+    // No modal: the click selected the row.
+    expect(find.text('Edit Transkrip'), findsNothing);
 
-    expect(find.text('Edit Transkrip'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, 'Halo semua, selamat pagi');
-    await tester.tap(find.text('Simpan'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Halo semua, selamat pagi',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
     expect(findRichText('Halo semua, selamat pagi'), findsOneWidget);
     expect(findRichText('Halo semua'), findsNothing);
   });
 
-  testWidgets('canceling edit dialog keeps original text', (WidgetTester tester) async {
+  testWidgets('Esc abandons an inline edit', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: TranscriptPlayerScreen(
@@ -98,9 +108,13 @@ void main() {
 
     await tester.tap(findRichText('Halo semua'));
     await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField).last, 'diubah tapi dibatalkan');
-    await tester.tap(find.text('Batal'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).last,
+      'diubah tapi dibatalkan',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
     expect(findRichText('Halo semua'), findsOneWidget);
@@ -123,9 +137,13 @@ void main() {
 
     await tester.tap(findRichText('Halo semua'));
     await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField).last, 'Halo semua, selamat pagi');
-    await tester.tap(find.text('Simpan'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Halo semua, selamat pagi',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
     expect(updatedSegments, isNotNull);

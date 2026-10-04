@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../services/library_index.dart';
 import '../services/session_store.dart';
+import '../state/enhance_queue_model.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -319,6 +320,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       defaultOutputDir: resolveTilde(settings.libraryPath),
       defaultFormat: settings.defaultExportFormat,
       summary: record?.meta.summary ?? '',
+      incomplete: (record?.meta.isIncomplete ?? false) ||
+          ref.read(enhanceQueueProvider).isCompletingSession(session.dirPath),
+      pdp: settings.pdp,
     );
   }
 

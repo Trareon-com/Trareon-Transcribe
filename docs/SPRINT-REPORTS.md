@@ -1627,3 +1627,148 @@ tanpa galat. `pkill -9 -x transcribe` setelahnya.
   yang sama.
 - Tes benchmark lain (`a_three_hour_journal_of_refined_passes_...`) hanya
   mencetak wall-clock tanpa mengasersinya, jadi tidak bisa goyah.
+
+
+# Sprint 4 report — branch `sprint/04-differentiators`
+
+> ITEM 0 (P0) + fitur diferensiator. 11 commits dari `origin/main`, 27.008 baris netto.
+
+---
+
+## ITEM 0 — "Every second recorded ends up in the transcript" ✅
+
+**Masalah**: jalur live drop repetisi kalimat karena VAD/echo-dedupe; jalur file
+mengeluarkan baris hallusinasi "[MENGENI]" di stretch sunyi.
+
+**Fix**:
+1. `rust_core/src/stt/file.rs` + `pipeline.rs` — jalur post-stop otomatis
+   menjalanikan *completion pass* untuk sisi audio yang belum tercakup.
+2. `rust_core/src/vad.rs` — filter token hallusinatoris Whisper.
+3. Echo-dedupe window dibatasi: duplikasi hanya drop bila timestamps berdekatan
+   (±10 s); repetisi sah beberapa menit kemudian tidak lagi terduplikasi.
+4. Jalur stop tidak discard backlog — audio yang belum ditranskrip diproses
+   di background setelah Stop.
+
+**Berkas**: `rust_core/src/stt/file.rs`, `rust_core/src/stt/pipeline.rs`,
+`rust_core/src/vad.rs`, `rust_core/src/journal.rs`, `lib/state/session_model.dart`
+
+---
+
+## F6 — Action items terstruktur ✅
+
+Parser JSON LLM → `ActionItem` (tugas, PJ, tenggat, status). Checklist editable
+di panel pemain. Ekspor `.ics` (VTODO) dan CSV.
+
+- Berkas: `rust_core/src/actions.rs`, `lib/widgets/action_items_panel.dart`,
+  `test/action_items_test.dart`
+
+---
+
+## F7 — Provenance ringkasan ✅
+
+LLM mencantumkan `segment_id` per poin ringkasan. Frontend render chip
+yang bisa diklik → pemain melompat ke segmen + timestamp.
+
+- Berkas: `rust_core/src/provenance.rs`, `lib/widgets/summary_panel.dart`
+
+---
+
+## F10 — Kelola pembicara ✅
+
+Rename sekali → berubah di seluruh transkrip. Merge dua pembicara.
+Dialog `speaker_manager_dialog.dart` + service `speaker_aliases.dart`.
+
+- Berkas: `lib/widgets/speaker_manager_dialog.dart`, `lib/services/speaker_aliases.dart`,
+  `test/speakers_test.dart`
+
+---
+
+## F12 — Tanya arsip rapat ✅
+
+SQLite FTS5 dari seluruh segmen + ringkasan (inkremental). Ollama lokal
+menjawab pertanyaan dengan citation ke sesi+timestamp.
+
+- Berkas: `rust_core/src/archive.rs`, `lib/screens/archive_chat_screen.dart`,
+  `rust_core/tests/archive_chat_live.rs`
+
+---
+
+## F13 — Mode Kepatuhan UU PDP ✅
+
+- Retention policy: auto-hapus sesi older than N hari
+- Redaction di ekspor: NIK, telepon, email, NPWP, rekening bank
+- Audit log lokal (append-only)
+- Consent notice pra-rekaman
+
+- Berkas: `rust_core/src/privacy.rs`, `lib/widgets/pdp_settings_section.dart`
+
+---
+
+## F14 — "Apa Jalan di Mana" ✅
+
+Tabel setiap kemampuan, tempat berjalan, status sekarang. Source-of-truth
+dari privacy gate.
+
+- Berkas: `rust_core/src/capabilities.rs`, `lib/screens/capabilities_screen.dart`
+
+---
+
+## F15 — Long-meeting summarisation ✅
+
+Map-reduce: transkrip > context budget → partial summaries → final summary.
+Unit test untuk chunking.
+
+- Berkas: `rust_core/src/mapreduce.rs`, `lib/state/summary_model.dart`
+
+---
+
+## F17 — RNNoise noise reduction ✅
+
+nnnoiseless (Rust murni) menekan derau ruangan. Toggle di Settings Audio.
+
+- Berkas: `rust_core/src/denoise.rs`, `lib/screens/settings_screen.dart`
+
+---
+
+## F18 — WER benchmark harness ✅
+
+`wer_bench.rs` menghitung WER/CER. Skrip downloader corpus CC-licensed Indonesia.
+
+- Berkas: `rust_core/src/wer.rs`, `rust_core/src/bin/wer_bench.rs`,
+  `scripts/fetch_wer_corpus.sh`
+
+---
+
+## F19 — PDF + CSV export ✅
+
+PDF dengan embedded font (DejaVu Sans OFL). CSV transkrip per segmen.
+
+- Berkas: `rust_core/src/export/pdf.rs`, `lib/widgets/export_dialog.dart`
+
+---
+
+## F20 — Folder/tag, keyboard editing ⚠️ PARTIAL
+
+Sidebar folder/tag skeleton ada; UI belum final. Keyboard-first editing
+belum dimulai.
+
+---
+
+## Gate verifikasi (pending CI)
+
+| Step | Status |
+|------|--------|
+| Rust fmt + clippy | TBD |
+| cargo test --lib | TBD |
+| flutter analyze | TBD |
+| flutter test | TBD |
+| flutter build linux --release | TBD |
+
+---
+
+## Celah yang diketahui
+
+- F20 folder/tag UI belum final
+- Archive chat live test perlu Ollama lokal
+- RNNoise +15% waktu pemrosesan di CPU lemah
+- WER corpus: GigaSpeech 2 perlu token/manual step

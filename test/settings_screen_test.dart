@@ -103,6 +103,7 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => [];
 
   @override
@@ -164,6 +165,7 @@ void main() {
       'Audio & Suara',
       'Penyimpanan',
       'Ringkasan AI',
+      'Kepatuhan PDP',
       'Penyiapan & Diagnostik',
       'Tentang',
     ]) {
@@ -191,6 +193,10 @@ void main() {
     await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
 
+    // The rail is a ListView; the last categories may sit below the fold
+    // at the minimum window, which is fine as long as they are reachable.
+    await tester.ensureVisible(find.text('Penyiapan & Diagnostik'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Penyiapan & Diagnostik'));
     await tester.pumpAndSettle();
     expect(find.text('Diagnostik'), findsOneWidget);

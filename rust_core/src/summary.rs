@@ -81,6 +81,14 @@ pub struct SummaryConfig {
     /// Output language: `"id"` or `"en"`.
     pub language: String,
     pub timeout_secs: u64,
+    /// Ask the model to cite the transcript segment behind each point
+    /// (F7). Off by default: it costs prompt budget and a weak model
+    /// spends it inventing numbers.
+    #[serde(default)]
+    pub with_citations: bool,
+    /// Ask for the structured "Tindak Lanjut" JSON block (F6).
+    #[serde(default)]
+    pub with_action_items: bool,
 }
 
 impl Default for SummaryConfig {
@@ -94,6 +102,8 @@ impl Default for SummaryConfig {
             custom_prompt: String::new(),
             language: "id".to_string(),
             timeout_secs: DEFAULT_TIMEOUT_SECS,
+            with_citations: false,
+            with_action_items: false,
         }
     }
 }
@@ -265,7 +275,7 @@ pub fn system_prompt(language: &str) -> String {
 /// is the whole point of having marked them.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn build_prompt(config: &SummaryConfig, transcript: &str, bookmarks: &[String]) -> String {
-    let instruction = template_instruction(config.template, &config.custom_prompt);
+    let instruction = full_instruction(config);
     let body = truncate_transcript(transcript.trim(), MAX_TRANSCRIPT_CHARS);
     let mut prompt = format!("{instruction}\n\n--- TRANSKRIP ---\n{body}\n--- AKHIR TRANSKRIP ---");
     let marks: Vec<&str> = bookmarks
@@ -279,6 +289,141 @@ pub fn build_prompt(config: &SummaryConfig, transcript: &str, bookmarks: &[Strin
         prompt.push_str("\n--- AKHIR POIN DITANDAI ---");
     }
     prompt
+}
+
+/// The template's instruction plus whatever optional blocks the config
+/// asks for (citations F7, action items F6), in the order the model
+/// should produce them.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn full_instruction(config: &SummaryConfig) -> String {
+    let mut instruction = template_instruction(config.template, &config.custom_prompt);
+    if config.with_citations {
+        instruction.push_str("\n\n");
+        instruction.push_str(&crate::provenance::provenance_instruction());
+    }
+    if config.with_action_items {
+        instruction.push_str("\n\n");
+        instruction.push_str(&crate::actions::action_items_instruction());
+    }
+    instruction
+}
+
+// ---------------------------------------------------------------------------
+// Long meetings: map-reduce (F15)
+// ---------------------------------------------------------------------------
+
+/// Where a running map-reduce summary has got to.
+///
+/// A single global slot, like the batch-transcription one: only one
+/// summary runs at a time (the button disables itself), and polling is
+/// how Dart sees inside a single long-lived FRB future.
+static PROGRESS: std::sync::Mutex<Option<crate::mapreduce::MapReduceProgress>> =
+    std::sync::Mutex::new(None);
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn publish_progress(progress: crate::mapreduce::MapReduceProgress) {
+    if let Ok(mut slot) = PROGRESS.lock() {
+        *slot = Some(progress);
+    }
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn read_progress() -> Option<crate::mapreduce::MapReduceProgress> {
+    PROGRESS.lock().ok()?.clone()
+}
+
+/// Clears the slot, so a caller cannot read the *previous* run's last
+/// window before the first update of this one lands.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn reset_progress() {
+    if let Ok(mut slot) = PROGRESS.lock() {
+        *slot = None;
+    }
+}
+
+/// Summarises a meeting too long for one request, window by window.
+///
+/// `on_progress` is called before each round trip; a three-hour meeting
+/// is eighteen of them and the user needs to see which.
+///
+/// Falls back to a single request when the transcript fits — one round
+/// trip is both faster and better, because the model sees every
+/// connection at once.
+pub async fn generate_summary_long(
+    config: SummaryConfig,
+    segments: Vec<Segment>,
+    bookmarks: Vec<String>,
+    mut on_progress: impl FnMut(crate::mapreduce::MapReduceProgress),
+) -> Result<String, TranscribeError> {
+    validate(&config)?;
+    let rendered = if config.with_citations {
+        crate::provenance::numbered_transcript(&segments)
+    } else {
+        transcript_text(&segments)
+    };
+    if rendered.trim().is_empty() {
+        return Err(TranscribeError::Summary(
+            "Transkrip kosong — tidak ada yang bisa diringkas.".into(),
+        ));
+    }
+    if !crate::mapreduce::needs_map_reduce(rendered.len(), MAX_TRANSCRIPT_CHARS) {
+        return generate_summary(config, rendered, bookmarks).await;
+    }
+
+    let chunks = crate::mapreduce::chunk_by_time(
+        &segments,
+        crate::mapreduce::WINDOW_SECS,
+        crate::mapreduce::MAX_WINDOW_CHARS,
+    );
+    let total = chunks.len() as u32;
+    let mut partials = Vec::with_capacity(chunks.len());
+    for (index, chunk) in chunks.iter().enumerate() {
+        on_progress(crate::mapreduce::MapReduceProgress::mapping(
+            index as u32,
+            total,
+            &chunk.label(),
+        ));
+        // The map step wants notes, not a finished document, so it runs
+        // with the window instruction rather than the user's template.
+        let map_config = SummaryConfig {
+            template: SummaryTemplate::Kustom,
+            custom_prompt: crate::mapreduce::map_instruction(chunk),
+            // Citations and the action-item JSON belong to the reduce
+            // step; asking for them per window produces eighteen
+            // conflicting JSON blocks.
+            with_citations: false,
+            with_action_items: false,
+            ..config.clone()
+        };
+        // A window the endpoint refused is recorded as empty rather than
+        // failing the run: seventeen windows of notes beat none.
+        let partial = match generate_summary(map_config, chunk.text.clone(), Vec::new()).await {
+            Ok(text) => text,
+            Err(e) => {
+                tracing::warn!(window = chunk.index, %e, "map step failed for one window");
+                String::new()
+            }
+        };
+        partials.push(partial);
+    }
+    if partials.iter().all(|p| p.trim().is_empty()) {
+        return Err(TranscribeError::Summary(
+            "Tidak ada bagian rapat yang berhasil diringkas. Periksa endpoint \
+             dan model yang dipilih."
+                .into(),
+        ));
+    }
+
+    on_progress(crate::mapreduce::MapReduceProgress::reducing(total));
+    let joined = crate::mapreduce::join_partials(&chunks, &partials);
+    let reduce_config = SummaryConfig {
+        template: SummaryTemplate::Kustom,
+        custom_prompt: crate::mapreduce::reduce_instruction(&full_instruction(&config)),
+        with_citations: false,
+        with_action_items: false,
+        ..config
+    };
+    generate_summary(reduce_config, joined, bookmarks).await
 }
 
 // ---------------------------------------------------------------------------
@@ -518,6 +663,45 @@ pub async fn generate_summary(
         });
     }
 
+    parse_chat_response(&body)
+}
+
+/// Sends one already-composed prompt to the configured endpoint.
+///
+/// The seam the archive chat (F12) goes through. `archive` builds the
+/// prompt from locally retrieved passages and hands it here, so the one
+/// module in the crate that opens a socket stays the one module in the
+/// crate that opens a socket — which is the property `privacy::tests`
+/// checks and the Privacy Report claims.
+pub async fn ask(config: SummaryConfig, prompt: String) -> Result<String, TranscribeError> {
+    validate(&config)?;
+    if prompt.trim().is_empty() {
+        return Err(TranscribeError::Summary("Pertanyaan kosong.".into()));
+    }
+    let url = chat_endpoint(config.provider, &config.base_url);
+    let mut request = client(config.timeout_secs)?
+        .post(&url)
+        .json(&request_body(&config, &prompt));
+    if !config.api_key.trim().is_empty() {
+        request = request.bearer_auth(config.api_key.trim());
+    }
+    let response = request.send().await.map_err(|e| {
+        TranscribeError::Summary(format!(
+            "tidak bisa menghubungi {url}: {e}. Pastikan layanan berjalan dan URL benar."
+        ))
+    })?;
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| TranscribeError::Summary(format!("gagal membaca jawaban {url}: {e}")))?;
+    if !status.is_success() {
+        return Err(TranscribeError::Summary(format!(
+            "HTTP {} dari {url} — {}",
+            status.as_u16(),
+            snippet(&body)
+        )));
+    }
     parse_chat_response(&body)
 }
 

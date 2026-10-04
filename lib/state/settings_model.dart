@@ -237,6 +237,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setGlossary(GlossarySettings glossary) =>
       _apply(state.copyWith(glossary: glossary), label: 'Kamus istilah');
 
+  /// Mode Kepatuhan UU PDP (F13).
+  Future<void> setPdp(PdpSettings pdp) =>
+      _apply(state.copyWith(pdp: pdp), label: 'Mode Kepatuhan PDP');
+
   Future<void> setGlossaryEnabled(bool enabled) =>
       setGlossary(state.glossary.copyWith(enabled: enabled));
 
@@ -305,6 +309,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setVadEnabled(bool enabled) =>
       _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
+
+  Future<void> setNoiseReduction(bool enabled) => _apply(
+        state.copyWith(noiseReduction: enabled),
+        label: 'Pengurangan derau',
+      );
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
         minutes == null

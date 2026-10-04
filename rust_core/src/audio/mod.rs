@@ -107,6 +107,18 @@ pub struct SessionConfig {
     /// output. Defaults to empty, which is a no-op.
     #[serde(default)]
     pub glossary: crate::glossary::GlossaryConfig,
+    /// Fastest model installed on this machine (`tiny`/`base`), used for
+    /// the *live preview only* when `model_path` turns out to be slower
+    /// than real time on this device.
+    ///
+    /// This does not downgrade the transcript the user ends up with: the
+    /// post-stop completion pass re-runs the saved audio with `model_path`
+    /// afterwards. What it prevents is the live worker falling further
+    /// behind every minute until Stop, which on the device this was
+    /// measured on produced a 6-minute recording with 8 seconds of
+    /// transcript. `None` disables the substitution.
+    #[serde(default)]
+    pub fallback_model_path: Option<String>,
 }
 
 fn default_audio_to_disk() -> bool {
@@ -130,6 +142,7 @@ impl SessionConfig {
             gpu_device: 0,
             audio_to_disk: true,
             glossary: crate::glossary::GlossaryConfig::default(),
+            fallback_model_path: None,
         }
     }
 

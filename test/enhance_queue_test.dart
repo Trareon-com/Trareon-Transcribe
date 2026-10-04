@@ -64,6 +64,7 @@ class _EnhanceBridge extends NoopBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async {
     calls++;
     lastGlossary = glossary;

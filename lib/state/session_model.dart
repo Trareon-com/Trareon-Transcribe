@@ -790,6 +790,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         audioToDisk: settings.audioToDisk,
         glossary: settings.glossary
             .toConfig(sessionTerms: state.sessionGlossaryTerms),
+        // Only meaningful in single-model mode, where the engine
+        // benchmarks `quickPath` and swaps this in if it cannot keep up
+        // live. In progressive mode adaptive HPT already owns that choice.
+        fallbackModelPath: refinePath != null
+            ? null
+            : fastestInstalledModelPath(
+                exclude: quickPath,
+                libraryPath: settings.libraryPath,
+              ),
       ),
     );
   }

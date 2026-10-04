@@ -11,14 +11,23 @@ import '../services/session_store.dart';
 import '../utils/atomic_file.dart';
 import '../utils/model_labels.dart';
 import '../utils/segment_lookup.dart';
+import '../state/enhance_queue_model.dart';
+import '../state/library_model.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
+import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../widgets/action_items_panel.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
+import '../widgets/completion_banner.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
+import '../widgets/speaker_manager_dialog.dart';
+import '../widgets/tag_editor_dialog.dart';
 import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
 
@@ -54,6 +63,14 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
   /// selection rather than popping anything.
   final VoidCallback? onClose;
 
+  /// Where to land when the screen opens, in seconds.
+  ///
+  /// A citation — from "Tanya arsip rapat" (F12) or a summary bullet in
+  /// another session (F7) — names a moment, not just a meeting, and
+  /// dumping the user at 0:00 of a two-hour recording loses exactly the
+  /// thing the citation was for.
+  final double? initialSeekSeconds;
+
   const TranscriptPlayerScreen({
     super.key,
     required this.title,
@@ -64,6 +81,7 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
     this.sessionDirPath,
     this.meta = SessionMeta.empty,
     this.onClose,
+    this.initialSeekSeconds,
   });
 
   @override
@@ -114,6 +132,12 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// with it without re-reading the sidecar.
   late String _summary;
 
+  /// One summary notifier for this screen, shared by the summary panel and
+  /// the "Tindak Lanjut" checklist (F6) — they are two views of the same
+  /// state, and two notifiers would let a regenerated summary and the
+  /// checklist disagree about what the meeting decided.
+  StateNotifierProvider<SummaryNotifier, SummaryUiState>? _summaryProvider;
+
   /// Markers from the recording (F9), editable here too: reviewing is when a
   /// notulis realises which moments actually mattered.
   late List<Bookmark> _bookmarks;
@@ -122,14 +146,26 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// present an empty form.
   NotulenFormData? _notulenForm;
 
+  /// Folders/tags this session is filed under (F20).
+  late List<String> _tags;
+
   @override
   void initState() {
     super.initState();
     _segments = List.of(widget.segments);
     _timeline = SegmentTimeline(_segments);
+    // Highlight the cited line before the audio is even loaded, so the
+    // jump is visible on a session whose audio was deleted by the
+    // retention policy (F13) as well as on one that still has it.
+    final jump = widget.initialSeekSeconds;
+    if (jump != null && jump > 0) {
+      _position.value = jump;
+      _activeIndex.value = _timeline.indexAt(jump);
+    }
     _summary = widget.meta.summary;
     _bookmarks = List.of(widget.meta.bookmarks);
     _notulenForm = widget.meta.notulen;
+    _tags = List.of(widget.meta.tags);
     _refreshBackupAvailability();
     _initPlayer();
   }
@@ -147,7 +183,11 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       final existing = await readSessionMeta(dirPath);
       await writeSessionMeta(
         dirPath,
-        existing.copyWith(bookmarks: _bookmarks, notulen: _notulenForm),
+        existing.copyWith(
+          bookmarks: _bookmarks,
+          notulen: _notulenForm,
+          tags: _tags,
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -211,10 +251,20 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       summary: _summary,
       bookmarks: _bookmarks,
       saved: _notulenForm,
+      actionItems: _currentActionItems,
     );
     if (saved == null || !mounted) return;
     setState(() => _notulenForm = saved);
     await _persistMeta();
+  }
+
+  /// The checklist as it currently stands, or the sidecar's copy when the
+  /// summary panel has not been built yet (an unexpanded panel on a
+  /// freshly opened session).
+  List<ActionItem> get _currentActionItems {
+    final provider = _summaryProvider;
+    if (provider == null) return widget.meta.actionItems;
+    return ref.read(provider).actionItems;
   }
 
   /// When the meeting happened, for the notulen's hari/tanggal fields.
@@ -284,6 +334,10 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       await _player.setSourceDeviceFile(widget.audioPath!);
       final duration = await _player.getDuration();
       if (mounted) setState(() => _duration = duration);
+      // Before the position subscription, not after: the player's first
+      // tick is 0:00 and would otherwise drag the highlight back off the
+      // cited line.
+      if (_position.value > 0) await _seekTo(_position.value);
       _positionSub = _player.onPositionChanged.listen((position) {
         final seconds = position.inMilliseconds / 1000.0;
         _position.value = seconds;
@@ -306,6 +360,133 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     _schedulePersist();
   }
 
+  /// Adds or removes a tag, then persists and refreshes the library so
+  /// the sidebar's filter row picks it up (F20).
+  Future<void> _editTags() async {
+    final existing = <String>{};
+    for (final entry in ref.read(libraryListProvider).entries) {
+      existing.addAll(entry.tags);
+    }
+    final updated = await showTagEditor(
+      context,
+      current: _tags,
+      known: existing.toList(),
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _tags = updated);
+    await _persistMeta();
+    if (!mounted) return;
+    unawaited(ref.read(libraryListProvider.notifier).refresh());
+  }
+
+  /// Moves a segment by [delta] places in the list (F20, Ctrl+↑/↓).
+  ///
+  /// Only the order changes: the timestamps stay with their audio,
+  /// because a line moved into another speaker's turn was still said
+  /// when it was said, and rewriting its timestamp would break the seek
+  /// that makes the transcript checkable.
+  void _moveSegment(int index, int delta) {
+    final target = index + delta;
+    if (index < 0 || index >= _segments.length) return;
+    if (target < 0 || target >= _segments.length) return;
+    setState(() {
+      final next = List.of(_segments);
+      final moved = next.removeAt(index);
+      next.insert(target, moved);
+      _segments = next;
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
+  /// Joins a segment onto the one before it (F20, Ctrl+M).
+  ///
+  /// The VAD cuts a sentence in half whenever the speaker breathes, and
+  /// this is the repair. The merged row keeps the *earlier* start and the
+  /// sum of the durations, so the timeline stays continuous.
+  void _mergeWithPrevious(int index) {
+    if (index <= 0 || index >= _segments.length) return;
+    setState(() {
+      final previous = _segments[index - 1];
+      final current = _segments[index];
+      final joined = previous.copyWith(
+        text: '${previous.text.trimRight()} ${current.text.trimLeft()}'.trim(),
+      );
+      final next = List.of(_segments);
+      next[index - 1] = TranscriptSegment(
+        source: joined.source,
+        speaker: joined.speaker,
+        text: joined.text,
+        timestamp: previous.timestamp,
+        duration: (current.timestamp + current.duration) - previous.timestamp,
+        language: joined.language,
+        confidence: previous.confidence < current.confidence
+            ? previous.confidence
+            : current.confidence,
+        isPartial: false,
+        // Uncertainty survives a merge: if either half was flagged, the
+        // joined line still needs a human to look at it.
+        lowConfidence: previous.lowConfidence || current.lowConfidence,
+        avgLogProb: previous.avgLogProb,
+      );
+      next.removeAt(index);
+      _segments = next;
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
+  /// Splits a segment at [cursorOffset] characters (F20, Ctrl+Shift+S).
+  ///
+  /// The duration is divided in proportion to the text, which is a guess
+  /// — but a guess that puts the second half's timestamp inside the right
+  /// few seconds, which is all a seek needs.
+  void _splitSegment(int index, int cursorOffset) {
+    if (index < 0 || index >= _segments.length) return;
+    final segment = _segments[index];
+    final text = segment.text;
+    if (cursorOffset <= 0 || cursorOffset >= text.length) return;
+    final head = text.substring(0, cursorOffset).trimRight();
+    final tail = text.substring(cursorOffset).trimLeft();
+    if (head.isEmpty || tail.isEmpty) return;
+
+    final fraction = cursorOffset / text.length;
+    final headDuration = segment.duration * fraction;
+    setState(() {
+      final next = List.of(_segments);
+      next[index] = TranscriptSegment(
+        source: segment.source,
+        speaker: segment.speaker,
+        text: head,
+        timestamp: segment.timestamp,
+        duration: headDuration,
+        language: segment.language,
+        confidence: segment.confidence,
+        isPartial: false,
+        lowConfidence: segment.lowConfidence,
+        avgLogProb: segment.avgLogProb,
+      );
+      next.insert(
+        index + 1,
+        TranscriptSegment(
+          source: segment.source,
+          speaker: segment.speaker,
+          text: tail,
+          timestamp: segment.timestamp + headDuration,
+          duration: segment.duration - headDuration,
+          language: segment.language,
+          confidence: segment.confidence,
+          isPartial: false,
+          lowConfidence: segment.lowConfidence,
+          avgLogProb: segment.avgLogProb,
+        ),
+      );
+      _segments = next;
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
   void _renameSpeaker(String oldLabel, String newLabel) {
     setState(() {
       _segments = _segments
@@ -315,6 +496,35 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     });
     _onSegmentsMutated();
     _schedulePersist();
+  }
+
+  /// "Kelola Pembicara" (F10): rename, merge, and remember names for the
+  /// next meeting.
+  ///
+  /// A merge is the same operation as a rename onto an existing name —
+  /// both relabel every segment — so one code path serves both and the
+  /// transcript cannot end up with two speakers sharing a name.
+  Future<void> _manageSpeakers() async {
+    final actions = await showSpeakerManager(context, segments: _segments);
+    if (actions == null || actions.isEmpty || !mounted) return;
+    setState(() {
+      for (final action in actions) {
+        final (from, to) = switch (action) {
+          RenameSpeaker(:final from, :final to) => (from, to),
+          MergeSpeakers(:final from, :final into) => (from, into),
+        };
+        _segments = _segments
+            .map((s) => s.speaker == from ? s.copyWith(speaker: to) : s)
+            .toList();
+      }
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      '${actions.length} perubahan pembicara diterapkan.',
+    );
   }
 
   void _schedulePersist() {
@@ -531,6 +741,36 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     unawaited(_seekTo(segment.timestamp));
   }
 
+  /// Jumps to a segment by index, for a citation that names a line
+  /// number rather than a time (F6). Out-of-range indices are ignored:
+  /// the transcript is editable, so a stored citation can outlive the
+  /// line it pointed at.
+  void _seekToSegmentIndex(int index) {
+    if (index < 0 || index >= _segments.length) return;
+    unawaited(_seekTo(_segments[index].timestamp));
+  }
+
+  /// The screen's one summary notifier, created on first use.
+  ///
+  /// Lazily rather than in `initState` because the session directory is
+  /// only known for a saved session, and a live one has no sidecar to
+  /// write to yet.
+  StateNotifierProvider<SummaryNotifier, SummaryUiState> _summaryProviderFor(
+    String dirPath,
+  ) {
+    return _summaryProvider ??=
+        StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      return SummaryNotifier(
+        ref.read(rustBridgeProvider),
+        dirPath,
+        initialMeta: widget.meta,
+        onNetworkRequest: (endpoint) => ref
+            .read(privacyReportProvider.notifier)
+            .recordSummaryRequest(endpoint),
+      );
+    });
+  }
+
   Future<void> _setSpeed(double value) async {
     setState(() => _speed = value);
     try {
@@ -569,11 +809,48 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
             _seekBy(kJlSeekSeconds),
       };
 
+  /// Pulls the transcript back off disk after a background pass rewrote it.
+  ///
+  /// The completion pass (ITEM 0) writes directly to the session's JSON, so
+  /// a player left open while it runs would otherwise keep showing the
+  /// 8-second transcript the live pass produced, with no way to see the
+  /// recovered text short of closing and reopening the session. Edits in
+  /// flight are not clobbered: `_persistSegments` runs on a 400 ms debounce
+  /// and the reload only happens when a pass finishes.
+  Future<void> _reloadFromDisk() async {
+    final dirPath = _sessionDirPath;
+    if (dirPath == null) return;
+    try {
+      final file = transcriptFileIn(Directory(dirPath));
+      if (file == null) return;
+      final segments = parseTranscriptJson(await file.readAsString());
+      if (!mounted || segments.isEmpty) return;
+      setState(() {
+        _segments
+          ..clear()
+          ..addAll(segments);
+        _revision++;
+      });
+    } catch (e) {
+      debugPrint('transcript reload failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final maxSeconds = _maxSeconds;
     final hasAudio = widget.audioPath != null;
+
+    final dirPath = _sessionDirPath;
+    if (dirPath != null) {
+      ref.listen<EnhanceQueueState>(enhanceQueueProvider, (previous, next) {
+        final wasRunning = previous?.isCompletingSession(dirPath) ?? false;
+        if (wasRunning && !next.isCompletingSession(dirPath)) {
+          unawaited(_reloadFromDisk());
+        }
+      });
+    }
 
     return CallbackShortcuts(
       bindings: _shortcuts,
@@ -643,12 +920,26 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   ),
                 ),
               if (_sessionDirPath != null)
+                CompletionBanner(sessionDirPath: _sessionDirPath!),
+              if (_sessionDirPath != null)
                 SummaryPanel(
                   sessionDirPath: _sessionDirPath!,
                   segments: () => _segments,
                   initialMeta: widget.meta,
                   bookmarks: _bookmarks,
+                  provider: _summaryProviderFor(_sessionDirPath!),
+                  onSeekToTimestamp: hasAudio ? _seekTo : null,
                   onSummaryChanged: (text) => setState(() => _summary = text),
+                ),
+
+              // F6. Below the summary it came from, and shown whenever the
+              // session has one or the user wants to write one by hand.
+              if (_sessionDirPath != null)
+                ActionItemsPanel(
+                  provider: _summaryProviderFor(_sessionDirPath!),
+                  sessionTitle: widget.title,
+                  sessionDirPath: _sessionDirPath!,
+                  onSeekToSegment: _seekToSegmentIndex,
                 ),
 
               // Transcript
@@ -658,6 +949,9 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   revision: _revision,
                   onEdit: _editSegment,
                   onRenameSpeaker: _renameSpeaker,
+                  onMoveSegment: _moveSegment,
+                  onMergeWithPrevious: _mergeWithPrevious,
+                  onSplitSegment: _splitSegment,
                   activeSegmentIndex: _activeIndex,
                   onSeekToSegment: hasAudio ? _seekToSegment : null,
                 ),
@@ -867,6 +1161,50 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             ),
                           ),
                         ],
+                        if (_sessionDirPath != null)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.label_outline, size: 16),
+                            label: Text(
+                              _tags.isEmpty ? 'Tag' : 'Tag (${_tags.length})',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            onPressed: _editTags,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(
+                                color: colors.primary.withValues(alpha: 0.3),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        if (_segments.isNotEmpty)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.people_outline, size: 16),
+                            label: const Text(
+                              'Pembicara',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            onPressed: _manageSpeakers,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(
+                                color: colors.primary.withValues(alpha: 0.3),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         OutlinedButton.icon(
                           icon: const Icon(Icons.upload_outlined, size: 16),
                           label: const Text('Ekspor', style: TextStyle(fontSize: 13)),
@@ -952,6 +1290,9 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       defaultFormat: settings.defaultExportFormat,
       summary: _summary,
       bookmarks: _bookmarks,
+      incomplete: _sessionDirPath != null &&
+          ref.read(enhanceQueueProvider).isCompletingSession(_sessionDirPath!),
+      pdp: settings.pdp,
     );
   }
 }
