@@ -300,6 +300,30 @@ void main() {
       expect(meta.coverageFraction, 1.0);
     });
 
+    test('a finished silent track does not mark the session complete',
+        () async {
+      // The observed overclaim: a mic track that was pure silence finished
+      // first and wrote coverage 100% while the speaker track was still
+      // missing five minutes.
+      final live = [seg(timestamp: 1, text: 'halo')];
+      final dir = await plantSession(
+        live,
+        tracks: const ['mic.wav', 'speaker.wav'],
+      );
+      addTearDown(() => dir.delete(recursive: true));
+      final queue = EnhanceQueueNotifier(
+        _OneTrackOnlyBridge(),
+        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+      );
+      await queue.considerSession(handoffFor(dir, live));
+      // Let the mic job finish; the speaker job is still queued.
+      await queue.idle;
+      final meta = await readSessionMeta(dir.path);
+      expect(meta.pendingCompletion, isEmpty);
+      expect(meta.coverageFraction, lessThan(1.0),
+          reason: 'the least-complete track decides');
+    });
+
     test('one job per captured track', () async {
       final live = [seg(timestamp: 1, text: 'halo')];
       final dir = await plantSession(
@@ -536,6 +560,35 @@ void main() {
       expect(busy.hasPendingWork, isTrue);
     });
   });
+}
+
+/// Mic completes fully (it was silence); the speaker track recovers only
+/// half of its speech.
+class _OneTrackOnlyBridge extends _CompletionBridge {
+  @override
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) async {
+    completionRuns.add(audioPath);
+    final silent = audioPath.endsWith('mic.wav');
+    return rust_completion.CompletionOutcome(
+      segments: existing.map(toRustSegment).toList(),
+      added: 0,
+      rejected: 0,
+      coverage: kCompleteCoverage,
+      speechSecs: silent ? 0 : 200,
+      speechCoveredSecs: silent ? 0 : 100,
+      audioSecs: 360,
+    );
+  }
 }
 
 class _FailingCompletionBridge extends _CompletionBridge {
