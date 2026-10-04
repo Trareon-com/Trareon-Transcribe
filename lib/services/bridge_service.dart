@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
@@ -275,6 +277,52 @@ AppThemeMode fromRustTheme(rust_settings.Theme theme) => switch (theme) {
   rust_settings.Theme.dark => AppThemeMode.dark,
   rust_settings.Theme.system => AppThemeMode.system,
 };
+
+/// Turns repeated `(downloaded, total)` polls into a 0..1 progress stream.
+///
+/// Top-level and parameterised over the reader (like [toRustSegment]) so the
+/// part with the bug is directly testable without the native library.
+///
+/// The timer has to die when the consumer stops listening *or* when the
+/// controller closes, and `onCancel` only covers the first. A download that
+/// is cancelled, fails, or stalls never reaches ratio 1.0 — [readProgress]
+/// simply keeps returning null or a partial ratio — so the old version left
+/// `Timer.periodic` calling into Rust five times a second for the rest of
+/// the app's life, with a `StreamController` nobody would ever close.
+///
+/// There are two `isClosed` checks because the tick body awaits: the
+/// controller can be closed while [readProgress] is in flight, and `add()`
+/// on a closed controller throws.
+Stream<double> pollDownloadProgress(
+  Future<(BigInt, BigInt)?> Function() readProgress, {
+  Duration interval = const Duration(milliseconds: 200),
+}) {
+  late final StreamController<double> controller;
+  Timer? timer;
+  controller = StreamController<double>(onCancel: () => timer?.cancel());
+  timer = Timer.periodic(interval, (t) async {
+    if (controller.isClosed) {
+      t.cancel();
+      return;
+    }
+    final progress = await readProgress();
+    if (progress == null) return;
+    final downloaded = progress.$1;
+    final total = progress.$2;
+    if (total == BigInt.zero) return;
+    final ratio = downloaded.toDouble() / total.toDouble();
+    if (controller.isClosed) {
+      t.cancel();
+      return;
+    }
+    controller.add(ratio);
+    if (ratio >= 1.0) {
+      t.cancel();
+      await controller.close();
+    }
+  });
+  return controller.stream;
+}
 
 /// Inverse of [toRustSegment].
 TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
@@ -699,6 +747,28 @@ class RustEngineBridge implements RustBridge {
   final Map<String, double> _lastMicLevels = {};
   final Map<String, double> _lastSpeakerLevels = {};
 
+  /// The engine-side stop, as an overridable seam.
+  ///
+  /// `rust_api` needs the native library loaded, so the one guarantee that
+  /// matters in [stopSession] — the Dart plumbing is torn down even when the
+  /// engine call throws — is otherwise unreachable from a unit test.
+  @visibleForTesting
+  Future<void> Function(String sessionId) stopEngineSession =
+      (sessionId) => rust_api.stopSession(sessionId: sessionId);
+
+  /// How many live sessions still hold Dart-side stream controllers.
+  /// Exposed so a test can see the leak this file used to have.
+  @visibleForTesting
+  int get openStreamCount =>
+      _transcriptControllers.length +
+      _vuControllers.length +
+      _noticeControllers.length +
+      _pollTimers.length;
+
+  @visibleForTesting
+  void openSessionStreamsForTest(String sessionId) =>
+      _openSessionStreams(sessionId);
+
   @override
   Future<String> startSession(SessionConfig config) async {
     final id = await rust_api.startSession(config: _toRustSessionConfig(config));
@@ -723,12 +793,21 @@ class RustEngineBridge implements RustBridge {
     _pollTimers.remove(sessionId)?.cancel();
     _polling.remove(sessionId);
     _pausedSessions.remove(sessionId);
-    await rust_api.stopSession(sessionId: sessionId);
-    await _transcriptControllers.remove(sessionId)?.close();
-    await _vuControllers.remove(sessionId)?.close();
-    await _noticeControllers.remove(sessionId)?.close();
-    _lastMicLevels.remove(sessionId);
-    _lastSpeakerLevels.remove(sessionId);
+    // The Dart-side teardown happens whatever the Rust stop does. A throw
+    // from `stopSession` (an id the engine has already forgotten, a poisoned
+    // registry lock) used to leave all three StreamControllers open and
+    // still in their maps — leaked for the life of the app, and leaving the
+    // UI listening to a session that no longer exists. The caller still sees
+    // the error; it just no longer costs the cleanup.
+    try {
+      await stopEngineSession(sessionId);
+    } finally {
+      await _transcriptControllers.remove(sessionId)?.close();
+      await _vuControllers.remove(sessionId)?.close();
+      await _noticeControllers.remove(sessionId)?.close();
+      _lastMicLevels.remove(sessionId);
+      _lastSpeakerLevels.remove(sessionId);
+    }
   }
 
   @override
@@ -886,27 +965,8 @@ class RustEngineBridge implements RustBridge {
   Future<String> detectFrontmostWindowTitle() async => '';
 
   @override
-  Stream<double> downloadProgress() {
-    late final StreamController<double> controller;
-    Timer? timer;
-    controller = StreamController<double>(
-      onCancel: () => timer?.cancel(),
-    );
-    timer = Timer.periodic(const Duration(milliseconds: 200), (t) async {
-      final progress = await rust_api.getDownloadProgress();
-      if (progress == null) return;
-      final downloaded = progress.$1;
-      final total = progress.$2;
-      if (total == BigInt.zero) return;
-      final ratio = downloaded.toDouble() / total.toDouble();
-      controller.add(ratio);
-      if (ratio >= 1.0) {
-        t.cancel();
-        controller.close();
-      }
-    });
-    return controller.stream;
-  }
+  Stream<double> downloadProgress() =>
+      pollDownloadProgress(rust_api.getDownloadProgress);
 
   @override
   Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({

@@ -39,6 +39,14 @@ class RecoveryBridge extends NoopBridge {
   }
 }
 
+/// The engine cannot even enumerate recoveries — an unreadable recovery
+/// directory, or a bridge that failed to load.
+class _FailingListBridge extends NoopBridge {
+  @override
+  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
+      throw StateError('recovery directory is unreadable');
+}
+
 rust_session.RecoverableSession recoverable({
   required String id,
   required String title,
@@ -107,6 +115,32 @@ Future<void> pumpMain(WidgetTester tester, RecoveryBridge bridge) async {
 }
 
 void main() {
+  testWidgets('a bridge that cannot list recoveries still clears the loading bar', (
+    WidgetTester tester,
+  ) async {
+    final bridge = _FailingListBridge();
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      buildTestAppWithOverrides(
+        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+      ),
+    );
+    // Deliberately not pumpAndSettle: an indeterminate LinearProgressIndicator
+    // never settles, which is exactly what the stuck state looked like — a
+    // sidebar permanently loading, with the recovery entry point hidden
+    // behind it, so a crashed meeting could not be reached at all.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.byType(LinearProgressIndicator),
+      findsNothing,
+      reason: 'the loading state must clear even when the listing throws',
+    );
+  });
+
   testWidgets('the banner says what is recoverable, not just how many', (
     WidgetTester tester,
   ) async {

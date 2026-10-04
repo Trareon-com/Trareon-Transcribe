@@ -16,9 +16,9 @@ permissions:
 jobs:
   source-release:
     name: Source archive
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create source archive
         run: |
@@ -27,6 +27,8 @@ jobs:
             --output="dist/transcribe-${GITHUB_REF_NAME}.tar.gz" \
             "${GITHUB_REF_NAME}"
 
+      # No per-job .sha256 here: the single SHA256SUMS written by `publish`
+      # covers this archive along with every other artifact.
       - uses: actions/upload-artifact@v4
         with:
           name: artifacts-source
@@ -37,12 +39,12 @@ jobs:
     name: macOS DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -128,9 +130,9 @@ jobs:
 
   build-linux:
     name: Linux tar.gz, AppImage and .deb
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Linux desktop dependencies
         run: |
           sudo apt-get update
@@ -153,7 +155,7 @@ jobs:
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -205,12 +207,12 @@ jobs:
     name: Windows ZIP
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -233,7 +235,7 @@ jobs:
   publish:
     name: Checksums and release
     needs: [source-release, build-macos, build-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -259,7 +261,7 @@ jobs:
           sha256sum --check --strict SHA256SUMS
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: collected/*
           fail_on_unmatched_files: true

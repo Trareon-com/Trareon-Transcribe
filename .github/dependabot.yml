@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # Why this file exists: every pinned action in .github/workflows went two
+  # to three majors stale before anyone noticed, and the only symptom was a
+  # "Node.js 20 is deprecated" warning on each run — easy to scroll past
+  # until the runtime is removed and CI stops working. Weekly PRs make the
+  # drift visible while it is still a one-line bump.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      # One PR a week for the whole set, rather than five. The actions here
+      # are bumped together anyway and share one CI run.
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"

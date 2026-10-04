@@ -217,7 +217,17 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
     .await?;
 
     if !info.sha256.is_empty() {
-        crate::model::verify_checksum(&dest_path, &info.sha256)?;
+        if let Err(e) = crate::model::verify_checksum(&dest_path, &info.sha256) {
+            // A file that fails its checksum is corrupt or partial. Leaving
+            // it on disk is worse than having nothing: `is_model_downloaded`
+            // then reports the model as installed, and the next attempt's
+            // `download_with_resume` appends onto the bad bytes from the
+            // recorded offset, so the checksum can never come out right
+            // again — a poisoned resume the user cannot clear from the UI.
+            // Removing it makes the retry a clean download.
+            crate::model::discard_corrupt_download(&dest_path);
+            return Err(e);
+        }
     }
 
     Ok(())
