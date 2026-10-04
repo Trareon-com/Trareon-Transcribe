@@ -102,6 +102,7 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async => [];
 
   @override
@@ -180,8 +181,8 @@ void main() {
 
     await tester.tap(find.text('Audio & Suara'));
     await tester.pumpAndSettle();
-    expect(find.text('VAD (deteksi suara)'), findsOneWidget);
-    expect(find.text('Echo Dedupe'), findsOneWidget);
+    expect(find.text('Abaikan jeda sunyi'), findsOneWidget);
+    expect(find.text('Hapus suara ganda'), findsOneWidget);
   });
 
   testWidgets('both panes still fit at the 800x600 minimum window',
@@ -205,7 +206,7 @@ void main() {
     expect(find.byType(ChoiceChip), findsWidgets);
     await tester.tap(find.widgetWithText(ChoiceChip, 'Audio & Suara'));
     await tester.pumpAndSettle();
-    expect(find.text('VAD (deteksi suara)'), findsOneWidget);
+    expect(find.text('Abaikan jeda sunyi'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

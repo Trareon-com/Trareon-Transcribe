@@ -127,6 +127,7 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async => [];
 
   @override
@@ -166,7 +167,7 @@ void main() {
 
     for (final expectedTitle in [
       '2. Pilih Model',
-      '3. Setup Audio',
+      '3. Siapkan Audio',
       '4. Uji Suara',
     ]) {
       await tester.tap(find.text('Lanjut'));

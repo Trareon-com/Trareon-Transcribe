@@ -9,7 +9,9 @@ import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
 import 'export.dart';
+import 'export/notulen.dart';
 import 'frb_generated.dart';
+import 'glossary.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'session.dart';
@@ -164,7 +166,8 @@ Future<List<ExportedFile>> exportSession({
 );
 
 /// As [`export_session`], but leads the Markdown/TXT/HTML/DOCX output with
-/// `summary` (Markdown, from [`generate_summary`]). An empty `summary`
+/// `summary` (Markdown, from [`generate_summary`]) and the meeting's
+/// `bookmarks` as "Poin Penting". An empty `summary` with no bookmarks
 /// produces byte-identical output to [`export_session`].
 Future<List<ExportedFile>> exportSessionWithSummary({
   required List<Segment> segments,
@@ -172,13 +175,43 @@ Future<List<ExportedFile>> exportSessionWithSummary({
   required String outputDir,
   required String title,
   required String summary,
+  required List<Bookmark> bookmarks,
 }) => RustLib.instance.api.crateApiExportSessionWithSummary(
   segments: segments,
   formats: formats,
   outputDir: outputDir,
   title: title,
   summary: summary,
+  bookmarks: bookmarks,
 );
+
+/// Writes the official "Notulen Rapat" DOCX into the session folder.
+///
+/// `form.variant` selects the layout ("Notulen Dinas" or "Notulen Ringkas").
+/// The file is named `Notulen - <title>.docx` so it sits next to the
+/// transcript exports without colliding with the plain DOCX transcript.
+Future<ExportedFile> exportNotulen({
+  required NotulenForm form,
+  required List<Segment> segments,
+  required String outputDir,
+  required String title,
+}) => RustLib.instance.api.crateApiExportNotulen(
+  form: form,
+  segments: segments,
+  outputDir: outputDir,
+  title: title,
+);
+
+/// Prefills a [`NotulenForm`]'s body sections from an AI summary: peserta,
+/// pembahasan, keputusan and the tugas/PJ/tenggat rows. Pure and local — the
+/// summary text is already in hand.
+Future<NotulenDraft> notulenDraftFromSummary({required String summary}) =>
+    RustLib.instance.api.crateApiNotulenDraftFromSummary(summary: summary);
+
+/// Renders bookmarks as the `"[mm:ss] catatan"` lines the notulen's
+/// "Poin Penting" section and every export use.
+Future<List<String>> formatBookmarks({required List<Bookmark> bookmarks}) =>
+    RustLib.instance.api.crateApiFormatBookmarks(bookmarks: bookmarks);
 
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
 /// recording as WAV files into the same session folder `export_session`
@@ -207,6 +240,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   String? language,
   required bool gpuEnabled,
   required int gpuDevice,
+  required GlossaryConfig glossary,
 }) => RustLib.instance.api.crateApiProgressiveTranscribeFile(
   quickModelPath: quickModelPath,
   refineModelPath: refineModelPath,
@@ -214,6 +248,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   language: language,
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
+  glossary: glossary,
 );
 
 /// Transcribes every file in `files` against a single loaded model.
@@ -229,12 +264,14 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
   String? language,
   required bool gpuEnabled,
   required int gpuDevice,
+  required GlossaryConfig glossary,
 }) => RustLib.instance.api.crateApiTranscribeFilesBatch(
   modelPath: modelPath,
   files: files,
   language: language,
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
+  glossary: glossary,
 );
 
 /// Which file [`transcribe_files_batch`] is currently on. Poll this while the
@@ -252,9 +289,27 @@ Future<BatchProgressSnapshot?> getBatchProgress() =>
 Future<String> generateSummary({
   required List<Segment> segments,
   required SummaryConfig config,
+  required List<Bookmark> bookmarks,
 }) => RustLib.instance.api.crateApiGenerateSummary(
   segments: segments,
   config: config,
+  bookmarks: bookmarks,
+);
+
+/// The section headings a built-in template asks the model for — the starting
+/// point when the user duplicates it into a template of their own (F8).
+Future<List<String>> summaryTemplateHeadings({
+  required SummaryTemplate template,
+}) => RustLib.instance.api.crateApiSummaryTemplateHeadings(template: template);
+
+/// Composes the instruction a user-authored template sends, from its free-text
+/// instructions plus its declared section headings.
+Future<String> composeSummaryInstruction({
+  required String instructions,
+  required List<String> headings,
+}) => RustLib.instance.api.crateApiComposeSummaryInstruction(
+  instructions: instructions,
+  headings: headings,
 );
 
 /// Lists the models the configured summary endpoint offers, so the settings
@@ -274,6 +329,37 @@ Future<List<String>> listSummaryModels({
 /// opt in — no network access.
 Future<String> summaryPreviewTranscript({required List<Segment> segments}) =>
     RustLib.instance.api.crateApiSummaryPreviewTranscript(segments: segments);
+
+/// Previews the `initial_prompt` a glossary would produce. Pure and local.
+Future<GlossaryPromptInfo> glossaryPromptPreview({
+  required GlossaryConfig glossary,
+  required String contextTail,
+}) => RustLib.instance.api.crateApiGlossaryPromptPreview(
+  glossary: glossary,
+  contextTail: contextTail,
+);
+
+/// Parses an imported glossary file (`.txt` one-per-line, or `.csv`/TSV where
+/// the first column is the term). Deduplicates case-insensitively.
+Future<List<String>> parseGlossaryFile({required String content}) =>
+    RustLib.instance.api.crateApiParseGlossaryFile(content: content);
+
+/// Renders the glossary for export: `csv = true` produces a one-column CSV
+/// with an `istilah` header, otherwise one term per line.
+Future<String> renderGlossaryFile({
+  required List<String> terms,
+  required bool csv,
+}) => RustLib.instance.api.crateApiRenderGlossaryFile(terms: terms, csv: csv);
+
+/// Applies the conservative post-correction pass to arbitrary text. Exposed so
+/// the UI can preview what the glossary would change before enabling it.
+Future<String> applyGlossaryCorrections({
+  required String text,
+  required List<String> terms,
+}) => RustLib.instance.api.crateApiApplyGlossaryCorrections(
+  text: text,
+  terms: terms,
+);
 
 Future<AppSettings> loadSettings() =>
     RustLib.instance.api.crateApiLoadSettings();
@@ -344,11 +430,64 @@ Future<void> flightClearLog() => RustLib.instance.api.crateApiFlightClearLog();
 Future<BigInt> flightEntryCount() =>
     RustLib.instance.api.crateApiFlightEntryCount();
 
+/// Packs "Ekspor Log Diagnostik": every rotated log generation plus the
+/// preflight report, into `destination` as a `.zip`. Returns the path written.
+///
+/// Contains no transcript text and no audio — see
+/// `flight_recorder::write_diagnostics_bundle` for the exhaustive contents.
+Future<String> flightExportDiagnostics({
+  required String destination,
+  required String doctorReport,
+  required String environment,
+}) => RustLib.instance.api.crateApiFlightExportDiagnostics(
+  destination: destination,
+  doctorReport: doctorReport,
+  environment: environment,
+);
+
+/// How many log files (active + rotated generations) the recorder currently
+/// holds. Lets the diagnostics screen say what an export would contain.
+Future<int> flightLogFileCount() =>
+    RustLib.instance.api.crateApiFlightLogFileCount();
+
 Future<void> flightSetEnabled({required bool enabled}) =>
     RustLib.instance.api.crateApiFlightSetEnabled(enabled: enabled);
 
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
+
+/// What the glossary actually contributes to one inference call.
+///
+/// `terms_used` / `terms_total` let Settings say "18 dari 40 istilah dipakai"
+/// instead of silently discarding vocabulary: Whisper's prompt is capped at
+/// 224 tokens and an over-long prompt degrades output, so the cap has to be
+/// visible rather than a surprise. `u32` rather than `usize` so Dart sees an
+/// `int` instead of a `BigInt`.
+class GlossaryPromptInfo {
+  /// The exact `initial_prompt` string that would be sent to Whisper.
+  final String prompt;
+  final int termsUsed;
+  final int termsTotal;
+
+  const GlossaryPromptInfo({
+    required this.prompt,
+    required this.termsUsed,
+    required this.termsTotal,
+  });
+
+  @override
+  int get hashCode =>
+      prompt.hashCode ^ termsUsed.hashCode ^ termsTotal.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GlossaryPromptInfo &&
+          runtimeType == other.runtimeType &&
+          prompt == other.prompt &&
+          termsUsed == other.termsUsed &&
+          termsTotal == other.termsTotal;
+}
 
 /// What this *build* can actually do for GPU inference.
 ///

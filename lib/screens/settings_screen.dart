@@ -10,9 +10,12 @@ import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
+import '../widgets/glossary_settings_section.dart';
+import '../widgets/notulen_settings_section.dart';
 import '../widgets/settings_controls.dart';
 import '../widgets/summary_settings_section.dart';
 import 'diagnostics_screen.dart';
@@ -30,19 +33,26 @@ enum SettingsCategory {
   tampilan,
   modelMode,
   audio,
+  kamus,
   penyimpanan,
   ringkasan,
+  notulen,
   penyiapan,
   tentang,
 }
 
-extension on SettingsCategory {
+/// Named (not anonymous) so tests can enumerate the panes: the text-scaling
+/// gate walks every category, and a pane nobody opens is a pane nobody
+/// notices is broken.
+extension SettingsCategoryLabel on SettingsCategory {
   String get label => switch (this) {
         SettingsCategory.tampilan => 'Tampilan',
         SettingsCategory.modelMode => 'Model & Mode',
         SettingsCategory.audio => 'Audio & Suara',
+        SettingsCategory.kamus => 'Kamus Istilah',
         SettingsCategory.penyimpanan => 'Penyimpanan',
         SettingsCategory.ringkasan => 'Ringkasan AI',
+        SettingsCategory.notulen => 'Notulen Resmi',
         SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
         SettingsCategory.tentang => 'Tentang',
       };
@@ -51,8 +61,10 @@ extension on SettingsCategory {
         SettingsCategory.tampilan => Icons.palette_outlined,
         SettingsCategory.modelMode => Icons.psychology_outlined,
         SettingsCategory.audio => Icons.graphic_eq_outlined,
+        SettingsCategory.kamus => Icons.menu_book_outlined,
         SettingsCategory.penyimpanan => Icons.folder_outlined,
         SettingsCategory.ringkasan => Icons.auto_awesome_outlined,
+        SettingsCategory.notulen => Icons.description_outlined,
         SettingsCategory.penyiapan => Icons.health_and_safety_outlined,
         SettingsCategory.tentang => Icons.info_outlined,
       };
@@ -307,6 +319,7 @@ class _CategoryContent extends ConsumerWidget {
         SettingsCategory.modelMode =>
           _modelMode(context, ref, settings, notifier, colors),
         SettingsCategory.audio => _audio(settings, notifier),
+        SettingsCategory.kamus => const [GlossarySettingsSection()],
         SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
         SettingsCategory.ringkasan => const [
             SettingsSection(
@@ -314,6 +327,7 @@ class _CategoryContent extends ConsumerWidget {
               children: [SummarySettingsSection()],
             ),
           ],
+        SettingsCategory.notulen => const [NotulenDefaultsSection()],
         SettingsCategory.penyiapan => _penyiapan(context, ref),
         SettingsCategory.tentang => _tentang(context, ref, colors),
       },
@@ -396,10 +410,11 @@ class _CategoryContent extends ConsumerWidget {
             const SettingsDivider(),
             SettingsSwitch(
               icon: Icons.speed_outlined,
-              label: 'Progressive Mode',
+              label: 'Cepat dulu, lalu diperhalus',
               subtitle: settings.progressiveEnabled
-                  ? 'Mulai cepat → sempurnakan jadi akurat di latar belakang'
-                  : 'Gunakan satu model saja (lebih cepat)',
+                  ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
+                      'yang lebih teliti.'
+                  : 'Pakai satu model saja — teks muncul sekali, sudah final.',
               value: settings.progressiveEnabled,
               onChanged: notifier.setProgressiveEnabled,
             ),
@@ -454,8 +469,9 @@ class _CategoryContent extends ConsumerWidget {
               icon: Icons.speed_outlined,
               label: 'Perbandingan Kecepatan',
               subtitle:
-                  'Bahasa Indonesia: ringan 3s · cepat 10s · akurat 56s per 1 menit audio.\n'
-                  'Model akurat disarankan untuk meeting & wawancara.',
+                  'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
+                  'akurat 56 detik untuk tiap 1 menit audio.\n'
+                  'Model akurat disarankan untuk rapat dan wawancara.',
               trailing: const SizedBox.shrink(),
             ),
           ],
@@ -485,33 +501,33 @@ class _CategoryContent extends ConsumerWidget {
           children: [
             SettingsSwitch(
               icon: Icons.graphic_eq_outlined,
-              label: 'VAD (deteksi suara)',
+              label: 'Abaikan jeda sunyi',
               subtitle: settings.vadEnabled
-                  ? 'Jeda sunyi dilewati, jadi transkripsi lebih cepat. '
+                  ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
                       'Berlaku mulai sesi berikutnya.'
-                  : 'Semua audio ditranskrip, termasuk jeda sunyi.',
+                  : 'Semua audio ditranskrip, termasuk bagian yang sunyi.',
               value: settings.vadEnabled,
               onChanged: notifier.setVadEnabled,
             ),
             const SettingsDivider(),
             SettingsTile(
               icon: Icons.spatial_audio_outlined,
-              label: 'Echo Dedupe',
+              label: 'Hapus suara ganda',
               subtitle: settings.defaultMode == SessionMode.online
                   ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
                   : 'Hanya berlaku di mode Rapat Online.',
               trailing: const InfoBadge(
                 message:
-                    'Membandingkan kemiripan audio dari mikrofon dan speaker, '
-                    'lalu menghapus duplikat.',
+                    'Membandingkan kemiripan audio dari mikrofon dan '
+                    'pengeras suara, lalu menghapus yang terdengar dua kali.',
               ),
             ),
             const SettingsDivider(),
             SettingsSwitch(
               icon: Icons.timer_outlined,
-              label: 'Auto-Stop saat diam',
+              label: 'Berhenti sendiri saat sunyi',
               subtitle: settings.autoStopMinutes != null
-                  ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara'
+                  ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
                   : 'Rekaman berjalan sampai Anda menghentikannya sendiri.',
               value: settings.autoStopMinutes != null,
               onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
@@ -520,7 +536,7 @@ class _CategoryContent extends ConsumerWidget {
               const SettingsDivider(),
               SettingsTile(
                 icon: Icons.timer_10_outlined,
-                label: 'Durasi diam',
+                label: 'Lama sunyi sebelum berhenti',
                 trailing: CompactDropdown<int>(
                   value: settings.autoStopMinutes!,
                   items: const [1, 2, 3, 5, 10, 15],
@@ -740,7 +756,12 @@ class _CategoryContent extends ConsumerWidget {
       context: context,
       applicationName: 'Trareon Transcribe',
       applicationVersion: kAppVersion,
-      applicationIcon: const Icon(Icons.mic, size: 48, color: Colors.teal),
+      applicationIcon: Icon(
+        Icons.mic,
+        size: IconSizes.hero,
+        color: Theme.of(context).extension<AppColorSet>()?.primary ??
+            AppColors.light.primary,
+      ),
       children: [
         const Text('Transkripsi offline, privasi terjamin.'),
         const SizedBox(height: 16),

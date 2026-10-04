@@ -13,6 +13,7 @@ use crate::decode::{decode_audio_file, TARGET_SAMPLE_RATE};
 use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
+use crate::glossary::GlossaryConfig;
 use crate::stt::WhisperEngine;
 
 /// Chunk duration for large-file transcription: 30 seconds of audio at 16 kHz.
@@ -30,8 +31,9 @@ pub fn transcribe_file(
     engine: &WhisperEngine,
     path: &Path,
     language: Option<&str>,
+    glossary: &GlossaryConfig,
 ) -> TranscribeResult<TranscribeFileResult> {
-    transcribe_file_reporting(engine, path, language, |_| {})
+    transcribe_file_reporting(engine, path, language, glossary, |_| {})
 }
 
 /// [`transcribe_file`], reporting how far through the file it is.
@@ -43,9 +45,14 @@ pub fn transcribe_file_reporting(
     engine: &WhisperEngine,
     path: &Path,
     language: Option<&str>,
+    glossary: &GlossaryConfig,
     mut on_progress: impl FnMut(f32),
 ) -> TranscribeResult<TranscribeFileResult> {
     let audio = decode_audio_file(path)?;
+    // One prompt for the whole file: an import has no rolling transcript
+    // tail, so the kamus istilah is the entire `initial_prompt`.
+    let prompt = crate::glossary::build_initial_prompt(glossary, "");
+    let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
 
     // ADR-10 CHUNKED PROCESSING: for large audio files (>30s), split into
     // 30-second chunks and transcribe each independently. This bounds peak
@@ -57,14 +64,16 @@ pub fn transcribe_file_reporting(
 
     if audio.samples.len() <= chunk_samples {
         // Small file — single shot is the fast path.
-        let segments = engine.transcribe_chunk(&audio.samples, "file", 0.0, language, None)?;
+        let segments =
+            engine.transcribe_chunk(&audio.samples, "file", 0.0, language, initial_prompt)?;
         all_segments = segments;
         on_progress(1.0);
     } else {
         let total_chunks = audio.samples.len().div_ceil(chunk_samples);
         for (chunk_idx, chunk) in audio.samples.chunks(chunk_samples).enumerate() {
             let chunk_start = chunk_idx as f64 * CHUNK_DURATION_SECS;
-            let segments = engine.transcribe_chunk(chunk, "file", chunk_start, language, None)?;
+            let segments =
+                engine.transcribe_chunk(chunk, "file", chunk_start, language, initial_prompt)?;
             all_segments.extend(segments);
             on_progress((chunk_idx + 1) as f32 / total_chunks as f32);
         }
@@ -76,6 +85,10 @@ pub fn transcribe_file_reporting(
     // as one undifferentiated wall of text.
     let mut diarizer = Diarizer::new();
     label_segments(&mut diarizer, &audio.samples, &mut all_segments);
+
+    if glossary.post_correction {
+        crate::glossary::correct_segments(&mut all_segments, &glossary.prioritised_terms());
+    }
 
     Ok(TranscribeFileResult {
         filename: path
@@ -195,6 +208,7 @@ pub fn transcribe_files_batch(
     engine: &WhisperEngine,
     files: &[std::path::PathBuf],
     language: Option<&str>,
+    glossary: &GlossaryConfig,
     mut on_progress: impl FnMut(BatchFileProgress),
 ) {
     let total_files = files.len();
@@ -225,7 +239,7 @@ pub fn transcribe_files_batch(
             error: None,
         });
 
-        match transcribe_file_reporting(engine, path, language, |fraction| {
+        match transcribe_file_reporting(engine, path, language, glossary, |fraction| {
             publish(BatchFileStatus::Transcribing, fraction);
         }) {
             Ok(result) => {

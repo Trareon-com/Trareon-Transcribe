@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio.dart' as rust_audio;
 import 'package:transcribe/src/rust/frb_generated.dart';
@@ -79,7 +80,7 @@ void main() {
         gpuDevice: 0,
         vadEnabled: true,
         audioToDisk: true,
-      );
+      glossary: kEmptyGlossary,);
       final sessionId = await rust_api.startSession(config: config);
       expect(sessionId, isNotEmpty);
 

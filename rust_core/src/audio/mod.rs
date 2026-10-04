@@ -101,6 +101,12 @@ pub struct SessionConfig {
     /// RAM buffer as the fallback either way.
     #[serde(default = "default_audio_to_disk")]
     pub audio_to_disk: bool,
+    /// Kamus istilah for this session: the global list plus whatever the
+    /// notulis added for this meeting. Fed to Whisper's `initial_prompt` and,
+    /// when `post_correction` is set, used to repair near-misses in the
+    /// output. Defaults to empty, which is a no-op.
+    #[serde(default)]
+    pub glossary: crate::glossary::GlossaryConfig,
 }
 
 fn default_audio_to_disk() -> bool {
@@ -123,6 +129,7 @@ impl SessionConfig {
             gpu_enabled: false,
             gpu_device: 0,
             audio_to_disk: true,
+            glossary: crate::glossary::GlossaryConfig::default(),
         }
     }
 

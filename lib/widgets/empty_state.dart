@@ -14,8 +14,15 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? action;
-  const EmptyState({super.key, required this.icon, required this.title, this.subtitle, this.action});
-  @override Widget build(BuildContext context) {
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.action,
+  });
+  @override
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return LayoutBuilder(builder: (context, constraints) {
       // Every current caller sits in an Expanded, but a scroll view given
@@ -26,10 +33,14 @@ class EmptyState extends StatelessWidget {
       final padding = EdgeInsets.all(compact ? 16 : 40);
       final body = Column(mainAxisSize: MainAxisSize.min, children: [
         if (!compact) ...[
-          Icon(icon, size: 40, color: colors.textTertiary),
+          // Decorative: it repeats what the title already says.
+          ExcludeSemantics(child: Icon(icon, size: 40, color: colors.textTertiary)),
           const SizedBox(height: 16),
         ],
-        Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
+        Semantics(
+          header: true,
+          child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
+        ),
         if (subtitle != null) ...[const SizedBox(height: 6), Text(subtitle!, style: TextStyle(fontSize: 13, color: colors.textTertiary), textAlign: TextAlign.center)],
         if (action != null) ...[SizedBox(height: compact ? 12 : 20), action!],
       ]);

@@ -8,6 +8,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::TranscribeError;
 
+/// Official "Notulen Rapat" document generation (F2). Kept in its own module
+/// because it is a *document*, not a transcript dump: it has a form, two
+/// layout variants and its own golden tests.
+pub mod notulen;
+
+/// A marker the notulis dropped during the meeting (F9).
+///
+/// One keystroke during a three-hour rapat is the workflow this replaces:
+/// before this existed, flagging "this is the decision" meant writing the
+/// wall-clock time on paper.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Bookmark {
+    /// Offset into the recording, in seconds.
+    pub timestamp: f64,
+    /// Optional one-line note. Empty is normal — the timestamp is the point.
+    #[serde(default)]
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Segment {
     pub source: String,
@@ -181,7 +200,27 @@ pub fn export_segments_with_summary(
     title: &str,
     summary: &str,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
+    export_segments_full(segments, formats, output_dir, title, summary, &[])
+}
+
+/// As [`export_segments_with_summary`], plus the meeting's bookmarks as a
+/// "Poin Penting" section ahead of the transcript.
+///
+/// Bookmarks are the notulis' own annotations, so leaving them out of the
+/// export would mean the one thing they explicitly marked is the one thing the
+/// document does not mention. Subtitle and JSON formats are untouched, for the
+/// same reason the summary skips them.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn export_segments_full(
+    segments: &[Segment],
+    formats: &[ExportFormat],
+    output_dir: &Path,
+    title: &str,
+    summary: &str,
+    bookmarks: &[Bookmark],
+) -> Result<Vec<ExportedFile>, TranscribeError> {
     let summary = Arc::<str>::from(summary.trim());
+    let bookmarks: Arc<[Bookmark]> = Arc::from(bookmarks.to_vec());
     let safe_title = sanitize_filename(title);
     let session_dir = session_dir_for(output_dir, title);
     fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
@@ -196,6 +235,7 @@ pub fn export_segments_with_summary(
     for format in formats {
         let segments = Arc::clone(&segments);
         let summary = Arc::clone(&summary);
+        let bookmarks = Arc::clone(&bookmarks);
         let session_dir = session_dir.clone();
         let safe_title = safe_title.clone();
         let title = title.to_string();
@@ -205,11 +245,11 @@ pub fn export_segments_with_summary(
             let (filename, content): (String, Vec<u8>) = match format {
                 ExportFormat::Markdown => (
                     format!("{safe_title}.md"),
-                    to_markdown(&segments, &title, &summary).into_bytes(),
+                    to_markdown(&segments, &title, &summary, &bookmarks).into_bytes(),
                 ),
                 ExportFormat::Txt => (
                     format!("{safe_title}.txt"),
-                    to_txt(&segments, &summary).into_bytes(),
+                    to_txt(&segments, &summary, &bookmarks).into_bytes(),
                 ),
                 ExportFormat::Json => (
                     format!("{safe_title}.json"),
@@ -221,11 +261,11 @@ pub fn export_segments_with_summary(
                 ExportFormat::Vtt => (format!("{safe_title}.vtt"), to_vtt(&*segments).into_bytes()),
                 ExportFormat::Html => (
                     format!("{safe_title}.html"),
-                    to_html(&segments, &title, &summary).into_bytes(),
+                    to_html(&segments, &title, &summary, &bookmarks).into_bytes(),
                 ),
                 ExportFormat::Docx => (
                     format!("{safe_title}.docx"),
-                    to_docx_bytes(&segments, &title, &summary)?,
+                    to_docx_bytes(&segments, &title, &summary, &bookmarks)?,
                 ),
             };
 
@@ -265,7 +305,8 @@ pub fn export_segments_with_summary(
 /// Atomic write: write to temp file then rename. Falls back to
 /// copy+remove on cross-device rename (e.g. /tmp on a different
 /// filesystem than the target).
-fn atomic_write(path: &Path, content: &[u8]) -> Result<(), TranscribeError> {
+#[flutter_rust_bridge::frb(ignore)]
+pub fn atomic_write(path: &Path, content: &[u8]) -> Result<(), TranscribeError> {
     // Unique temp name per target file — `with_extension("tmp")` would
     // collide across formats (Rapat Q3.md / .txt / .json → same .tmp),
     // causing parallel export threads to overwrite each other.
@@ -332,12 +373,28 @@ pub fn write_wav(samples: &[f32], sample_rate: u32, path: &Path) -> Result<(), T
         .map_err(|e| TranscribeError::Export(e.to_string()))
 }
 
-fn to_markdown(segments: &[Segment], title: &str, summary: &str) -> String {
+/// `"[mm:ss] note"` per bookmark, or an empty vector.
+fn bookmark_lines(bookmarks: &[Bookmark]) -> Vec<String> {
+    notulen::poin_penting_from_bookmarks(bookmarks)
+}
+
+fn to_markdown(segments: &[Segment], title: &str, summary: &str, bookmarks: &[Bookmark]) -> String {
     let mut out = format!("# {title}\n\n");
     if !summary.trim().is_empty() {
         out.push_str("## Ringkasan\n\n");
         out.push_str(summary.trim());
-        out.push_str("\n\n## Transkrip\n\n");
+        out.push_str("\n\n");
+    }
+    let marks = bookmark_lines(bookmarks);
+    if !marks.is_empty() {
+        out.push_str("## Poin Penting\n\n");
+        for line in &marks {
+            out.push_str(&format!("- {line}\n"));
+        }
+        out.push('\n');
+    }
+    if !summary.trim().is_empty() || !marks.is_empty() {
+        out.push_str("## Transkrip\n\n");
     }
     for seg in segments {
         out.push_str(&format!(
@@ -350,20 +407,30 @@ fn to_markdown(segments: &[Segment], title: &str, summary: &str) -> String {
     out
 }
 
-fn to_txt(segments: &[Segment], summary: &str) -> String {
+fn to_txt(segments: &[Segment], summary: &str, bookmarks: &[Bookmark]) -> String {
     let transcript = segments
         .iter()
         .map(|s| s.text.clone())
         .collect::<Vec<_>>()
         .join("\n");
-    if summary.trim().is_empty() {
-        transcript
-    } else {
-        format!(
-            "RINGKASAN\n=========\n{}\n\nTRANSKRIP\n=========\n{transcript}",
-            summary.trim()
-        )
+    let marks = bookmark_lines(bookmarks);
+    if summary.trim().is_empty() && marks.is_empty() {
+        return transcript;
     }
+    let mut out = String::new();
+    if !summary.trim().is_empty() {
+        out.push_str("RINGKASAN\n=========\n");
+        out.push_str(summary.trim());
+        out.push_str("\n\n");
+    }
+    if !marks.is_empty() {
+        out.push_str("POIN PENTING\n============\n");
+        out.push_str(&marks.join("\n"));
+        out.push_str("\n\n");
+    }
+    out.push_str("TRANSKRIP\n=========\n");
+    out.push_str(&transcript);
+    out
 }
 
 fn to_srt(segments: &[Segment]) -> String {
@@ -395,12 +462,23 @@ fn to_vtt(segments: &[Segment]) -> String {
     out
 }
 
-fn to_html(segments: &[Segment], title: &str, summary: &str) -> String {
+fn to_html(segments: &[Segment], title: &str, summary: &str, bookmarks: &[Bookmark]) -> String {
     let mut body = String::new();
     if !summary.trim().is_empty() {
         body.push_str("<h2>Ringkasan</h2>\n<pre>");
         body.push_str(&html_escape(summary.trim()));
-        body.push_str("</pre>\n<h2>Transkrip</h2>\n");
+        body.push_str("</pre>\n");
+    }
+    let marks = bookmark_lines(bookmarks);
+    if !marks.is_empty() {
+        body.push_str("<h2>Poin Penting</h2>\n<ul>\n");
+        for line in &marks {
+            body.push_str(&format!("<li>{}</li>\n", html_escape(line)));
+        }
+        body.push_str("</ul>\n");
+    }
+    if !summary.trim().is_empty() || !marks.is_empty() {
+        body.push_str("<h2>Transkrip</h2>\n");
     }
     for seg in segments {
         body.push_str(&format!(
@@ -429,6 +507,7 @@ fn to_docx_bytes(
     segments: &[Segment],
     title: &str,
     summary: &str,
+    bookmarks: &[Bookmark],
 ) -> Result<Vec<u8>, TranscribeError> {
     use docx_rs::{Docx, Paragraph, Run};
 
@@ -442,6 +521,20 @@ fn to_docx_bytes(
         for line in summary.trim().lines() {
             docx = docx.add_paragraph(Paragraph::new().add_run(Run::new().add_text(line)));
         }
+    }
+
+    let marks = bookmark_lines(bookmarks);
+    if !marks.is_empty() {
+        docx = docx.add_paragraph(
+            Paragraph::new().add_run(Run::new().add_text("Poin Penting").bold().size(26)),
+        );
+        for line in &marks {
+            docx = docx
+                .add_paragraph(Paragraph::new().add_run(Run::new().add_text(format!("• {line}"))));
+        }
+    }
+
+    if !summary.trim().is_empty() || !marks.is_empty() {
         docx = docx.add_paragraph(
             Paragraph::new().add_run(Run::new().add_text("Transkrip").bold().size(26)),
         );
@@ -464,7 +557,7 @@ fn to_docx_bytes(
     Ok(cursor.into_inner())
 }
 
-fn fmt_timestamp(secs: f64) -> String {
+pub(crate) fn fmt_timestamp(secs: f64) -> String {
     let m = (secs / 60.0) as u64;
     let s = (secs % 60.0) as u64;
     format!("{m:02}:{s:02}")
@@ -589,7 +682,7 @@ mod tests {
             is_partial: false,
             low_confidence: false,
         }];
-        let html = to_html(&segments, "Rapat <Q3>", "");
+        let html = to_html(&segments, "Rapat <Q3>", "", &[]);
         assert!(!html.contains("<script>alert"));
         assert!(html.contains("&lt;script&gt;"));
         assert!(html.contains("&amp;"));
@@ -601,7 +694,7 @@ mod tests {
         let segments = sample_segments();
         let summary = "## Keputusan\n- Pakai Rust";
 
-        let md = to_markdown(&segments, "Rapat Q3", summary);
+        let md = to_markdown(&segments, "Rapat Q3", summary, &[]);
         assert!(md.contains("## Ringkasan"));
         assert!(md.contains("- Pakai Rust"));
         assert!(
@@ -609,11 +702,11 @@ mod tests {
             "summary must come before the transcript"
         );
 
-        let txt = to_txt(&segments, summary);
+        let txt = to_txt(&segments, summary, &[]);
         assert!(txt.starts_with("RINGKASAN"));
         assert!(txt.contains("halo dunia"));
 
-        let html = to_html(&segments, "Rapat Q3", summary);
+        let html = to_html(&segments, "Rapat Q3", summary, &[]);
         assert!(html.contains("<h2>Ringkasan</h2>"));
         assert!(html.contains("<h2>Transkrip</h2>"));
     }
@@ -621,7 +714,7 @@ mod tests {
     #[test]
     fn summary_is_html_escaped() {
         let segments = sample_segments();
-        let html = to_html(&segments, "Rapat", "<script>alert(1)</script>");
+        let html = to_html(&segments, "Rapat", "<script>alert(1)</script>", &[]);
         assert!(!html.contains("<script>alert"));
         assert!(html.contains("&lt;script&gt;"));
     }
@@ -633,12 +726,12 @@ mod tests {
         let segments = sample_segments();
         for blank in ["", "   ", "\n\t "] {
             assert_eq!(
-                to_markdown(&segments, "Rapat", blank),
-                to_markdown(&segments, "Rapat", "")
+                to_markdown(&segments, "Rapat", blank, &[]),
+                to_markdown(&segments, "Rapat", "", &[])
             );
-            assert!(!to_markdown(&segments, "Rapat", blank).contains("Ringkasan"));
-            assert!(!to_txt(&segments, blank).contains("RINGKASAN"));
-            assert!(!to_html(&segments, "Rapat", blank).contains("Ringkasan"));
+            assert!(!to_markdown(&segments, "Rapat", blank, &[]).contains("Ringkasan"));
+            assert!(!to_txt(&segments, blank, &[]).contains("RINGKASAN"));
+            assert!(!to_html(&segments, "Rapat", blank, &[]).contains("Ringkasan"));
         }
     }
 
@@ -672,7 +765,7 @@ mod tests {
     #[test]
     fn docx_export_produces_valid_zip() {
         let segments = sample_segments();
-        let bytes = to_docx_bytes(&segments, "Rapat Q3", "").unwrap();
+        let bytes = to_docx_bytes(&segments, "Rapat Q3", "", &[]).unwrap();
         // DOCX is a ZIP container; the local file header signature is a
         // cheap, dependency-free sanity check that we produced real output.
         assert!(bytes.len() > 4);

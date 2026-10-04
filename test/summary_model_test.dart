@@ -31,6 +31,7 @@ class _SummaryBridge extends NoopBridge {
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
   }) async {
     calls++;
     lastConfig = config;

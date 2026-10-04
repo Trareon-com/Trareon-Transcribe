@@ -63,6 +63,91 @@ pub struct AppSettings {
     /// AI summary endpoint configuration. Opt-in; see `crate::summary`.
     #[serde(default)]
     pub summary: SummarySettings,
+    /// Kamus istilah — the persistent global vocabulary list. Empty by
+    /// default, so the feature is inert until the user adds a term.
+    #[serde(default)]
+    pub glossary: GlossarySettings,
+    /// User-authored summary templates, on top of the four built-ins.
+    #[serde(default)]
+    pub summary_templates: Vec<CustomSummaryTemplate>,
+    /// Kop surat / signature defaults reused by every "Notulen Rapat" export,
+    /// so a unit kerja types them once rather than per meeting.
+    #[serde(default)]
+    pub notulen: NotulenDefaults,
+    /// Re-run the transcript with the accurate model in the background after
+    /// the meeting. `None` = ask nothing and decide from the live model:
+    /// default ON when the live pass used the quick model.
+    #[serde(default)]
+    pub auto_retranscribe: Option<bool>,
+}
+
+/// Persisted state of the kamus istilah (F3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlossarySettings {
+    /// Master switch for feeding the terms into `initial_prompt`.
+    pub enabled: bool,
+    /// The global term list, in the order the user arranged it.
+    pub terms: Vec<String>,
+    /// Also run the conservative fuzzy post-correction pass.
+    pub post_correction: bool,
+}
+
+impl Default for GlossarySettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            terms: Vec::new(),
+            post_correction: true,
+        }
+    }
+}
+
+impl GlossarySettings {
+    /// Builds the per-session glossary config from the global list plus the
+    /// terms typed for one meeting. Returns an all-empty config when the
+    /// feature is switched off, so callers need no special case.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn to_config(&self, session_terms: Vec<String>) -> crate::glossary::GlossaryConfig {
+        if !self.enabled {
+            return crate::glossary::GlossaryConfig::default();
+        }
+        crate::glossary::GlossaryConfig {
+            session_terms,
+            global_terms: self.terms.clone(),
+            post_correction: self.post_correction,
+        }
+    }
+}
+
+/// A summary template the user wrote or duplicated (F8).
+///
+/// `id` is a stable identifier generated when the template is created, so
+/// renaming a template does not orphan the sessions that were summarised
+/// with it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CustomSummaryTemplate {
+    pub id: String,
+    pub name: String,
+    /// The instruction sent to the model, verbatim.
+    pub instructions: String,
+    /// Section headings, used to prefill `instructions` when the user starts
+    /// from a built-in and to show the shape of the output in the picker.
+    #[serde(default)]
+    pub headings: Vec<String>,
+}
+
+/// Fields of the official notulen that belong to the office, not the meeting.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NotulenDefaults {
+    #[serde(default)]
+    pub unit_kerja: String,
+    #[serde(default)]
+    pub tempat: String,
+    #[serde(default)]
+    pub notulis: String,
+    /// Absolute path to a letterhead image (PNG/JPEG). Empty = no kop surat.
+    #[serde(default)]
+    pub kop_surat_path: String,
 }
 
 fn default_true() -> bool {
@@ -138,6 +223,10 @@ impl Default for AppSettings {
             progressive_enabled: true,
             audio_to_disk: true,
             summary: SummarySettings::default(),
+            glossary: GlossarySettings::default(),
+            summary_templates: Vec::new(),
+            notulen: NotulenDefaults::default(),
+            auto_retranscribe: None,
         }
     }
 }
@@ -353,6 +442,86 @@ mod tests {
         };
         assert_eq!(settings.to_config(Some("en")).language, "en");
         assert_eq!(settings.to_config(None).language, "id");
+    }
+
+    #[test]
+    fn glossary_notulen_and_templates_survive_a_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_sprint3_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+
+        let saved = AppSettings {
+            glossary: GlossarySettings {
+                enabled: true,
+                terms: vec!["PPBJ".into(), "Kemenkeu".into()],
+                post_correction: false,
+            },
+            summary_templates: vec![CustomSummaryTemplate {
+                id: "tpl-1".into(),
+                name: "Notulen + Risiko".into(),
+                instructions: "Tambahkan bagian risiko.".into(),
+                headings: vec!["Pembahasan".into(), "Risiko".into()],
+            }],
+            notulen: NotulenDefaults {
+                unit_kerja: "DJA".into(),
+                tempat: "Ruang Rapat Lt. 5".into(),
+                notulis: "Budi".into(),
+                kop_surat_path: "/tmp/kop.png".into(),
+            },
+            auto_retranscribe: Some(true),
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert_eq!(loaded.glossary.terms, vec!["PPBJ", "Kemenkeu"]);
+        assert!(!loaded.glossary.post_correction);
+        assert_eq!(loaded.summary_templates.len(), 1);
+        assert_eq!(loaded.summary_templates[0].name, "Notulen + Risiko");
+        assert_eq!(loaded.notulen.unit_kerja, "DJA");
+        assert_eq!(loaded.auto_retranscribe, Some(true));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_glossary_is_inert_but_enabled_by_default() {
+        // Enabled with no terms is a no-op, so the feature needs no opt-in
+        // dialog — but a user who clears the list must not have their terms
+        // silently re-applied from a stale session either.
+        let settings = AppSettings::default();
+        assert!(settings.glossary.enabled);
+        assert!(settings.glossary.terms.is_empty());
+        assert!(settings.glossary.to_config(Vec::new()).is_empty());
+    }
+
+    #[test]
+    fn a_disabled_glossary_yields_no_terms_even_with_session_additions() {
+        let off = GlossarySettings {
+            enabled: false,
+            terms: vec!["PPBJ".into()],
+            post_correction: true,
+        };
+        let config = off.to_config(vec!["SPBE".into()]);
+        assert!(config.is_empty());
+        assert!(!config.post_correction);
+    }
+
+    #[test]
+    fn to_config_puts_session_terms_ahead_of_the_global_list() {
+        let settings = GlossarySettings {
+            enabled: true,
+            terms: vec!["Kemenkeu".into()],
+            post_correction: true,
+        };
+        let config = settings.to_config(vec!["Musrenbang".into()]);
+        assert_eq!(
+            config.prioritised_terms(),
+            vec!["Musrenbang".to_string(), "Kemenkeu".to_string()]
+        );
     }
 
     #[test]

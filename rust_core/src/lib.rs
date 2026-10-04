@@ -16,6 +16,9 @@ pub mod diarization;
 pub mod disk;
 pub mod export;
 pub mod flight_recorder;
+/// Kamus istilah: Whisper `initial_prompt` biasing + conservative
+/// post-correction. Part of the transcription hot path.
+pub mod glossary;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
 pub mod journal;

@@ -10,6 +10,8 @@ import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
+import '../src/rust/export/notulen.dart' as rust_notulen;
+import '../src/rust/glossary.dart' as rust_glossary;
 import '../src/rust/model.dart' as rust_model;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
@@ -94,6 +96,7 @@ abstract class RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   });
 
   /// Writes [segments] to `outputDir/<sanitized title>/` in the requested
@@ -148,6 +151,7 @@ abstract class RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   });
 
   /// Which file the in-flight [batchTranscribeFiles] call is currently on.
@@ -161,6 +165,7 @@ abstract class RustBridge {
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
   });
 
   /// Lists models offered by the configured summary endpoint. Sends no
@@ -183,9 +188,63 @@ abstract class RustBridge {
     required String outputDir,
     required String title,
     required String summary,
+    List<Bookmark> bookmarks,
     List<rust_export.ExportFormat> formats,
   });
+
+  /// Writes the official "Notulen Rapat" DOCX (F2) into the session folder.
+  /// `form.variant` chooses "Notulen Dinas" or "Notulen Ringkas".
+  Future<rust_export.ExportedFile> exportNotulen({
+    required rust_notulen.NotulenForm form,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  });
+
+  /// Parses an AI summary into the notulen form's body sections. Local only.
+  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary);
+
+  /// Renders bookmarks as the `"[mm:ss] catatan"` lines every export and the
+  /// notulen's "Poin Penting" section use.
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks);
+
+  /// Kamus istilah helpers — all pure and local.
+  Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
+    required rust_glossary.GlossaryConfig glossary,
+    String contextTail = '',
+  });
+  Future<List<String>> parseGlossaryFile(String content);
+  Future<String> renderGlossaryFile(List<String> terms, {bool csv = false});
+
+  /// Section headings a built-in summary template asks for — the starting
+  /// point when the user duplicates it (F8).
+  Future<List<String>> summaryTemplateHeadings(rust_summary.SummaryTemplate template);
+
+  /// Composes a user template's instruction from its prose plus its headings.
+  Future<String> composeSummaryInstruction({
+    required String instructions,
+    required List<String> headings,
+  });
+
+  /// Packs "Ekspor Log Diagnostik": rotated logs + doctor report as a .zip.
+  /// Contains no transcript text and no audio.
+  Future<String> exportDiagnostics({
+    required String destination,
+    required String doctorReport,
+    required String environment,
+  });
+
+  /// How many flight-recorder files (active + rotated) an export would carry.
+  Future<int> diagnosticLogFileCount();
 }
+
+/// A glossary that changes nothing — the default for every call site that
+/// does not opt in.
+const rust_glossary.GlossaryConfig kEmptyGlossary = rust_glossary.GlossaryConfig(
+  sessionTerms: [],
+  globalTerms: [],
+  postCorrection: false,
+);
 
 /// Shared conversion so every bridge method sends the same Segment shape.
 rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
@@ -486,6 +545,7 @@ class RustBridgeMock implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) async => []; // Mock: returns empty results
 
   @override
@@ -522,6 +582,7 @@ class RustBridgeMock implements RustBridge {
     required String outputDir,
     required String title,
     required String summary,
+    List<Bookmark> bookmarks = const [],
     List<rust_export.ExportFormat> formats = const [
       rust_export.ExportFormat.markdown,
       rust_export.ExportFormat.txt,
@@ -537,6 +598,7 @@ class RustBridgeMock implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split(Platform.pathSeparator).last,
     quickSegments: const [],
@@ -553,6 +615,7 @@ class RustBridgeMock implements RustBridge {
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
 
@@ -567,6 +630,106 @@ class RustBridgeMock implements RustBridge {
   Future<String> summaryPreviewTranscript(
     List<TranscriptSegment> segments,
   ) async => segments.map((s) => '${s.speaker}: ${s.text}').join('\n');
+
+  @override
+  Future<rust_export.ExportedFile> exportNotulen({
+    required rust_notulen.NotulenForm form,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) async => rust_export.ExportedFile(
+    filename: 'Notulen - $title.docx',
+    path: '$outputDir/Notulen - $title.docx',
+    sizeBytes: BigInt.from(1024),
+  );
+
+  /// Mirrors the Rust parser closely enough for widget tests: the sections the
+  /// notulen form prefills from, without a real engine.
+  @override
+  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary) async {
+    final keputusan = <String>[];
+    var section = '';
+    for (final raw in summary.split('\n')) {
+      final line = raw.trim();
+      if (line.startsWith('#')) {
+        section = line.replaceAll('#', '').trim().toLowerCase();
+        continue;
+      }
+      if (section.contains('keputusan') && line.startsWith('- ')) {
+        keputusan.add(line.substring(2));
+      }
+    }
+    return rust_notulen.NotulenDraft(
+      pembahasan: summary,
+      keputusan: keputusan,
+      tindakLanjut: const [],
+      peserta: const [],
+    );
+  }
+
+  @override
+  Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
+    required rust_glossary.GlossaryConfig glossary,
+    String contextTail = '',
+  }) async {
+    final terms = [...glossary.sessionTerms, ...glossary.globalTerms]
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    return rust_api.GlossaryPromptInfo(
+      prompt: terms.isEmpty ? contextTail : 'Istilah: ${terms.join(', ')}.',
+      termsUsed: terms.length,
+      termsTotal: terms.length,
+    );
+  }
+
+  @override
+  Future<List<String>> parseGlossaryFile(String content) async => content
+      .split('\n')
+      .map((line) => line.split(',').first.trim())
+      .where((line) => line.isNotEmpty && !line.startsWith('#'))
+      .toList();
+
+  @override
+  Future<String> renderGlossaryFile(List<String> terms, {bool csv = false}) async =>
+      '${csv ? 'istilah\n' : ''}${terms.join('\n')}\n';
+
+  @override
+  Future<List<String>> summaryTemplateHeadings(
+    rust_summary.SummaryTemplate template,
+  ) async => const ['Ringkasan', 'Keputusan'];
+
+  @override
+  Future<String> composeSummaryInstruction({
+    required String instructions,
+    required List<String> headings,
+  }) async => headings.isEmpty
+      ? instructions
+      : '$instructions\n\n${headings.map((h) => '## $h').join('\n')}';
+
+  @override
+  Future<String> exportDiagnostics({
+    required String destination,
+    required String doctorReport,
+    required String environment,
+  }) async => destination;
+
+  @override
+  Future<int> diagnosticLogFileCount() async => 1;
+
+  @override
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) async => [
+    for (final bookmark in bookmarks)
+      '[${_mmss(bookmark.timestamp)}] '
+          '${bookmark.note.trim().isEmpty ? 'Poin penting' : bookmark.note.trim()}',
+  ];
+}
+
+/// `mm:ss` for the mock's bookmark formatter.
+String _mmss(double seconds) {
+  final total = seconds.isFinite && seconds > 0 ? seconds.floor() : 0;
+  final minutes = (total ~/ 60).toString().padLeft(2, '0');
+  return '$minutes:${(total % 60).toString().padLeft(2, '0')}';
 }
 
 /// Real bridge backed by the flutter_rust_bridge-generated bindings in
@@ -812,6 +975,7 @@ class RustEngineBridge implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) =>
       rust_api.transcribeFilesBatch(
         modelPath: modelPath,
@@ -819,6 +983,7 @@ class RustEngineBridge implements RustBridge {
         language: language,
         gpuEnabled: gpuEnabled,
         gpuDevice: gpuDevice,
+        glossary: glossary,
       );
 
   @override
@@ -846,6 +1011,7 @@ class RustEngineBridge implements RustBridge {
     required String outputDir,
     required String title,
     required String summary,
+    List<Bookmark> bookmarks = const [],
     List<rust_export.ExportFormat> formats = const [
       rust_export.ExportFormat.markdown,
       rust_export.ExportFormat.txt,
@@ -858,8 +1024,75 @@ class RustEngineBridge implements RustBridge {
       outputDir: outputDir,
       title: title,
       summary: summary,
+      bookmarks: bookmarks,
     );
   }
+
+  @override
+  Future<rust_export.ExportedFile> exportNotulen({
+    required rust_notulen.NotulenForm form,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) => rust_api.exportNotulen(
+    form: form,
+    segments: segments.map(toRustSegment).toList(),
+    outputDir: outputDir,
+    title: title,
+  );
+
+  @override
+  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary) =>
+      rust_api.notulenDraftFromSummary(summary: summary);
+
+  @override
+  Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
+    required rust_glossary.GlossaryConfig glossary,
+    String contextTail = '',
+  }) => rust_api.glossaryPromptPreview(
+    glossary: glossary,
+    contextTail: contextTail,
+  );
+
+  @override
+  Future<List<String>> parseGlossaryFile(String content) =>
+      rust_api.parseGlossaryFile(content: content);
+
+  @override
+  Future<String> renderGlossaryFile(List<String> terms, {bool csv = false}) =>
+      rust_api.renderGlossaryFile(terms: terms, csv: csv);
+
+  @override
+  Future<List<String>> summaryTemplateHeadings(
+    rust_summary.SummaryTemplate template,
+  ) => rust_api.summaryTemplateHeadings(template: template);
+
+  @override
+  Future<String> composeSummaryInstruction({
+    required String instructions,
+    required List<String> headings,
+  }) => rust_api.composeSummaryInstruction(
+    instructions: instructions,
+    headings: headings,
+  );
+
+  @override
+  Future<String> exportDiagnostics({
+    required String destination,
+    required String doctorReport,
+    required String environment,
+  }) => rust_api.flightExportDiagnostics(
+    destination: destination,
+    doctorReport: doctorReport,
+    environment: environment,
+  );
+
+  @override
+  Future<int> diagnosticLogFileCount() => rust_api.flightLogFileCount();
+
+  @override
+  Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) =>
+      rust_api.formatBookmarks(bookmarks: bookmarks);
 
   @override
   Future<rust_api.ProgressiveFileResult> progressiveTranscribeFile({
@@ -869,6 +1102,7 @@ class RustEngineBridge implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
   }) => rust_api.progressiveTranscribeFile(
     quickModelPath: quickModelPath,
     refineModelPath: refineModelPath,
@@ -876,6 +1110,7 @@ class RustEngineBridge implements RustBridge {
     language: language,
     gpuEnabled: gpuEnabled,
     gpuDevice: gpuDevice,
+    glossary: glossary,
   );
 
   @override
@@ -886,9 +1121,11 @@ class RustEngineBridge implements RustBridge {
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
   }) => rust_api.generateSummary(
     segments: segments.map(toRustSegment).toList(),
     config: config,
+    bookmarks: bookmarks,
   );
 
   @override
@@ -933,6 +1170,7 @@ class RustEngineBridge implements RustBridge {
       gpuEnabled: config.gpuEnabled,
       gpuDevice: config.gpuDevice,
       audioToDisk: config.audioToDisk,
+      glossary: config.glossary,
     );
   }
 
@@ -971,6 +1209,10 @@ class RustEngineBridge implements RustBridge {
       progressiveEnabled: settings.progressiveEnabled,
       audioToDisk: settings.audioToDisk,
       summary: settings.summary,
+      glossary: settings.glossary,
+      summaryTemplates: settings.summaryTemplates,
+      notulen: settings.notulen,
+      autoRetranscribe: settings.autoRetranscribe,
     );
   }
 
@@ -992,6 +1234,10 @@ class RustEngineBridge implements RustBridge {
       progressiveEnabled: settings.progressiveEnabled,
       audioToDisk: settings.audioToDisk,
       summary: settings.summary,
+      glossary: settings.glossary,
+      summaryTemplates: settings.summaryTemplates,
+      notulen: settings.notulen,
+      autoRetranscribe: settings.autoRetranscribe,
     );
   }
 }

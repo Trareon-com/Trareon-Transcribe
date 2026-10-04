@@ -143,7 +143,7 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Statistik Penggunaan')),
+        appBar: AppBar(title: const Text('Dasbor Penggunaan')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -151,7 +151,7 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
     final hours = (stats.totalMinutesTranscribed / 60).toStringAsFixed(1);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistik Penggunaan')),
+      appBar: AppBar(title: const Text('Dasbor Penggunaan')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

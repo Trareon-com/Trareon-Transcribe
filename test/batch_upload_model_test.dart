@@ -302,6 +302,7 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async => [];
   @override
   Future<List<rust_export.ExportedFile>> exportSession({
@@ -333,6 +334,7 @@ class _TestBridge extends _NoopBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async {
     batchedFiles.addAll(files);
     return [
@@ -382,6 +384,7 @@ class _ErrorBridge extends _NoopBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async {
     throw Exception('engine failure');
   }
@@ -401,6 +404,7 @@ class _ClearingBridge extends _NoopBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async {
     notifier.clear();
     return [];
@@ -421,6 +425,7 @@ class _ProgressiveBridge extends _NoopBridge {
     String? language,
     bool gpuEnabled = false,
     int gpuDevice = 0,
+    GlossaryConfig glossary = kEmptyGlossary,
   }) async {
     progressiveCalls.add(path);
     onCall?.call(path);

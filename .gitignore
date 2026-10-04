@@ -48,3 +48,13 @@ transcribe-linux-portable.zip
 
 # OpenWork workspace artifacts
 .opencode/
+
+# The untranslated-messages report (`flutter gen-l10n` writes it each run).
+# The generated localisations under lib/l10n/generated/ are deliberately NOT
+# ignored: generated Dart is committed here, same as lib/src/rust/, so a fresh
+# CI checkout can analyze and test without running codegen first. That is the
+# exact failure tracked_sources_test.dart exists to prevent.
+l10n-untranslated.json
+
+# Byte-cache from the Python helper scripts in scripts/
+__pycache__/

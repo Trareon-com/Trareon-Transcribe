@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../state/models.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
 import '../utils/speaker_color.dart';
 import '../widgets/empty_state.dart';
@@ -26,6 +28,15 @@ import 'speaker_avatar.dart';
 /// * the playing-row highlight arrives through a [ValueListenable] that
 ///   only fires when the *row* changes, not on every position tick (A.3-6).
 class TranscriptView extends StatefulWidget {
+  /// Minimum gap between screen-reader announcements of new transcript rows.
+  ///
+  /// A live transcript is the only thing on this screen that changes without
+  /// the user acting, so a screen reader has to announce it — but it arrives
+  /// every two seconds for three hours, and a reader that interrupts itself
+  /// that often is worse than silence. Public so the accessibility test can
+  /// advance exactly one window.
+  static const Duration kAnnounceThrottle = Duration(seconds: 6);
+
   final List<TranscriptSegment> segments;
 
   /// Monotonic counter bumped by the owner whenever [segments] changes
@@ -111,12 +122,70 @@ class _TranscriptViewState extends State<TranscriptView> {
 
   bool get _isPlayerMode => widget.activeSegmentIndex != null;
 
+  // ── Screen-reader live region ─────────────────────────────────────────
+  //
+  // A live transcript is the one thing on this screen that changes without
+  // the user doing anything, so it is the one thing a screen reader has to
+  // announce. It also arrives every two seconds for three hours, which is
+  // why the announcement is throttled and summarised rather than read
+  // verbatim: a reader that is still speaking segment 40 when segment 60
+  // arrives is useless, and interrupting itself every two seconds is worse.
+
+  DateTime? _lastAnnouncedAt;
+  int _announcedCount = 0;
+  Timer? _announceTimer;
+
+  /// Queues an announcement for the rows that arrived since the last one.
+  ///
+  /// Never announces mid-recording text more than once per
+  /// [kAnnounceThrottle]; the trailing timer guarantees the *last* batch is
+  /// announced even if it arrives during a quiet period.
+  void _scheduleAnnouncement() {
+    final now = DateTime.now();
+    final last = _lastAnnouncedAt;
+    final elapsed =
+        last == null ? TranscriptView.kAnnounceThrottle : now.difference(last);
+    if (elapsed >= TranscriptView.kAnnounceThrottle) {
+      _announceNow();
+      return;
+    }
+    _announceTimer?.cancel();
+    _announceTimer =
+        Timer(TranscriptView.kAnnounceThrottle - elapsed, _announceNow);
+  }
+
+  void _announceNow() {
+    _announceTimer?.cancel();
+    _announceTimer = null;
+    if (!mounted) return;
+    final total = widget.segments.length;
+    final added = total - _announcedCount;
+    if (added <= 0) return;
+    _announcedCount = total;
+    _lastAnnouncedAt = DateTime.now();
+    final latest = widget.segments.last;
+    // The newest line in full plus a count, rather than every missed line:
+    // the transcript itself is navigable, so this is the "something happened"
+    // signal, not a substitute for reading it.
+    final message = added == 1
+        ? '${latest.speaker}: ${latest.text}'
+        : '$added baris baru. Terakhir, ${latest.speaker}: ${latest.text}';
+    // An announcement rather than a `liveRegion` node: a node only
+    // re-announces when it is rebuilt *and* visible, and this has to speak
+    // for rows that are already scrolled out of view.
+    SemanticsService.sendAnnouncement(View.of(context), message, TextDirection.ltr);
+  }
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _knownCount = widget.segments.length;
     _knownRevision = widget.revision;
+    // Rows already present when the view appeared are not news: without this
+    // seed, resuming a recovered session would announce "51 baris baru" the
+    // first time a single new row arrived.
+    _announcedCount = _knownCount;
     final active = widget.activeSegmentIndex;
     if (active != null) {
       _activeIndex = active.value;
@@ -211,6 +280,9 @@ class _TranscriptViewState extends State<TranscriptView> {
     final contentChanged =
         count != _knownCount || widget.revision != _knownRevision;
     if (contentChanged && _searchQuery.isNotEmpty) _rebuildMatches();
+    // Only while recording: in the player the user is driving, and an
+    // unprompted announcement would fight with their own navigation.
+    if (!_isPlayerMode && count > _knownCount) _scheduleAnnouncement();
     if (_autoScroll && !_isPlayerMode && count > _knownCount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -229,6 +301,7 @@ class _TranscriptViewState extends State<TranscriptView> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _announceTimer?.cancel();
     widget.activeSegmentIndex?.removeListener(_onActiveIndexChanged);
     _scrollController.dispose();
     _searchController.dispose();
@@ -392,11 +465,17 @@ class _TranscriptViewState extends State<TranscriptView> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                _searchQuery.isEmpty
-                    ? '${widget.segments.length} segmen'
-                    : '$itemCount dari ${widget.segments.length} segmen',
-                style: TextStyle(color: colors.textSecondary, fontSize: 12),
+              // A live region as well as a label: the count is the one piece
+              // of state on this screen that changes on its own, so a screen
+              // reader should re-read it rather than wait to be asked.
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _searchQuery.isEmpty
+                      ? '${widget.segments.length} segmen'
+                      : '$itemCount dari ${widget.segments.length} segmen',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                ),
               ),
               const SizedBox(width: 4),
               if (_isPlayerMode)
@@ -687,17 +766,17 @@ class TranscriptSegmentTile extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.warning_amber_rounded,
                                 size: 12,
-                                color: Color(0xFFD97706),
+                                color: colors.warning,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Kepercayaan rendah',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: const Color(0xFFD97706),
+                                  color: colors.warning,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -707,14 +786,20 @@ class TranscriptSegmentTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Action buttons
-                  Column(
+                  // Action buttons.
+                  //
+                  // Side by side rather than stacked, and a full
+                  // [TouchTarget.minimum] square each: at 32 px these were the
+                  // only two targets in the app below the WCAG 2.2 AA 2.5.8
+                  // floor, and stacking two 48 px boxes would have made every
+                  // transcript row 96 px tall. The icon stays at 16 px, so the
+                  // row looks the same — it is the hit area that grew.
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (onCopy != null)
-                        SizedBox(
-                          width: 32,
-                          height: 32,
+                        SizedBox.fromSize(
+                          size: TouchTarget.minimumSize,
                           child: IconButton(
                             icon: Icon(Icons.copy_outlined, size: 16, color: colors.textTertiary),
                             onPressed: onCopy,
@@ -723,9 +808,8 @@ class TranscriptSegmentTile extends StatelessWidget {
                           ),
                         ),
                       if (onEdit != null)
-                        SizedBox(
-                          width: 32,
-                          height: 32,
+                        SizedBox.fromSize(
+                          size: TouchTarget.minimumSize,
                           child: IconButton(
                             icon: Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
                             onPressed: () => _openEditDialog(context),
@@ -815,7 +899,8 @@ class TranscriptSegmentTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text('Ganti Nama Speaker', style: TextStyle(color: colors.text, fontSize: 16)),
+            Text('Ganti Nama Pembicara',
+                style: TextStyle(color: colors.text, fontSize: 16)),
           ],
         ),
         content: TextField(

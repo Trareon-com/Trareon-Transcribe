@@ -7,6 +7,7 @@ import '../services/library_index.dart';
 import '../state/library_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
+import 'enhance_queue_view.dart';
 
 /// Width of the permanent sidebar. Narrow enough that the workspace still
 /// has 540 px at the app's 800 px minimum window.
@@ -146,6 +147,9 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
             ),
           ),
           const SizedBox(height: 8),
+          // Background "perhalus transkrip" jobs (F5). Above the session
+          // list so a running pass is never scrolled out of sight.
+          const EnhanceQueueView(),
           if (widget.isRecording)
             _RecordingRow(selected: widget.selectedDirPath == null),
           Expanded(
@@ -268,9 +272,9 @@ class _RecordingRow extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.recordingDot,
+                color: colors.recording,
               ),
             ),
             const SizedBox(width: 8),

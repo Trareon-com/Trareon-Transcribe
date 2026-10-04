@@ -2,11 +2,16 @@
 # Build a Universal Binary (arm64 + x86_64), ad-hoc sign, and package
 # Trareon Transcribe as a .dmg for macOS.
 #
-# Per ADR-12: this is deliberately ad-hoc signing (`codesign --sign -`),
-# NOT notarization — it costs $0 and needs no Apple Developer account,
-# at the price of a "Apple cannot verify this app" Gatekeeper warning on
-# first launch (documented for users at download time). Notarization is
-# a follow-up if/when a paid Apple Developer account is set up.
+# Signing depends on `MACOS_SIGN_IDENTITY`:
+#
+# * unset (the ADR-12 default) — ad-hoc signing (`codesign --sign -`), which
+#   costs $0 and needs no Apple Developer account, at the price of an "Apple
+#   cannot verify this app" Gatekeeper warning on first launch (documented
+#   for users at download time).
+# * set to a Developer ID Application identity — a hardened-runtime,
+#   timestamped signature the notary service will accept. The release
+#   workflow sets it only when the Apple secrets are configured and performs
+#   the notarize/staple step itself; see DISTRIBUTION.md.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -72,10 +77,44 @@ else
   echo "    ⚠️ models/ggml-large-v3-turbo-q5_0.bin not found — skipping"
 fi
 
-# ── Ad-hoc signing ────────────────────────────────────────────────────
-echo "==> Ad-hoc signing $APP_PATH"
-codesign --force --deep --sign - "$APP_PATH"
-codesign --verify --verbose "$APP_PATH"
+# ── Signing ───────────────────────────────────────────────────────────
+#
+# Two modes, chosen by whether a Developer ID identity was supplied:
+#
+# * `MACOS_SIGN_IDENTITY` set — a real Developer ID Application signature
+#   with the hardened runtime and a secure timestamp. Both are *required*
+#   for the notary service to accept the bundle; notarizing an ad-hoc
+#   signature fails with "The signature of the binary is invalid".
+# * unset — ad-hoc, per ADR-12: $0 and no Apple Developer account, at the
+#   price of a Gatekeeper warning on first launch.
+#
+# The entitlements file grants the microphone and the audio-input device,
+# which the hardened runtime otherwise denies outright.
+if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+  echo "==> Signing $APP_PATH with Developer ID"
+  ENTITLEMENTS="$(mktemp -d)/entitlements.plist"
+  cat > "$ENTITLEMENTS" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+  codesign --force --deep --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$MACOS_SIGN_IDENTITY" "$APP_PATH"
+  rm -rf "$(dirname "$ENTITLEMENTS")"
+  codesign --verify --strict --verbose=2 "$APP_PATH"
+else
+  echo "==> Ad-hoc signing $APP_PATH (no MACOS_SIGN_IDENTITY)"
+  codesign --force --deep --sign - "$APP_PATH"
+  codesign --verify --verbose "$APP_PATH"
+fi
 
 mkdir -p "$DIST_DIR"
 rm -f "$DMG_PATH"

@@ -2177,6 +2177,7 @@ dependencies = [
  "whisper-rs",
  "windows 0.62.2",
  "windows-sys 0.52.0",
+ "zip",
 ]
 
 [[package]]

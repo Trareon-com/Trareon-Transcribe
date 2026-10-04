@@ -72,6 +72,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       language: loaded.language,
       autoStopMinutes: loaded.autoStopMinutes,
       summary: loaded.summary,
+      // These four (and `audioToDisk`) are persisted by Rust. Leaving them
+      // out of this constructor silently reset them to the defaults on every
+      // launch, which is exactly the class of bug the audit caught in the
+      // theme setting.
+      audioToDisk: loaded.audioToDisk,
+      glossary: loaded.glossary,
+      summaryTemplates: loaded.summaryTemplates,
+      notulen: loaded.notulen,
+      autoRetranscribe: loaded.autoRetranscribe,
       defaultExportFormat: DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
       micDeviceId: DartPrefs.instance.getString('micDeviceId'),
       speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
@@ -189,7 +198,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         state.copyWith(progressiveEnabled: enabled),
         // Rust owns this now. It used to be written to DartPrefs and never
         // read back, so the toggle silently reverted to "on" on every launch.
-        label: 'Progressive Mode',
+        label: 'Cepat dulu, lalu diperhalus',
       );
 
   Future<void> setGpuEnabled(bool enabled) =>
@@ -210,7 +219,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setHptMode(HptMode mode) => _apply(
         state.copyWith(hptMode: mode),
-        label: 'Mode transkripsi bertahap',
+        label: 'Cara transkripsi bertahap',
         savePrefs: () async {
           DartPrefs.instance.setInt('hptMode', mode.index);
           await DartPrefs.instance.save();
@@ -223,6 +232,68 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setSummarySettings(SummarySettings summary) =>
       _apply(state.copyWith(summary: summary), label: 'Ringkasan AI');
 
+  // ── Kamus istilah (F3) ────────────────────────────────────────────────
+
+  Future<void> setGlossary(GlossarySettings glossary) =>
+      _apply(state.copyWith(glossary: glossary), label: 'Kamus istilah');
+
+  Future<void> setGlossaryEnabled(bool enabled) =>
+      setGlossary(state.glossary.copyWith(enabled: enabled));
+
+  Future<void> setGlossaryPostCorrection(bool enabled) =>
+      setGlossary(state.glossary.copyWith(postCorrection: enabled));
+
+  /// Replaces the term list, trimming blanks and case-insensitive duplicates
+  /// so the same term cannot occupy the prompt budget twice.
+  Future<void> setGlossaryTerms(List<String> terms) =>
+      setGlossary(state.glossary.copyWith(terms: dedupeTerms(terms)));
+
+  Future<void> addGlossaryTerm(String term) =>
+      setGlossaryTerms([...state.glossary.terms, term]);
+
+  Future<void> removeGlossaryTerm(String term) => setGlossaryTerms(
+        state.glossary.terms
+            .where((t) => t.toLowerCase() != term.toLowerCase())
+            .toList(),
+      );
+
+  // ── Template ringkasan buatan sendiri (F8) ────────────────────────────
+
+  Future<void> saveSummaryTemplate(CustomSummaryTemplate template) {
+    final existing = state.summaryTemplates
+        .indexWhere((candidate) => candidate.id == template.id);
+    final next = [...state.summaryTemplates];
+    if (existing >= 0) {
+      next[existing] = template;
+    } else {
+      next.add(template);
+    }
+    return _apply(
+      state.copyWith(summaryTemplates: next),
+      label: 'Template ringkasan',
+    );
+  }
+
+  Future<void> deleteSummaryTemplate(String id) => _apply(
+        state.copyWith(
+          summaryTemplates:
+              state.summaryTemplates.where((t) => t.id != id).toList(),
+        ),
+        label: 'Template ringkasan',
+      );
+
+  // ── Notulen resmi (F2) ────────────────────────────────────────────────
+
+  Future<void> setNotulenDefaults(NotulenDefaults notulen) =>
+      _apply(state.copyWith(notulen: notulen), label: 'Kop surat notulen');
+
+  // ── Transkrip ulang otomatis (F5) ─────────────────────────────────────
+
+  Future<void> setAutoRetranscribe(bool? enabled) => _apply(
+        state.copyWith(autoRetranscribe: enabled),
+        label: 'Perhalus transkrip otomatis',
+      );
+
   Future<void> setDefaultModel(String modelId) =>
       _apply(state.copyWith(defaultModel: modelId), label: 'Model default');
 
@@ -233,13 +304,13 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _apply(state.copyWith(defaultMode: mode), label: 'Mode default');
 
   Future<void> setVadEnabled(bool enabled) =>
-      _apply(state.copyWith(vadEnabled: enabled), label: 'VAD (deteksi suara)');
+      _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
         minutes == null
             ? state.copyWith(clearAutoStop: true)
             : state.copyWith(autoStopMinutes: minutes),
-        label: 'Auto-Stop saat diam',
+        label: 'Berhenti sendiri saat sunyi',
       );
 
   Future<void> setDefaultExportFormat(String format) => _apply(
@@ -279,6 +350,22 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           await DartPrefs.instance.save();
         },
       );
+}
+
+/// Trims blanks and case-insensitive duplicates while keeping the user's
+/// ordering — the kamus istilah's prompt budget is per term, so a duplicate
+/// costs vocabulary space for nothing. Mirrors
+/// `GlossaryConfig::prioritised_terms` on the Rust side.
+List<String> dedupeTerms(Iterable<String> terms) {
+  final seen = <String>{};
+  final out = <String>[];
+  for (final raw in terms) {
+    final term = raw.trim();
+    if (term.isEmpty) continue;
+    if (!seen.add(term.toLowerCase())) continue;
+    out.add(term);
+  }
+  return out;
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {

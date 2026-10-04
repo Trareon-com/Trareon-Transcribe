@@ -386,7 +386,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             indicatorColor: colors.primary,
             tabs: const [
               Tab(text: 'Sesi'),
-              Tab(text: 'Upload Berkas'),
+              Tab(text: 'Impor Berkas'),
             ],
           ),
         ),

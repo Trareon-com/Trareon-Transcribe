@@ -11,7 +11,8 @@ use std::path::PathBuf;
 use crate::audio::{AudioDeviceInfo, SessionConfig};
 use crate::doctor::{format_checks, run_checks, Check};
 use crate::error::TranscribeError;
-use crate::export::{ExportFormat, ExportedFile, Segment};
+use crate::export::notulen::{NotulenDraft, NotulenForm};
+use crate::export::{Bookmark, ExportFormat, ExportedFile, Segment};
 use crate::model::ModelInfo;
 use crate::session::{
     CaptureHealth, RecoverableSession, RecoveredSession, SessionEvent, SessionRecoverySnapshot,
@@ -250,7 +251,8 @@ pub fn export_session(
 }
 
 /// As [`export_session`], but leads the Markdown/TXT/HTML/DOCX output with
-/// `summary` (Markdown, from [`generate_summary`]). An empty `summary`
+/// `summary` (Markdown, from [`generate_summary`]) and the meeting's
+/// `bookmarks` as "Poin Penting". An empty `summary` with no bookmarks
 /// produces byte-identical output to [`export_session`].
 pub fn export_session_with_summary(
     segments: Vec<Segment>,
@@ -258,14 +260,62 @@ pub fn export_session_with_summary(
     output_dir: String,
     title: String,
     summary: String,
+    bookmarks: Vec<Bookmark>,
 ) -> Result<Vec<ExportedFile>, TranscribeError> {
-    crate::export::export_segments_with_summary(
+    crate::export::export_segments_full(
         &segments,
         &formats,
         &PathBuf::from(output_dir),
         &title,
         &summary,
+        &bookmarks,
     )
+}
+
+// --- Notulen Rapat resmi (F2) ----------------------------------------------
+
+/// Writes the official "Notulen Rapat" DOCX into the session folder.
+///
+/// `form.variant` selects the layout ("Notulen Dinas" or "Notulen Ringkas").
+/// The file is named `Notulen - <title>.docx` so it sits next to the
+/// transcript exports without colliding with the plain DOCX transcript.
+pub fn export_notulen(
+    form: NotulenForm,
+    segments: Vec<Segment>,
+    output_dir: String,
+    title: String,
+) -> Result<ExportedFile, TranscribeError> {
+    let bytes = crate::export::notulen::to_docx_bytes(&form, &segments)?;
+    let output_dir = PathBuf::from(output_dir);
+    let session_dir = crate::export::session_dir_for(&output_dir, &title);
+    std::fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
+    let filename = format!(
+        "Notulen - {}.docx",
+        crate::export::sanitize_filename(&title)
+    );
+    let path = session_dir.join(&filename);
+    crate::export::atomic_write(&path, &bytes)?;
+    let size_bytes = std::fs::metadata(&path)
+        .map_err(TranscribeError::from)?
+        .len();
+    Ok(ExportedFile {
+        filename,
+        path: path.to_string_lossy().to_string(),
+        size_bytes,
+    })
+}
+
+/// Prefills a [`NotulenForm`]'s body sections from an AI summary: peserta,
+/// pembahasan, keputusan and the tugas/PJ/tenggat rows. Pure and local — the
+/// summary text is already in hand.
+pub fn notulen_draft_from_summary(summary: String) -> NotulenDraft {
+    crate::export::notulen::draft_from_summary(&summary)
+}
+
+/// Renders bookmarks as the `"[mm:ss] catatan"` lines the notulen's
+/// "Poin Penting" section and every export use.
+pub fn format_bookmarks(bookmarks: Vec<Bookmark>) -> Vec<String> {
+    crate::export::notulen::poin_penting_from_bookmarks(&bookmarks)
 }
 
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
@@ -317,6 +367,7 @@ pub struct ProgressiveFileResult {
 /// (large-v3-turbo-q5) over the same decoded audio. UI shows
 /// `quick_segments` immediately, then swaps in `refined_segments`
 /// by key — target latency to first text: 3-5s.
+#[allow(clippy::too_many_arguments)]
 pub fn progressive_transcribe_file(
     quick_model_path: String,
     refine_model_path: String,
@@ -324,6 +375,7 @@ pub fn progressive_transcribe_file(
     language: Option<String>,
     gpu_enabled: bool,
     gpu_device: i32,
+    glossary: crate::glossary::GlossaryConfig,
 ) -> Result<ProgressiveFileResult, TranscribeError> {
     let engine = crate::progressive::ProgressiveEngine::load(
         std::path::Path::new(&quick_model_path),
@@ -345,6 +397,11 @@ pub fn progressive_transcribe_file(
     report(crate::stt::file::BatchFileStatus::Decoding, 0.0);
     let audio = crate::decode::decode_audio_file(std::path::Path::new(&path))?;
 
+    // Kamus istilah: an import has no rolling transcript tail, so the
+    // glossary is the whole `initial_prompt` for every chunk of both passes.
+    let prompt = crate::glossary::build_initial_prompt(&glossary, "");
+    let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
+
     // Chunk like file.rs: 30s chunks bound peak memory.
     const CHUNK_SECS: f64 = 30.0;
     let chunk_samples = (crate::decode::TARGET_SAMPLE_RATE as f64 * CHUNK_SECS) as usize;
@@ -353,11 +410,21 @@ pub fn progressive_transcribe_file(
 
     if audio.samples.len() <= chunk_samples {
         report(crate::stt::file::BatchFileStatus::Transcribing, 0.0);
-        quick_segments =
-            engine.transcribe_quick(&audio.samples, "file", 0.0, language.as_deref(), None)?;
+        quick_segments = engine.transcribe_quick(
+            &audio.samples,
+            "file",
+            0.0,
+            language.as_deref(),
+            initial_prompt,
+        )?;
         report(crate::stt::file::BatchFileStatus::Transcribing, 0.5);
-        refined_segments =
-            engine.transcribe_refine(&audio.samples, "file", 0.0, language.as_deref(), None)?;
+        refined_segments = engine.transcribe_refine(
+            &audio.samples,
+            "file",
+            0.0,
+            language.as_deref(),
+            initial_prompt,
+        )?;
         report(crate::stt::file::BatchFileStatus::Transcribing, 1.0);
     } else {
         let total_chunks = audio.samples.len().div_ceil(chunk_samples);
@@ -372,7 +439,7 @@ pub fn progressive_transcribe_file(
                 "file",
                 start,
                 language.as_deref(),
-                None,
+                initial_prompt,
             )?);
             done += 1.0;
             report(
@@ -384,7 +451,7 @@ pub fn progressive_transcribe_file(
                 "file",
                 start,
                 language.as_deref(),
-                None,
+                initial_prompt,
             )?);
             done += 1.0;
             report(
@@ -397,6 +464,12 @@ pub fn progressive_transcribe_file(
     // Hallucination guard: collapse repeated runs in both passes.
     crate::progressive::filter_loops(&mut quick_segments);
     crate::progressive::filter_loops(&mut refined_segments);
+
+    if glossary.post_correction {
+        let terms = glossary.prioritised_terms();
+        crate::glossary::correct_segments(&mut quick_segments, &terms);
+        crate::glossary::correct_segments(&mut refined_segments, &terms);
+    }
 
     // Speaker labels, same as the single-model file path. Both passes are
     // labelled from a single diarizer over the same audio so the quick and
@@ -444,6 +517,7 @@ pub fn transcribe_files_batch(
     language: Option<String>,
     gpu_enabled: bool,
     gpu_device: i32,
+    glossary: crate::glossary::GlossaryConfig,
 ) -> Result<Vec<crate::stt::file::BatchFileOutcome>, TranscribeError> {
     let engine = crate::stt::WhisperEngine::load_with_gpu(
         &PathBuf::from(&model_path),
@@ -457,6 +531,7 @@ pub fn transcribe_files_batch(
         &engine,
         &file_paths,
         language.as_deref(),
+        &glossary,
         |progress| {
             // Decoding is an interim status; only terminal states produce an
             // outcome, otherwise every file would be reported twice.
@@ -497,9 +572,23 @@ pub fn get_batch_progress() -> Option<crate::stt::file::BatchProgressSnapshot> {
 pub async fn generate_summary(
     segments: Vec<Segment>,
     config: crate::summary::SummaryConfig,
+    bookmarks: Vec<Bookmark>,
 ) -> Result<String, TranscribeError> {
     let transcript = crate::summary::transcript_text(&segments);
-    crate::summary::generate_summary(config, transcript).await
+    let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
+    crate::summary::generate_summary(config, transcript, marks).await
+}
+
+/// The section headings a built-in template asks the model for — the starting
+/// point when the user duplicates it into a template of their own (F8).
+pub fn summary_template_headings(template: crate::summary::SummaryTemplate) -> Vec<String> {
+    crate::summary::builtin_headings(template)
+}
+
+/// Composes the instruction a user-authored template sends, from its free-text
+/// instructions plus its declared section headings.
+pub fn compose_summary_instruction(instructions: String, headings: Vec<String>) -> String {
+    crate::summary::compose_custom_instruction(&instructions, &headings)
 }
 
 /// Lists the models the configured summary endpoint offers, so the settings
@@ -517,6 +606,53 @@ pub async fn list_summary_models(
 /// opt in — no network access.
 pub fn summary_preview_transcript(segments: Vec<Segment>) -> String {
     crate::summary::transcript_text(&segments)
+}
+
+// --- Kamus istilah (glossary) ----------------------------------------------
+
+/// What the glossary actually contributes to one inference call.
+///
+/// `terms_used` / `terms_total` let Settings say "18 dari 40 istilah dipakai"
+/// instead of silently discarding vocabulary: Whisper's prompt is capped at
+/// 224 tokens and an over-long prompt degrades output, so the cap has to be
+/// visible rather than a surprise. `u32` rather than `usize` so Dart sees an
+/// `int` instead of a `BigInt`.
+pub struct GlossaryPromptInfo {
+    /// The exact `initial_prompt` string that would be sent to Whisper.
+    pub prompt: String,
+    pub terms_used: u32,
+    pub terms_total: u32,
+}
+
+/// Previews the `initial_prompt` a glossary would produce. Pure and local.
+pub fn glossary_prompt_preview(
+    glossary: crate::glossary::GlossaryConfig,
+    context_tail: String,
+) -> GlossaryPromptInfo {
+    let built = crate::glossary::build_initial_prompt(&glossary, &context_tail);
+    GlossaryPromptInfo {
+        prompt: built.text,
+        terms_used: built.terms_used as u32,
+        terms_total: built.terms_total as u32,
+    }
+}
+
+/// Parses an imported glossary file (`.txt` one-per-line, or `.csv`/TSV where
+/// the first column is the term). Deduplicates case-insensitively.
+pub fn parse_glossary_file(content: String) -> Vec<String> {
+    crate::glossary::parse_glossary(&content)
+}
+
+/// Renders the glossary for export: `csv = true` produces a one-column CSV
+/// with an `istilah` header, otherwise one term per line.
+pub fn render_glossary_file(terms: Vec<String>, csv: bool) -> String {
+    crate::glossary::render_glossary(&terms, csv)
+}
+
+/// Applies the conservative post-correction pass to arbitrary text. Exposed so
+/// the UI can preview what the glossary would change before enabling it.
+pub fn apply_glossary_corrections(text: String, terms: Vec<String>) -> String {
+    crate::glossary::apply_corrections(&text, &terms)
 }
 
 // --- Settings -----------------------------------------------------
@@ -579,6 +715,31 @@ pub fn flight_clear_log() {
 
 pub fn flight_entry_count() -> usize {
     crate::flight_recorder::entry_count()
+}
+
+/// Packs "Ekspor Log Diagnostik": every rotated log generation plus the
+/// preflight report, into `destination` as a `.zip`. Returns the path written.
+///
+/// Contains no transcript text and no audio — see
+/// `flight_recorder::write_diagnostics_bundle` for the exhaustive contents.
+pub fn flight_export_diagnostics(
+    destination: String,
+    doctor_report: String,
+    environment: String,
+) -> Result<String, TranscribeError> {
+    let path = crate::flight_recorder::write_diagnostics_bundle(
+        std::path::Path::new(&destination),
+        &doctor_report,
+        &environment,
+    )
+    .map_err(TranscribeError::from)?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// How many log files (active + rotated generations) the recorder currently
+/// holds. Lets the diagnostics screen say what an export would contain.
+pub fn flight_log_file_count() -> u32 {
+    crate::flight_recorder::log_files().len() as u32
 }
 
 pub fn flight_set_enabled(enabled: bool) {

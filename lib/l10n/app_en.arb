@@ -1,0 +1,148 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Trareon Transcribe",
+
+  "languageSectionTitle": "Language",
+  "languageLabel": "Interface language",
+  "languageSubtitle": "The language of buttons and menus. Does not change the transcription language.",
+  "languageSystem": "Follow system",
+  "languageIndonesian": "Bahasa Indonesia",
+  "languageEnglish": "English",
+
+  "alreadyRunningTitle": "Trareon Transcribe is already running",
+  "alreadyRunningBody": "Only one instance of Trareon Transcribe can run at a time. Close this window and use the one that is already open.",
+
+  "actionSave": "Save",
+  "actionCancel": "Cancel",
+  "actionSkip": "Skip",
+  "actionHide": "Hide",
+  "actionCancelThis": "Cancel",
+  "actionCancelAll": "Cancel all",
+
+  "enhanceQueueTitle": "Refining transcript",
+  "enhanceQueuePaused": "Paused while a recording is in progress.",
+  "enhanceJobRunning": "Using the accurate model… your current transcript stays safe until it finishes.",
+  "enhanceJobFailed": "Failed. The previous transcript is still in use.",
+  "enhanceJobQueued": "Waiting in the queue.",
+
+  "storageSessionCount": "{count, plural, =0{No sessions yet} =1{1 session} other{{count} sessions}}",
+  "@storageSessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageTooltip": "{count, plural, =0{Storage: no sessions saved yet} =1{Storage: 1 session saved} other{Storage: {count} sessions saved}}",
+  "@storageTooltip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageEmptyCompact": "📂 Empty",
+  "storageCountCompact": "📁 {count}",
+  "@storageCountCompact": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageSummary": "{sessions} · {size}",
+  "@storageSummary": {
+    "placeholders": {
+      "sessions": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesKb": "{value} KB",
+  "@bytesKb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesMb": "{value} MB",
+  "@bytesMb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesGb": "{value} GB",
+  "@bytesGb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+
+  "bookmarkAdd": "Mark",
+  "bookmarkAddTooltip": "Mark an important point at the current position (Ctrl+B)",
+  "bookmarkAddWithNoteTooltip": "Mark and write a note",
+  "bookmarkNoteDialogTitle": "Note for {time}",
+  "@bookmarkNoteDialogTitle": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkNoteLabel": "Note (optional)",
+  "bookmarkNoteHint": "e.g. key decision, follow-up",
+  "bookmarkMarkedAt": "Point marked at {time}",
+  "@bookmarkMarkedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkNone": "No points marked yet.",
+  "bookmarkCount": "{count, plural, =1{1 point marked.} other{{count} points marked.}}",
+  "@bookmarkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkRemoveTooltip": "Remove the mark at {time}",
+  "@bookmarkRemoveTooltip": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkJumpTooltip": "Click: jump to {time} · Hold: edit note",
+  "@bookmarkJumpTooltip": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkEditNoteTooltip": "Click to edit the note",
+  "bookmarkRowLabel": "{time} · {note}",
+  "@bookmarkRowLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "note": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -23,6 +23,15 @@ class SummaryUiState {
   final SummaryStatus status;
   final String text;
   final SummaryTemplate template;
+
+  /// Id of the user-authored template in use (F8), or `null` for a built-in.
+  ///
+  /// Held alongside [template] rather than replacing it: a custom template
+  /// *is* `SummaryTemplate.kustom` as far as the engine is concerned, and the
+  /// id is what lets the panel re-select the right one and what gets written
+  /// to the sidecar so a session records which template produced it.
+  final String? customTemplateId;
+
   final String? error;
 
   /// True when [text] differs from what was last written to the session's
@@ -33,6 +42,7 @@ class SummaryUiState {
     this.status = SummaryStatus.empty,
     this.text = '',
     this.template = SummaryTemplate.notulenRapat,
+    this.customTemplateId,
     this.error,
     this.dirty = false,
   });
@@ -41,6 +51,7 @@ class SummaryUiState {
     SummaryStatus? status,
     String? text,
     SummaryTemplate? template,
+    Object? customTemplateId = _keep,
     String? error,
     bool clearError = false,
     bool? dirty,
@@ -49,11 +60,17 @@ class SummaryUiState {
       status: status ?? this.status,
       text: text ?? this.text,
       template: template ?? this.template,
+      customTemplateId: customTemplateId == _keep
+          ? this.customTemplateId
+          : customTemplateId as String?,
       error: clearError ? null : (error ?? this.error),
       dirty: dirty ?? this.dirty,
     );
   }
 }
+
+/// Sentinel distinguishing "not passed" from "explicitly null".
+const Object _keep = Object();
 
 /// Drives one session's summary: generate, edit, save, regenerate.
 ///
@@ -78,6 +95,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
                : SummaryStatus.empty,
            text: initialMeta.summary,
            template: initialMeta.summaryTemplate ?? SummaryTemplate.notulenRapat,
+           customTemplateId: initialMeta.summaryCustomTemplateId,
          ),
        );
 
@@ -88,7 +106,17 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
   final void Function(String endpoint)? onNetworkRequest;
 
   void setTemplate(SummaryTemplate template) {
-    state = state.copyWith(template: template);
+    state = state.copyWith(template: template, customTemplateId: null);
+  }
+
+  /// Selects a user-authored template (F8). The engine still receives
+  /// `SummaryTemplate.kustom`; the id only identifies which instructions to
+  /// send and which template the session was summarised with.
+  void setCustomTemplate(String id) {
+    state = state.copyWith(
+      template: SummaryTemplate.kustom,
+      customTemplateId: id,
+    );
   }
 
   void edit(String text) {
@@ -108,6 +136,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
   Future<void> generate({
     required List<TranscriptSegment> segments,
     required AppSettings settings,
+    List<Bookmark> bookmarks = const [],
   }) async {
     if (!settings.summary.enabled) {
       state = state.copyWith(
@@ -134,14 +163,46 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     }
 
     state = state.copyWith(status: SummaryStatus.generating, clearError: true);
+    // A user-authored template's instruction is composed by the engine, so the
+    // headings are spelled out the same way every time.
+    var config = settings.summary.toConfig(
+      language: settings.language,
+      template: state.template,
+    );
+    final custom = settings.summaryTemplates
+        .where((t) => t.id == state.customTemplateId)
+        .firstOrNull;
+    if (custom != null) {
+      try {
+        final instruction = await _bridge.composeSummaryInstruction(
+          instructions: custom.instructions,
+          headings: custom.headings,
+        );
+        config = SummaryConfig(
+          provider: config.provider,
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          model: config.model,
+          template: SummaryTemplate.kustom,
+          customPrompt: instruction,
+          language: config.language,
+          timeoutSecs: config.timeoutSecs,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        state = state.copyWith(
+          status: SummaryStatus.failed,
+          error: 'Template "${custom.name}" tidak bisa dipakai: $e',
+        );
+        return;
+      }
+    }
     onNetworkRequest?.call(settings.summary.baseUrl);
     try {
       final markdown = await _bridge.generateSummary(
         segments: segments,
-        config: settings.summary.toConfig(
-          language: settings.language,
-          template: state.template,
-        ),
+        config: config,
+        bookmarks: bookmarks,
       );
       if (!mounted) return;
       state = state.copyWith(
@@ -171,6 +232,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
         existing.copyWith(
           summary: state.text,
           summaryTemplate: state.template,
+          summaryCustomTemplateId: state.customTemplateId,
           summaryGeneratedAt: DateTime.now(),
         ),
       );

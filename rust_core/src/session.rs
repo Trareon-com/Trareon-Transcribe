@@ -943,6 +943,7 @@ fn start_session_with_id(
         vad_enabled: config.vad_enabled,
         gpu_enabled: config.gpu_enabled,
         gpu_device: config.gpu_device,
+        glossary: config.glossary.clone(),
     };
     // Audio-to-disk is the default; the setting exists so one release can
     // fall back to the RAM path if streaming turns out to destabilise the

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 import 'package:transcribe/src/rust/audio.dart' as rust_audio;
@@ -148,6 +149,7 @@ rust_session.SessionRecoverySnapshot recoverySnapshot(String id) =>
         gpuDevice: 0,
         vadEnabled: true,
         audioToDisk: true,
+        glossary: kEmptyGlossary,
       ),
       startedAtUnixMs: BigInt.from(1700000000000),
       lastSplitAtUnixMs: BigInt.from(1700000000000),

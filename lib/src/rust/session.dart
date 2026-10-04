@@ -6,6 +6,7 @@
 import 'audio.dart';
 import 'export.dart';
 import 'frb_generated.dart';
+import 'glossary.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'session.freezed.dart';

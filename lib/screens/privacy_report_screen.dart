@@ -33,6 +33,7 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
     final report = ref.watch(privacyReportProvider);
     final elapsed = DateTime.now().difference(report.launchedAt);
     final isClean = report.networkCallCount == 0;
+    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Laporan Privasi')),
@@ -40,14 +41,14 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            color: isClean ? AppColors.micAccent.withValues(alpha: 0.1) : null,
+            color: isClean ? colors.success.withValues(alpha: 0.1) : null,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Icon(
                     isClean ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
-                    color: isClean ? AppColors.micAccent : AppColors.warning,
+                    color: isClean ? colors.success : colors.warning,
                     size: 40,
                   ),
                   const SizedBox(width: 16),
@@ -90,7 +91,8 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
           const SizedBox(height: 16),
           const Text(
             'Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi '
-            'berlangsung — baik live capture maupun upload berkas. Audio tidak pernah keluar '
+            'berlangsung — baik saat merekam langsung maupun saat mengimpor berkas. '
+            'Audio tidak pernah keluar '
             'dari perangkat ini.\n\n'
             'Ada empat aktivitas jaringan yang sah, dan semuanya Anda mulai sendiri:\n'
             '1. Unduh model whisper — dari huggingface.co, hanya saat Anda memilih model '

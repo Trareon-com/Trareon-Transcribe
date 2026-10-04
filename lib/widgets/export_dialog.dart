@@ -28,6 +28,7 @@ Future<bool> showEksporDialog(
   String defaultOutputDir = '',
   String defaultFormat = 'markdown',
   String summary = '',
+  List<Bookmark> bookmarks = const [],
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
@@ -65,13 +66,13 @@ Future<bool> showEksporDialog(
                   ),
                   const SizedBox(height: 8),
                   for (final format in const [
-                    ('md', 'Markdown', 'Dengan timestamp & label speaker', Icons.description_outlined),
-                    ('txt', 'TXT', 'Plain text tanpa timestamp', Icons.text_snippet_outlined),
-                    ('json', 'JSON', 'Full metadata terstruktur', Icons.data_object_outlined),
-                    ('srt', 'SRT', 'Subtitle format', Icons.closed_caption_outlined),
-                    ('vtt', 'VTT', 'Web subtitle', Icons.language_outlined),
-                    ('html', 'HTML', 'Dokumen dengan styling', Icons.web_outlined),
-                    ('docx', 'DOCX', 'Microsoft Word document', Icons.article_outlined),
+                    ('md', 'Markdown', 'Dengan waktu & nama pembicara', Icons.description_outlined),
+                    ('txt', 'TXT', 'Teks biasa tanpa waktu', Icons.text_snippet_outlined),
+                    ('json', 'JSON', 'Data lengkap untuk program lain', Icons.data_object_outlined),
+                    ('srt', 'SRT', 'Takarir untuk pemutar video', Icons.closed_caption_outlined),
+                    ('vtt', 'VTT', 'Takarir untuk web', Icons.language_outlined),
+                    ('html', 'HTML', 'Halaman web yang sudah ditata', Icons.web_outlined),
+                    ('docx', 'DOCX', 'Dokumen Microsoft Word', Icons.article_outlined),
                   ])
                     CheckboxListTile(
                       dense: true,
@@ -93,6 +94,25 @@ Future<bool> showEksporDialog(
                       },
                     ),
                   const Divider(height: 16),
+                  if (bookmarks.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.bookmark_outline,
+                              size: 13, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${bookmarks.length} poin penting disertakan '
+                              'sebagai bagian "Poin Penting"',
+                              style:
+                                  TextStyle(color: colors.primary, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (summary.trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -179,6 +199,7 @@ Future<bool> showEksporDialog(
       outputDir: outputDir,
       title: session.title,
       summary: summary,
+      bookmarks: bookmarks,
       formats: formats,
     );
     // Tutup loading dialog
@@ -195,10 +216,12 @@ Future<bool> showEksporDialog(
     if (!context.mounted) return false;
     // Tutup loading dialog
     Navigator.of(context, rootNavigator: true).pop();
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Ekspor gagal: $e'),
-        backgroundColor: AppColors.warning,
+        backgroundColor: colors.error,
         behavior: SnackBarBehavior.floating,
       ),
     );

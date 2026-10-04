@@ -4,6 +4,7 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'frb_generated.dart';
+import 'glossary.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// User-chosen strategy for Hybrid Progressive Transcription (HPT).
@@ -54,6 +55,12 @@ class SessionConfig {
   /// RAM buffer as the fallback either way.
   final bool audioToDisk;
 
+  /// Kamus istilah for this session: the global list plus whatever the
+  /// notulis added for this meeting. Fed to Whisper's `initial_prompt` and,
+  /// when `post_correction` is set, used to repair near-misses in the
+  /// output. Defaults to empty, which is a no-op.
+  final GlossaryConfig glossary;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -67,6 +74,7 @@ class SessionConfig {
     required this.gpuEnabled,
     required this.gpuDevice,
     required this.audioToDisk,
+    required this.glossary,
   });
 
   @override
@@ -82,7 +90,8 @@ class SessionConfig {
       vadEnabled.hashCode ^
       gpuEnabled.hashCode ^
       gpuDevice.hashCode ^
-      audioToDisk.hashCode;
+      audioToDisk.hashCode ^
+      glossary.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -100,7 +109,8 @@ class SessionConfig {
           vadEnabled == other.vadEnabled &&
           gpuEnabled == other.gpuEnabled &&
           gpuDevice == other.gpuDevice &&
-          audioToDisk == other.audioToDisk;
+          audioToDisk == other.audioToDisk &&
+          glossary == other.glossary;
 }
 
 enum SessionMode { webinar, online, offline }

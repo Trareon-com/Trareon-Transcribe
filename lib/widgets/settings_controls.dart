@@ -22,13 +22,18 @@ class SettingsSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colors.textTertiary,
-              letterSpacing: 0.5,
+          // A heading, so a screen reader can jump between settings groups
+          // instead of reading the whole pane top to bottom.
+          child: Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.textTertiary,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ),
@@ -51,13 +56,7 @@ class SettingsDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Divider(
-      height: 1,
-      thickness: 1,
-      color: colors.divider,
-      indent: 56,
-      endIndent: 16,
-    );
+    return Divider(height: 1, thickness: 1, color: colors.divider, indent: 56, endIndent: 16);
   }
 }
 
@@ -95,21 +94,13 @@ class SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: colors.text,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.text),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.textTertiary,
-                        height: 1.3,
-                      ),
+                      style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.3),
                     ),
                   ],
                 ],
@@ -142,45 +133,41 @@ class SettingsSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 22, color: colors.textSecondary),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: colors.text,
+    // One node per row: a reader announcing the icon, then the label, then the
+    // helper text, then "switch" is four stops for one decision.
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            ExcludeSemantics(child: Icon(icon, size: 22, color: colors.textSecondary)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.text),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.textTertiary,
-                    height: 1.3,
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.3),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: colors.primary,
-            activeTrackColor: colors.primary.withValues(alpha: 0.3),
-            inactiveThumbColor: colors.textTertiary,
-            inactiveTrackColor: colors.border,
-          ),
-        ],
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: colors.primary,
+              activeTrackColor: colors.primary.withValues(alpha: 0.3),
+              inactiveThumbColor: colors.textTertiary,
+              inactiveTrackColor: colors.border,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -216,14 +203,16 @@ class CompactDropdown<T> extends StatelessWidget {
           isExpanded: true,
           isDense: true,
           items: items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(
-                      labelBuilder(item),
-                      style: TextStyle(fontSize: 13, color: colors.text),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ))
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    labelBuilder(item),
+                    style: TextStyle(fontSize: 13, color: colors.text),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (newValue) {
             if (newValue != null) onChanged(newValue);
@@ -262,12 +251,8 @@ class InfoBadge extends StatelessWidget {
             Icon(Icons.info_outline, size: 14, color: colors.primary),
             const SizedBox(width: 4),
             Text(
-              'Info',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: colors.primary,
-              ),
+              'Penjelasan',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.primary),
             ),
           ],
         ),

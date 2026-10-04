@@ -326,7 +326,7 @@ class _WizardNavigation extends StatelessWidget {
             onPressed: onNext,
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: colors.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -431,7 +431,7 @@ class _SpecDetectStep extends StatelessWidget {
                 children: [
                   _SpecRow(
                     icon: Icons.computer,
-                    label: 'CPU Cores',
+                    label: 'Inti Prosesor',
                     value: '$cpuCores core',
                   ),
                   const SizedBox(height: 12),
@@ -443,7 +443,7 @@ class _SpecDetectStep extends StatelessWidget {
                   const SizedBox(height: 12),
                   _SpecRow(
                     icon: Icons.psychology,
-                    label: 'Model Rekomendasi',
+                    label: 'Model Disarankan',
                     value: _modelLabel(suggestedModel ?? 'base'),
                     highlighted: true,
                   ),
@@ -720,7 +720,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
       '1. brew install blackhole-2ch\n'
           '2. Buka Audio MIDI Setup\n'
           '3. Buat Multi-Output Device\n'
-          '4. Centang speaker Mac Anda + BlackHole 2ch',
+          '4. Centang pengeras suara Mac Anda + BlackHole 2ch',
     'linux' =>
       '1. Pastikan PipeWire atau PulseAudio berjalan\n'
           '2. Jalankan: pactl list short sources\n'
@@ -735,11 +735,11 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final ready = _loopbackReady;
-    final accent = ready ? AppColors.statusActive : const Color(0xFFD97706);
+    final accent = ready ? colors.success : colors.warning;
     return _StepContent(
       icon: Icons.speaker_group_outlined,
-      title: '3. Setup Audio',
-      description: 'Pilih perangkat input mikrofon dan output speaker.',
+      title: '3. Siapkan Audio',
+      description: 'Pilih perangkat mikrofon dan pengeras suara.',
       child: _loading
           ? const CircularProgressIndicator()
           : Column(
@@ -1030,7 +1030,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
     return _StepContent(
       icon: Icons.graphic_eq,
       title: '4. Uji Suara',
-      description: 'Putar nada 440 Hz untuk memastikan speaker berfungsi.',
+      description: 'Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.',
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -1074,16 +1074,16 @@ class _ToneTestStepState extends State<_ToneTestStep> {
             ],
             if (_outcome == _ToneOutcome.heard) ...[
               _ToneResultCard(
-                color: AppColors.statusActive,
+                color: colors.success,
                 icon: Icons.check_circle,
-                title: 'Speaker berfungsi',
+                title: 'Pengeras suara berfungsi',
                 body: 'Tes mikrofon akan aktif saat sesi dimulai.',
               ),
               const SizedBox(height: 16),
             ],
             if (_outcome == _ToneOutcome.notHeard) ...[
               _ToneResultCard(
-                color: const Color(0xFFD97706),
+                color: colors.warning,
                 icon: Icons.volume_off,
                 title: 'Nada tidak terdengar',
                 body: _remediation,

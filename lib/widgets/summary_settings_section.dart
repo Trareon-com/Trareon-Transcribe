@@ -170,13 +170,13 @@ class _SummarySettingsSectionState
           ),
           if (summary.provider == SummaryProvider.openAiCompatible)
             _Field(
-              label: 'API key',
+              label: 'Kunci API',
               helper:
                   'Disimpan apa adanya di file pengaturan aplikasi (tanpa keychain).',
               child: TextField(
                 controller: _apiKeyController,
                 obscureText: true,
-                decoration: _decoration(hint: 'sk-...'),
+                decoration: _decoration(hint: 'Tempel kunci di sini'),
                 onSubmitted: (v) => _update(summary.copyWith(apiKey: v.trim())),
                 onTapOutside: (_) =>
                     _update(summary.copyWith(apiKey: _apiKeyController.text.trim())),
