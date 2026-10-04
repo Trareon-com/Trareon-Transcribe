@@ -17,6 +17,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../state/models.dart';
 import '../utils/atomic_file.dart';
@@ -95,6 +96,14 @@ class SessionMeta {
   /// incomplete.
   final double? coverageFraction;
 
+  /// "Tindak Lanjut" rows (F6), as the user last left them.
+  ///
+  /// Stored rather than re-parsed from [summary] on every open: the
+  /// checklist is editable — a status ticked to "selesai" or a corrected
+  /// PJ is the user's work, and re-deriving it from the model's text
+  /// would throw that away.
+  final List<ActionItem> actionItems;
+
   const SessionMeta({
     this.title,
     this.summary = '',
@@ -108,6 +117,7 @@ class SessionMeta {
     this.autoRetranscribeDone = false,
     this.pendingCompletion = const [],
     this.coverageFraction,
+    this.actionItems = const [],
   });
 
   static const SessionMeta empty = SessionMeta();
@@ -130,6 +140,7 @@ class SessionMeta {
     bool? autoRetranscribeDone,
     List<String>? pendingCompletion,
     double? coverageFraction,
+    List<ActionItem>? actionItems,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -145,6 +156,7 @@ class SessionMeta {
       autoRetranscribeDone: autoRetranscribeDone ?? this.autoRetranscribeDone,
       pendingCompletion: pendingCompletion ?? this.pendingCompletion,
       coverageFraction: coverageFraction ?? this.coverageFraction,
+      actionItems: actionItems ?? this.actionItems,
     );
   }
 
@@ -168,6 +180,8 @@ class SessionMeta {
     if (autoRetranscribeDone) 'auto_retranscribe_done': true,
     if (pendingCompletion.isNotEmpty) 'pending_completion': pendingCompletion,
     if (coverageFraction != null) 'coverage_fraction': coverageFraction,
+    if (actionItems.isNotEmpty)
+      'action_items': [for (final item in actionItems) _actionItemToJson(item)],
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -200,8 +214,56 @@ class SessionMeta {
           ? (json['pending_completion'] as List).whereType<String>().toList()
           : const [],
       coverageFraction: (json['coverage_fraction'] as num?)?.toDouble(),
+      actionItems: _actionItemsFromJson(json['action_items']),
     );
   }
+}
+
+Map<String, dynamic> _actionItemToJson(ActionItem item) => {
+  'id': item.id,
+  'tugas': item.tugas,
+  'pj': item.penanggungJawab,
+  'tenggat': item.tenggat,
+  'status': item.status.name,
+  if (item.segmentIds.isNotEmpty) 'segments': item.segmentIds.toList(),
+};
+
+/// Action items from a sidecar, with nonsense dropped.
+///
+/// A row with no `tugas` is not a task, and an unknown status name (a
+/// newer build's, or a hand edit) falls back to "belum" rather than
+/// making the whole session unopenable.
+List<ActionItem> _actionItemsFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  final out = <ActionItem>[];
+  for (final entry in raw) {
+    if (entry is! Map) continue;
+    final tugas = entry['tugas'];
+    if (tugas is! String || tugas.trim().isEmpty) continue;
+    final statusName = entry['status'];
+    final segments = entry['segments'];
+    out.add(ActionItem(
+      id: entry['id'] is String && (entry['id'] as String).isNotEmpty
+          ? entry['id'] as String
+          : 'T${out.length + 1}',
+      tugas: tugas,
+      penanggungJawab: entry['pj'] is String ? entry['pj'] as String : '',
+      tenggat: entry['tenggat'] is String ? entry['tenggat'] as String : '',
+      status: ActionStatus.values
+              .where((s) => s.name == statusName)
+              .firstOrNull ??
+          ActionStatus.belum,
+      segmentIds: Uint32List.fromList(
+        segments is List
+            ? [
+                for (final id in segments)
+                  if (id is int && id >= 0) id,
+              ]
+            : const [],
+      ),
+    ));
+  }
+  return out;
 }
 
 /// Bookmarks, sorted by timestamp and with nonsense dropped. A hand-edited

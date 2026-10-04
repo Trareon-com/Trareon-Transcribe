@@ -12,7 +12,10 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
+import 'package:transcribe/src/rust/actions.dart' as rust_actions;
 import 'package:transcribe/src/rust/archive.dart' as rust_archive;
+import 'package:transcribe/src/rust/mapreduce.dart' as rust_mapreduce;
+import 'package:transcribe/src/rust/provenance.dart' as rust_provenance;
 import 'package:transcribe/src/rust/completion.dart' as rust_completion;
 import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -149,6 +152,42 @@ mixin SummaryBridgeStubs {
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
   }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  // ── Tindak lanjut & provenans (F6/F7/F15) ──────────────────────────
+  //
+  // Pure re-reads of a summary, so they are safe to stub as "finds
+  // nothing"; the long-meeting path throws for the same reason
+  // [generateSummary] does.
+
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
+
+  Future<List<rust_actions.ActionItem>> parseActionItems(
+    String summary,
+  ) async => const [];
+
+  Future<String> stripActionItemsBlock(String summary) async => summary;
+
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
+
+  Future<String> actionItemsToCsv(
+    List<rust_actions.ActionItem> items,
+  ) async => '';
+
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) async => const rust_provenance.SummaryProvenance(lines: [], dropped: 0);
 
   Future<List<String>> listSummaryModels({
     required SummaryProvider provider,

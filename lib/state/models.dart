@@ -15,15 +15,18 @@ import '../src/rust/settings.dart'
 import '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
+export '../src/rust/actions.dart' show ActionItem, ActionStatus;
 export '../src/rust/export.dart' show Bookmark;
 export '../src/rust/export/notulen.dart'
     show NotulenDraft, NotulenForm, NotulenVariant, TindakLanjut;
 export '../src/rust/glossary.dart' show GlossaryConfig;
+export '../src/rust/mapreduce.dart' show MapReduceProgress;
 export '../src/rust/pdp.dart' show PdpSettings;
 export '../src/rust/pdp/audit.dart' show AuditAction, AuditEntry;
 export '../src/rust/pdp/redaction.dart' show PiiKind, PiiMatch, RedactionConfig;
 export '../src/rust/pdp/retention.dart'
     show RetentionItem, RetentionPlan, RetentionPolicy;
+export '../src/rust/provenance.dart' show Citation, SummaryLine, SummaryProvenance;
 export '../src/rust/settings.dart'
     show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
 export '../src/rust/summary.dart'

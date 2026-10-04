@@ -13,9 +13,12 @@ import '../utils/model_labels.dart';
 import '../utils/segment_lookup.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
+import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../widgets/action_items_panel.dart';
 import '../widgets/bookmark_bar.dart';
 import '../widgets/completion_banner.dart';
 import '../widgets/export_dialog.dart';
@@ -125,6 +128,12 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// with it without re-reading the sidecar.
   late String _summary;
 
+  /// One summary notifier for this screen, shared by the summary panel and
+  /// the "Tindak Lanjut" checklist (F6) — they are two views of the same
+  /// state, and two notifiers would let a regenerated summary and the
+  /// checklist disagree about what the meeting decided.
+  StateNotifierProvider<SummaryNotifier, SummaryUiState>? _summaryProvider;
+
   /// Markers from the recording (F9), editable here too: reviewing is when a
   /// notulis realises which moments actually mattered.
   late List<Bookmark> _bookmarks;
@@ -230,10 +239,20 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       summary: _summary,
       bookmarks: _bookmarks,
       saved: _notulenForm,
+      actionItems: _currentActionItems,
     );
     if (saved == null || !mounted) return;
     setState(() => _notulenForm = saved);
     await _persistMeta();
+  }
+
+  /// The checklist as it currently stands, or the sidecar's copy when the
+  /// summary panel has not been built yet (an unexpanded panel on a
+  /// freshly opened session).
+  List<ActionItem> get _currentActionItems {
+    final provider = _summaryProvider;
+    if (provider == null) return widget.meta.actionItems;
+    return ref.read(provider).actionItems;
   }
 
   /// When the meeting happened, for the notulen's hari/tanggal fields.
@@ -554,6 +573,36 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     unawaited(_seekTo(segment.timestamp));
   }
 
+  /// Jumps to a segment by index, for a citation that names a line
+  /// number rather than a time (F6). Out-of-range indices are ignored:
+  /// the transcript is editable, so a stored citation can outlive the
+  /// line it pointed at.
+  void _seekToSegmentIndex(int index) {
+    if (index < 0 || index >= _segments.length) return;
+    unawaited(_seekTo(_segments[index].timestamp));
+  }
+
+  /// The screen's one summary notifier, created on first use.
+  ///
+  /// Lazily rather than in `initState` because the session directory is
+  /// only known for a saved session, and a live one has no sidecar to
+  /// write to yet.
+  StateNotifierProvider<SummaryNotifier, SummaryUiState> _summaryProviderFor(
+    String dirPath,
+  ) {
+    return _summaryProvider ??=
+        StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      return SummaryNotifier(
+        ref.read(rustBridgeProvider),
+        dirPath,
+        initialMeta: widget.meta,
+        onNetworkRequest: (endpoint) => ref
+            .read(privacyReportProvider.notifier)
+            .recordSummaryRequest(endpoint),
+      );
+    });
+  }
+
   Future<void> _setSpeed(double value) async {
     setState(() => _speed = value);
     try {
@@ -710,7 +759,19 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   segments: () => _segments,
                   initialMeta: widget.meta,
                   bookmarks: _bookmarks,
+                  provider: _summaryProviderFor(_sessionDirPath!),
+                  onSeekToTimestamp: hasAudio ? _seekTo : null,
                   onSummaryChanged: (text) => setState(() => _summary = text),
+                ),
+
+              // F6. Below the summary it came from, and shown whenever the
+              // session has one or the user wants to write one by hand.
+              if (_sessionDirPath != null)
+                ActionItemsPanel(
+                  provider: _summaryProviderFor(_sessionDirPath!),
+                  sessionTitle: widget.title,
+                  sessionDirPath: _sessionDirPath!,
+                  onSeekToSegment: _seekToSegmentIndex,
                 ),
 
               // Transcript

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import '../src/rust/actions.dart' as rust_actions;
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/archive.dart' as rust_archive;
 import '../src/rust/audio.dart' as rust_audio;
@@ -15,7 +16,9 @@ import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/export/notulen.dart' as rust_notulen;
 import '../src/rust/glossary.dart' as rust_glossary;
+import '../src/rust/mapreduce.dart' as rust_mapreduce;
 import '../src/rust/model.dart' as rust_model;
+import '../src/rust/provenance.dart' as rust_provenance;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
 import '../src/rust/stt/file.dart' as rust_stt_file;
@@ -241,6 +244,48 @@ abstract class RustBridge {
     required String libraryPath,
     required String question,
     required rust_summary.SummaryConfig config,
+  });
+
+  // ── Tindak lanjut & provenans ringkasan (F6/F7/F15) ───────────────
+  //
+  // All pure and local: these only re-read a summary the endpoint has
+  // already returned. [generateSummaryLong] is the exception and is as
+  // networked as [generateSummary].
+
+  /// **Networked.** As [generateSummary], but splits a meeting too long
+  /// for one request into time windows and reduces the partials (F15).
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  });
+
+  /// How far a map-reduce summary has got, or null when none is running.
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress();
+
+  /// The tugas / PJ / tenggat / status rows in a summary (F6).
+  Future<List<rust_actions.ActionItem>> parseActionItems(String summary);
+
+  /// Drops the machine-readable JSON block once it has been parsed, so
+  /// the rendered summary does not show it under the checklist.
+  Future<String> stripActionItemsBlock(String summary);
+
+  /// RFC 5545 calendar: one VTODO per task, plus a VEVENT per resolvable
+  /// deadline. [today] is `YYYY-MM-DD` and resolves "Jumat"/"besok".
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  });
+
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items);
+
+  /// Summary split into lines with each `[#n]` resolved to a timestamp,
+  /// invalid ids dropped and counted (F7).
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
   });
 
   /// **The only networked call in the app.** Sends the rendered transcript
@@ -798,6 +843,44 @@ class RustBridgeMock implements RustBridge {
     List<Bookmark> bookmarks = const [],
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
+
+  @override
+  Future<List<rust_actions.ActionItem>> parseActionItems(
+    String summary,
+  ) async => const [];
+
+  @override
+  Future<String> stripActionItemsBlock(String summary) async => summary;
+
+  @override
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
+
+  @override
+  Future<String> actionItemsToCsv(
+    List<rust_actions.ActionItem> items,
+  ) async => '';
+
+  @override
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) async => const rust_provenance.SummaryProvenance(lines: [], dropped: 0);
 
   @override
   Future<List<String>> listSummaryModels({
@@ -1420,6 +1503,62 @@ class RustEngineBridge implements RustBridge {
     config: config,
     bookmarks: bookmarks,
   );
+
+  @override
+  Future<String> generateSummaryLong({
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+    List<Bookmark> bookmarks = const [],
+  }) => rust_api.generateSummaryLong(
+    segments: segments.map(toRustSegment).toList(),
+    config: config,
+    bookmarks: bookmarks,
+  );
+
+  @override
+  Future<rust_mapreduce.MapReduceProgress?> summaryProgress() =>
+      rust_api.readSummaryProgress();
+
+  @override
+  Future<List<rust_actions.ActionItem>> parseActionItems(String summary) =>
+      rust_api.parseActionItems(summary: summary);
+
+  @override
+  Future<String> stripActionItemsBlock(String summary) =>
+      rust_api.stripActionItemsBlock(summary: summary);
+
+  @override
+  Future<String> actionItemsToIcs({
+    required List<rust_actions.ActionItem> items,
+    required String calendarName,
+    required String today,
+  }) => rust_api.actionItemsToIcs(
+    items: items,
+    calendarName: calendarName,
+    today: today,
+  );
+
+  @override
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items) =>
+      rust_api.actionItemsToCsv(items: items);
+
+  @override
+  Future<rust_provenance.SummaryProvenance> summaryProvenance({
+    required String summary,
+    required List<TranscriptSegment> segments,
+    bool verify = true,
+  }) {
+    final rustSegments = segments.map(toRustSegment).toList();
+    return verify
+        ? rust_api.parseSummaryProvenanceVerified(
+            summary: summary,
+            segments: rustSegments,
+          )
+        : rust_api.parseSummaryProvenance(
+            summary: summary,
+            segments: rustSegments,
+          );
+  }
 
   @override
   Future<List<String>> listSummaryModels({
