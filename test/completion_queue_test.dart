@@ -282,6 +282,33 @@ void main() {
       expect(bridge.completionRuns.single, endsWith('speaker.wav'));
     });
 
+    test('a finished pass tells the library its transcript grew', () async {
+      // The library index caches each session's segment count keyed on
+      // the transcript's size and mtime. Before this, a completion pass
+      // could turn a 15-segment live preview into a 38-segment
+      // transcript and the sidebar would still say "15 segmen" until the
+      // next full library load — observed in the Sprint 4 smoke test.
+      final live = [seg(timestamp: 1, text: 'Selamat pagi semuanya.')];
+      final dir = await plantSession(live);
+      addTearDown(() => dir.delete(recursive: true));
+      final bridge = _CompletionBridge();
+      var refreshes = 0;
+      final queue = EnhanceQueueNotifier(
+        bridge,
+        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        onSessionChanged: () => refreshes++,
+      );
+
+      expect(await queue.considerSession(handoffFor(dir, live)), isTrue);
+      await queue.idle;
+
+      expect(
+        refreshes,
+        1,
+        reason: 'the index must be told exactly once per rewritten session',
+      );
+    });
+
     test('a complete transcript queues nothing and is marked finished',
         () async {
       final live = [seg(timestamp: 1, text: 'Selamat pagi semuanya.')];

@@ -145,7 +145,13 @@ pub fn to_pdf_bytes(
     summary: &str,
     bookmarks: &[Bookmark],
 ) -> Result<Vec<u8>, TranscribeError> {
-    to_pdf_bytes_with(segments, title, summary, bookmarks, &PdfSaveOptions::default())
+    to_pdf_bytes_with(
+        segments,
+        title,
+        summary,
+        bookmarks,
+        &PdfSaveOptions::default(),
+    )
 }
 
 /// [`to_pdf_bytes`] with explicit save options.
