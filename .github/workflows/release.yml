@@ -8,29 +8,33 @@ on:
 permissions:
   contents: write
 
+# Every build job publishes to a workflow artifact rather than straight to the
+# release. A single `publish` job then collects them all, writes one
+# SHA256SUMS covering every file, and uploads the lot together (audit item
+# 29). Uploading per-job made a complete checksum manifest impossible: no job
+# could see the other platforms' outputs.
 jobs:
   source-release:
-    name: Build and publish source release
+    name: Source archive
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Create source archive
         run: |
-          git archive --format=tar.gz --output="transcribe-${GITHUB_REF_NAME}.tar.gz" "${GITHUB_REF_NAME}"
+          mkdir -p dist
+          git archive --format=tar.gz \
+            --output="dist/transcribe-${GITHUB_REF_NAME}.tar.gz" \
+            "${GITHUB_REF_NAME}"
 
-      - name: Generate checksum
-        run: sha256sum "transcribe-${GITHUB_REF_NAME}.tar.gz" > "transcribe-${GITHUB_REF_NAME}.tar.gz.sha256"
-
-      - name: Upload source archive
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          files: |
-            transcribe-${{ github.ref_name }}.tar.gz
-            transcribe-${{ github.ref_name }}.tar.gz.sha256
+          name: artifacts-source
+          path: dist/*
+          if-no-files-found: error
 
   build-macos:
-    name: Build macOS DMG
+    name: macOS DMG
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,17 +52,82 @@ jobs:
           curl -fL -o models/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
           curl -fL -o models/ggml-large-v3-turbo-q5_0.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
 
-      - name: Build macOS DMG
+      # ── Notarization, gated on the secrets existing ──────────────
+      #
+      # A fork, or this repo before the Apple Developer account is set up, has
+      # none of these. The release must still succeed there and produce an
+      # ad-hoc signed DMG — an absent secret is a configuration state, not a
+      # build failure. Secrets cannot be read in a job-level `if:`, so
+      # availability is resolved into a step output first.
+      - name: Check for signing secrets
+        id: signing
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          NOTARY_USER: ${{ secrets.APPLE_NOTARY_USER }}
         run: |
-          bash scripts/package_macos.sh "${GITHUB_REF_NAME#v}"
+          if [ -n "$CERT" ] && [ -n "$NOTARY_USER" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Developer ID secrets present — signing and notarizing"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Developer ID secrets — producing an ad-hoc signed DMG"
+          fi
 
-      - name: Upload DMG
-        uses: softprops/action-gh-release@v2
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.available == 'true'
+        env:
+          CERT_P12: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build macOS DMG
+        env:
+          # package_macos.sh falls back to `codesign --sign -` when this is
+          # empty, which is what an unsigned fork build gets.
+          MACOS_SIGN_IDENTITY: ${{ steps.signing.outputs.available == 'true' && secrets.APPLE_SIGN_IDENTITY || '' }}
+        run: bash scripts/package_macos.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Notarize and staple
+        if: steps.signing.outputs.available == 'true'
+        env:
+          APPLE_NOTARY_USER: ${{ secrets.APPLE_NOTARY_USER }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for dmg in dist/*.dmg; do
+            echo "==> Submitting $dmg to the notary service"
+            xcrun notarytool submit "$dmg" \
+              --apple-id "$APPLE_NOTARY_USER" \
+              --password "$APPLE_NOTARY_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+            xcrun stapler staple "$dmg"
+            # Proof the ticket is attached: a stapled DMG passes Gatekeeper
+            # offline, which is the whole point of notarizing.
+            spctl --assess --type open --context context:primary-signature -vv "$dmg"
+          done
+
+      - uses: actions/upload-artifact@v4
         with:
-          files: dist/*
+          name: artifacts-macos
+          path: dist/*
+          if-no-files-found: error
 
   build-linux:
-    name: Build Linux tar.gz
+    name: Linux tar.gz, AppImage and .deb
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,7 +139,16 @@ jobs:
             libasound2-dev libxkbcommon-dev libegl1-mesa-dev \
             libpulse-dev libpcaudio-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            libappindicator3-dev
+            libappindicator3-dev \
+            dpkg-dev fakeroot desktop-file-utils
+
+      - name: Install appimagetool
+        run: |
+          curl -fL -o /tmp/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/appimagetool
+          sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+
       - uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
@@ -85,18 +163,46 @@ jobs:
           curl -fL -o models/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
           curl -fL -o models/ggml-large-v3-turbo-q5_0.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
 
-      - name: Build Linux tar.gz
+      - name: Build tar.gz and AppImage
+        env:
+          # No FUSE on the runner, so appimagetool has to unpack its own
+          # runtime instead of mounting it.
+          APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           chmod +x scripts/package_linux.sh
           bash scripts/package_linux.sh "${GITHUB_REF_NAME#v}"
 
-      - name: Upload Linux archive
-        uses: softprops/action-gh-release@v2
+      - name: Build .deb
+        run: |
+          chmod +x scripts/package_deb.sh
+          bash scripts/package_deb.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Validate the .deb and its desktop entry
+        run: |
+          set -euo pipefail
+          deb="$(ls dist/*.deb)"
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb"
+          # An unparseable desktop entry means no menu icon after install, and
+          # nothing else in the pipeline would notice.
+          mkdir -p /tmp/debcheck
+          dpkg-deb --extract "$deb" /tmp/debcheck
+          desktop-file-validate \
+            /tmp/debcheck/usr/share/applications/trareon-transcribe.desktop
+          # Installing for real is the only check that catches a broken
+          # Depends line.
+          sudo apt-get install -y "./$deb"
+          test -x /usr/bin/trareon-transcribe
+          sudo apt-get remove -y trareon-transcribe
+
+      - uses: actions/upload-artifact@v4
         with:
-          files: dist/*
+          name: artifacts-linux
+          path: dist/*
+          if-no-files-found: error
 
   build-windows:
-    name: Build Windows ZIP
+    name: Windows ZIP
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -116,10 +222,44 @@ jobs:
           Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin" -OutFile "models\ggml-large-v3-turbo-q5_0.bin"
 
       - name: Build Windows ZIP
-        run: |
-          powershell -ExecutionPolicy Bypass -File scripts/package_windows.ps1 -Version "${GITHUB_REF_NAME#v}"
+        run: powershell -ExecutionPolicy Bypass -File scripts/package_windows.ps1 -Version "${GITHUB_REF_NAME#v}"
 
-      - name: Upload ZIP
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-windows
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Checksums and release
+    needs: [source-release, build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: collected
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd collected
+          # Per-platform .sha256 files from the packaging scripts would end up
+          # inside the manifest checksumming themselves.
+          rm -f ./*.sha256 SHA256SUMS
+          # Sorted so the manifest is reproducible regardless of the order the
+          # artifacts were downloaded in.
+          find . -maxdepth 1 -type f -printf '%P\n' | LC_ALL=C sort > /tmp/files
+          test -s /tmp/files
+          xargs -a /tmp/files sha256sum > SHA256SUMS
+          echo "==> SHA256SUMS covers $(wc -l < SHA256SUMS) artifact(s):"
+          cat SHA256SUMS
+          # Fails the release if any listed digest does not match.
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: collected/*
+          fail_on_unmatched_files: true

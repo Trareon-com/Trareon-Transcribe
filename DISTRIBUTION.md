@@ -9,17 +9,19 @@
 
 ## Binary Builds
 
-Two packaging scripts produce ready-to-distribute installers:
+Packaging scripts produce ready-to-distribute installers:
 
 | Platform | Script | Output | Bundle details |
 |----------|--------|--------|----------------|
-| macOS | `scripts/package_macos.sh` | `.dmg` | Ad-hoc signed (`codesign --sign -`), whisper `tiny` model bundled |
+| macOS | `scripts/package_macos.sh` | `.dmg` | Ad-hoc signed by default; Developer ID + notarized when `MACOS_SIGN_IDENTITY` is set |
 | Windows | `scripts/package_windows.ps1` | `.zip` | Self-signed certificate (v1), whisper `tiny` model bundled |
+| Linux | `scripts/package_linux.sh` | `.tar.gz` + `.AppImage` | Models bundled when present in `models/` |
+| Linux | `scripts/package_deb.sh` | `.deb` (amd64) | Bundle in `/opt`, wrapper in `/usr/bin`, models **not** bundled |
 
-Both scripts:
+All scripts:
 1. Build Rust engine (`cargo build --release --lib`)
-2. Build Flutter (`flutter build macos --release` / `flutter build windows --release`)
-3. Generate SHA256 checksum file
+2. Build Flutter for the target platform
+3. Generate a SHA256 checksum file
 4. Output to `dist/`
 
 Run from the repo root:
@@ -29,6 +31,38 @@ bash scripts/package_macos.sh "1.0.0"
 
 # Windows (PowerShell)
 .\scripts\package_windows.ps1 -Version "1.0.0"
+
+# Linux — tar.gz + AppImage
+bash scripts/package_linux.sh "1.0.0"
+
+# Linux — Debian/Ubuntu package
+bash scripts/package_deb.sh "1.0.0"
+sudo apt install ./dist/trareon-transcribe_1.0.0_amd64.deb
+```
+
+### Why the `.deb` does not bundle models
+
+`ggml-base.bin` is 142 MB and `ggml-large-v3-turbo-q5_0.bin` is 548 MB. A
+700 MB package is hostile to Debian mirrors and to anyone on Indonesian home
+broadband, and the app already downloads models on first run into
+`~/.cache/TrareonTranscribe/models/`. Pass `--with-models` to override for an
+offline/air-gapped deployment:
+
+```bash
+bash scripts/package_deb.sh "1.0.0" --with-models
+```
+
+### AppImage on hosts without FUSE
+
+`appimagetool` mounts its own runtime via FUSE. On a host without `libfuse2`
+(including the GitHub Actions runners), export
+`APPIMAGE_EXTRACT_AND_RUN=1` before building, and run the resulting AppImage
+the same way:
+
+```bash
+APPIMAGE_EXTRACT_AND_RUN=1 ./dist/trareon-transcribe-1.0.0-linux-x86_64.AppImage
+# or, equivalently
+./dist/trareon-transcribe-1.0.0-linux-x86_64.AppImage --appimage-extract-and-run
 ```
 
 ## CI & Release Workflow
@@ -41,19 +75,51 @@ Trareon Transcribe's CI pipeline (GitHub Actions) runs on every push and pull re
 CI status: [![CI](https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml/badge.svg)](https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml)
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`:
-1. Source tarball (GitHub Releases — for transparency, no binaries)
-2. macOS `.dmg` (binary via Lynk.ID)
-3. Windows `.zip` (binary via Lynk.ID)
+1. Source tarball (GitHub Releases — for transparency)
+2. macOS `.dmg` — signed and notarized when the Apple secrets are configured
+3. Linux `.tar.gz`, `.AppImage` and `.deb` (the `.deb` is installed and
+   removed again on the runner, so a broken `Depends:` line fails the release)
+4. Windows `.zip`
+
+Every build job uploads to a workflow artifact rather than straight to the
+release. A final `publish` job collects all of them, writes one `SHA256SUMS`
+covering every file, verifies it with `sha256sum --check --strict`, and
+uploads the artifacts together with the manifest. Verify a download with:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+### Required secrets for macOS notarization
+
+Notarization steps are **gated on these secrets being present**. A fork, or
+this repo before an Apple Developer account exists, still produces a working
+ad-hoc signed DMG — a missing secret is a configuration state, not a build
+failure.
+
+| Secret | What it is | How to get it |
+|--------|-----------|---------------|
+| `APPLE_CERTIFICATE_P12_BASE64` | Developer ID Application certificate + private key, exported as `.p12` then `base64` | Xcode → Settings → Accounts → Manage Certificates; export, then `base64 -i cert.p12 \| pbcopy` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password set when exporting the `.p12` | Chosen at export time |
+| `APPLE_KEYCHAIN_PASSWORD` | Any throwaway string; unlocks the temporary keychain on the runner | Generate one |
+| `APPLE_SIGN_IDENTITY` | Identity name, e.g. `Developer ID Application: Trareon (TEAMID123)` | `security find-identity -v -p codesigning` |
+| `APPLE_NOTARY_USER` | Apple ID of the Developer account | The account email |
+| `APPLE_NOTARY_PASSWORD` | **App-specific** password, not the Apple ID password | appleid.apple.com → Sign-In and Security → App-Specific Passwords |
+| `APPLE_TEAM_ID` | 10-character team identifier | developer.apple.com → Membership |
+
+Requires a paid Apple Developer account ($99/yr) — ADR-12 defers this to
+post-v1, which is why the gate exists rather than a hard requirement.
 
 ## Signing Status (v1)
 
-| Requirement | macOS | Windows |
-|-------------|-------|---------|
-| Code signing | ✅ Ad-hoc (`codesign --sign -`) | 🔶 Self-signed (makecert) |
-| Notarization | ❌ (requires $99/yr Apple Developer) | N/A |
-| Gatekeeper warning | ⚠️ "Apple cannot verify" | N/A |
-| SmartScreen warning | N/A | ⚠️ "Unrecognized app" |
-| User documentation | ✅ Described on download page | ✅ Described on download page |
+| Requirement | macOS | Windows | Linux |
+|-------------|-------|---------|-------|
+| Code signing | ✅ Ad-hoc (`codesign --sign -`) | 🔶 Self-signed (makecert) | N/A |
+| Notarization | 🔶 Workflow ready, gated on secrets (requires $99/yr Apple Developer) | N/A | N/A |
+| Gatekeeper warning | ⚠️ "Apple cannot verify" until notarized | N/A | N/A |
+| SmartScreen warning | N/A | ⚠️ "Unrecognized app" | N/A |
+| Checksums | ✅ `SHA256SUMS` | ✅ `SHA256SUMS` | ✅ `SHA256SUMS` |
+| User documentation | ✅ Described on download page | ✅ Described on download page | ✅ Described on download page |
 
 **Why ad-hoc / self-signed?** The blueprint ADR-12 defers paid certificates to
 post-v1. Users see one warning dialog on first launch; subsequent launches are
