@@ -6,6 +6,7 @@ import 'package:transcribe/widgets/empty_state.dart';
 import 'package:transcribe/widgets/mode_selector.dart';
 
 import 'test_helpers.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 /// 800x600 is the app's smallest supported window (see `linux/`/`macos/`
 /// minimum window size). Controls that run off the right edge there are
@@ -96,7 +97,7 @@ void main() {
                 width: 540,
                 height: height,
                 child: const EmptyState(
-                  icon: Icons.mic_none_outlined,
+                  icon: AppIcons.mic,
                   title: 'Belum ada transkrip',
                   subtitle:
                       'Transkrip akan muncul di sini begitu ada suara yang '
@@ -121,7 +122,7 @@ void main() {
     testWidgets('keeps the glyph when there is room for it', (tester) async {
       await pumpIn(tester, 400);
       expect(tester.takeException(), isNull);
-      expect(find.byIcon(Icons.mic_none_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.mic), findsOneWidget);
       expect(find.text('Belum ada transkrip'), findsOneWidget);
     });
 
@@ -142,7 +143,7 @@ void main() {
             body: ListView(
               children: const [
                 EmptyState(
-                  icon: Icons.folder_open_outlined,
+                  icon: AppIcons.folderOpen,
                   title: 'Belum ada sesi tersimpan',
                   subtitle: 'Sesi transkripsi akan muncul di sini',
                 ),
@@ -155,7 +156,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Belum ada sesi tersimpan'), findsOneWidget);
-      expect(find.byIcon(Icons.folder_open_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.folderOpen), findsOneWidget);
     });
   });
 }

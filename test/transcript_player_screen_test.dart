@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/screens/transcript_player_screen.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
 import 'package:transcribe/state/models.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 /// Find text inside [RichText] widgets which [find.text] does not match.
 ///
@@ -55,8 +56,8 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.play_circle_filled), findsOneWidget);
-    expect(find.byIcon(Icons.pause_circle_filled), findsNothing);
+    expect(find.byIcon(AppIcons.playFilled), findsOneWidget);
+    expect(find.byIcon(AppIcons.pauseFilled), findsNothing);
     expect(find.text('1.0x'), findsOneWidget);
   });
 

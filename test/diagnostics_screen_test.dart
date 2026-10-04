@@ -8,6 +8,7 @@ import 'package:transcribe/services/preflight_service.dart';
 import 'package:transcribe/src/rust/doctor.dart';
 import 'package:transcribe/theme/app_theme.dart';
 import 'package:transcribe/widgets/setup_overlay.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 Check ok(String name) => Check(name: name, status: const CheckStatus.ok());
 
@@ -125,7 +126,7 @@ void main() {
       expect(find.textContaining('Perlu diperiksa: Model transkripsi'),
           findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(AppIcons.close));
       await tester.pumpAndSettle();
       expect(find.textContaining('Perlu diperiksa'), findsNothing);
       expect(find.text('aplikasi'), findsOneWidget);

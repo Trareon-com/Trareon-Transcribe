@@ -18,6 +18,7 @@ import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_colors.dart';
 import 'package:transcribe/widgets/tag_editor_dialog.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 TranscriptSegment _seg(
   String text, {
@@ -229,14 +230,14 @@ void main() {
     testWidgets('the flag only appears when something was flagged',
         (tester) async {
       await _pumpView(tester, [_seg('yakin')], _Recorder());
-      expect(find.byIcon(Icons.flag_outlined), findsNothing);
+      expect(find.byIcon(AppIcons.flag), findsNothing);
 
       await _pumpView(
         tester,
         [_seg('yakin'), _seg('ragu', timestamp: 3, lowConfidence: true)],
         _Recorder(),
       );
-      expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.flag), findsOneWidget);
     });
 
     testWidgets('narrows the list to the flagged segments', (tester) async {
@@ -251,7 +252,7 @@ void main() {
       );
       expect(find.text('3 segmen'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.flag_outlined));
+      await tester.tap(find.byIcon(AppIcons.flag));
       await tester.pumpAndSettle();
 
       expect(find.text('ragu', findRichText: true), findsOneWidget);

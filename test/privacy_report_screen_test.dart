@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/privacy_report_screen.dart';
 import 'package:transcribe/state/privacy_report_model.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 void main() {
   testWidgets('shows zero network calls by default', (WidgetTester tester) async {
@@ -14,7 +15,7 @@ void main() {
     );
 
     expect(find.text('0 panggilan jaringan sejak aplikasi dibuka'), findsOneWidget);
-    expect(find.byIcon(Icons.verified_user_outlined), findsOneWidget);
+    expect(find.byIcon(AppIcons.verifiedUser), findsOneWidget);
     expect(find.text('Belum ada aktivitas jaringan tercatat.'), findsOneWidget);
   });
 
@@ -35,7 +36,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('1 panggilan jaringan sejak aplikasi dibuka'), findsOneWidget);
-    expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
+    expect(find.byIcon(AppIcons.warning), findsOneWidget);
     expect(find.textContaining('Mengunduh model "tiny"'), findsOneWidget);
   });
 }

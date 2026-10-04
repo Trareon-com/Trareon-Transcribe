@@ -16,6 +16,7 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
 
 import 'test_helpers.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 /// Audit item 25: the app had essentially no screen-reader support outside the
 /// upload zone, which is a procurement blocker in the public sector this
@@ -31,10 +32,17 @@ void main() {
       final offenders = <String>[];
       for (final file in _uiSources()) {
         final source = file.readAsStringSync();
-        for (final match in RegExp('IconButton\\(').allMatches(source)) {
+        // Matches Material's `IconButton(` and the kit's own
+        // `AppIconButton(`. The kit declares `tooltip` as a required
+        // parameter, so its call sites are compiler-enforced, but scanning
+        // them anyway means the rule survives someone making it optional.
+        for (final match in RegExp(r'(?<![A-Za-z])(?:App)?IconButton\(')
+            .allMatches(source)) {
           final block = _balancedCall(source, match.start);
           if (block == null) continue;
           if (block.contains('tooltip:')) continue;
+          // The kit's own constructor declaration, not a call site.
+          if (block.contains('required this.tooltip')) continue;
           // `Tooltip(message: …, child: IconButton(…))` is equally good —
           // and sometimes necessary, because a disabled IconButton swallows
           // its own tooltip.
@@ -56,7 +64,7 @@ void main() {
     });
 
     test('the scan would actually catch an untooltipped button', () {
-      const sample = 'IconButton(icon: Icon(Icons.close), onPressed: x)';
+      const sample = 'IconButton(icon: Icon(AppIcons.close), onPressed: x)';
       final block = _balancedCall(sample, 0);
       expect(block, isNotNull);
       expect(block!.contains('tooltip:'), isFalse);

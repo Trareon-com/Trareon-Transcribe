@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/library_screen.dart';
 import 'package:transcribe/state/models.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 void main() {
   testWidgets('empty library shows placeholder message', (WidgetTester tester) async {
@@ -74,7 +75,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: LibraryScreen(sessions: sessions)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.tap(find.byIcon(AppIcons.delete));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('dihapus'), findsOneWidget);

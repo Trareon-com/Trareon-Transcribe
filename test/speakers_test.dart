@@ -16,6 +16,7 @@ import 'package:transcribe/services/dart_prefs.dart';
 import 'package:transcribe/services/speaker_aliases.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/widgets/speaker_manager_dialog.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 TranscriptSegment _seg(
   String speaker,
@@ -160,7 +161,7 @@ void main() {
 
       // Merge the smaller one into the larger.
       await tester.tap(
-        find.widgetWithIcon(IconButton, Icons.merge_outlined).last,
+        find.widgetWithIcon(IconButton, AppIcons.merge).last,
       );
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Peserta 2 ('));
@@ -176,7 +177,7 @@ void main() {
         (tester) async {
       await _openManager(tester, [_seg('Saya', 0)]);
       final button = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.merge_outlined),
+        find.widgetWithIcon(IconButton, AppIcons.merge),
       );
       expect(button.onPressed, isNull);
     });
