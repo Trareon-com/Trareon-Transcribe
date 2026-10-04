@@ -24,7 +24,8 @@
 //! Indonesian words otherwise wraps with a third of the line unused.
 
 use printpdf::{
-    Mm, Op, ParsedFont, PdfDocument, PdfFontHandle, PdfPage, PdfSaveOptions, Point, Pt, TextItem,
+    Mm, Op, ParsedFont, PdfDocument, PdfFontHandle, PdfPage, PdfSaveOptions, Pt, TextItem,
+    TextMatrix,
 };
 
 use super::{bookmark_lines, Bookmark, Segment};
@@ -144,6 +145,28 @@ pub fn to_pdf_bytes(
     summary: &str,
     bookmarks: &[Bookmark],
 ) -> Result<Vec<u8>, TranscribeError> {
+    to_pdf_bytes_with(
+        segments,
+        title,
+        summary,
+        bookmarks,
+        &PdfSaveOptions::default(),
+    )
+}
+
+/// [`to_pdf_bytes`] with explicit save options.
+///
+/// Exists so the layout test can ask for an uncompressed stream and read
+/// the operators: with the default options the content stream is Flate
+/// compressed, and a test that cannot see the operators cannot tell
+/// `Tm` from `Td` — which is exactly the bug that shipped.
+fn to_pdf_bytes_with(
+    segments: &[Segment],
+    title: &str,
+    summary: &str,
+    bookmarks: &[Bookmark],
+    options: &PdfSaveOptions,
+) -> Result<Vec<u8>, TranscribeError> {
     // Two warning sinks: parsing a face and serialising a document report
     // different warning types.
     let mut parse_warnings = Vec::new();
@@ -257,11 +280,15 @@ pub fn to_pdf_bytes(
             font: handle.clone(),
             size: Pt(line.size_pt),
         });
-        ops.push(Op::SetTextCursor {
-            pos: Point {
-                x: Pt(left_pt),
-                y: Pt(cursor),
-            },
+        // `Tm`, not `Td`. `Op::SetTextCursor` serialises to `Td`, which
+        // is *relative* to the start of the current line, so feeding it
+        // absolute page coordinates made every line after the first
+        // compound its offset and land off the page — the exported PDF
+        // showed its title and nothing else. `TextMatrix::Translate`
+        // replaces the matrix outright, which is what a laid-out page
+        // wants.
+        ops.push(Op::SetTextMatrix {
+            matrix: TextMatrix::Translate(Pt(left_pt), Pt(cursor)),
         });
         ops.push(Op::ShowText {
             items: vec![TextItem::Text(line.text.clone())],
@@ -282,9 +309,7 @@ pub fn to_pdf_bytes(
     }
 
     let mut save_warnings = Vec::new();
-    Ok(doc
-        .with_pages(pages)
-        .save(&PdfSaveOptions::default(), &mut save_warnings))
+    Ok(doc.with_pages(pages).save(options, &mut save_warnings))
 }
 
 /// Transcript as CSV, for a spreadsheet (F19).
@@ -413,6 +438,43 @@ mod tests {
         // Not an exact count — the object layout is printpdf's business —
         // but a single-page document would not reach here.
         assert!(pages > 0 || bytes.len() > 20_000);
+    }
+
+    /// Every laid-out line must position with `Tm` (absolute), never
+    /// `Td` (relative to the start of the current line).
+    ///
+    /// This is the test that was missing when the first version shipped
+    /// a PDF whose title rendered and whose transcript did not: asserting
+    /// the file had a header and an embedded font said nothing about
+    /// whether the text landed on the page. Found by exporting a real
+    /// transcript and running `pdftotext` on it, which returned the
+    /// title and nothing else.
+    #[test]
+    fn every_line_is_positioned_absolutely() {
+        let segments: Vec<Segment> = (0..6)
+            .map(|i| seg(i as f64 * 4.0, "Saya", "Satu baris transkrip."))
+            .collect();
+        let bytes = to_pdf_bytes_with(
+            &segments,
+            "Rapat",
+            "",
+            &[],
+            &PdfSaveOptions {
+                optimize: false,
+                ..PdfSaveOptions::default()
+            },
+        )
+        .unwrap();
+        let content = String::from_utf8_lossy(&bytes);
+
+        let tm = content.matches(" Tm").count();
+        let td = content.matches(" Td").count();
+        assert!(
+            tm >= 7,
+            "expected one Tm per laid-out line (title + heading + 6 rows), \
+             found {tm}"
+        );
+        assert_eq!(td, 0, "Td places text relative to the previous line");
     }
 
     #[test]

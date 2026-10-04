@@ -1772,3 +1772,5 @@ belum dimulai.
 - Archive chat live test perlu Ollama lokal
 - RNNoise +15% waktu pemrosesan di CPU lemah
 - WER corpus: GigaSpeech 2 perlu token/manual step
+# Sprint 4 report — branch `sprint/04-differentiators`
+

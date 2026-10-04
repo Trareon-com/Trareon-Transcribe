@@ -20,7 +20,6 @@
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -126,36 +125,101 @@ fn current_actor() -> String {
         .unwrap_or_else(|_| "pengguna".to_string())
 }
 
-/// Test hook: redirects the log so a test never appends to the real one.
-static DIR_OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
+#[cfg(test)]
+thread_local! {
+    /// Test hook: redirects the log so a test never appends to the real
+    /// one.
+    ///
+    /// Deliberately per-thread rather than process-wide. `cargo test`
+    /// runs every test on its own thread, and a single shared slot meant
+    /// one test redirecting the log pulled every *other* thread's
+    /// entries into its directory with it — including entries a sibling
+    /// module's test wrote only indirectly, by calling
+    /// [`crate::pdp::retention::apply`]. That cross-talk is invisible
+    /// when a test runs alone and fails in the full suite. Production
+    /// never sets this, so a per-thread slot costs nothing there.
+    static DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
 
-#[flutter_rust_bridge::frb(ignore)]
-pub fn set_log_dir(path: Option<PathBuf>) {
-    if let Ok(mut slot) = DIR_OVERRIDE.lock() {
-        *slot = path;
+#[cfg(test)]
+fn set_log_dir(path: Option<PathBuf>) {
+    DIR_OVERRIDE.with(|slot| *slot.borrow_mut() = path);
+}
+
+#[cfg(test)]
+fn override_dir() -> Option<PathBuf> {
+    DIR_OVERRIDE.with(|slot| slot.borrow().clone())
+}
+
+#[cfg(not(test))]
+fn override_dir() -> Option<PathBuf> {
+    None
+}
+
+/// The directory the log lives in when nothing has redirected it:
+/// alongside the recovery directory, under the OS config dir. Not `/tmp`,
+/// which is world-readable.
+///
+/// A test build has no such default. The real log belongs to whoever is
+/// running the suite, and a test that appends to it would both corrupt
+/// their history and read entries it did not write — so a test that
+/// audits anything must install a [`TestLogDir`] first, and one that
+/// forgets gets an error it can see rather than somebody else's file.
+fn default_log_dir() -> Result<PathBuf, TranscribeError> {
+    #[cfg(test)]
+    {
+        Err(TranscribeError::InvalidInput(
+            "the audit log was not redirected for this test".into(),
+        ))
+    }
+    #[cfg(not(test))]
+    {
+        dirs::config_dir()
+            .ok_or_else(|| TranscribeError::InvalidInput("no config dir".into()))
+            .map(|dir| dir.join("TrareonTranscribe"))
     }
 }
 
-/// Serialises every test that redirects the log.
-///
-/// [`DIR_OVERRIDE`] is one process-wide slot, and `cargo test` runs the
-/// audit and retention tests on different threads — one redirecting the
-/// log out from under the other produced a failure that only appeared in
-/// the full suite. Any test that calls [`set_log_dir`] must hold this
-/// first, including the ones in sibling modules.
-#[cfg(test)]
-pub(crate) static LOG_DIR_LOCK: Mutex<()> = Mutex::new(());
-
-/// Where the log lives: alongside the recovery directory, under the OS
-/// config dir. Not `/tmp`, which is world-readable.
+/// Where the log lives.
 pub fn log_path() -> Result<PathBuf, TranscribeError> {
-    if let Some(dir) = DIR_OVERRIDE.lock().ok().and_then(|slot| slot.clone()) {
-        return Ok(dir.join(LOG_FILE));
+    match override_dir() {
+        Some(dir) => Ok(dir.join(LOG_FILE)),
+        None => Ok(default_log_dir()?.join(LOG_FILE)),
     }
-    let dir = dirs::config_dir()
-        .ok_or_else(|| TranscribeError::InvalidInput("no config dir".into()))?
-        .join("TrareonTranscribe");
-    Ok(dir.join(LOG_FILE))
+}
+
+/// A log of its own for the duration of one test.
+///
+/// The redirect it installs is private to the calling thread, so two
+/// tests can each hold one without seeing the other's entries. Cleanup
+/// runs in `Drop`, so a failing assertion cannot leave the redirect
+/// pointing at a directory that has already been removed.
+#[cfg(test)]
+pub(crate) struct TestLogDir {
+    dir: PathBuf,
+}
+
+#[cfg(test)]
+impl TestLogDir {
+    pub(crate) fn new() -> Self {
+        let dir = std::env::temp_dir().join(format!("trareon_audit_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("a temporary audit directory");
+        set_log_dir(Some(dir.clone()));
+        Self { dir }
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.dir
+    }
+}
+
+#[cfg(test)]
+impl Drop for TestLogDir {
+    fn drop(&mut self) {
+        set_log_dir(None);
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
 }
 
 /// Appends one entry and flushes it to the platter.
@@ -275,18 +339,8 @@ mod tests {
     use super::*;
 
     fn with_temp_log<T>(body: impl FnOnce(&Path) -> T) -> T {
-        let guard = match super::LOG_DIR_LOCK.lock() {
-            Ok(g) => g,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let dir = std::env::temp_dir().join(format!("trareon_audit_{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        set_log_dir(Some(dir.clone()));
-        let out = body(&dir);
-        set_log_dir(None);
-        let _ = std::fs::remove_dir_all(&dir);
-        drop(guard);
-        out
+        let log = TestLogDir::new();
+        body(log.path())
     }
 
     #[test]
@@ -414,6 +468,47 @@ mod tests {
                 "{action:?}"
             );
         }
+    }
+
+    #[test]
+    fn another_thread_writing_its_own_log_cannot_reach_this_one() {
+        let _log = TestLogDir::new();
+        append(&AuditEntry::new(AuditAction::SessionCreated, "milik_saya")).unwrap();
+        // The regression: with one process-wide redirect, the entry
+        // below landed in whichever directory the other thread had
+        // installed last — so the full suite saw a retention test's
+        // entries appear inside an audit test's log.
+        std::thread::spawn(|| {
+            let _other = TestLogDir::new();
+            append(&AuditEntry::new(
+                AuditAction::SessionCreated,
+                "milik_orang_lain",
+            ))
+            .unwrap();
+        })
+        .join()
+        .unwrap();
+        assert_eq!(
+            read(0)
+                .iter()
+                .map(|e| e.subject.as_str())
+                .collect::<Vec<_>>(),
+            vec!["milik_saya"],
+            "a redirected log holds only what its own thread wrote"
+        );
+    }
+
+    #[test]
+    fn a_test_that_forgets_to_redirect_cannot_touch_the_real_log() {
+        // No `TestLogDir` here on purpose. In a test build there is no
+        // default directory, so the developer's own audit history is out
+        // of reach whatever a test does.
+        assert!(log_path().is_err(), "a test build has no default log dir");
+        assert!(
+            append(&AuditEntry::new(AuditAction::SessionCreated, "bocor")).is_err(),
+            "an unredirected append must fail rather than find a file"
+        );
+        assert!(read(0).is_empty());
     }
 
     #[test]

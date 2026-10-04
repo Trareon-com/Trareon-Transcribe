@@ -51,6 +51,15 @@ pub struct Args {
     /// (the `initial_prompt` biasing still applies).
     #[arg(long, default_value_t = false)]
     pub no_glossary_correction: bool,
+
+    /// Run RNNoise over the audio before transcription (F17).
+    ///
+    /// The same switch the app exposes in Pengaturan → Audio. Present on
+    /// the CLI so the effect can be measured on a file — "does denoising
+    /// help on this recording?" is a question you answer by transcribing
+    /// it both ways and reading the two transcripts.
+    #[arg(long, default_value_t = false)]
+    pub denoise: bool,
 }
 
 pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
@@ -71,6 +80,10 @@ pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
 }
 
 pub fn run(args: Args) -> i32 {
+    // Read by the ASR path from a process global; see
+    // `rust_core::denoise` for why it is not a parameter.
+    rust_core::denoise::set_enabled(args.denoise);
+
     let files: Vec<PathBuf> = match glob::glob(&args.batch) {
         Ok(paths) => paths.filter_map(Result::ok).collect(),
         Err(e) => {

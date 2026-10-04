@@ -131,6 +131,7 @@ windows = { version = "0.62", features = [
 ]}
 
 [dev-dependencies]
+flate2 = "1.1.10"
 
 
 [lints.rust]
