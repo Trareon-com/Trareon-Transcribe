@@ -237,6 +237,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setGlossary(GlossarySettings glossary) =>
       _apply(state.copyWith(glossary: glossary), label: 'Kamus istilah');
 
+  /// Mode Kepatuhan UU PDP (F13).
+  Future<void> setPdp(PdpSettings pdp) =>
+      _apply(state.copyWith(pdp: pdp), label: 'Mode Kepatuhan PDP');
+
   Future<void> setGlossaryEnabled(bool enabled) =>
       setGlossary(state.glossary.copyWith(enabled: enabled));
 

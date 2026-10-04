@@ -995,6 +995,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       bookmarks: _bookmarks,
       incomplete: _sessionDirPath != null &&
           ref.read(enhanceQueueProvider).isCompletingSession(_sessionDirPath!),
+      pdp: settings.pdp,
     );
   }
 }

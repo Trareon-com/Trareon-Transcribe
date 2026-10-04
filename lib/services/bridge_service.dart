@@ -1338,6 +1338,7 @@ class RustEngineBridge implements RustBridge {
       summaryTemplates: settings.summaryTemplates,
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
+      pdp: settings.pdp,
     );
   }
 
@@ -1363,6 +1364,7 @@ class RustEngineBridge implements RustBridge {
       summaryTemplates: settings.summaryTemplates,
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
+      pdp: settings.pdp,
     );
   }
 }

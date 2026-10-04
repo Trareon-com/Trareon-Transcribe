@@ -322,6 +322,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       summary: record?.meta.summary ?? '',
       incomplete: (record?.meta.isIncomplete ?? false) ||
           ref.read(enhanceQueueProvider).isCompletingSession(session.dirPath),
+      pdp: settings.pdp,
     );
   }
 

@@ -1,10 +1,40 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/bridge_service.dart';
+import '../src/rust/api.dart' as rust_api;
 import '../src/rust/export.dart' as rust_ekspor;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
+import 'redaction_preview.dart';
+
+/// Records an export in the local audit log, best effort.
+///
+/// Fire-and-forget: the files are already written, and failing the export
+/// because the compliance log could not be appended would be the feature
+/// breaking the product it is there to protect.
+Future<void> _auditExport(
+  String title,
+  String outputDir,
+  int formatCount,
+  PdpSettings pdp,
+) async {
+  if (!pdp.enabled) return;
+  try {
+    await rust_api.writeAuditEntry(
+      action: AuditAction.sessionExported,
+      subject: title,
+      destination: outputDir,
+      detail: pdp.redacts
+          ? '$formatCount format, disamarkan'
+          : '$formatCount format',
+    );
+  } catch (_) {
+    // Reported nowhere on purpose; see above.
+  }
+}
 
 /// Maps a settings-side format name (e.g. 'markdown') to the dialog's short
 /// format ID (e.g. 'md'). Falls back to the input unchanged for ids that are
@@ -30,6 +60,7 @@ Future<bool> showEksporDialog(
   String summary = '',
   List<Bookmark> bookmarks = const [],
   bool incomplete = false,
+  PdpSettings pdp = kDefaultPdpSettings,
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
@@ -155,6 +186,35 @@ Future<bool> showEksporDialog(
                         ],
                       ),
                     ),
+                  if (pdp.redacts)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.visibility_off_outlined,
+                              size: 13, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Mode Kepatuhan PDP aktif: data pribadi akan '
+                              'disamarkan di file hasil ekspor. Transkrip '
+                              'tersimpan tidak berubah.',
+                              style:
+                                  TextStyle(color: colors.primary, fontSize: 11),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => showRedactionPreview(
+                              dialogCtx,
+                              segments: session.segments,
+                              config: pdp.activeRedaction,
+                            ),
+                            child: const Text('Pratinjau'),
+                          ),
+                        ],
+                      ),
+                    ),
                   Text(
                     'Semua file dalam 1 folder',
                     style: TextStyle(color: colors.textTertiary, fontSize: 11),
@@ -219,14 +279,25 @@ Future<bool> showEksporDialog(
   ];
 
   try {
+    // Redaction happens here, on the way out, and only here. Rewriting
+    // the stored transcript would take evidence the user cannot get back.
+    final outgoing = pdp.redacts
+        ? (await rust_api.redactSegments(
+            segments: session.segments.map(toRustSegment).toList(),
+            config: pdp.activeRedaction,
+          )).map(fromRustSegment).toList()
+        : session.segments;
     await bridge.exportSessionWithSummary(
-      segments: session.segments,
+      segments: outgoing,
       outputDir: outputDir,
       title: session.title,
       summary: summary,
       bookmarks: bookmarks,
       formats: formats,
     );
+    // Auditable because it is the moment the data leaves the app. The
+    // entry records the destination and the format count, never the text.
+    unawaited(_auditExport(session.title, outputDir, formats.length, pdp));
     // Tutup loading dialog
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return false;

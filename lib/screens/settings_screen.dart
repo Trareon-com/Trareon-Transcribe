@@ -16,6 +16,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
 import '../widgets/glossary_settings_section.dart';
 import '../widgets/notulen_settings_section.dart';
+import '../widgets/pdp_settings_section.dart';
 import '../widgets/settings_controls.dart';
 import '../widgets/summary_settings_section.dart';
 import 'diagnostics_screen.dart';
@@ -37,6 +38,7 @@ enum SettingsCategory {
   penyimpanan,
   ringkasan,
   notulen,
+  kepatuhan,
   penyiapan,
   tentang,
 }
@@ -53,6 +55,7 @@ extension SettingsCategoryLabel on SettingsCategory {
         SettingsCategory.penyimpanan => 'Penyimpanan',
         SettingsCategory.ringkasan => 'Ringkasan AI',
         SettingsCategory.notulen => 'Notulen Resmi',
+        SettingsCategory.kepatuhan => 'Kepatuhan PDP',
         SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
         SettingsCategory.tentang => 'Tentang',
       };
@@ -65,6 +68,7 @@ extension SettingsCategoryLabel on SettingsCategory {
         SettingsCategory.penyimpanan => Icons.folder_outlined,
         SettingsCategory.ringkasan => Icons.auto_awesome_outlined,
         SettingsCategory.notulen => Icons.description_outlined,
+        SettingsCategory.kepatuhan => Icons.verified_user_outlined,
         SettingsCategory.penyiapan => Icons.health_and_safety_outlined,
         SettingsCategory.tentang => Icons.info_outlined,
       };
@@ -328,6 +332,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
           ],
         SettingsCategory.notulen => const [NotulenDefaultsSection()],
+        SettingsCategory.kepatuhan => const [PdpSettingsSection()],
         SettingsCategory.penyiapan => _penyiapan(context, ref),
         SettingsCategory.tentang => _tentang(context, ref, colors),
       },
