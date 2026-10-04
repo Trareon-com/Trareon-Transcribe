@@ -955,6 +955,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               showShortcuts: _showShortcuts,
                               onCloseShortcuts: () =>
                                   setState(() => _showShortcuts = false),
+                              onShowShortcuts: () =>
+                                  setState(() => _showShortcuts = true),
                               onAddBookmark: _addBookmark,
                               onAddBookmarkWithNote: () =>
                                   unawaited(_addBookmarkWithNote()),
@@ -1012,6 +1014,7 @@ class _Workspace extends StatelessWidget {
     required this.onOpenRecovery,
     required this.showShortcuts,
     required this.onCloseShortcuts,
+    required this.onShowShortcuts,
     required this.onAddBookmark,
     required this.onAddBookmarkWithNote,
     required this.onRemoveBookmark,
@@ -1045,6 +1048,9 @@ class _Workspace extends StatelessWidget {
   final VoidCallback onOpenRecovery;
   final bool showShortcuts;
   final VoidCallback onCloseShortcuts;
+
+  /// Opens the shortcuts panel from the footer hint.
+  final VoidCallback onShowShortcuts;
   final VoidCallback onAddBookmark;
   final VoidCallback onAddBookmarkWithNote;
   final void Function(Bookmark) onRemoveBookmark;
@@ -1187,6 +1193,7 @@ class _Workspace extends StatelessWidget {
           lifecycle: session.lifecycle,
           segmentsCount: session.segments.length,
           elapsedSeconds: session.elapsedSeconds,
+          onShowShortcuts: onShowShortcuts,
         ),
       ],
     );
@@ -1835,12 +1842,18 @@ class _FooterBar extends StatelessWidget {
   const _FooterBar({
     required this.lifecycle,
     required this.segmentsCount,
+    required this.onShowShortcuts,
     this.elapsedSeconds = 0,
   });
 
   final SessionLifecycle lifecycle;
   final int segmentsCount;
   final double elapsedSeconds;
+
+  /// The hint is a control, not decoration: a keyboard affordance that can
+  /// only be reached with the keyboard helps nobody who does not already
+  /// know it is there.
+  final VoidCallback onShowShortcuts;
 
   @override
   Widget build(BuildContext context) {
@@ -1879,9 +1892,29 @@ class _FooterBar extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          Text('Pintasan', style: AppText.micro.c(colors.textTertiary)),
-          Spacing.hSm,
-          KeyHint(AppShortcuts.shortcutsPanel.shortcut),
+          Interactive(
+            onPressed: onShowShortcuts,
+            borderRadius: Radii.smAll,
+            semanticLabel: 'Tampilkan pintasan keyboard',
+            builder: (context, state) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.sm,
+                vertical: Spacing.xs / 2,
+              ),
+              decoration: BoxDecoration(
+                color: state.active ? colors.hoverOverlay : Colors.transparent,
+                borderRadius: Radii.smAll,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Pintasan', style: AppText.micro.c(colors.textTertiary)),
+                  Spacing.hSm,
+                  KeyHint(AppShortcuts.shortcutsPanel.shortcut),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1918,30 +1951,37 @@ class _ShortcutsPanel extends StatelessWidget {
         Spacing.md,
         Spacing.lg,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      // Capped and centred: at 1920 px an uncapped panel puts every keycap a
+      // screen-width away from the action it belongs to.
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Measure.reading),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Pintasan keyboard',
-                  style: AppText.heading.c(colors.text),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Pintasan keyboard',
+                      style: AppText.heading.c(colors.text),
+                    ),
+                  ),
+                  AppIconButton(
+                    icon: AppIcons.close,
+                    tooltip: 'Tutup',
+                    size: IconSizes.md,
+                    onPressed: onClose,
+                  ),
+                ],
               ),
-              AppIconButton(
-                icon: AppIcons.close,
-                tooltip: 'Tutup',
-                size: IconSizes.md,
-                onPressed: onClose,
-              ),
+              Spacing.gapSm,
+              for (final action in AppShortcuts.all)
+                KeyHintRow(label: action.label, shortcut: action.shortcut),
             ],
           ),
-          Spacing.gapSm,
-          for (final action in AppShortcuts.all)
-            KeyHintRow(label: action.label, shortcut: action.shortcut),
-        ],
+        ),
       ),
     );
   }

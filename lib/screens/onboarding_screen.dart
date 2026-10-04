@@ -53,6 +53,15 @@ class OnboardingScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // The first screen a new user sees names the product.
+                  // A misspelling of it once shipped here, which is why
+                  // test/product_name_spelling_test.dart guards this line.
+                  Text(
+                    'Selamat datang di Trareon Transcribe',
+                    textAlign: TextAlign.center,
+                    style: AppText.display.c(colors.textStrong),
+                  ),
+                  Spacing.gapXl,
                   _Steps(current: allReady ? 2 : 1),
                   Spacing.gapXl,
                   Center(

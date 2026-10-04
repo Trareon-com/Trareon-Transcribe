@@ -339,42 +339,60 @@ class _CategoryContent extends ConsumerWidget {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
+    // Capped and centred, the way macOS System Settings and Linear both do
+    // it. A full-bleed settings pane on a 1920 px display puts a toggle a
+    // metre from the label it belongs to.
     return ListView(
       key: ValueKey(category),
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.lg,
-        Spacing.lg,
-        Spacing.lg,
-        Spacing.xxxl,
-      ),
-      children: switch (category) {
-        SettingsCategory.tampilan => _tampilan(settings, notifier),
-        SettingsCategory.modelMode => _modelMode(
-          context,
-          ref,
-          settings,
-          notifier,
-          colors,
-        ),
-        SettingsCategory.audio => _audio(settings, notifier),
-        SettingsCategory.kamus => const [GlossarySettingsSection()],
-        SettingsCategory.penyimpanan => _penyimpanan(
-          settings,
-          notifier,
-          colors,
-        ),
-        SettingsCategory.ringkasan => const [
-          SettingsSection(
-            title: 'Ringkasan AI',
-            children: [SummarySettingsSection()],
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Measure.settingsPane),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Spacing.gapLg,
+                ..._rows(context, ref, settings, notifier, colors),
+                Spacing.gapXxl,
+              ],
+            ),
           ),
-        ],
-        SettingsCategory.notulen => const [NotulenDefaultsSection()],
-        SettingsCategory.kepatuhan => const [PdpSettingsSection()],
-        SettingsCategory.penyiapan => _penyiapan(context, ref),
-        SettingsCategory.tentang => _tentang(context, ref, colors),
-      },
+        ),
+      ],
     );
+  }
+
+  List<Widget> _rows(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+    SettingsNotifier notifier,
+    AppColorSet colors,
+  ) {
+    return switch (category) {
+      SettingsCategory.tampilan => _tampilan(settings, notifier),
+      SettingsCategory.modelMode => _modelMode(
+        context,
+        ref,
+        settings,
+        notifier,
+        colors,
+      ),
+      SettingsCategory.audio => _audio(settings, notifier),
+      SettingsCategory.kamus => const [GlossarySettingsSection()],
+      SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
+      SettingsCategory.ringkasan => const [
+        SettingsSection(
+          title: 'Ringkasan AI',
+          children: [SummarySettingsSection()],
+        ),
+      ],
+      SettingsCategory.notulen => const [NotulenDefaultsSection()],
+      SettingsCategory.kepatuhan => const [PdpSettingsSection()],
+      SettingsCategory.penyiapan => _penyiapan(context, ref),
+      SettingsCategory.tentang => _tentang(context, ref, colors),
+    };
   }
 
   List<Widget> _tampilan(AppSettings settings, SettingsNotifier notifier) => [

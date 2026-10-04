@@ -246,6 +246,11 @@ abstract final class Measure {
   /// 220: the Settings category rail.
   static const double settingsRail = 220;
 
+  /// 760: the Settings content column. Without a cap, a 1920 px window gives
+  /// a five-character theme picker an 800 px dropdown, which is the clearest
+  /// possible signal that nobody looked at the screen on a large display.
+  static const double settingsPane = 760;
+
   /// 360: the summary side panel in the transcript player.
   static const double summaryPanel = 360;
 }
