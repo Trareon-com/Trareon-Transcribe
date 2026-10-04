@@ -2017,6 +2017,34 @@ menjadi tiga ejaan.
 
 ---
 
+## Berkas & tes per item
+
+Modul Rust baru dan berkas tes baru di sprint ini. Angka tes adalah jumlah
+`#[test]` / `test(` di berkas itu, bukan total gate.
+
+| Item | Berkas utama | Tes |
+|---|---|---|
+| ITEM 0 | `rust_core/src/coverage.rs` (20), `completion.rs` (12), `hallucination.rs` (12), `stt/file.rs`, `lib/state/enhance_queue_model.dart`, `lib/widgets/completion_banner.dart` | `test/completion_queue_test.dart` (24) |
+| F6 | `rust_core/src/actions.rs` (29), `lib/widgets/action_items_panel.dart`, `lib/widgets/notulen_dialog.dart` | `test/action_items_test.dart` (12, bersama F7) |
+| F7 | `rust_core/src/provenance.rs` (18), `lib/widgets/summary_panel.dart` | `test/action_items_test.dart` |
+| F10 | `rust_core/src/diarization.rs`, `lib/widgets/speaker_manager_dialog.dart`, `lib/services/speaker_aliases.dart`, `lib/widgets/file_upload_zone.dart` | `test/speakers_test.dart` (12) |
+| F12 | `rust_core/src/archive.rs` (14), `lib/state/archive_chat_model.dart`, `lib/screens/archive_chat_screen.dart` | `test/archive_chat_test.dart` (7), `rust_core/tests/archive_chat_live.rs` (digerbangi env var) |
+| F13 | `rust_core/src/pdp/redaction.rs` (25), `retention.rs` (15), `audit.rs` (9), `lib/widgets/pdp_settings_section.dart`, `redaction_preview.dart`, `audit_log_view.dart` | `test/pdp_test.dart` (18) |
+| F14 | `rust_core/src/capabilities.rs` (6), `lib/screens/capabilities_screen.dart` | `test/capabilities_screen_test.dart` (7) + gerbang silang di `rust_core/src/privacy.rs` |
+| F15 | `rust_core/src/mapreduce.rs` (15), `lib/state/summary_model.dart` | `test/summary_model_test.dart` (diperbarui) |
+| F17 | `rust_core/src/denoise.rs` (8), `rust_core/src/stt/mod.rs`, `rust_core/src/bin/cli_shared.rs` | tes modul di `denoise.rs` |
+| F18 | `rust_core/src/wer.rs` (13), `rust_core/src/bin/wer_bench.rs`, `scripts/fetch_wer_corpus.sh`, `docs/WER-BENCH.md` | tes modul di `wer.rs` |
+| F19 | `rust_core/src/export/pdf.rs` (12), `rust_core/src/export/mod.rs`, `lib/widgets/export_dialog.dart` | tes modul di `export/pdf.rs` |
+| F20 | `lib/widgets/transcript_view.dart`, `lib/screens/transcript_player_screen.dart`, `lib/widgets/tag_editor_dialog.dart`, `lib/widgets/session_sidebar.dart`, `lib/services/library_index.dart` | `test/transcript_editing_test.dart` (13) |
+
+Tes lama yang ikut diperbarui karena perilakunya memang berubah:
+`test/privacy_proof_test.dart` (gerbang diperluas ke `generateSummaryLong`
+dan `archiveAsk`), `test/transcript_player_screen_test.dart` (penyuntingan
+di pemutar kini inline, bukan dialog), `test/summary_model_test.dart`,
+`test/test_helpers.dart`, dan empat berkas tes yang memakai
+`batchTranscribeFiles` / `progressiveTranscribeFile` (parameter
+`speakerHint` baru).
+
 ## Yang tidak dikerjakan
 
 * **F11** (catatan pribadi saat rapat digabung AI) — stretch, tidak
@@ -2048,6 +2076,12 @@ menjadi tiga ejaan.
 * **PDF memakai satu bobot font** (regular). Tebal/miring akan
   melipatgandakan ~740 kB yang sudah ikut di binary.
 * **Uji audio Windows (WASAPI)** tidak dijalankan — lihat di bawah.
+* **`test/perf/library_index_perf_test.dart` goyah di mesin yang sibuk.**
+  Ambangnya wall-clock keras (200 sesi < 500 ms). Sekali gagal saat suite
+  penuh dijalankan bersamaan dengan pekerjaan lain di mesin ini; dijalankan
+  sendiri ia selesai 129 ms, dan pengulangan suite penuh lulus (548/548).
+  Jadi ini tes yang mengukur beban mesin, bukan regresi — sejenis dengan
+  yang sudah dicatat di putaran perbaikan CI Sprint 3.
 
 ## PERLU IZIN OWNER: uji audio Windows
 
