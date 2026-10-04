@@ -336,8 +336,9 @@ void main() {
     for (var i = 0; i < 20; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
       session = container.read(sessionProvider);
-      if (session.config.modelPath.endsWith('ggml-large-v3-turbo-q5_0.bin'))
+      if (session.config.modelPath.endsWith('ggml-large-v3-turbo-q5_0.bin')) {
         break;
+      }
     }
 
     expect(

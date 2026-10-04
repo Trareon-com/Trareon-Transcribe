@@ -28,6 +28,7 @@ import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
 import '../widgets/capture_health_view.dart';
+import '../widgets/platform_chrome.dart';
 import '../widgets/record_button.dart';
 import '../widgets/recovery_dialog.dart';
 import '../widgets/session_controls.dart';
@@ -837,116 +838,146 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       onToggleCollapsed: _toggleSidebar,
     );
 
-    return CallbackShortcuts(
-      bindings: {
-        for (final activator in AppShortcuts.startStop.activators)
-          activator: () => _toggleStartBerhenti(context, ref),
-        for (final activator in AppShortcuts.pauseResume.activators)
-          activator: () {
-            if (isPaused) {
-              notifier.resume();
-            } else if (lifecycle == SessionLifecycle.recording) {
-              notifier.pause();
-            }
-          },
-        // The history is already on screen, so this focuses the sidebar
-        // search rather than pushing a separate library screen.
-        for (final activator in AppShortcuts.searchSessions.activators)
-          activator: _focusSidebarSearch,
-        for (final activator in AppShortcuts.settings.activators)
-          activator: _openSettings,
-        for (final activator in AppShortcuts.shortcutsPanel.activators)
-          activator: () => setState(() => _showShortcuts = !_showShortcuts),
-        // Tandai poin penting (F9). One key, no dialog: the point of a
-        // one-key marker is that it does not interrupt the meeting.
-        for (final activator in AppShortcuts.bookmark.activators)
-          activator: _addBookmark,
-        for (final activator in AppShortcuts.toggleSidebar.activators)
-          activator: _toggleSidebar,
-      },
-      child: Focus(
-        autofocus: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final persistentSidebar =
-                constraints.maxWidth >= kSidebarPersistentMinWidth;
-            return Scaffold(
-              key: _scaffoldKey,
-              backgroundColor: colors.background,
-              drawer: persistentSidebar
-                  ? null
-                  : Drawer(
-                      child: SessionSidebar(
-                        selectedDirPath: _openSession?.dirPath,
-                        onSelect: (entry) {
-                          Navigator.of(context).pop();
-                          _selectSession(entry);
-                        },
-                        onNewSession: () {
-                          Navigator.of(context).pop();
-                          _newSession();
-                        },
-                        onOpenLibrary: () => _openLibrary(),
-                        onOpenUpload: () => _openLibrary(tab: 1),
-                        onOpenSettings: _openSettings,
-                        onOpenArchiveChat: _openArchiveChat,
-                        searchFocusNode: _sidebarSearchFocus,
-                        isRecording: isActive,
+    return AppPlatformMenuBar(
+      onNewSession: _newSession,
+      onToggleRecording: () => _toggleStartBerhenti(context, ref),
+      onOpenSettings: _openSettings,
+      onFocusSearch: _focusSidebarSearch,
+      onToggleSidebar: _toggleSidebar,
+      onShowShortcuts: () => setState(() => _showShortcuts = true),
+      child: CallbackShortcuts(
+        bindings: {
+          for (final activator in AppShortcuts.startStop.activators)
+            activator: () => _toggleStartBerhenti(context, ref),
+          for (final activator in AppShortcuts.pauseResume.activators)
+            activator: () {
+              if (isPaused) {
+                notifier.resume();
+              } else if (lifecycle == SessionLifecycle.recording) {
+                notifier.pause();
+              }
+            },
+          // The history is already on screen, so this focuses the sidebar
+          // search rather than pushing a separate library screen.
+          for (final activator in AppShortcuts.searchSessions.activators)
+            activator: _focusSidebarSearch,
+          for (final activator in AppShortcuts.settings.activators)
+            activator: _openSettings,
+          for (final activator in AppShortcuts.shortcutsPanel.activators)
+            activator: () => setState(() => _showShortcuts = !_showShortcuts),
+          // Tandai poin penting (F9). One key, no dialog: the point of a
+          // one-key marker is that it does not interrupt the meeting.
+          for (final activator in AppShortcuts.bookmark.activators)
+            activator: _addBookmark,
+          for (final activator in AppShortcuts.toggleSidebar.activators)
+            activator: _toggleSidebar,
+        },
+        child: Focus(
+          autofocus: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final persistentSidebar =
+                  constraints.maxWidth >= kSidebarPersistentMinWidth;
+              return Scaffold(
+                key: _scaffoldKey,
+                backgroundColor: colors.background,
+                drawer: persistentSidebar
+                    ? null
+                    : Drawer(
+                        child: SessionSidebar(
+                          selectedDirPath: _openSession?.dirPath,
+                          onSelect: (entry) {
+                            Navigator.of(context).pop();
+                            _selectSession(entry);
+                          },
+                          onNewSession: () {
+                            Navigator.of(context).pop();
+                            _newSession();
+                          },
+                          onOpenLibrary: () => _openLibrary(),
+                          onOpenUpload: () => _openLibrary(tab: 1),
+                          onOpenSettings: _openSettings,
+                          onOpenArchiveChat: _openArchiveChat,
+                          searchFocusNode: _sidebarSearchFocus,
+                          isRecording: isActive,
+                        ),
+                      ),
+                body: Column(
+                  children: [
+                    // macOS runs the sidebar under the traffic lights and
+                    // Windows has no caption bar of its own, so both need a
+                    // strip at the top that drags the window. Linux keeps its
+                    // GTK decorations and this collapses to nothing.
+                    Row(
+                      children: [
+                        const Expanded(child: WindowTopInset()),
+                        const WindowsCaptionButtons(),
+                      ],
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          if (persistentSidebar) sidebar,
+                          Expanded(
+                            child: _Workspace(
+                              showMenuButton: !persistentSidebar,
+                              onOpenMenu: () =>
+                                  _scaffoldKey.currentState?.openDrawer(),
+                              session: session,
+                              notifier: notifier,
+                              isActive: isActive,
+                              isPaused: isPaused,
+                              openSession: _openSession,
+                              openingSession: _openingSession,
+                              openSessionSeek: _openSessionSeek,
+                              onCloseSession: _newSession,
+                              vuLevel: vuLevel,
+                              captureHealth: _captureHealth,
+                              titleController: _titleController,
+                              onStartBerhenti: () =>
+                                  _toggleStartBerhenti(context, ref),
+                              onEkspor: () => _onEkspor(context),
+                              isBusy: _isStoppingSession || _isStartingSession,
+                              busyLabel: _isStartingSession
+                                  ? 'Memulai…'
+                                  : 'Menyimpan…',
+                              saveError: _saveError,
+                              retryingSave: _retryingSave,
+                              onRetrySave: () => _retrySave(),
+                              onSaveElsewhere: () =>
+                                  _retrySave(elsewhere: true),
+                              loadingRecoveries: _loadingRecoveries,
+                              recoverySummary: _recoverableSessions.isEmpty
+                                  ? null
+                                  : _recoverySummary(_recoverableSessions),
+                              onOpenRecovery: () =>
+                                  _openRecoveryDialog(context),
+                              showShortcuts: _showShortcuts,
+                              onCloseShortcuts: () =>
+                                  setState(() => _showShortcuts = false),
+                              onAddBookmark: _addBookmark,
+                              onAddBookmarkWithNote: () =>
+                                  unawaited(_addBookmarkWithNote()),
+                              onRemoveBookmark: (bookmark) => ref
+                                  .read(sessionProvider.notifier)
+                                  .removeBookmark(bookmark.timestamp),
+                              onEditBookmarkNote: (bookmark) =>
+                                  unawaited(_editBookmarkNote(bookmark)),
+                              onSessionEdited: (dirPath) => unawaited(
+                                ref
+                                    .read(libraryListProvider.notifier)
+                                    .refreshOne(dirPath),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-              body: Row(
-                children: [
-                  if (persistentSidebar) sidebar,
-                  Expanded(
-                    child: _Workspace(
-                      showMenuButton: !persistentSidebar,
-                      onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                      session: session,
-                      notifier: notifier,
-                      isActive: isActive,
-                      isPaused: isPaused,
-                      openSession: _openSession,
-                      openingSession: _openingSession,
-                      openSessionSeek: _openSessionSeek,
-                      onCloseSession: _newSession,
-                      vuLevel: vuLevel,
-                      captureHealth: _captureHealth,
-                      titleController: _titleController,
-                      onStartBerhenti: () => _toggleStartBerhenti(context, ref),
-                      onEkspor: () => _onEkspor(context),
-                      isBusy: _isStoppingSession || _isStartingSession,
-                      busyLabel: _isStartingSession ? 'Memulai…' : 'Menyimpan…',
-                      saveError: _saveError,
-                      retryingSave: _retryingSave,
-                      onRetrySave: () => _retrySave(),
-                      onSaveElsewhere: () => _retrySave(elsewhere: true),
-                      loadingRecoveries: _loadingRecoveries,
-                      recoverySummary: _recoverableSessions.isEmpty
-                          ? null
-                          : _recoverySummary(_recoverableSessions),
-                      onOpenRecovery: () => _openRecoveryDialog(context),
-                      showShortcuts: _showShortcuts,
-                      onCloseShortcuts: () =>
-                          setState(() => _showShortcuts = false),
-                      onAddBookmark: _addBookmark,
-                      onAddBookmarkWithNote: () =>
-                          unawaited(_addBookmarkWithNote()),
-                      onRemoveBookmark: (bookmark) => ref
-                          .read(sessionProvider.notifier)
-                          .removeBookmark(bookmark.timestamp),
-                      onEditBookmarkNote: (bookmark) =>
-                          unawaited(_editBookmarkNote(bookmark)),
-                      onSessionEdited: (dirPath) => unawaited(
-                        ref
-                            .read(libraryListProvider.notifier)
-                            .refreshOne(dirPath),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

@@ -141,7 +141,10 @@ void main() {
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Pengaturan (Ctrl+,)'));
+      // Settings is a destination in the sidebar footer now, next to the
+      // other three; it lost its place in the brand row because two icon
+      // buttons there truncated the wordmark.
+      await tester.tap(find.text('Pengaturan'));
       await tester.pumpAndSettle();
 
       expect(find.text('Tema'), findsOneWidget);
@@ -154,7 +157,10 @@ void main() {
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Pengaturan (Ctrl+,)'));
+      // Settings is a destination in the sidebar footer now, next to the
+      // other three; it lost its place in the brand row because two icon
+      // buttons there truncated the wordmark.
+      await tester.tap(find.text('Pengaturan'));
       await tester.pumpAndSettle();
 
       // Settings is two panes now: the Privacy Report tile lives under

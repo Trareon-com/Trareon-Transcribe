@@ -340,9 +340,12 @@ class AppIconButton extends StatelessWidget {
               else
                 Icon(icon, size: size, color: fg),
               if (badge != null && badge! > 0)
+                // Hard into the corner: at the centre of a 44 px box a 20 px
+                // glyph leaves 12 px of margin, and a badge any further in
+                // sits on top of the glyph instead of beside it.
                 Positioned(
-                  top: Spacing.xs,
-                  right: Spacing.xs,
+                  top: Spacing.xs / 2,
+                  right: Spacing.xs / 2,
                   child: _CountDot(count: badge!),
                 ),
             ],
@@ -362,9 +365,9 @@ class _CountDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
-      constraints: const BoxConstraints(minWidth: IconSizes.sm),
-      height: IconSizes.sm,
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+      constraints: const BoxConstraints(minWidth: IconSizes.xs),
+      height: IconSizes.xs,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs / 2),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: colors.primary,

@@ -1190,8 +1190,9 @@ class RustEngineBridge implements RustBridge {
       for (final event in events) {
         event.when(
           transcript: (segment) {
-            if (!paused)
+            if (!paused) {
               _transcriptControllers[sessionId]?.add(_fromRustSegment(segment));
+            }
           },
           vu: (source, level) {
             if (!paused) {

@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 
 class SettingsSection extends StatelessWidget {
   final String title;
@@ -256,10 +257,7 @@ class CompactDropdown<T> extends StatelessWidget {
                   value: item,
                   child: Text(
                     labelBuilder(item),
-                    style: TextStyle(
-                      fontSize: FontSizes.body,
-                      color: colors.text,
-                    ),
+                    style: AppText.body.c(colors.text),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -274,7 +272,11 @@ class CompactDropdown<T> extends StatelessWidget {
             size: IconSizes.md,
             color: colors.textSecondary,
           ),
-          style: TextStyle(fontSize: FontSizes.body, color: colors.text),
+          // A real role, not a bare TextStyle: DropdownButton *replaces*
+          // the DefaultTextStyle with whatever it is handed, so a style with
+          // no family rendered the selected value in the platform fallback
+          // face instead of the app's own.
+          style: AppText.body.c(colors.text),
           borderRadius: BorderRadius.circular(Radii.md),
         ),
       ),

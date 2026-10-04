@@ -34,7 +34,6 @@ import '../theme/app_icons.dart';
 import '../widgets/ui/speech_timeline.dart';
 import '../theme/app_typography.dart';
 import '../widgets/ui/app_controls.dart';
-import '../widgets/ui/app_chip.dart';
 
 /// Playback speeds offered by the player. 0.75× is the slowest useful speed
 /// for re-listening to an unclear passage; below that Indonesian speech
@@ -1004,13 +1003,21 @@ class _TranscriptPlayerScreenState
                     child: Column(
                       children: [
                         if (_error != null) ...[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: AppStatusBadge(
-                              label: _error!,
-                              status: AppStatus.warning,
-                              icon: AppIcons.volumeOff,
-                            ),
+                          Row(
+                            children: [
+                              Icon(
+                                AppIcons.volumeOff,
+                                size: IconSizes.sm,
+                                color: colors.warning,
+                              ),
+                              Spacing.hSm,
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: AppText.caption.c(colors.warning),
+                                ),
+                              ),
+                            ],
                           ),
                           Spacing.gapSm,
                         ],
@@ -1055,9 +1062,15 @@ class _TranscriptPlayerScreenState
                           ),
                         ),
 
-                        // Play controls + speed
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        // Play controls and speed. A Wrap, not a Row: at the
+                        // 1.5x text scale the app supports, the speed chip
+                        // grows past what a fixed Row can hold in the
+                        // narrowest window.
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: Spacing.sm,
+                          runSpacing: Spacing.sm,
                           children: [
                             IconButton(
                               iconSize: 24,

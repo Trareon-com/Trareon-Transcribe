@@ -15,6 +15,7 @@ import '../utils/model_labels.dart';
 import '../utils/system_specs.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 
 class WizardSpecs {
   final int cpuCores;
@@ -953,7 +954,7 @@ class _AudioDropdown extends StatelessWidget {
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: colors.surface,
-            style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
+            style: AppText.reading.c(colors.text),
             items: devices.isNotEmpty
                 ? devices
                       .map(

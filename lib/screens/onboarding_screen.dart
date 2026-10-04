@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../widgets/model_download_card.dart';
 import '../theme/app_icons.dart';
+import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
+import '../widgets/model_download_card.dart';
+import '../widgets/ui/app_button.dart';
 
 /// First-launch onboarding — model download screen.
 ///
@@ -28,96 +30,231 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     final quick = state.quick;
     final accurate = state.accurate;
     final allReady = state.allReady;
+    final failed =
+        quick.status == DownloadStatus.error ||
+        accurate.status == DownloadStatus.error;
 
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.xl,
-            vertical: Spacing.xxl,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.xl,
+              vertical: Spacing.xxl,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Measure.hero),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Steps(current: allReady ? 2 : 1),
+                  Spacing.gapXl,
+                  Center(
+                    child: _Plate(
+                      icon: AppIcons.download,
+                      badge: allReady ? AppIcons.checkPlain : null,
+                    ),
+                  ),
+                  Spacing.gapLg,
+                  Text(
+                    allReady ? 'Siap merekam' : 'Mengunduh model',
+                    textAlign: TextAlign.center,
+                    style: AppText.title.c(colors.text),
+                  ),
+                  Spacing.gapSm,
+                  Text(
+                    allReady
+                        ? 'Kedua model sudah ada di perangkat ini. '
+                              'Transkripsi berjalan sepenuhnya offline.'
+                        : 'Trareon bekerja 100% offline, jadi modelnya perlu '
+                              'ada di perangkat Anda. Hanya sekali.',
+                    textAlign: TextAlign.center,
+                    style: AppText.body.c(colors.textSecondary),
+                  ),
+                  Spacing.gapXl,
+                  ModelDownloadCard(
+                    title: quick.title,
+                    subtitle: quick.subtitle,
+                    sizeLabel: quick.size,
+                    progress: quick.progress,
+                    status: quick.status,
+                    errorText: quick.error,
+                  ),
+                  Spacing.gapMd,
+                  ModelDownloadCard(
+                    title: accurate.title,
+                    subtitle: accurate.subtitle,
+                    sizeLabel: accurate.size,
+                    progress: accurate.progress,
+                    status: accurate.status,
+                    errorText: accurate.error,
+                  ),
+                  Spacing.gapXl,
+                  if (failed) ...[
+                    Center(
+                      child: AppButton(
+                        label: 'Coba Lagi',
+                        icon: AppIcons.refresh,
+                        onPressed: () {
+                          if (quick.status == DownloadStatus.error) {
+                            onRetryQuick();
+                          }
+                          if (accurate.status == DownloadStatus.error) {
+                            onRetryAccurate();
+                          }
+                        },
+                      ),
+                    ),
+                    Spacing.gapMd,
+                  ],
+                  Center(
+                    child: AppButton.primary(
+                      label: allReady ? 'Mulai Merekam' : 'Mengunduh…',
+                      size: AppButtonSize.lg,
+                      loading: !allReady && !failed,
+                      icon: allReady ? AppIcons.record : null,
+                      onPressed: allReady ? onContinue : null,
+                    ),
+                  ),
+                  Spacing.gapSm,
+                  Text(
+                    allReady
+                        ? 'Model tidak akan pernah dikirim ke mana pun.'
+                        : 'Anda boleh menutup aplikasi, unduhan dilanjutkan '
+                              'di latar belakang.',
+                    textAlign: TextAlign.center,
+                    style: AppText.caption.c(colors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Selamat datang di Trareon Transcribe',
-                style: TextStyle(
-                  fontSize: FontSizes.headline,
-                  fontWeight: FontWeight.w700,
-                  color: colors.text,
+        ),
+      ),
+    );
+  }
+}
+
+/// The three steps of first run, as a progress strip.
+///
+/// Step 1 (permissions) is handled by the setup wizard and the OS prompts the
+/// first time a session starts, so it is shown as already behind the user
+/// rather than invented here; this screen owns step 2 and announces step 3.
+class _Steps extends StatelessWidget {
+  const _Steps({required this.current});
+
+  final int current;
+
+  static const _labels = [
+    'Izin mikrofon & audio sistem',
+    'Pilih model',
+    'Siap rekam',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Semantics(
+      label:
+          'Langkah ${current + 1} dari ${_labels.length}: '
+          '${_labels[current]}',
+      child: Row(
+        children: [
+          for (var i = 0; i < _labels.length; i++) ...[
+            if (i > 0) Spacing.hSm,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: Strokes.progress,
+                    decoration: BoxDecoration(
+                      color: i <= current
+                          ? colors.primary
+                          : colors.hairlineStrong,
+                      borderRadius: Radii.pillAll,
+                    ),
+                  ),
+                  Spacing.gapSm,
+                  ExcludeSemantics(
+                    child: Text(
+                      _labels[i],
+                      maxLines: 2,
+                      style: AppText.micro.c(
+                        i <= current ? colors.text : colors.textTertiary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The icon composition the hero opens with.
+class _Plate extends StatelessWidget {
+  const _Plate({required this.icon, this.badge});
+
+  final IconData icon;
+  final IconData? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return ExcludeSemantics(
+      child: SizedBox(
+        width: Spacing.xxxl + Spacing.xl,
+        height: Spacing.xxxl + Spacing.xl,
+        child: Stack(
+          children: [
+            Container(
+              width: Spacing.xxxl + Spacing.xl,
+              height: Spacing.xxxl + Spacing.xl,
+              decoration: BoxDecoration(
+                color: colors.surfaceSunken,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.hairline),
+              ),
+              child: Icon(
+                icon,
+                size: IconSizes.hero,
+                color: colors.textTertiary,
+              ),
+            ),
+            if (badge != null)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: Spacing.xl,
+                  height: Spacing.xl,
+                  decoration: BoxDecoration(
+                    color: colors.success,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colors.surface,
+                      width: Strokes.focusRing,
+                    ),
+                  ),
+                  child: Icon(
+                    badge,
+                    size: IconSizes.xs,
+                    color: colors.onSuccess,
+                  ),
                 ),
               ),
-              Spacing.gapSm,
-              Text(
-                'Aplikasi ini bekerja 100% offline. Kami perlu mengunduh dua model ke perangkat Anda, proses ini hanya terjadi sekali.',
-                style: TextStyle(
-                  fontSize: FontSizes.body,
-                  color: colors.textSecondary,
-                ),
-              ),
-              Spacing.gapXl,
-              ModelDownloadCard(
-                title: quick.title,
-                subtitle: quick.subtitle,
-                sizeLabel: quick.size,
-                progress: quick.progress,
-                status: quick.status,
-                errorText: quick.error,
-              ),
-              Spacing.gapMd,
-              ModelDownloadCard(
-                title: accurate.title,
-                subtitle: accurate.subtitle,
-                sizeLabel: accurate.size,
-                progress: accurate.progress,
-                status: accurate.status,
-                errorText: accurate.error,
-              ),
-              const Spacer(),
-              if (quick.status == DownloadStatus.error ||
-                  accurate.status == DownloadStatus.error)
-                TextButton.icon(
-                  onPressed: () {
-                    if (quick.status == DownloadStatus.error) {
-                      onRetryQuick();
-                    }
-                    if (accurate.status == DownloadStatus.error) {
-                      onRetryAccurate();
-                    }
-                  },
-                  icon: const Icon(AppIcons.refresh, size: IconSizes.sm),
-                  label: const Text('Coba lagi'),
-                ),
-              Spacing.gapMd,
-              ElevatedButton(
-                onPressed: allReady ? onContinue : null,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                ),
-                child: Text(
-                  allReady ? 'Mulai menggunakan' : 'Mengunduh…',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Spacing.gapSm,
-              Text(
-                allReady
-                    ? 'Siap. Model tidak akan pernah dikirim ke mana pun.'
-                    : 'Anda boleh menutup aplikasi, unduhan akan dilanjutkan di latar belakang.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: FontSizes.micro,
-                  color: colors.textTertiary,
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

@@ -174,7 +174,16 @@ class AppStatusBadge extends StatelessWidget {
             Icon(icon, size: IconSizes.xs, color: ink),
             const SizedBox(width: Spacing.xs + 2),
           ],
-          Text(label, style: AppText.micro.c(ink)),
+          // Flexible: a badge is a fixed-height pill, and at the 1.5x text
+          // scale the app supports a long label overflowed it outright.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.micro.c(ink),
+            ),
+          ),
         ],
       ),
     );

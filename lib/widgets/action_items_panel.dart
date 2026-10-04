@@ -24,6 +24,7 @@ import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
 import 'app_toast.dart';
 import '../theme/app_icons.dart';
+import '../theme/app_typography.dart';
 
 /// Indonesian label for a status.
 ///
@@ -479,10 +480,7 @@ class _ActionRowState extends State<_ActionRow> {
                     // Ellipsise rather than overflow: "Sedang berjalan"
                     // is wider than the column at a narrow window.
                     isExpanded: true,
-                    style: TextStyle(
-                      fontSize: FontSizes.caption,
-                      color: colors.text,
-                    ),
+                    style: AppText.caption.c(colors.text),
                     decoration: const InputDecoration(
                       isDense: true,
                       labelText: 'Status',

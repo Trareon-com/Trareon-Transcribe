@@ -143,6 +143,68 @@ void main() {
     });
   });
 
+  group('text always carries the app typeface', () {
+    // The three widgets that *replace* DefaultTextStyle rather than merging
+    // with it. Handed a bare `TextStyle(...)` they render in the platform
+    // fallback face, which is how the most-read text in the app (the
+    // transcript body) and every settings dropdown ended up outside Inter
+    // until the goldens caught it.
+    test('RichText is not used; Text.rich merges the default style', () {
+      expect(
+        _scan(RegExp(r'(?<![A-Za-z])RichText\(')),
+        isEmpty,
+        reason:
+            'Use Text.rich. RichText does not merge DefaultTextStyle, so its '
+            'spans lose the app typeface.',
+      );
+    });
+
+    test('DefaultTextStyle and Dropdown styles come from AppText', () {
+      final offenders = <String>[];
+      final replacers = RegExp(
+        r'(?<![A-Za-z])(DefaultTextStyle|DropdownButton|'
+        r'DropdownButtonFormField)[(<]',
+      );
+      for (final (file, lines) in _uiSourceLines()) {
+        for (var i = 0; i < lines.length; i++) {
+          if (_isComment(lines[i])) continue;
+          if (!replacers.hasMatch(lines[i])) continue;
+          // Only the widget's own argument list: scan forward while the
+          // indentation stays deeper than the line it opened on. A fixed
+          // window would pick up the `style:` of whatever Text happens to
+          // follow it.
+          final indent = lines[i].length - lines[i].trimLeft().length;
+          String? value;
+          for (var j = i + 1; j < lines.length; j++) {
+            final line = lines[j];
+            if (line.trim().isEmpty) continue;
+            final depth = line.length - line.trimLeft().length;
+            if (depth <= indent) break;
+            final style = RegExp(r'style:\s*(.*)').firstMatch(line);
+            if (style != null) {
+              value = style.group(1);
+              break;
+            }
+          }
+          if (value == null) continue;
+          if (value.contains('AppText.') || value.contains('AppFonts.')) {
+            continue;
+          }
+          if (!value.contains('TextStyle')) continue;
+          offenders.add('${_rel(file)}:${i + 1} ${lines[i].trim()}');
+        }
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'These widgets replace DefaultTextStyle. Give them a role from '
+            'AppText so the text keeps the app typeface. Offenders:\n  '
+            '${offenders.join('\n  ')}',
+      );
+    });
+  });
+
   group('one notification system', () {
     test('SnackBar and ScaffoldMessenger are not used in lib/', () {
       final pattern = RegExp(r'(?<![A-Za-z])(SnackBar|ScaffoldMessenger)\b');
