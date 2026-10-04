@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/services/session_store.dart';
@@ -82,6 +83,25 @@ class _EnhanceBridge extends NoopBridge {
       ),
     ];
   }
+}
+
+/// Plants a stub accurate-model file inside [dirPath], which every queue test
+/// also passes as `libraryPath`.
+///
+/// [EnhanceQueueNotifier.considerSession] refuses to queue anything unless the
+/// accurate model is installed, and the real file is a 574 MB download that
+/// only ever exists in a developer's model cache. Depending on it made these
+/// tests pass on a machine that had done the download and fail everywhere else
+/// — including CI, where nothing was queued, so the queue assertions had no
+/// job to look at. The engine is a fake here, so nothing reads the bytes:
+/// `isModelAvailable()` only checks that the file exists.
+///
+/// The name comes from [modelPathForId] rather than a literal so it cannot
+/// drift away from the mapping the production gate uses.
+Future<void> installAccurateModelStub(String dirPath) async {
+  final fileName =
+      p.basename(modelPathForId(kAccurateModelId, libraryPath: dirPath));
+  await File(p.join(dirPath, fileName)).writeAsBytes(const [0]);
 }
 
 /// "Perhalus transkrip" (F5).
@@ -213,6 +233,7 @@ void main() {
   group('EnhanceQueueNotifier', () {
     Future<Directory> sessionWithAudio() async {
       final dir = await Directory.systemTemp.createTemp('trareon-enhance-');
+      await installAccurateModelStub(dir.path);
       await File('${dir.path}${Platform.pathSeparator}mic.wav')
           .writeAsBytes(const [0, 1, 2, 3]);
       await File('${dir.path}${Platform.pathSeparator}Rapat.json')
@@ -340,6 +361,9 @@ void main() {
 
     test('a session with no audio is never queued', () async {
       final dir = await Directory.systemTemp.createTemp('trareon-enhance-');
+      // The model is installed and only the audio is missing, so a refusal
+      // here can only be the audio gate.
+      await installAccurateModelStub(dir.path);
       try {
         final bridge = _EnhanceBridge(const []);
         final queue = EnhanceQueueNotifier(
