@@ -1632,8 +1632,8 @@ tanpa galat. `pkill -9 -x transcribe` setelahnya.
 # Sprint 4 report — branch `sprint/04-differentiators`
 
 > ITEM 0 (P0) + fitur diferensiator F6, F7, F10, F12, F13, F14, F15, F17,
-> F18, F19, F20. 19 commit di atas `origin/main`; 115 berkas, +29.061 /
-> −1.212 baris.
+> F18, F19, F20. 24 commit di atas `origin/main`; 115 berkas, +29.211 /
+> −1.218 baris.
 
 Semua angka di bawah ini diukur di mesin ini (Kali Linux, CPU lemah, tanpa
 GPU) pada commit `d27be9a`, bukan disalin dari rencana.
