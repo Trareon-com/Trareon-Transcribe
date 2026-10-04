@@ -512,8 +512,19 @@ mod tests {
     }
 
     /// End-to-end over a real WAV with a real model. Opt-in because it
-    /// needs `models/ggml-tiny.bin` and a minute of CPU; the verification
-    /// gate runs it via `TRAREON_COMPLETION_IT=1`.
+    /// needs `models/ggml-tiny.bin` and a minute of CPU:
+    ///
+    /// ```text
+    /// TRAREON_COMPLETION_IT=1 \
+    /// TRAREON_COMPLETION_WAV=/path/to/rapat.wav \
+    ///   cargo test --lib completion::tests::completion_pass
+    /// ```
+    ///
+    /// **Both** variables are required. The doc here used to name only
+    /// the first, and `integration_fixtures` returned `None` without a
+    /// word when the second was missing — so following the instructions
+    /// produced a green test that had transcribed nothing. It now says so
+    /// out loud.
     #[test]
     fn completion_pass_covers_the_speech_in_a_real_recording() {
         let Some((engine, audio_path)) = integration_fixtures() else {
@@ -600,9 +611,17 @@ mod tests {
             eprintln!("skipping: {} missing", model.display());
             return None;
         }
+        // Opted in but given nothing to transcribe: shout. A silent
+        // `None` here is how a test the brief *requires* passes in 0.5
+        // seconds having done no work at all.
         let audio = match std::env::var("TRAREON_COMPLETION_WAV") {
             Ok(path) => PathBuf::from(path),
-            Err(_) => return None,
+            Err(_) => panic!(
+                "TRAREON_COMPLETION_IT=1 is set but TRAREON_COMPLETION_WAV is \
+                 not — this test needs a real recording to transcribe. Point \
+                 it at a WAV with speech and silence, e.g. a saved session's \
+                 speaker.wav."
+            ),
         };
         if !audio.exists() {
             eprintln!("skipping: {} missing", audio.display());
