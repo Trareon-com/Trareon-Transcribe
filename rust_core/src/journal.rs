@@ -191,6 +191,42 @@ pub fn last_segment_end_secs(segments: &[Segment]) -> f64 {
 mod tests {
     use super::*;
 
+    /// Microseconds of CPU this thread has actually burned, for the complexity
+    /// benchmark below.
+    ///
+    /// Wall-clock cannot carry that assertion: `cargo test` runs the benchmark
+    /// alongside 380 other tests on as many threads as the machine has cores,
+    /// and a *descheduled* thread accumulates wall-clock without doing any work
+    /// — an inflation with no upper bound. Measured on four cores, the identical
+    /// replay cost anywhere from 94 ms to 468 ms, so no amount of sampling or
+    /// threshold-widening makes a wall-clock ratio trustworthy. A thread CPU
+    /// clock simply does not tick while the thread is parked, which removes the
+    /// noise at the source instead of averaging over it.
+    #[cfg(unix)]
+    fn thread_cpu_micros() -> u128 {
+        let mut ts = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        // SAFETY: `ts` is a live, fully initialised `timespec`; `clock_gettime`
+        // only writes into it and reports failure through its return value.
+        let rc = unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
+        assert_eq!(rc, 0, "clock_gettime(CLOCK_THREAD_CPUTIME_ID) failed");
+        let secs = u128::try_from(ts.tv_sec).unwrap_or_default();
+        let nanos = u128::try_from(ts.tv_nsec).unwrap_or_default();
+        secs * 1_000_000 + nanos / 1_000
+    }
+
+    /// Wall-clock stand-in where there is no POSIX thread clock. `libc` is a
+    /// unix-only dependency and `cargo test --lib` is a Linux job in CI, so this
+    /// is only ever reached by a developer running the suite on Windows.
+    #[cfg(not(unix))]
+    fn thread_cpu_micros() -> u128 {
+        use std::sync::OnceLock;
+        static START: OnceLock<Instant> = OnceLock::new();
+        START.get_or_init(Instant::now).elapsed().as_micros()
+    }
+
     fn temp_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!("trareon_journal_{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -339,15 +375,72 @@ mod tests {
     /// recovered from, so writing and replaying one has to be cheap enough
     /// that recovery is instant rather than a second spinner after a crash.
     ///
-    /// The assertion that matters is the *shape*: replaying 4× the segments
-    /// must cost ~4× the time. `replay` is keyed by a `HashMap`, so it is
-    /// linear; a scan-per-line implementation would be quadratic and this
+    /// The assertion that matters is the *shape*: the cost per segment must not
+    /// grow with the number of segments. `replay` is keyed by a `HashMap`, so it
+    /// is linear; a scan-per-line implementation would be quadratic and this
     /// test is what would catch that coming back.
+    ///
+    /// Two things make that assertion reliable rather than flaky:
+    ///
+    /// * It is **equal-work**, not equal-calls — the small journal is replayed
+    ///   [`SIZE_FACTOR`] times against a single pass over the big one, so both
+    ///   sides digest the same number of segments. Linear replay then makes the
+    ///   two costs equal and quadratic makes the big one [`SIZE_FACTOR`]×
+    ///   dearer, with no size-dependent baseline to calibrate away.
+    /// * It is measured in **thread CPU time** ([`thread_cpu_micros`]), so
+    ///   sharing the machine with the rest of the suite cannot inflate it.
+    ///
+    /// The latency budget at the end stays on wall-clock, because what it
+    /// promises is about the wall-clock a user waits; its headroom is more than
+    /// an order of magnitude, so contention cannot reach it.
     #[test]
     fn a_three_hour_journal_writes_and_replays_linearly() {
         use crate::bench_fixture::{bench_segments, three_hour_meeting, BENCH_SEGMENT_COUNT};
 
-        fn write_and_replay(dir: &Path, segments: &[Segment]) -> (u128, u128) {
+        /// How many times bigger the big journal is than the small one.
+        const SIZE_FACTOR: usize = 4;
+
+        /// Rounds of the whole equal-work comparison. Cache state and allocator
+        /// warmth still vary between rounds, and both only ever *add* cost, so
+        /// the cheapest round of each side is the honest estimate.
+        const ROUNDS: usize = 3;
+
+        /// What one equal-work measurement cost, in microseconds.
+        struct Cost {
+            cpu: u128,
+            wall: u128,
+        }
+
+        /// Cost of replaying `path` `repeats` times.
+        ///
+        /// Replay only reads, so repeating it has no side effects. The result is
+        /// verified outside the measured region so the assertions cannot show up
+        /// as measured cost.
+        fn replay_cost(path: &Path, expected: &[Segment], repeats: usize) -> Cost {
+            let mut last = Vec::new();
+            let cpu_start = thread_cpu_micros();
+            let wall_start = Instant::now();
+            for _ in 0..repeats {
+                last = replay(path);
+            }
+            let cost = Cost {
+                cpu: thread_cpu_micros().saturating_sub(cpu_start),
+                wall: wall_start.elapsed().as_micros(),
+            };
+            assert_eq!(last.len(), expected.len());
+            assert_eq!(last.last().unwrap().text, expected.last().unwrap().text);
+            cost
+        }
+
+        /// Cheapest of [`ROUNDS`] equal-work measurements, by CPU.
+        fn cheapest_cost(path: &Path, expected: &[Segment], repeats: usize) -> Cost {
+            (0..ROUNDS)
+                .map(|_| replay_cost(path, expected, repeats))
+                .min_by_key(|cost| cost.cpu)
+                .expect("ROUNDS is never zero")
+        }
+
+        fn write(dir: &Path, segments: &[Segment]) -> (PathBuf, u128) {
             let path = dir.join(format!("transcript-{}.jsonl", segments.len()));
             let mut journal = TranscriptJournal::open_append(&path).unwrap();
             let write_start = Instant::now();
@@ -355,22 +448,26 @@ mod tests {
                 journal.append(segment).unwrap();
             }
             journal.sync().unwrap();
-            let write_micros = write_start.elapsed().as_micros();
-
-            let replay_start = Instant::now();
-            let replayed = replay(&path);
-            let replay_micros = replay_start.elapsed().as_micros();
-            assert_eq!(replayed.len(), segments.len());
-            assert_eq!(replayed.last().unwrap().text, segments.last().unwrap().text);
-            (write_micros, replay_micros)
+            (path, write_start.elapsed().as_micros())
         }
 
         let dir = temp_dir();
-        let quarter = bench_segments(BENCH_SEGMENT_COUNT / 4, 45.0 * 60.0);
+        let quarter = bench_segments(BENCH_SEGMENT_COUNT / SIZE_FACTOR, 45.0 * 60.0);
         let full = three_hour_meeting();
+        assert_eq!(
+            full.len(),
+            quarter.len() * SIZE_FACTOR,
+            "the equal-work comparison below only holds if the big journal is \
+             exactly SIZE_FACTOR times the small one"
+        );
 
-        let (small_write, small_replay) = write_and_replay(&dir, &quarter);
-        let (big_write, big_replay) = write_and_replay(&dir, &full);
+        let (small_path, small_write) = write(&dir, &quarter);
+        let (big_path, big_write) = write(&dir, &full);
+
+        // Equal segments processed on both sides: SIZE_FACTOR small replays
+        // against one big one.
+        let small_cost = cheapest_cost(&small_path, &quarter, SIZE_FACTOR);
+        let big_cost = cheapest_cost(&big_path, &full, 1);
 
         println!(
             "[perf] journal write {} segs = {}ms, {} segs = {}ms",
@@ -380,23 +477,33 @@ mod tests {
             big_write / 1000
         );
         println!(
-            "[perf] journal replay {} segs = {}ms, {} segs = {}ms",
-            quarter.len(),
-            small_replay / 1000,
+            "[perf] journal replay, {} segs each way (cheapest of {ROUNDS}): \
+             {}x{} segs = {}ms CPU, 1x{} segs = {}ms CPU ({}ms wall)",
             full.len(),
-            big_replay / 1000
+            SIZE_FACTOR,
+            quarter.len(),
+            small_cost.cpu / 1000,
+            full.len(),
+            big_cost.cpu / 1000,
+            big_cost.wall / 1000
         );
 
-        let ratio = big_replay as f64 / small_replay.max(1) as f64;
+        // Linear ⇒ ~1.0; quadratic ⇒ ~SIZE_FACTOR. Half-way between the two, in
+        // the log scale a complexity class lives in, is sqrt(SIZE_FACTOR).
+        let per_segment_growth = big_cost.cpu as f64 / small_cost.cpu.max(1) as f64;
         assert!(
-            ratio < 10.0,
-            "replaying 4x the segments took {ratio:.1}x as long — that is the \
-             shape of a quadratic replay, not a linear one"
+            per_segment_growth < (SIZE_FACTOR as f64).sqrt(),
+            "replaying one {}-segment journal burned {per_segment_growth:.1}x the \
+             CPU of replaying {SIZE_FACTOR} journals holding the same {} segments \
+             in total — the per-segment cost grows with size, which is the shape \
+             of a quadratic replay, not a linear one",
+            full.len(),
+            full.len()
         );
         assert!(
-            big_replay < 2_000_000,
+            big_cost.wall < 2_000_000,
             "recovering a three-hour transcript took {}ms",
-            big_replay / 1000
+            big_cost.wall / 1000
         );
     }
 
