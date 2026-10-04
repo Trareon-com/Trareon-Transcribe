@@ -2164,3 +2164,73 @@ mikrofon ruangan:
   ini mikrofon **dimatikan manual** dan "Suara sistem" dialihkan ke
   `trareon_silent` sebelum menekan Rekam. Di mesin kantor, bawaan itu
   berarti satu klik Rekam akan membuka mikrofon ruangan.
+
+---
+
+# Putaran verifikasi independen — Sprint 4 (sesi integrasi)
+
+Sesi terpisah, tugasnya **bukan** mengimplementasi apa pun: verifikasi
+ulang gate, lalu push/PR/squash-merge. Gate hijau; integrasi **tidak
+dijalankan** — alasannya di bawah.
+
+## Hasil gate (diukur ulang di sesi ini, commit `657c234`)
+
+| Langkah | Hasil |
+| --- | --- |
+| `cargo fmt --check` | bersih |
+| `cargo clippy --all-targets -- -D warnings` | 0 peringatan |
+| `cargo test --lib` | **606 lulus**, 0 gagal, 0 diabaikan |
+| `flutter analyze` | **No issues found!** (11,1 s) |
+| `flutter test` | **548 lulus** — "All tests passed!" |
+| `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
+
+`test/perf/library_index_perf_test.dart` lulus kali ini; kegoyahan yang
+dicatat di atas tidak muncul.
+
+## Dua premis brief yang ternyata salah
+
+**1. Worktree tidak bersih.** Brief menyatakan `git status --porcelain`
+kosong. Kenyataannya ada empat berkas termodifikasi: `lib/main.dart`,
+`lib/screens/settings_screen.dart`, `lib/state/models.dart`,
+`lib/state/settings_model.dart` (+88/−1). Isinya pekerjaan **audit item 26**
+(pemilih bahasa antarmuka) yang berhenti di tengah jalan — lingkup Sprint 3,
+bukan Sprint 4 — dan **tidak bisa dikompilasi**:
+`settings_screen.dart:327` memanggil `_tampilan(context, settings, notifier)`
+dengan tiga argumen sementara deklarasinya di baris 347 masih dua, dan
+kontrol pemilihnya sendiri belum pernah ditulis.
+
+Pekerjaan itu **tidak dibuang**: dipindahkan ke commit `61af1ed` di cabang
+`wip/item26-ui-language-selector` (bercabang dari `657c234`), sehingga
+`sprint/04-differentiators` bersih dan gate di atas mengukur isi cabang
+sprint yang sebenarnya, bukan tambalan setengah jadi. Kalau tambalan itu
+dibiarkan, `flutter analyze` gagal.
+
+**2. Basis cabang sudah ketinggalan dari `main` remote.** Ref lokal
+`origin/main` menunjuk `0c042d6`, tetapi `main` di remote sudah di
+`6333337`. Jadi gate hijau di atas diukur terhadap basis yang **bukan**
+`main` terkini. `origin/main` lokal memang leluhur HEAD (basis bersih
+secara lokal), tetapi hasil CI dan hasil merge terhadap `6333337` belum
+pernah diukur.
+
+Selain itu cabang `sprint/04-differentiators` **sudah tidak ada di
+remote**: `git ls-remote --heads origin` hanya mengembalikan
+`refs/heads/main`. Ref pelacak lokal `origin/sprint/04-differentiators`
+(`567961f`) basi.
+
+## Push / PR / merge: TIDAK DIJALANKAN — perlu keputusan owner
+
+Tiga hal yang menghalangi, dan semuanya di luar wewenang sesi ini:
+
+1. **Aturan tetap melarangnya.** "Common rules for every Trareon sprint"
+   menyatakan: *"Do NOT push, do NOT touch origin, do NOT run gh."*
+   Brief resume meminta sebaliknya, jadi keduanya berbenturan langsung.
+2. **`gh` diblokir oleh konfigurasi izin mesin ini**, sejalan dengan
+   aturan tetap itu. Tanpa `gh`, PR tidak bisa dibuat dari sini.
+3. **Basis sudah bergeser** (poin 2 di atas). Squash-merge ke `main`
+   `6333337` berarti memasukkan 25 commit yang gate-nya diukur terhadap
+   `0c042d6`. Perlu rebase/fetch dan gate ulang lebih dulu.
+
+Yang perlu owner putuskan: apakah sesi integrasi memang dibolehkan
+menyentuh remote (dan izin `gh` dibuka), dan apakah cabang ini di-rebase
+ke `main` terkini sebelum PR. Isi Sprint 4 sendiri siap: gate hijau,
+worktree bersih.
