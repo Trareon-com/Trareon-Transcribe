@@ -133,6 +133,15 @@ List<({String file, int line, String text})> _collectUiStrings(RegExp literal) {
       .whereType<File>()
       .where((f) => f.path.endsWith('.dart'))
       .where((f) => !f.path.replaceAll(r'\', '/').startsWith('lib/src/rust/'))
+      // Generated localisations: `app_localizations_en.dart` is the English
+      // translation, so of course it contains English. The Indonesian copy is
+      // authored in `lib/l10n/app_id.arb` (not a `.dart` file) and reviewed
+      // there; the generated Dart is machinery.
+      .where(
+        (f) => !f.path
+            .replaceAll(r'\', '/')
+            .startsWith('lib/l10n/generated/'),
+      )
       .toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 

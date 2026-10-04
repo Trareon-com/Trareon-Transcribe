@@ -1,0 +1,23 @@
+# Localisation codegen (audit item 26).
+#
+# Indonesian is the *template*, not a translation target: this is an
+# Indonesian-first product, the copy is written in Indonesian first, and
+# `app_en.arb` is the follow-on. Making `app_id.arb` the template means a new
+# string is added in Indonesian and the English file is what shows up as
+# incomplete — which is the right way round for this team.
+arb-dir: lib/l10n
+template-arb-file: app_id.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+
+# Real files under lib/ rather than the synthetic `package:flutter_gen`
+# (removed in recent Flutter anyway), so `flutter analyze` can see them.
+# The output is committed, same as the FRB bindings in lib/src/rust/, so a
+# fresh checkout analyzes and tests without a codegen step first.
+output-dir: lib/l10n/generated
+
+# A key present in app_id.arb but missing from app_en.arb is a bug, not a
+# warning to scroll past.
+untranslated-messages-file: l10n-untranslated.json
+required-resource-attributes: false
+nullable-getter: false

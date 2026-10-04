@@ -1,0 +1,177 @@
+{
+  "@@locale": "id",
+
+  "appTitle": "Trareon Transcribe",
+  "@appTitle": {
+    "description": "Product name. Not translated in either locale."
+  },
+
+  "languageSectionTitle": "Bahasa",
+  "@languageSectionTitle": {
+    "description": "Heading of the language pane in Settings"
+  },
+  "languageLabel": "Bahasa antarmuka",
+  "@languageLabel": {
+    "description": "Label of the UI-language selector"
+  },
+  "languageSubtitle": "Bahasa tombol dan menu. Tidak mengubah bahasa transkripsi.",
+  "@languageSubtitle": {
+    "description": "Clarifies that this is distinct from the transcription language, which has its own setting"
+  },
+  "languageSystem": "Ikuti sistem",
+  "@languageSystem": {
+    "description": "Follow the operating system language"
+  },
+  "languageIndonesian": "Bahasa Indonesia",
+  "languageEnglish": "English",
+
+  "alreadyRunningTitle": "Trareon Transcribe sudah berjalan",
+  "@alreadyRunningTitle": {
+    "description": "Shown when a second instance is launched"
+  },
+  "alreadyRunningBody": "Hanya satu instance Trareon Transcribe yang bisa berjalan pada saat yang sama. Tutup jendela ini dan gunakan instance yang sudah terbuka.",
+
+  "actionSave": "Simpan",
+  "actionCancel": "Batal",
+  "actionSkip": "Lewati",
+  "actionHide": "Sembunyikan",
+  "actionCancelThis": "Batalkan",
+  "actionCancelAll": "Batalkan semua",
+
+  "enhanceQueueTitle": "Memperhalus transkrip",
+  "@enhanceQueueTitle": {
+    "description": "Sidebar heading for the background re-transcribe queue (F5)"
+  },
+  "enhanceQueuePaused": "Ditunda selama ada rekaman berjalan.",
+  "enhanceJobRunning": "Memakai model akurat… transkrip lama tetap aman sampai selesai.",
+  "enhanceJobFailed": "Gagal. Transkrip lama dipakai.",
+  "enhanceJobQueued": "Menunggu antrean.",
+
+  "storageSessionCount": "{count, plural, =0{Belum ada sesi} other{{count} sesi}}",
+  "@storageSessionCount": {
+    "description": "Number of saved sessions in the storage bar",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageTooltip": "{count, plural, =0{Penyimpanan: belum ada sesi tersimpan} other{Penyimpanan: {count} sesi tersimpan}}",
+  "@storageTooltip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageEmptyCompact": "📂 Kosong",
+  "@storageEmptyCompact": {
+    "description": "Collapsed-sidebar storage indicator when nothing is saved"
+  },
+  "storageCountCompact": "📁 {count}",
+  "@storageCountCompact": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageSummary": "{sessions} · {size}",
+  "@storageSummary": {
+    "description": "Session count joined with the formatted byte size",
+    "placeholders": {
+      "sessions": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesKb": "{value} KB",
+  "@bytesKb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesMb": "{value} MB",
+  "@bytesMb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "bytesGb": "{value} GB",
+  "@bytesGb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+
+  "bookmarkAdd": "Tandai",
+  "@bookmarkAdd": {
+    "description": "Button that marks the current moment during recording (F9)"
+  },
+  "bookmarkAddTooltip": "Tandai poin penting di posisi sekarang (Ctrl+B)",
+  "bookmarkAddWithNoteTooltip": "Tandai dan tulis catatan",
+  "bookmarkNoteDialogTitle": "Catatan untuk {time}",
+  "@bookmarkNoteDialogTitle": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkNoteLabel": "Catatan (opsional)",
+  "bookmarkNoteHint": "mis. keputusan penting, tindak lanjut",
+  "bookmarkMarkedAt": "Poin ditandai pada {time}",
+  "@bookmarkMarkedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkNone": "Belum ada poin yang ditandai.",
+  "bookmarkCount": "{count, plural, other{{count} poin ditandai.}}",
+  "@bookmarkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkRemoveTooltip": "Hapus tanda {time}",
+  "@bookmarkRemoveTooltip": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkJumpTooltip": "Klik: lompat ke {time} · Tahan: ubah catatan",
+  "@bookmarkJumpTooltip": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkEditNoteTooltip": "Klik untuk ubah catatan",
+  "bookmarkRowLabel": "{time} · {note}",
+  "@bookmarkRowLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "note": {
+        "type": "String"
+      }
+    }
+  }
+}

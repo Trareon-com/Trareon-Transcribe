@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'l10n/generated/app_localizations.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/flight_recorder_service.dart';
@@ -24,6 +25,24 @@ import 'widgets/setup_overlay.dart';
 /// had none, so a user could drag the window down to nothing and lose the
 /// record button off the edge.
 const Size kMinimumWindowSize = Size(800, 600);
+
+/// Indonesian-first locale resolution. Flutter's default
+/// `basicLocaleListResolution` falls back to `supportedLocales.first`, which
+/// `flutter gen-l10n` emits alphabetically — English. For an Indonesian-first
+/// product the fallback for an unknown system locale must be Indonesian, not
+/// English (audit item 26). Matches on language code; country/script are not
+/// used because neither locale is region-specific.
+Locale resolveLocale(List<Locale>? preferred, Iterable<Locale> supported) {
+  const fallback = Locale('id');
+  for (final want in preferred ?? const <Locale>[]) {
+    for (final have in supported) {
+      if (have.languageCode == want.languageCode) return have;
+    }
+  }
+  return supported.any((l) => l.languageCode == fallback.languageCode)
+      ? fallback
+      : (supported.isNotEmpty ? supported.first : fallback);
+}
 
 Future<void> _applyWindowConstraints() async {
   if (!(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) return;
@@ -73,31 +92,40 @@ class _AlreadyRunningApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.info_outline, size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Trareon Transcribe sudah berjalan',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeListResolutionCallback: resolveLocale,
+      home: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context);
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.alreadyRunningTitle,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.alreadyRunningBody,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Hanya satu instance Trareon Transcribe yang bisa berjalan pada saat '
-                  'yang sama. Tutup jendela ini dan gunakan instance yang '
-                  'sudah terbuka.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -123,6 +151,9 @@ class TranscribeApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Trareon Transcribe',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeListResolutionCallback: resolveLocale,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: switch (settings.theme) {
