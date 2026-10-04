@@ -6,6 +6,9 @@
 import 'audio.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'pdp.dart';
+import 'pdp/redaction.dart';
+import 'pdp/retention.dart';
 import 'summary.dart';
 
 class AppSettings {
@@ -61,6 +64,12 @@ class AppSettings {
   /// default ON when the live pass used the quick model.
   final bool? autoRetranscribe;
 
+  /// Mode Kepatuhan UU PDP (F13): redaction on export, retention limits,
+  /// the audit log and the consent notice. Off by default — every part
+  /// of it either hides or deletes something, so none of it may start
+  /// happening because the app updated.
+  final PdpSettings pdp;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -81,6 +90,7 @@ class AppSettings {
     required this.summaryTemplates,
     required this.notulen,
     this.autoRetranscribe,
+    required this.pdp,
   });
 
   @override
@@ -103,7 +113,8 @@ class AppSettings {
       glossary.hashCode ^
       summaryTemplates.hashCode ^
       notulen.hashCode ^
-      autoRetranscribe.hashCode;
+      autoRetranscribe.hashCode ^
+      pdp.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -128,7 +139,8 @@ class AppSettings {
           glossary == other.glossary &&
           summaryTemplates == other.summaryTemplates &&
           notulen == other.notulen &&
-          autoRetranscribe == other.autoRetranscribe;
+          autoRetranscribe == other.autoRetranscribe &&
+          pdp == other.pdp;
 }
 
 /// A summary template the user wrote or duplicated (F8).

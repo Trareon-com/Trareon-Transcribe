@@ -16,11 +16,16 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'pdp.dart';
+import 'pdp/audit.dart';
+import 'pdp/redaction.dart';
+import 'pdp/retention.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
 import 'summary.dart';
 
+// These functions are ignored because they are not marked as `pub`: `summarise_matches`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 Future<List<Check>> runPreflightChecks() =>
@@ -450,6 +455,117 @@ Future<String> applyGlossaryCorrections({
   text: text,
   terms: terms,
 );
+
+/// What `config` would mask in `text`, with byte offsets so the UI can
+/// highlight it before anything is changed.
+Future<List<PiiMatch>> previewRedaction({
+  required String text,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiPreviewRedaction(text: text, config: config);
+
+/// `text` with every match replaced by its Indonesian placeholder.
+Future<String> redactText({
+  required String text,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiRedactText(text: text, config: config);
+
+/// Everything `config` would mask across a whole transcript, for the
+/// pre-export preview.
+Future<List<PiiMatch>> previewRedactionSegments({
+  required List<Segment> segments,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiPreviewRedactionSegments(
+  segments: segments,
+  config: config,
+);
+
+/// Returns a redacted **copy** of `segments`. The stored transcript is
+/// never rewritten — a user who cannot get the original back has lost
+/// evidence, not protected it.
+Future<List<Segment>> redactSegments({
+  required List<Segment> segments,
+  required RedactionConfig config,
+}) => RustLib.instance.api.crateApiRedactSegments(
+  segments: segments,
+  config: config,
+);
+
+/// Sessions in `library_path`, aged for the retention planner.
+Future<List<SessionAge>> scanLibraryAges({required String libraryPath}) =>
+    RustLib.instance.api.crateApiScanLibraryAges(libraryPath: libraryPath);
+
+/// What `policy` would delete from `library_path` right now. Pure
+/// preview: nothing is removed until [`apply_retention`] runs.
+Future<RetentionPlan> previewRetention({
+  required String libraryPath,
+  required RetentionPolicy policy,
+}) => RustLib.instance.api.crateApiPreviewRetention(
+  libraryPath: libraryPath,
+  policy: policy,
+);
+
+/// One Indonesian sentence describing a plan, for the confirm dialog.
+Future<String> describeRetentionPlan({required RetentionPlan plan}) =>
+    RustLib.instance.api.crateApiDescribeRetentionPlan(plan: plan);
+
+/// Carries out a plan the user has confirmed, writing an audit entry per
+/// deletion.
+Future<RetentionOutcome> applyRetention({required RetentionPlan plan}) =>
+    RustLib.instance.api.crateApiApplyRetention(plan: plan);
+
+/// The audit log, newest first. `limit = 0` returns everything.
+Future<List<AuditEntry>> readAuditLog({required int limit}) =>
+    RustLib.instance.api.crateApiReadAuditLog(limit: limit);
+
+Future<int> auditEntryCount() => RustLib.instance.api.crateApiAuditEntryCount();
+
+/// Indonesian label for an audit action, so the viewer does not have to
+/// keep its own copy of the mapping.
+Future<String> auditActionLabel({required AuditAction action}) =>
+    RustLib.instance.api.crateApiAuditActionLabel(action: action);
+
+/// `YYYY-MM-DD HH:MM:SS` in local time.
+Future<String> formatAuditTime({required BigInt atUnixMs}) =>
+    RustLib.instance.api.crateApiFormatAuditTime(atUnixMs: atUnixMs);
+
+/// Appends one entry. Called by the UI for acts only it knows about —
+/// an export the user confirmed, a summary actually sent.
+Future<void> writeAuditEntry({
+  required AuditAction action,
+  required String subject,
+  required String destination,
+  required String detail,
+}) => RustLib.instance.api.crateApiWriteAuditEntry(
+  action: action,
+  subject: subject,
+  destination: destination,
+  detail: detail,
+);
+
+/// Writes the audit log to `destination` as CSV and records that it did.
+Future<String> exportAuditLog({required String destination}) =>
+    RustLib.instance.api.crateApiExportAuditLog(destination: destination);
+
+/// The consent notice for a meeting, ready to paste into a meeting chat.
+Future<String> consentNoticeText({
+  required String template,
+  required String title,
+  required String date,
+}) => RustLib.instance.api.crateApiConsentNoticeText(
+  template: template,
+  title: title,
+  date: date,
+);
+
+/// The shipped default notice, for the settings field's placeholder.
+Future<String> defaultConsentNotice() =>
+    RustLib.instance.api.crateApiDefaultConsentNotice();
+
+/// Records that the notice was delivered for this meeting.
+Future<void> acknowledgeConsent({
+  required String title,
+  required String note,
+}) => RustLib.instance.api.crateApiAcknowledgeConsent(title: title, note: note);
 
 Future<AppSettings> loadSettings() =>
     RustLib.instance.api.crateApiLoadSettings();

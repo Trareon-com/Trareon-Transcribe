@@ -770,6 +770,161 @@ pub fn apply_glossary_corrections(text: String, terms: Vec<String>) -> String {
     crate::glossary::apply_corrections(&text, &terms)
 }
 
+// --- Mode Kepatuhan UU PDP (F13) -------------------------------------------
+//
+// Redaction on export, retention limits, a local audit log and the
+// consent notice. Entirely local; see `pdp` for the contract.
+
+/// What `config` would mask in `text`, with byte offsets so the UI can
+/// highlight it before anything is changed.
+pub fn preview_redaction(
+    text: String,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<crate::pdp::redaction::PiiMatch> {
+    crate::pdp::redaction::find_pii(&text, &config)
+}
+
+/// `text` with every match replaced by its Indonesian placeholder.
+pub fn redact_text(text: String, config: crate::pdp::redaction::RedactionConfig) -> String {
+    crate::pdp::redaction::redact(&text, &config)
+}
+
+/// Everything `config` would mask across a whole transcript, for the
+/// pre-export preview.
+pub fn preview_redaction_segments(
+    segments: Vec<Segment>,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<crate::pdp::redaction::PiiMatch> {
+    segments
+        .iter()
+        .flat_map(|segment| crate::pdp::redaction::find_pii(&segment.text, &config))
+        .collect()
+}
+
+/// Returns a redacted **copy** of `segments`. The stored transcript is
+/// never rewritten — a user who cannot get the original back has lost
+/// evidence, not protected it.
+pub fn redact_segments(
+    segments: Vec<Segment>,
+    config: crate::pdp::redaction::RedactionConfig,
+) -> Vec<Segment> {
+    let mut copy = segments;
+    let masked = crate::pdp::redaction::redact_segments(&mut copy, &config);
+    if !masked.is_empty() {
+        crate::pdp::audit::record(
+            crate::pdp::audit::AuditEntry::new(
+                crate::pdp::audit::AuditAction::RedactionApplied,
+                "transkrip",
+            )
+            .with_detail(summarise_matches(&masked)),
+        );
+    }
+    copy
+}
+
+/// "3 NIK, 1 email" — the detail line an audit entry carries. Counts
+/// only; the values themselves never reach the log.
+fn summarise_matches(matches: &[crate::pdp::redaction::PiiMatch]) -> String {
+    use std::collections::BTreeMap;
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for found in matches {
+        *counts.entry(found.kind.label()).or_insert(0) += 1;
+    }
+    counts
+        .into_iter()
+        .map(|(label, count)| format!("{count} {label}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Sessions in `library_path`, aged for the retention planner.
+pub fn scan_library_ages(library_path: String) -> Vec<crate::pdp::retention::SessionAge> {
+    crate::pdp::retention::scan_library(std::path::Path::new(&library_path))
+}
+
+/// What `policy` would delete from `library_path` right now. Pure
+/// preview: nothing is removed until [`apply_retention`] runs.
+pub fn preview_retention(
+    library_path: String,
+    policy: crate::pdp::retention::RetentionPolicy,
+) -> crate::pdp::retention::RetentionPlan {
+    let sessions = crate::pdp::retention::scan_library(std::path::Path::new(&library_path));
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    crate::pdp::retention::plan(&sessions, policy, now)
+}
+
+/// One Indonesian sentence describing a plan, for the confirm dialog.
+pub fn describe_retention_plan(plan: crate::pdp::retention::RetentionPlan) -> String {
+    plan.summary()
+}
+
+/// Carries out a plan the user has confirmed, writing an audit entry per
+/// deletion.
+pub fn apply_retention(
+    plan: crate::pdp::retention::RetentionPlan,
+) -> Result<crate::pdp::retention::RetentionOutcome, TranscribeError> {
+    crate::pdp::retention::apply(&plan)
+}
+
+/// The audit log, newest first. `limit = 0` returns everything.
+pub fn read_audit_log(limit: u32) -> Vec<crate::pdp::audit::AuditEntry> {
+    crate::pdp::audit::read(limit)
+}
+
+pub fn audit_entry_count() -> u32 {
+    crate::pdp::audit::entry_count()
+}
+
+/// Indonesian label for an audit action, so the viewer does not have to
+/// keep its own copy of the mapping.
+pub fn audit_action_label(action: crate::pdp::audit::AuditAction) -> String {
+    action.label().to_string()
+}
+
+/// `YYYY-MM-DD HH:MM:SS` in local time.
+pub fn format_audit_time(at_unix_ms: u64) -> String {
+    crate::pdp::audit::format_time(at_unix_ms)
+}
+
+/// Appends one entry. Called by the UI for acts only it knows about —
+/// an export the user confirmed, a summary actually sent.
+pub fn write_audit_entry(
+    action: crate::pdp::audit::AuditAction,
+    subject: String,
+    destination: String,
+    detail: String,
+) -> Result<(), TranscribeError> {
+    crate::pdp::audit::append(
+        &crate::pdp::audit::AuditEntry::new(action, subject)
+            .to(destination)
+            .with_detail(detail),
+    )
+}
+
+/// Writes the audit log to `destination` as CSV and records that it did.
+pub fn export_audit_log(destination: String) -> Result<String, TranscribeError> {
+    let path = crate::pdp::audit::export_csv(std::path::Path::new(&destination))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// The consent notice for a meeting, ready to paste into a meeting chat.
+pub fn consent_notice_text(template: String, title: String, date: String) -> String {
+    crate::pdp::consent_notice(&template, &title, &date)
+}
+
+/// The shipped default notice, for the settings field's placeholder.
+pub fn default_consent_notice() -> String {
+    crate::pdp::DEFAULT_CONSENT_NOTICE.to_string()
+}
+
+/// Records that the notice was delivered for this meeting.
+pub fn acknowledge_consent(title: String, note: String) {
+    crate::pdp::acknowledge_consent(&title, &note);
+}
+
 // --- Settings -----------------------------------------------------
 
 pub fn load_settings() -> AppSettings {

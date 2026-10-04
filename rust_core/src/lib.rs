@@ -31,6 +31,8 @@ pub mod hallucination;
 pub mod journal;
 pub mod memory;
 pub mod model;
+/// Mode Kepatuhan UU PDP: redaction, retention, audit log, consent.
+pub mod pdp;
 pub mod pipeline;
 pub mod preprocess;
 pub mod privacy;

@@ -79,6 +79,12 @@ pub struct AppSettings {
     /// default ON when the live pass used the quick model.
     #[serde(default)]
     pub auto_retranscribe: Option<bool>,
+    /// Mode Kepatuhan UU PDP (F13): redaction on export, retention limits,
+    /// the audit log and the consent notice. Off by default — every part
+    /// of it either hides or deletes something, so none of it may start
+    /// happening because the app updated.
+    #[serde(default)]
+    pub pdp: crate::pdp::PdpSettings,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -227,6 +233,7 @@ impl Default for AppSettings {
             summary_templates: Vec::new(),
             notulen: NotulenDefaults::default(),
             auto_retranscribe: None,
+            pdp: crate::pdp::PdpSettings::default(),
         }
     }
 }

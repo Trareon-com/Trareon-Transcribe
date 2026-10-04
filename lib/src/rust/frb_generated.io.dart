@@ -20,6 +20,10 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
+import 'pdp.dart';
+import 'pdp/audit.dart';
+import 'pdp/redaction.dart';
+import 'pdp/retention.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
@@ -44,6 +48,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
+
+  @protected
+  AuditAction dco_decode_audit_action(dynamic raw);
+
+  @protected
+  AuditEntry dco_decode_audit_entry(dynamic raw);
 
   @protected
   BatchFileOutcome dco_decode_batch_file_outcome(dynamic raw);
@@ -79,6 +89,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (BigInt, BigInt) dco_decode_box_autoadd_record_u_64_u_64(dynamic raw);
+
+  @protected
+  RedactionConfig dco_decode_box_autoadd_redaction_config(dynamic raw);
+
+  @protected
+  RetentionPlan dco_decode_box_autoadd_retention_plan(dynamic raw);
+
+  @protected
+  RetentionPolicy dco_decode_box_autoadd_retention_policy(dynamic raw);
 
   @protected
   Segment dco_decode_box_autoadd_segment(dynamic raw);
@@ -175,6 +194,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
 
   @protected
+  List<AuditEntry> dco_decode_list_audit_entry(dynamic raw);
+
+  @protected
   List<BatchFileOutcome> dco_decode_list_batch_file_outcome(dynamic raw);
 
   @protected
@@ -204,6 +226,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> dco_decode_list_model_info(dynamic raw);
 
   @protected
+  List<PiiMatch> dco_decode_list_pii_match(dynamic raw);
+
+  @protected
   Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
   @protected
@@ -216,7 +241,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RecoverableSession> dco_decode_list_recoverable_session(dynamic raw);
 
   @protected
+  List<RetentionItem> dco_decode_list_retention_item(dynamic raw);
+
+  @protected
   List<Segment> dco_decode_list_segment(dynamic raw);
+
+  @protected
+  List<SessionAge> dco_decode_list_session_age(dynamic raw);
 
   @protected
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
@@ -274,6 +305,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
 
   @protected
+  PdpSettings dco_decode_pdp_settings(dynamic raw);
+
+  @protected
+  PiiKind dco_decode_pii_kind(dynamic raw);
+
+  @protected
+  PiiMatch dco_decode_pii_match(dynamic raw);
+
+  @protected
   ProgressiveFileResult dco_decode_progressive_file_result(dynamic raw);
 
   @protected
@@ -289,7 +329,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveredSession dco_decode_recovered_session(dynamic raw);
 
   @protected
+  RedactionConfig dco_decode_redaction_config(dynamic raw);
+
+  @protected
+  RetentionItem dco_decode_retention_item(dynamic raw);
+
+  @protected
+  RetentionOutcome dco_decode_retention_outcome(dynamic raw);
+
+  @protected
+  RetentionPlan dco_decode_retention_plan(dynamic raw);
+
+  @protected
+  RetentionPolicy dco_decode_retention_policy(dynamic raw);
+
+  @protected
   Segment dco_decode_segment(dynamic raw);
+
+  @protected
+  SessionAge dco_decode_session_age(dynamic raw);
 
   @protected
   SessionConfig dco_decode_session_config(dynamic raw);
@@ -366,6 +424,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
 
   @protected
+  AuditAction sse_decode_audit_action(SseDeserializer deserializer);
+
+  @protected
+  AuditEntry sse_decode_audit_entry(SseDeserializer deserializer);
+
+  @protected
   BatchFileOutcome sse_decode_batch_file_outcome(SseDeserializer deserializer);
 
   @protected
@@ -403,6 +467,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (BigInt, BigInt) sse_decode_box_autoadd_record_u_64_u_64(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedactionConfig sse_decode_box_autoadd_redaction_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RetentionPlan sse_decode_box_autoadd_retention_plan(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RetentionPolicy sse_decode_box_autoadd_retention_policy(
     SseDeserializer deserializer,
   );
 
@@ -513,6 +592,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<AuditEntry> sse_decode_list_audit_entry(SseDeserializer deserializer);
+
+  @protected
   List<BatchFileOutcome> sse_decode_list_batch_file_outcome(
     SseDeserializer deserializer,
   );
@@ -552,6 +634,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ModelInfo> sse_decode_list_model_info(SseDeserializer deserializer);
 
   @protected
+  List<PiiMatch> sse_decode_list_pii_match(SseDeserializer deserializer);
+
+  @protected
   Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -568,7 +653,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RetentionItem> sse_decode_list_retention_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
+
+  @protected
+  List<SessionAge> sse_decode_list_session_age(SseDeserializer deserializer);
 
   @protected
   List<SessionEvent> sse_decode_list_session_event(
@@ -634,6 +727,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  PdpSettings sse_decode_pdp_settings(SseDeserializer deserializer);
+
+  @protected
+  PiiKind sse_decode_pii_kind(SseDeserializer deserializer);
+
+  @protected
+  PiiMatch sse_decode_pii_match(SseDeserializer deserializer);
+
+  @protected
   ProgressiveFileResult sse_decode_progressive_file_result(
     SseDeserializer deserializer,
   );
@@ -655,7 +757,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveredSession sse_decode_recovered_session(SseDeserializer deserializer);
 
   @protected
+  RedactionConfig sse_decode_redaction_config(SseDeserializer deserializer);
+
+  @protected
+  RetentionItem sse_decode_retention_item(SseDeserializer deserializer);
+
+  @protected
+  RetentionOutcome sse_decode_retention_outcome(SseDeserializer deserializer);
+
+  @protected
+  RetentionPlan sse_decode_retention_plan(SseDeserializer deserializer);
+
+  @protected
+  RetentionPolicy sse_decode_retention_policy(SseDeserializer deserializer);
+
+  @protected
   Segment sse_decode_segment(SseDeserializer deserializer);
+
+  @protected
+  SessionAge sse_decode_session_age(SseDeserializer deserializer);
 
   @protected
   SessionConfig sse_decode_session_config(SseDeserializer deserializer);
@@ -740,6 +860,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_audit_action(AuditAction self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_audit_entry(AuditEntry self, SseSerializer serializer);
+
+  @protected
   void sse_encode_batch_file_outcome(
     BatchFileOutcome self,
     SseSerializer serializer,
@@ -793,6 +919,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_record_u_64_u_64(
     (BigInt, BigInt) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_redaction_config(
+    RedactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_retention_plan(
+    RetentionPlan self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_retention_policy(
+    RetentionPolicy self,
     SseSerializer serializer,
   );
 
@@ -935,6 +1079,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_audit_entry(
+    List<AuditEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_batch_file_outcome(
     List<BatchFileOutcome> self,
     SseSerializer serializer,
@@ -983,6 +1133,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_pii_match(List<PiiMatch> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_u_32_strict(
     Uint32List self,
     SseSerializer serializer,
@@ -1007,7 +1160,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_retention_item(
+    List<RetentionItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_segment(List<Segment> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_session_age(
+    List<SessionAge> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_session_event(
@@ -1088,6 +1253,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_pdp_settings(PdpSettings self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pii_kind(PiiKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pii_match(PiiMatch self, SseSerializer serializer);
+
+  @protected
   void sse_encode_progressive_file_result(
     ProgressiveFileResult self,
     SseSerializer serializer,
@@ -1118,7 +1292,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_redaction_config(
+    RedactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_retention_item(RetentionItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_retention_outcome(
+    RetentionOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_retention_plan(RetentionPlan self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_retention_policy(
+    RetentionPolicy self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_segment(Segment self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_session_age(SessionAge self, SseSerializer serializer);
 
   @protected
   void sse_encode_session_config(SessionConfig self, SseSerializer serializer);
