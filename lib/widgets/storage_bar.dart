@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 int _computeBytesSync(String path) {
   int total = 0;
@@ -65,7 +67,7 @@ class _StorageBarState extends State<StorageBar> {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
       child: Semantics(
         label: widget.totalSessions > 0
             ? 'Penyimpanan: ${widget.totalSessions} sesi tersimpan'
@@ -73,9 +75,9 @@ class _StorageBarState extends State<StorageBar> {
         child: Row(
           children: [
             ExcludeSemantics(
-              child: Icon(Icons.storage_outlined, size: 14, color: colors.textTertiary),
+              child: Icon(AppIcons.storage, size: IconSizes.xs, color: colors.textTertiary),
             ),
-            const SizedBox(width: 6),
+            Spacing.hSm,
             FutureBuilder<int>(
               future: _bytesFuture,
               builder: (context, snapshot) {
@@ -87,25 +89,25 @@ class _StorageBarState extends State<StorageBar> {
                     snapshot.data! > 0) {
                   return Text(
                     '$sessionLabel · ${_formatBytes(snapshot.data!)}',
-                    style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                    style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                   );
                 }
                 return Text(
                   sessionLabel,
-                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                 );
               },
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
               decoration: BoxDecoration(
                 color: colors.chipBackground,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Text(
                 widget.totalSessions > 0 ? '📁 ${widget.totalSessions}' : '📂 Kosong',
-                style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.micro),
               ),
             ),
           ],

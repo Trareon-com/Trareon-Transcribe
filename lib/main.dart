@@ -18,6 +18,8 @@ import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_theme.dart';
 import 'widgets/setup_overlay.dart';
+import 'theme/app_icons.dart';
+import 'theme/app_tokens.dart';
 
 /// Smallest window the layout is designed to survive. The audit verified
 /// no overflow at 800x600; below that the control bar and the library grid
@@ -101,21 +103,21 @@ class _AlreadyRunningApp extends StatelessWidget {
           return Scaffold(
             body: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(Spacing.xl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.info_outline, size: 48),
-                    const SizedBox(height: 16),
+                    const Icon(AppIcons.info, size: IconSizes.hero),
+                    Spacing.gapLg,
                     Text(
                       l10n.alreadyRunningTitle,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     Text(
                       l10n.alreadyRunningBody,
                       textAlign: TextAlign.center,

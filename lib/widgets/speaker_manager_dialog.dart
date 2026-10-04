@@ -22,6 +22,7 @@ import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
 
 /// What the dialog asks the host screen to do.
 sealed class SpeakerAction {
@@ -413,14 +414,14 @@ class _SpeakerRow extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Ganti nama',
-                icon: const Icon(Icons.edit_outlined, size: IconSizes.sm),
+                icon: const Icon(AppIcons.edit, size: IconSizes.sm),
                 onPressed: onRename,
               ),
               IconButton(
                 tooltip: canMerge
                     ? 'Gabungkan dengan pembicara lain'
                     : 'Tidak ada pembicara lain untuk digabung',
-                icon: const Icon(Icons.merge_outlined, size: IconSizes.sm),
+                icon: const Icon(AppIcons.merge, size: IconSizes.sm),
                 onPressed: canMerge ? onMerge : null,
               ),
             ],

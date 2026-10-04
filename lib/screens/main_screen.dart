@@ -32,6 +32,9 @@ import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
 import 'transcript_player_screen.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 
 /// Main window: a permanent session sidebar and one workspace.
 ///
@@ -1004,15 +1007,15 @@ class _Workspace extends StatelessWidget {
           Material(
             color: colors.chipBackground,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
               child: Row(
                 children: [
-                  Icon(Icons.restore_outlined, color: colors.primary),
-                  const SizedBox(width: 12),
+                  Icon(AppIcons.restore, color: colors.primary),
+                  Spacing.hMd,
                   Expanded(
                     child: Text(
                       recoverySummary!,
-                      style: TextStyle(color: colors.text, fontSize: 13),
+                      style: TextStyle(color: colors.text, fontSize: FontSizes.body),
                     ),
                   ),
                   // No "Abaikan": it hid the banner without deleting
@@ -1105,9 +1108,9 @@ class _IdleWorkspace extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!compact) ...[
-                  Icon(Icons.mic_none_outlined,
-                      size: 56, color: colors.textTertiary),
-                  const SizedBox(height: 16),
+                  Icon(AppIcons.mic,
+                      size: IconSizes.hero, color: colors.textTertiary),
+                  Spacing.gapLg,
                 ],
                 Text(
                   'Siap merekam',
@@ -1117,35 +1120,35 @@ class _IdleWorkspace extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 6),
+                Spacing.gapSm,
                 Text(
                   compact
                       ? 'Transkrip muncul di sini, diproses di komputer Anda.'
                       : 'Transkrip muncul di sini begitu rekaman berjalan.\n'
                           'Semuanya diproses di komputer Anda.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
                 ),
                 SizedBox(height: compact ? 14 : 24),
                 SizedBox(
                   height: 52,
                   child: FilledButton.icon(
                     onPressed: busy ? null : onStart,
-                    icon: const Icon(Icons.fiber_manual_record, size: 18),
+                    icon: const Icon(AppIcons.dotFilled, size: IconSizes.md),
                     label: const Text(
                       'Mulai Rekam',
                       style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          TextStyle(fontSize: FontSizes.title, fontWeight: FontWeight.w600),
                     ),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      padding: const EdgeInsets.symmetric(horizontal: Spacing.xxl),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                Spacing.gapSm,
                 Text(
                   'atau tekan Ctrl+R',
-                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                 ),
               ],
             ),
@@ -1194,7 +1197,7 @@ class _ControlArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.sm, Spacing.lg, Spacing.md),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
@@ -1208,9 +1211,9 @@ class _ControlArea extends StatelessWidget {
             children: [
               if (showMenuButton)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8, top: 10),
+                  padding: const EdgeInsets.only(right: Spacing.sm, top: Spacing.sm),
                   child: IconButton(
-                    icon: const Icon(Icons.menu),
+                    icon: const Icon(AppIcons.menu),
                     tooltip: 'Riwayat sesi',
                     onPressed: onOpenMenu,
                   ),
@@ -1239,9 +1242,9 @@ class _ControlArea extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              Spacing.hMd,
               Padding(
-                padding: const EdgeInsets.only(top: 14),
+                padding: const EdgeInsets.only(top: Spacing.md),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1253,20 +1256,20 @@ class _ControlArea extends StatelessWidget {
                         height: 36,
                         child: OutlinedButton.icon(
                           onPressed: onEkspor,
-                          icon: Icon(Icons.download_outlined,
-                              size: 16, color: colors.text),
+                          icon: Icon(AppIcons.download,
+                              size: IconSizes.sm, color: colors.text),
                           label: Text('Ekspor',
                               style: TextStyle(color: colors.text)),
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: colors.border),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(Radii.md),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      Spacing.hSm,
                     ],
                     AnimatedRecordButton(
                       isRecording: isActive,
@@ -1283,7 +1286,7 @@ class _ControlArea extends StatelessWidget {
           // The VU meter alone cannot distinguish "recording" from "open
           // but silent"; the badge is what says audio actually arrived.
           if (isActive) ...[
-            const SizedBox(height: 8),
+            Spacing.gapSm,
             CaptureConfirmationBadge(health: captureHealth),
           ],
         ],
@@ -1316,22 +1319,22 @@ class _SaveFailedBanner extends StatelessWidget {
     return Material(
       color: colors.error.withValues(alpha: 0.12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: colors.error),
-            const SizedBox(width: 12),
+            Icon(AppIcons.error, color: colors.error),
+            Spacing.hMd,
             Expanded(
               child: Semantics(
                 liveRegion: true,
                 child: Text(
                   '$message Transkrip masih ada di memori — jangan tutup '
                   'aplikasi sebelum tersimpan.',
-                  style: TextStyle(color: colors.text, fontSize: 13),
+                  style: TextStyle(color: colors.text, fontSize: FontSizes.body),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             TextButton(
               onPressed: busy ? null : onSaveElsewhere,
               child: const Text('Simpan ke folder lain'),
@@ -1376,7 +1379,7 @@ class _FooterBar extends StatelessWidget {
     final isPaused = lifecycle == SessionLifecycle.paused;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
@@ -1401,34 +1404,34 @@ class _FooterBar extends StatelessWidget {
                     : null,
               ),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Text(
               _formatElapsed(elapsedSeconds),
               style: TextStyle(
                 color: colors.text,
-                fontSize: 12,
+                fontSize: FontSizes.caption,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+                fontFamily: AppFonts.mono,
               ),
             ),
-            const SizedBox(width: 16),
+            Spacing.hLg,
           ],
           if (segmentsCount > 0) ...[
-            Icon(Icons.chat_bubble_outline, size: 14, color: colors.textTertiary),
-            const SizedBox(width: 4),
+            Icon(AppIcons.segments, size: IconSizes.xs, color: colors.textTertiary),
+            Spacing.hXs,
             Text(
               '$segmentsCount',
               style: TextStyle(
                   color: colors.textTertiary,
-                  fontSize: 12,
-                  fontFamily: 'monospace'),
+                  fontSize: FontSizes.caption,
+                  fontFamily: AppFonts.mono),
             ),
-            const SizedBox(width: 16),
+            Spacing.hLg,
           ],
           const Spacer(),
           Text(
             'Ctrl+/ untuk pintasan',
-            style: TextStyle(color: colors.textTertiary, fontSize: 11),
+            style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
           ),
         ],
       ),
@@ -1446,7 +1449,7 @@ class _ShortcutsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.divider)),
@@ -1468,19 +1471,19 @@ class _ShortcutsPanel extends StatelessWidget {
                 'Pintasan keyboard',
                 style: TextStyle(
                   color: colors.text,
-                  fontSize: 14,
+                  fontSize: FontSizes.bodyLarge,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.close, size: 18, color: colors.textSecondary),
+                icon: Icon(AppIcons.close, size: IconSizes.md, color: colors.textSecondary),
                 tooltip: 'Tutup',
                 onPressed: onClose,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          Spacing.gapSm,
           const _ShortcutRow(label: 'Mulai / Berhenti merekam', shortcut: 'Ctrl+R'),
           const _ShortcutRow(label: 'Jeda / Lanjutkan', shortcut: 'Ctrl+P'),
           const _ShortcutRow(label: 'Cari di riwayat sesi', shortcut: 'Ctrl+L'),
@@ -1504,24 +1507,24 @@ class _ShortcutRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: TextStyle(color: colors.text, fontSize: 13)),
+            child: Text(label, style: TextStyle(color: colors.text, fontSize: FontSizes.body)),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
             decoration: BoxDecoration(
               color: colors.chipBackground,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(Radii.xs),
             ),
             child: Text(
               shortcut,
               style: TextStyle(
                   color: colors.textSecondary,
-                  fontSize: 12,
-                  fontFamily: 'monospace'),
+                  fontSize: FontSizes.caption,
+                  fontFamily: AppFonts.mono),
             ),
           ),
         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 class AnimatedRecordButton extends StatefulWidget {
   final bool isRecording;
@@ -79,7 +80,7 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton>
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
             color: isActive ? colors.recording : colors.primary,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(Radii.md),
             boxShadow: isActive
                 ? [
                     BoxShadow(
@@ -92,12 +93,12 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton>
           ),
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(Radii.md),
             child: InkWell(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(Radii.md),
               onTap: widget.isBusy ? null : widget.onPressed,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -109,11 +110,11 @@ class _AnimatedRecordButtonState extends State<AnimatedRecordButton>
                       )
                     else
                       Icon(
-                        isActive ? (widget.isPaused ? Icons.play_arrow : Icons.stop) : Icons.mic,
+                        isActive ? (widget.isPaused ? AppIcons.play : AppIcons.stop) : AppIcons.mic,
                         color: colors.onPrimary,
                         size: IconSizes.sm,
                       ),
-                    const SizedBox(width: 6),
+                    Spacing.hSm,
                     Text(
                       widget.isBusy
                           ? widget.busyLabel

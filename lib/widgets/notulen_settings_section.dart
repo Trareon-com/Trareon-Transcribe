@@ -18,6 +18,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import 'app_toast.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
 
 class NotulenDefaultsSection extends ConsumerStatefulWidget {
   const NotulenDefaultsSection({super.key});
@@ -174,7 +175,7 @@ class _NotulenDefaultsSectionState
                     alignment: Alignment.centerRight,
                     child: FilledButton.icon(
                       onPressed: _save,
-                      icon: const Icon(Icons.save_outlined, size: IconSizes.md),
+                      icon: const Icon(AppIcons.save, size: IconSizes.md),
                       label: const Text('Simpan'),
                     ),
                   ),
@@ -183,7 +184,7 @@ class _NotulenDefaultsSectionState
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.image_outlined,
+              icon: AppIcons.image,
               label: 'Kop surat',
               subtitle: notulen.kopSuratPath.isEmpty
                   ? 'Belum dipilih. Tanpa gambar, kop ditulis sebagai teks '
@@ -196,7 +197,7 @@ class _NotulenDefaultsSectionState
                     IconButton(
                       tooltip: 'Hapus kop surat',
                       constraints: TouchTarget.constraints,
-                      icon: const Icon(Icons.delete_outline,
+                      icon: const Icon(AppIcons.delete,
                           size: IconSizes.md),
                       onPressed: () => ref
                           .read(settingsProvider.notifier)
@@ -207,7 +208,7 @@ class _NotulenDefaultsSectionState
                   IconButton(
                     tooltip: 'Pilih gambar kop surat',
                     constraints: TouchTarget.constraints,
-                    icon: const Icon(Icons.folder_open_outlined,
+                    icon: const Icon(AppIcons.folderOpen,
                         size: IconSizes.md),
                     onPressed: _pickKopSurat,
                   ),

@@ -18,6 +18,8 @@ import '../widgets/storage_bar.dart';
 import '../widgets/empty_state.dart';
 import 'transcript_player_screen.dart';
 import '../widgets/export_dialog.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// How long the library search box waits after the last keystroke.
 /// Matching the whole corpus per keystroke was the second half of the
@@ -380,7 +382,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           title: const Text('Perpustakaan', style: TextStyle(fontWeight: FontWeight.w600)),
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+            icon: const Icon(AppIcons.back, size: IconSizes.lg),
             onPressed: () => Navigator.of(context).pop(),
             tooltip: 'Kembali',
           ),
@@ -400,16 +402,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(Spacing.md),
                   child: TextField(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
                     decoration: InputDecoration(
                       hintText: 'Cari judul, isi transkrip, atau ringkasan...',
-                      prefixIcon: Icon(Icons.search, color: colors.textTertiary, size: 18),
+                      prefixIcon: Icon(AppIcons.search, color: colors.textTertiary, size: IconSizes.md),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, size: 18, color: colors.textTertiary),
+                              icon: Icon(AppIcons.clear, size: IconSizes.md, color: colors.textTertiary),
                               onPressed: _clearSearch,
                               tooltip: 'Bersihkan pencarian',
                             )
@@ -417,20 +419,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       filled: true,
                       fillColor: colors.chipBackground,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(Radii.md),
                         borderSide: BorderSide(color: colors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(Radii.md),
                         borderSide: BorderSide(color: colors.border),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                     ),
                   ),
                 ),
                 if (_deepSearching)
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: Spacing.md),
                     child: Row(
                       children: [
                         SizedBox(
@@ -438,9 +440,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           height: 12,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        SizedBox(width: 8),
+                        Spacing.hSm,
                         Text('Mencari di dalam transkrip…',
-                            style: TextStyle(fontSize: 12)),
+                            style: TextStyle(fontSize: FontSizes.caption)),
                       ],
                     ),
                   ),
@@ -449,7 +451,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 // creation walked the whole library directory (A.2-6).
                 if (!_loading && _entries.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                     child: StorageBar(
                       totalSessions: _entries.length,
                       libraryPath: widget.libraryPath,
@@ -460,21 +462,21 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       ? const Center(child: CircularProgressIndicator())
                       : _entries.isEmpty
                           ? const EmptyState(
-                              icon: Icons.folder_open_outlined,
+                              icon: AppIcons.folderOpen,
                               title: 'Belum ada sesi tersimpan',
                               subtitle: 'Sesi transkripsi akan muncul di sini',
                             )
                           : filtered.isEmpty
                               ? const EmptyState(
-                                  icon: Icons.search_off,
+                                  icon: AppIcons.searchOff,
                                   title: 'Tidak ada sesi cocok',
                                 )
                               : ListView.separated(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
+                                      horizontal: Spacing.md, vertical: Spacing.sm),
                                   itemCount: filtered.length,
                                   separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 8),
+                                      Spacing.gapSm,
                                   itemBuilder: (context, index) {
                                     final session = filtered[index];
                                     return SessionCardFromSummary(
@@ -495,7 +497,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
             // Upload tab
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(Spacing.md),
               child: FileUploadZone(onProcessed: _loadFromDisk),
             ),
           ],

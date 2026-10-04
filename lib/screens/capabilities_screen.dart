@@ -19,6 +19,8 @@ import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_typography.dart';
 
 /// The capability table for the current settings.
 ///
@@ -187,7 +189,7 @@ class _CapabilityRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  local ? Icons.computer_outlined : Icons.cloud_outlined,
+                  local ? AppIcons.computer : AppIcons.cloud,
                   size: IconSizes.md,
                   color: placeColor,
                 ),
@@ -261,7 +263,7 @@ class _CapabilityRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textTertiary,
-                      fontFamily: 'monospace',
+                      fontFamily: AppFonts.mono,
                     ),
                   ),
                 ],

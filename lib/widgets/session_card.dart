@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../state/models.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// Card widget for displaying a session summary in the library list.
 class SessionCard extends StatelessWidget {
@@ -72,14 +74,14 @@ class SessionCard extends StatelessWidget {
       color: colors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.md),
         side: BorderSide(color: colors.border),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.md),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(Spacing.md),
           child: Row(
             children: [
               // Icon
@@ -88,11 +90,11 @@ class SessionCard extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(Radii.md),
                 ),
-                child: Icon(Icons.mic_outlined, color: colors.primary, size: 20),
+                child: Icon(AppIcons.mic, color: colors.primary, size: IconSizes.lg),
               ),
-              const SizedBox(width: 12),
+              Spacing.hMd,
 
               // Info
               Expanded(
@@ -107,57 +109,57 @@ class SessionCard extends StatelessWidget {
                             style: TextStyle(
                               color: colors.text,
                               fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: FontSizes.bodyLarge,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (hasSummary) ...[
-                          const SizedBox(width: 6),
+                          Spacing.hSm,
                           Tooltip(
                             message: 'Punya ringkasan AI',
                             child: Icon(
-                              Icons.auto_awesome,
-                              size: 13,
+                              AppIcons.enhance,
+                              size: IconSizes.xs,
                               color: colors.primary,
                             ),
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    Spacing.gapXs,
                     Row(
                       children: [
-                        Icon(Icons.calendar_today, size: 12, color: colors.textTertiary),
-                        const SizedBox(width: 4),
+                        Icon(AppIcons.calendar, size: IconSizes.xs, color: colors.textTertiary),
+                        Spacing.hXs,
                         Text(
                           _formatDate(date),
-                          style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.access_time, size: 12, color: colors.textTertiary),
-                        const SizedBox(width: 4),
+                        Spacing.hMd,
+                        Icon(AppIcons.clock, size: IconSizes.xs, color: colors.textTertiary),
+                        Spacing.hXs,
                         Text(
                           durStr,
-                          style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.chat_bubble_outline, size: 12, color: colors.textTertiary),
-                        const SizedBox(width: 4),
+                        Spacing.hMd,
+                        Icon(AppIcons.segments, size: IconSizes.xs, color: colors.textTertiary),
+                        Spacing.hXs,
                         Text(
                           '$segmentsCount segmen',
-                          style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                         ),
                       ],
                     ),
                     if (matchSnippet != null) ...[
-                      const SizedBox(height: 4),
+                      Spacing.gapXs,
                       Text(
                         matchSnippet!,
                         style: TextStyle(
                           color: colors.textSecondary,
-                          fontSize: 12,
+                          fontSize: FontSizes.caption,
                           fontStyle: FontStyle.italic,
                         ),
                         maxLines: 2,
@@ -171,18 +173,18 @@ class SessionCard extends StatelessWidget {
               // Actions
               if (onRename != null)
                 IconButton(
-                  icon: Icon(Icons.drive_file_rename_outline,
-                      size: 18, color: colors.textTertiary),
+                  icon: Icon(AppIcons.rename,
+                      size: IconSizes.md, color: colors.textTertiary),
                   tooltip: 'Ganti nama',
                   onPressed: onRename,
                 ),
               IconButton(
-                icon: Icon(Icons.upload_outlined, size: 18, color: colors.textTertiary),
+                icon: Icon(AppIcons.upload, size: IconSizes.md, color: colors.textTertiary),
                 tooltip: 'Ekspor',
                 onPressed: onExport,
               ),
               IconButton(
-                icon: Icon(Icons.delete_outline, size: 18, color: colors.textTertiary),
+                icon: Icon(AppIcons.delete, size: IconSizes.md, color: colors.textTertiary),
                 tooltip: 'Hapus',
                 onPressed: onDelete,
               ),

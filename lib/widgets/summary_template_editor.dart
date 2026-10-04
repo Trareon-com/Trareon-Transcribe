@@ -14,6 +14,7 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 /// Opens the template manager: list, duplicate, edit, delete.
 Future<void> showSummaryTemplateManager(BuildContext context) {
@@ -82,7 +83,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Ubah ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.edit_outlined,
+                          icon: const Icon(AppIcons.edit,
                               size: IconSizes.md),
                           onPressed: () async {
                             final edited = await showSummaryTemplateEditor(
@@ -97,7 +98,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Duplikat ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.copy_outlined,
+                          icon: const Icon(AppIcons.copy,
                               size: IconSizes.md),
                           onPressed: () => notifier.saveSummaryTemplate(
                             CustomSummaryTemplate(
@@ -111,7 +112,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Hapus ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: Icon(Icons.delete_outline,
+                          icon: Icon(AppIcons.delete,
                               size: IconSizes.md, color: colors.error),
                           onPressed: () =>
                               notifier.deleteSummaryTemplate(template.id),
@@ -136,7 +137,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                   for (final builtin in SummaryTemplate.values)
                     if (builtin != SummaryTemplate.kustom)
                       ActionChip(
-                        avatar: const Icon(Icons.add, size: IconSizes.sm),
+                        avatar: const Icon(AppIcons.add, size: IconSizes.sm),
                         label: Text(summaryTemplateLabel(builtin)),
                         tooltip:
                             'Duplikat "${summaryTemplateLabel(builtin)}" jadi '
@@ -161,7 +162,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         },
                       ),
                   ActionChip(
-                    avatar: const Icon(Icons.note_add_outlined,
+                    avatar: const Icon(AppIcons.noteAdd,
                         size: IconSizes.sm),
                     label: const Text('Kosong'),
                     tooltip: 'Buat template dari nol',

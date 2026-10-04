@@ -14,6 +14,7 @@ import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
+import '../theme/app_icons.dart';
 
 /// Asks for the optional one-line note on a bookmark.
 ///
@@ -163,7 +164,7 @@ class BookmarkJumpList extends StatelessWidget {
             child: GestureDetector(
               onLongPress: () => onEditNote(bookmark),
               child: InputChip(
-                avatar: Icon(Icons.bookmark,
+                avatar: Icon(AppIcons.bookmarkFilled,
                     size: IconSizes.sm, color: colors.primary),
                 label: Text(
                   bookmark.note.trim().isEmpty
@@ -226,7 +227,7 @@ class BookmarkBar extends StatelessWidget {
                 message: 'Tandai poin penting di posisi sekarang (Ctrl+B)',
                 child: OutlinedButton.icon(
                   onPressed: live ? onAdd : null,
-                  icon: const Icon(Icons.bookmark_add_outlined,
+                  icon: const Icon(AppIcons.bookmarkAdd,
                       size: IconSizes.md),
                   label: const Text('Tandai'),
                 ),
@@ -237,7 +238,7 @@ class BookmarkBar extends StatelessWidget {
                 child: IconButton(
                   onPressed: live ? onAddWithNote : null,
                   constraints: TouchTarget.constraints,
-                  icon: const Icon(Icons.edit_note, size: IconSizes.lg),
+                  icon: const Icon(AppIcons.editNote, size: IconSizes.lg),
                 ),
               ),
               const SizedBox(width: Spacing.sm),
@@ -266,7 +267,7 @@ class BookmarkBar extends StatelessWidget {
                 for (final bookmark in bookmarks)
                   InputChip(
                     avatar: Icon(
-                      Icons.bookmark,
+                      AppIcons.bookmarkFilled,
                       size: IconSizes.sm,
                       color: colors.primary,
                     ),

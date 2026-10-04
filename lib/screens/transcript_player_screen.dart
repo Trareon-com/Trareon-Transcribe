@@ -30,6 +30,7 @@ import '../widgets/speaker_manager_dialog.dart';
 import '../widgets/tag_editor_dialog.dart';
 import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
+import '../theme/app_icons.dart';
 
 /// Playback speeds offered by the player. 0.75× is the slowest useful speed
 /// for re-listening to an unclear passage; below that Indonesian speech
@@ -867,16 +868,16 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
             leading: IconButton(
               icon: Icon(
                 widget.onClose != null
-                    ? Icons.close
-                    : Icons.arrow_back_ios_new,
-                size: 20,
+                    ? AppIcons.close
+                    : AppIcons.back,
+                size: IconSizes.lg,
               ),
               onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
               tooltip: widget.onClose != null ? 'Tutup sesi' : 'Kembali',
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.keyboard_outlined, size: 20),
+                icon: const Icon(AppIcons.keyboard, size: IconSizes.lg),
                 tooltip: 'Pintasan: Spasi putar/jeda · ←/→ 5 detik · J/K/L 10 detik',
                 onPressed: () => _showShortcutHelp(context, colors),
               ),
@@ -889,19 +890,19 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   color: colors.error.withValues(alpha: 0.12),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                      horizontal: Spacing.lg,
+                      vertical: Spacing.sm,
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: colors.error, size: 18),
-                        const SizedBox(width: 10),
+                        Icon(AppIcons.error, color: colors.error, size: IconSizes.md),
+                        Spacing.hSm,
                         Expanded(
                           child: Semantics(
                             liveRegion: true,
                             child: Text(
                               _saveError!,
-                              style: TextStyle(color: colors.text, fontSize: 12),
+                              style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
                             ),
                           ),
                         ),
@@ -959,7 +960,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
 
               // Player controls
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
                 decoration: BoxDecoration(
                   color: colors.surface,
                   border: Border(top: BorderSide(color: colors.divider)),
@@ -971,10 +972,10 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                         alignment: Alignment.centerLeft,
                         child: Text(
                           _error!,
-                          style: TextStyle(color: colors.error, fontSize: 12),
+                          style: TextStyle(color: colors.error, fontSize: FontSizes.caption),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      Spacing.gapSm,
                     ],
                     BookmarkTicks(
                       bookmarks: _bookmarks,
@@ -990,7 +991,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                       builder: (context, seconds, _) => Row(
                         children: [
                           Text(_formatTime(seconds),
-                              style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption)),
                           Expanded(
                             child: Slider(
                               value: seconds.clamp(0.0, maxSeconds).toDouble(),
@@ -1003,7 +1004,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             ),
                           ),
                           Text(_formatTime(maxSeconds),
-                              style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption)),
                         ],
                       ),
                     ),
@@ -1014,38 +1015,38 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                       children: [
                         IconButton(
                           iconSize: 24,
-                          icon: const Icon(Icons.replay_10),
+                          icon: const Icon(AppIcons.replay10),
                           color: colors.textSecondary,
                           onPressed: hasAudio ? () => _seekBy(-kJlSeekSeconds) : null,
                           tooltip: 'Mundur 10 detik (J)',
                         ),
-                        const SizedBox(width: 8),
+                        Spacing.hSm,
                         ValueListenableBuilder<bool>(
                           valueListenable: _playing,
                           builder: (context, playing, _) => IconButton(
                             iconSize: 40,
                             icon: Icon(
-                              playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                              playing ? AppIcons.pauseFilled : AppIcons.playFilled,
                               color: colors.primary,
                             ),
                             tooltip: playing ? 'Jeda (Spasi)' : 'Putar (Spasi)',
                             onPressed: hasAudio ? _togglePlayback : null,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        Spacing.hSm,
                         IconButton(
                           iconSize: 24,
-                          icon: const Icon(Icons.forward_10),
+                          icon: const Icon(AppIcons.forward10),
                           color: colors.textSecondary,
                           onPressed: hasAudio ? () => _seekBy(kJlSeekSeconds) : null,
                           tooltip: 'Maju 10 detik (L)',
                         ),
-                        const SizedBox(width: 16),
+                        Spacing.hLg,
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                           decoration: BoxDecoration(
                             color: colors.chipBackground,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(Radii.md),
                             border: Border.all(color: colors.border),
                           ),
                           child: DropdownButton<double>(
@@ -1053,7 +1054,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             isDense: true,
                             underline: const SizedBox(),
                             dropdownColor: colors.surface,
-                            style: TextStyle(color: colors.text, fontSize: 13),
+                            style: TextStyle(color: colors.text, fontSize: FontSizes.body),
                             items: kPlaybackSpeeds
                                 .map((s) => DropdownMenuItem(value: s, child: Text('${s}x')))
                                 .toList(),
@@ -1081,7 +1082,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                     ],
 
                     // Export button row
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     Wrap(
                       alignment: WrapAlignment.end,
                       spacing: Spacing.sm,
@@ -1089,7 +1090,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                       children: [
                         if (hasAudio)
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.bookmark_add_outlined,
+                            icon: const Icon(AppIcons.bookmarkAdd,
                                 size: IconSizes.sm),
                             label: const Text(
                               'Tandai di sini',
@@ -1100,8 +1101,8 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                               foregroundColor: colors.textSecondary,
                               side: BorderSide(color: colors.border),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                                horizontal: Spacing.md,
+                                vertical: Spacing.sm,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: Radii.smAll,
@@ -1109,7 +1110,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             ),
                           ),
                         FilledButton.icon(
-                          icon: const Icon(Icons.description_outlined,
+                          icon: const Icon(AppIcons.document,
                               size: IconSizes.sm),
                           label: const Text(
                             'Notulen Rapat',
@@ -1119,31 +1120,31 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                         ),
                         if (_hasBackup) ...[
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.undo, size: 16),
+                            icon: const Icon(AppIcons.undo, size: IconSizes.sm),
                             label: const Text(
                               'Pulihkan cadangan',
-                              style: TextStyle(fontSize: 13),
+                              style: TextStyle(fontSize: FontSizes.body),
                             ),
                             onPressed: _restoreBackup,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: colors.textSecondary,
                               side: BorderSide(color: colors.border),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                                horizontal: Spacing.md,
+                                vertical: Spacing.sm,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                             ),
                           ),
                         ],
                         if (hasAudio && _sessionDirPath != null) ...[
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.refresh, size: 16),
+                            icon: const Icon(AppIcons.refresh, size: IconSizes.sm),
                             label: const Text(
                               'Transkrip Ulang',
-                              style: TextStyle(fontSize: 13),
+                              style: TextStyle(fontSize: FontSizes.body),
                             ),
                             onPressed: _retranscribe,
                             style: OutlinedButton.styleFrom(
@@ -1152,21 +1153,21 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                                 color: colors.primary.withValues(alpha: 0.3),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                                horizontal: Spacing.md,
+                                vertical: Spacing.sm,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                             ),
                           ),
                         ],
                         if (_sessionDirPath != null)
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.label_outline, size: 16),
+                            icon: const Icon(AppIcons.tag, size: IconSizes.sm),
                             label: Text(
                               _tags.isEmpty ? 'Tag' : 'Tag (${_tags.length})',
-                              style: const TextStyle(fontSize: 13),
+                              style: const TextStyle(fontSize: FontSizes.body),
                             ),
                             onPressed: _editTags,
                             style: OutlinedButton.styleFrom(
@@ -1175,20 +1176,20 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                                 color: colors.primary.withValues(alpha: 0.3),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                                horizontal: Spacing.md,
+                                vertical: Spacing.sm,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                             ),
                           ),
                         if (_segments.isNotEmpty)
                           OutlinedButton.icon(
-                            icon: const Icon(Icons.people_outline, size: 16),
+                            icon: const Icon(AppIcons.people, size: IconSizes.sm),
                             label: const Text(
                               'Pembicara',
-                              style: TextStyle(fontSize: 13),
+                              style: TextStyle(fontSize: FontSizes.body),
                             ),
                             onPressed: _manageSpeakers,
                             style: OutlinedButton.styleFrom(
@@ -1197,24 +1198,24 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                                 color: colors.primary.withValues(alpha: 0.3),
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                                horizontal: Spacing.md,
+                                vertical: Spacing.sm,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                             ),
                           ),
                         OutlinedButton.icon(
-                          icon: const Icon(Icons.upload_outlined, size: 16),
-                          label: const Text('Ekspor', style: TextStyle(fontSize: 13)),
+                          icon: const Icon(AppIcons.upload, size: IconSizes.sm),
+                          label: const Text('Ekspor', style: TextStyle(fontSize: FontSizes.body)),
                           onPressed: () => _exportTranscript(context),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colors.primary,
                             side: BorderSide(color: colors.primary.withValues(alpha: 0.3)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(Radii.md),
                             ),
                           ),
                         ),
@@ -1241,13 +1242,13 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Spasi atau K — putar / jeda'),
-            SizedBox(height: 6),
+            Spacing.gapSm,
             Text('← / → — mundur / maju 5 detik'),
-            SizedBox(height: 6),
+            Spacing.gapSm,
             Text('J / L — mundur / maju 10 detik'),
-            SizedBox(height: 6),
+            Spacing.gapSm,
             Text('Klik baris transkrip — lompat ke waktu itu'),
-            SizedBox(height: 6),
+            Spacing.gapSm,
             Text('Klik tanda di garis waktu — lompat ke poin yang ditandai'),
           ],
         ),

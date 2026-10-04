@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// What the user chose in [showRecoveryDialog].
 sealed class RecoveryChoice {
@@ -66,9 +68,9 @@ class _RecoveryDialog extends StatelessWidget {
               sessions.length == 1
                   ? 'Satu sesi berhenti tanpa disimpan. Berikut isinya:'
                   : '${sessions.length} sesi berhenti tanpa disimpan. Berikut isinya:',
-              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
             ),
-            const SizedBox(height: 12),
+            Spacing.gapMd,
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
@@ -142,34 +144,34 @@ class _RecoverableTile extends StatelessWidget {
           session.title,
           style: TextStyle(
             color: colors.text,
-            fontSize: 14,
+            fontSize: FontSizes.bodyLarge,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 2),
+        Spacing.gapXs,
         Text(
           '$_startedAt · ${formatDurationId(session.durationSecs)}',
-          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
         ),
-        const SizedBox(height: 2),
+        Spacing.gapXs,
         Text(
           _contents,
           style: TextStyle(
             color: hasAnything ? colors.textSecondary : colors.error,
-            fontSize: 12,
+            fontSize: FontSizes.caption,
           ),
         ),
-        const SizedBox(height: 8),
+        Spacing.gapSm,
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton.icon(
               onPressed: () => Navigator.of(context).pop(DiscardSession(session)),
-              icon: const Icon(Icons.delete_outline, size: 16),
+              icon: const Icon(AppIcons.delete, size: IconSizes.sm),
               label: const Text('Hapus'),
               style: TextButton.styleFrom(foregroundColor: colors.error),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Tooltip(
               message: canRecover
                   ? 'Lanjutkan sesi ini dan rekam ke berkas yang sama'
@@ -178,7 +180,7 @@ class _RecoverableTile extends StatelessWidget {
                 onPressed: canRecover
                     ? () => Navigator.of(context).pop(RecoverSession(session))
                     : null,
-                icon: const Icon(Icons.restore, size: 16),
+                icon: const Icon(AppIcons.restore, size: IconSizes.sm),
                 label: const Text('Pulihkan'),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 
 /// Centred icon + message for a pane with nothing in it yet.
 ///
@@ -34,14 +35,14 @@ class EmptyState extends StatelessWidget {
       final body = Column(mainAxisSize: MainAxisSize.min, children: [
         if (!compact) ...[
           // Decorative: it repeats what the title already says.
-          ExcludeSemantics(child: Icon(icon, size: 40, color: colors.textTertiary)),
-          const SizedBox(height: 16),
+          ExcludeSemantics(child: Icon(icon, size: IconSizes.hero, color: colors.textTertiary)),
+          Spacing.gapLg,
         ],
         Semantics(
           header: true,
-          child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
+          child: Text(title, style: TextStyle(fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
         ),
-        if (subtitle != null) ...[const SizedBox(height: 6), Text(subtitle!, style: TextStyle(fontSize: 13, color: colors.textTertiary), textAlign: TextAlign.center)],
+        if (subtitle != null) ...[Spacing.gapSm, Text(subtitle!, style: TextStyle(fontSize: FontSizes.body, color: colors.textTertiary), textAlign: TextAlign.center)],
         if (action != null) ...[SizedBox(height: compact ? 12 : 20), action!],
       ]);
       return Center(child: bounded

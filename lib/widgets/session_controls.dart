@@ -19,6 +19,7 @@ import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
 import '../widgets/mode_selector.dart';
 import 'model_download_dialog.dart';
+import '../theme/app_icons.dart';
 
 class ControlGroup extends StatelessWidget {
   const ControlGroup({
@@ -38,11 +39,11 @@ class ControlGroup extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 4),
+          padding: const EdgeInsets.only(left: Spacing.xs, bottom: Spacing.xs),
           child: Text(
             title.toUpperCase(),
             style: TextStyle(
-              fontSize: 10,
+              fontSize: FontSizes.overline,
               letterSpacing: 0.8,
               fontWeight: FontWeight.w700,
               color: colors.textTertiary,
@@ -92,22 +93,22 @@ class SessionGroup extends ConsumerWidget {
               controller: titleController,
               onChanged: onTitleChanged,
               onSubmitted: onTitleChanged,
-              style: TextStyle(color: colors.text, fontSize: 13),
+              style: TextStyle(color: colors.text, fontSize: FontSizes.body),
               decoration: InputDecoration(
                 hintText: 'Judul sesi...',
-                hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
+                hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
                 prefixIcon:
-                    Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
+                    Icon(AppIcons.edit, size: IconSizes.sm, color: colors.textTertiary),
                 filled: true,
                 fillColor: colors.chipBackground,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(Radii.md),
                   borderSide: BorderSide(color: colors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(Radii.md),
                   borderSide: BorderSide(color: colors.border),
                 ),
               ),
@@ -160,7 +161,7 @@ class SessionGlossaryPill extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.menu_book_outlined,
+              Icon(AppIcons.glossary,
                   size: IconSizes.sm, color: colors.textSecondary),
               const SizedBox(width: Spacing.sm),
               Text(
@@ -298,23 +299,23 @@ class SessionOptionsMenu extends ConsumerWidget {
       ],
       child: Container(
         height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
         decoration: BoxDecoration(
           color: colors.chipBackground,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.md),
           border: Border.all(color: colors.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(isAccurate ? '🎯' : '⚡', style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 6),
+            Text(isAccurate ? '🎯' : '⚡', style: const TextStyle(fontSize: FontSizes.caption)),
+            Spacing.hSm,
             Text(
               isAccurate ? 'Akurat' : 'Cepat',
-              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.expand_more, size: 16, color: colors.textSecondary),
+            Spacing.hXs,
+            Icon(AppIcons.expandMore, size: IconSizes.sm, color: colors.textSecondary),
           ],
         ),
       ),
@@ -390,7 +391,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
         runSpacing: 8,
         children: [
           DevicePill(
-            icon: Icons.mic_none_outlined,
+            icon: AppIcons.mic,
             label: 'Mikrofon',
             enabled: widget.micEnabled,
             onToggled: widget.onMicToggled,
@@ -403,7 +404,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
             onRefresh: _loadDevices,
           ),
           DevicePill(
-            icon: Icons.volume_up_outlined,
+            icon: AppIcons.systemAudio,
             label: 'Suara sistem',
             enabled: widget.speakerEnabled,
             onToggled: widget.onSpeakerToggled,
@@ -455,10 +456,10 @@ class DevicePill extends StatelessWidget {
     final deviceLabel = selected ?? 'Bawaan sistem';
     return Container(
       width: 244,
-      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      padding: const EdgeInsets.fromLTRB(Spacing.sm, Spacing.sm, Spacing.sm, Spacing.sm),
       decoration: BoxDecoration(
         color: enabled ? accent.withValues(alpha: 0.08) : colors.chipBackground,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(
           color: enabled ? accent.withValues(alpha: 0.45) : colors.border,
         ),
@@ -470,14 +471,14 @@ class DevicePill extends StatelessWidget {
           Row(
             children: [
               Icon(icon,
-                  size: 16, color: enabled ? accent : colors.textTertiary),
-              const SizedBox(width: 6),
+                  size: IconSizes.sm, color: enabled ? accent : colors.textTertiary),
+              Spacing.hSm,
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
                     color: colors.text,
-                    fontSize: 12,
+                    fontSize: FontSizes.caption,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -517,18 +518,18 @@ class DevicePill extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 11,
+                            fontSize: FontSizes.micro,
                           ),
                         ),
                       ),
-                      Icon(Icons.expand_more,
-                          size: 14, color: colors.textTertiary),
+                      Icon(AppIcons.expandMore,
+                          size: IconSizes.xs, color: colors.textTertiary),
                     ],
                   ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.refresh, size: 14),
+                icon: const Icon(AppIcons.refresh, size: IconSizes.xs),
                 tooltip: 'Muat ulang daftar perangkat',
                 onPressed: onRefresh,
                 color: colors.textTertiary,
@@ -540,9 +541,9 @@ class DevicePill extends StatelessWidget {
           ),
           if (showLevel)
             Padding(
-              padding: const EdgeInsets.only(top: 2, right: 6),
+              padding: const EdgeInsets.only(top: Spacing.xs, right: Spacing.sm),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(Radii.xs),
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: level.clamp(0.0, 1.0)),
                   duration: const Duration(milliseconds: 80),

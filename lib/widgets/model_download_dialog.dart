@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/bridge_service.dart';
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 
 Future<bool> showModelDownloadDialog({
   required BuildContext context,
@@ -136,14 +137,14 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
-            const SizedBox(height: 16),
+            Spacing.gapLg,
             LinearProgressIndicator(
               value: _progress,
               backgroundColor: colors.border,
               valueColor: AlwaysStoppedAnimation(colors.primary),
             ),
-            const SizedBox(height: 8),
-            Text(_status, style: TextStyle(color: colors.textTertiary, fontSize: 12)),
+            Spacing.gapSm,
+            Text(_status, style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption)),
           ],
         ],
       ),

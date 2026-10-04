@@ -5,6 +5,8 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// Settings for the opt-in AI summary.
 ///
@@ -101,23 +103,23 @@ class _SummarySettingsSectionState
         // it can't find a Material ancestor to paint its ink on.
         Row(
           children: [
-            Icon(Icons.auto_awesome_outlined, size: 18, color: colors.textSecondary),
-            const SizedBox(width: 10),
+            Icon(AppIcons.enhance, size: IconSizes.md, color: colors.textSecondary),
+            Spacing.hSm,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Aktifkan Ringkasan AI',
-                    style: TextStyle(color: colors.text, fontSize: 14),
+                    style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
                   ),
-                  const SizedBox(height: 2),
+                  Spacing.gapXs,
                   Text(
                     summary.enabled
                         ? 'Transkrip dikirim ke endpoint di bawah hanya saat Anda '
                               'menekan "Buat Ringkasan". Tidak ada audio yang dikirim.'
                         : 'Mati — aplikasi tetap 100% offline.',
-                    style: TextStyle(color: colors.textTertiary, fontSize: 11.5),
+                    style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
                   ),
                 ],
               ),
@@ -130,7 +132,7 @@ class _SummarySettingsSectionState
           ],
         ),
         if (summary.enabled) ...[
-          const SizedBox(height: 4),
+          Spacing.gapXs,
           _Field(
             label: 'Penyedia',
             child: DropdownButtonFormField<SummaryProvider>(
@@ -220,7 +222,7 @@ class _SummarySettingsSectionState
                           },
                         ),
                 ),
-                const SizedBox(width: 8),
+                Spacing.hSm,
                 _loadingModels
                     ? const SizedBox(
                         width: 18,
@@ -228,7 +230,7 @@ class _SummarySettingsSectionState
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : IconButton(
-                        icon: const Icon(Icons.refresh, size: 18),
+                        icon: const Icon(AppIcons.refresh, size: IconSizes.md),
                         tooltip: 'Muat daftar model dari endpoint',
                         onPressed: _loadModels,
                       ),
@@ -237,10 +239,10 @@ class _SummarySettingsSectionState
           ),
           if (_modelsError != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: Text(
                 _modelsError!,
-                style: TextStyle(color: colors.error, fontSize: 11.5),
+                style: TextStyle(color: colors.error, fontSize: FontSizes.micro),
               ),
             ),
           _Field(
@@ -264,7 +266,7 @@ class _SummarySettingsSectionState
           // sent, so they live under the endpoint rather than next to the
           // master switch.
           SettingsSwitch(
-            icon: Icons.format_quote_outlined,
+            icon: AppIcons.quote,
             label: 'Rujukan ke transkrip',
             subtitle:
                 'Minta model menyebut nomor segmen untuk setiap poin, '
@@ -275,7 +277,7 @@ class _SummarySettingsSectionState
                 _update(summary.copyWith(withCitations: value)),
           ),
           SettingsSwitch(
-            icon: Icons.checklist_outlined,
+            icon: AppIcons.checklist,
             label: 'Tindak lanjut terstruktur',
             subtitle:
                 'Minta daftar tugas, penanggung jawab, dan tenggat dalam '
@@ -311,7 +313,7 @@ class _SummarySettingsSectionState
     hintText: hint,
     isDense: true,
     border: const OutlineInputBorder(),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+    contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
   );
 }
 
@@ -326,21 +328,21 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
           ),
-          const SizedBox(height: 4),
+          Spacing.gapXs,
           child,
           if (helper != null) ...[
-            const SizedBox(height: 3),
+            Spacing.gapXs,
             Text(
               helper!,
-              style: TextStyle(color: colors.textTertiary, fontSize: 11),
+              style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
             ),
           ],
         ],

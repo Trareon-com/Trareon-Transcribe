@@ -15,6 +15,7 @@ import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 Future<void> showRedactionPreview(
   BuildContext context, {
@@ -87,7 +88,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
             padding: const EdgeInsets.all(Spacing.md),
             child: Row(
               children: [
-                Icon(Icons.visibility_off_outlined, color: colors.primary),
+                Icon(AppIcons.hide, color: colors.primary),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Semantics(
@@ -104,7 +105,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                 ),
                 IconButton(
                   tooltip: 'Tutup',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],

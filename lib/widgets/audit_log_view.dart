@@ -15,6 +15,7 @@ import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 Future<void> showAuditLogDialog(BuildContext context) {
   return showDialog<void>(
@@ -72,7 +73,7 @@ class _AuditLogViewState extends State<AuditLogView> {
             padding: const EdgeInsets.all(Spacing.md),
             child: Row(
               children: [
-                Icon(Icons.history_outlined, color: colors.primary),
+                Icon(AppIcons.history, color: colors.primary),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Semantics(
@@ -89,7 +90,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                 ),
                 IconButton(
                   tooltip: 'Tutup',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
@@ -161,16 +162,16 @@ class _AuditRow extends StatelessWidget {
   }
 
   IconData _iconFor(AuditAction action) => switch (action) {
-    AuditAction.sessionCreated => Icons.fiber_manual_record_outlined,
-    AuditAction.sessionExported => Icons.upload_outlined,
-    AuditAction.summarySent => Icons.cloud_upload_outlined,
-    AuditAction.sessionDeleted => Icons.folder_delete_outlined,
-    AuditAction.audioDeleted => Icons.audiotrack_outlined,
-    AuditAction.transcriptDeleted => Icons.delete_outline,
-    AuditAction.consentAcknowledged => Icons.campaign_outlined,
-    AuditAction.redactionApplied => Icons.visibility_off_outlined,
-    AuditAction.retentionApplied => Icons.schedule_outlined,
-    AuditAction.auditExported => Icons.table_view_outlined,
+    AuditAction.sessionCreated => AppIcons.dot,
+    AuditAction.sessionExported => AppIcons.upload,
+    AuditAction.summarySent => AppIcons.cloudUpload,
+    AuditAction.sessionDeleted => AppIcons.folderDelete,
+    AuditAction.audioDeleted => AppIcons.audioTrack,
+    AuditAction.transcriptDeleted => AppIcons.delete,
+    AuditAction.consentAcknowledged => AppIcons.announce,
+    AuditAction.redactionApplied => AppIcons.hide,
+    AuditAction.retentionApplied => AppIcons.clock,
+    AuditAction.auditExported => AppIcons.table,
   };
 }
 

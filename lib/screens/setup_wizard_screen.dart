@@ -13,6 +13,8 @@ import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
 import '../utils/system_specs.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 class WizardSpecs {
   final int cpuCores;
@@ -167,7 +169,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             // Step content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.xxl, vertical: Spacing.lg),
                 child: _buildStepBody(),
               ),
             ),
@@ -223,7 +225,7 @@ class _WizardProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xxl, vertical: Spacing.md),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(bottom: BorderSide(color: colors.divider)),
@@ -242,28 +244,28 @@ class _WizardProgress extends StatelessWidget {
                         duration: const Duration(milliseconds: 300),
                         height: 6,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(Radii.xs),
                           color: isDone || isActive ? colors.primary : colors.border,
                         ),
                       ),
                     ),
-                    if (i < total - 1) const SizedBox(width: 6),
+                    if (i < total - 1) Spacing.hSm,
                   ],
                 ),
               );
             }),
           ),
-          const SizedBox(height: 8),
+          Spacing.gapSm,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Langkah ${step + 1} dari $total',
-                style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
               ),
               Text(
                 '${((step + 1) / total * 100).round()}%',
-                style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
               ),
             ],
           ),
@@ -296,7 +298,7 @@ class _WizardNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.divider)),
@@ -308,7 +310,7 @@ class _WizardNavigation extends StatelessWidget {
             children: [
               TextButton.icon(
                 onPressed: isFirst ? null : onBack,
-                icon: const Icon(Icons.arrow_back_ios_new, size: 14),
+                icon: const Icon(AppIcons.back, size: IconSizes.xs),
                 label: const Text('Kembali'),
                 style: TextButton.styleFrom(
                   foregroundColor: isFirst ? colors.textTertiary : colors.text,
@@ -327,8 +329,8 @@ class _WizardNavigation extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.md),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
             ),
             child: Text(isLast ? 'Selesai' : 'Lanjut'),
           ),
@@ -365,20 +367,20 @@ class _StepContent extends StatelessWidget {
             shape: BoxShape.circle,
             color: colors.primary.withValues(alpha: 0.1),
           ),
-          child: Icon(icon, size: 40, color: colors.primary),
+          child: Icon(icon, size: IconSizes.hero, color: colors.primary),
         ),
-        const SizedBox(height: 20),
+        Spacing.gapLg,
         Text(
           title,
-          style: TextStyle(color: colors.text, fontSize: 22, fontWeight: FontWeight.bold),
+          style: TextStyle(color: colors.text, fontSize: FontSizes.headline, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        Spacing.gapMd,
         Text(
           description,
           textAlign: TextAlign.center,
-          style: TextStyle(color: colors.textSecondary, fontSize: 14, height: 1.5),
+          style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.bodyLarge, height: 1.5),
         ),
-        if (child != null) ...[const SizedBox(height: 24), child!],
+        if (child != null) ...[Spacing.gapXl, child!],
       ],
     );
   }
@@ -414,35 +416,35 @@ class _SpecDetectStep extends StatelessWidget {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return _StepContent(
-      icon: Icons.memory,
+      icon: AppIcons.chip,
       title: '1. Deteksi Spesifikasi',
       description: detected
           ? 'Sistem Anda siap! Model direkomendasikan berdasarkan spesifikasi.'
           : 'Memeriksa sistem...',
       child: detected
           ? Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(Spacing.lg),
               decoration: BoxDecoration(
                 color: colors.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(Radii.lg),
                 border: Border.all(color: colors.border),
               ),
               child: Column(
                 children: [
                   _SpecRow(
-                    icon: Icons.computer,
+                    icon: AppIcons.computer,
                     label: 'Inti Prosesor',
                     value: '$cpuCores core',
                   ),
-                  const SizedBox(height: 12),
+                  Spacing.gapMd,
                   _SpecRow(
-                    icon: Icons.memory_outlined,
+                    icon: AppIcons.chip,
                     label: ramIsEstimate ? 'RAM (perkiraan)' : 'RAM',
                     value: ramMb == null ? 'tidak diketahui' : _ramLabel(ramMb!),
                   ),
-                  const SizedBox(height: 12),
+                  Spacing.gapMd,
                   _SpecRow(
-                    icon: Icons.psychology,
+                    icon: AppIcons.model,
                     label: 'Model Disarankan',
                     value: _modelLabel(suggestedModel ?? 'base'),
                     highlighted: true,
@@ -451,7 +453,7 @@ class _SpecDetectStep extends StatelessWidget {
               ),
             )
           : const Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(Spacing.lg),
               child: CircularProgressIndicator(),
             ),
     );
@@ -476,16 +478,16 @@ class _SpecRow extends StatelessWidget {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Row(
       children: [
-        Icon(icon, size: 20, color: highlighted ? colors.primary : colors.textSecondary),
-        const SizedBox(width: 12),
-        Text(label, style: TextStyle(color: colors.textSecondary, fontSize: 13)),
+        Icon(icon, size: IconSizes.lg, color: highlighted ? colors.primary : colors.textSecondary),
+        Spacing.hMd,
+        Text(label, style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body)),
         const Spacer(),
         Text(
           value,
           style: TextStyle(
             color: highlighted ? colors.primary : colors.text,
             fontWeight: highlighted ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
+            fontSize: FontSizes.body,
           ),
         ),
       ],
@@ -522,25 +524,25 @@ class _ModelChoiceStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
-      icon: Icons.psychology,
+      icon: AppIcons.model,
       title: '2. Pilih Model',
       description: 'Pilih model Speech-to-Text yang sesuai.',
       child: Column(
         children: _models.map((m) {
           final isSelected = selected == m.$1;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
             child: InkWell(
               onTap: () => onChanged(m.$1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(Radii.md),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(Spacing.md),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? colors.primary.withValues(alpha: 0.1)
                       : colors.surface,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(Radii.md),
                   border: Border.all(
                     color: isSelected ? colors.primary : colors.border,
                     width: isSelected ? 2 : 1,
@@ -549,11 +551,11 @@ class _ModelChoiceStep extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      isSelected ? Icons.check_circle_rounded : Icons.radio_button_off,
+                      isSelected ? AppIcons.checkFilled : AppIcons.radioOff,
                       color: isSelected ? colors.primary : colors.textTertiary,
-                      size: 22,
+                      size: IconSizes.lg,
                     ),
-                    const SizedBox(width: 12),
+                    Spacing.hMd,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,14 +565,14 @@ class _ModelChoiceStep extends StatelessWidget {
                             style: TextStyle(
                               color: colors.text,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: FontSizes.bodyLarge,
                             ),
                           ),
                           Text(
                             m.$3,
                             style: TextStyle(
                               color: isSelected ? colors.primary : colors.textTertiary,
-                              fontSize: 12,
+                              fontSize: FontSizes.caption,
                             ),
                           ),
                         ],
@@ -737,7 +739,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
     final ready = _loopbackReady;
     final accent = ready ? colors.success : colors.warning;
     return _StepContent(
-      icon: Icons.speaker_group_outlined,
+      icon: AppIcons.speakers,
       title: '3. Siapkan Audio',
       description: 'Pilih perangkat mikrofon dan pengeras suara.',
       child: _loading
@@ -753,7 +755,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                     ref.read(settingsProvider.notifier).setMicDeviceName(v);
                   },
                 ),
-                const SizedBox(height: 12),
+                Spacing.gapMd,
                 _AudioDropdown(
                   label: 'Pengeras Suara / Suara Sistem (Output)',
                   value: _selectedSpeaker,
@@ -763,12 +765,12 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                     ref.read(settingsProvider.notifier).setSpeakerDeviceName(v);
                   },
                 ),
-                const SizedBox(height: 16),
+                Spacing.gapLg,
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(Spacing.md),
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(Radii.md),
                     border: Border.all(color: accent.withValues(alpha: 0.3)),
                   ),
                   child: Column(
@@ -777,50 +779,50 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                       Row(
                         children: [
                           Icon(
-                            ready ? Icons.check_circle_outline : Icons.info_outline,
+                            ready ? AppIcons.check : AppIcons.info,
                             color: accent,
-                            size: 18,
+                            size: IconSizes.md,
                           ),
-                          const SizedBox(width: 8),
+                          Spacing.hSm,
                           Expanded(
                             child: Text(
                               _loopbackTitle,
                               style: TextStyle(
                                 color: accent,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                fontSize: FontSizes.body,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      Spacing.gapSm,
                       Text(
                         _loopbackBody,
-                        style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                        style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
                       ),
                       if (!ready) ...[
-                        const SizedBox(height: 8),
+                        Spacing.gapSm,
                         OutlinedButton.icon(
                           onPressed: () => setState(() => _showGuide = !_showGuide),
                           icon: Icon(
-                            _showGuide ? Icons.expand_less : Icons.help_outline,
-                            size: 16,
+                            _showGuide ? AppIcons.expandLess : AppIcons.help,
+                            size: IconSizes.sm,
                           ),
                           label: Text(_showGuide ? 'Sembunyikan' : 'Panduan'),
                           style: OutlinedButton.styleFrom(foregroundColor: colors.text),
                         ),
                         if (_showGuide) ...[
-                          const SizedBox(height: 8),
+                          Spacing.gapSm,
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(Spacing.sm),
                             decoration: BoxDecoration(
                               color: colors.chipBackground,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(Radii.md),
                             ),
                             child: Text(
                               _loopbackGuide,
-                              style: const TextStyle(fontSize: 12, height: 1.5),
+                              style: const TextStyle(fontSize: FontSizes.caption, height: 1.5),
                             ),
                           ),
                         ],
@@ -856,21 +858,21 @@ class _AudioDropdown extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 4),
+          padding: const EdgeInsets.only(left: Spacing.xs, bottom: Spacing.xs),
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: FontSizes.micro,
               fontWeight: FontWeight.w600,
               color: colors.textSecondary,
             ),
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(Radii.md),
             border: Border.all(color: colors.border),
           ),
           child: DropdownButton<String>(
@@ -878,7 +880,7 @@ class _AudioDropdown extends StatelessWidget {
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: colors.surface,
-            style: TextStyle(color: colors.text, fontSize: 14),
+            style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
             items: devices.isNotEmpty
                 ? devices
                       .map(
@@ -1028,14 +1030,14 @@ class _ToneTestStepState extends State<_ToneTestStep> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
-      icon: Icons.graphic_eq,
+      icon: AppIcons.waveform,
       title: '4. Uji Suara',
       description: 'Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.',
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(Spacing.lg),
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.lg),
           border: Border.all(color: _isPlaying ? colors.primary : colors.border),
         ),
         child: Column(
@@ -1045,11 +1047,11 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                 'Apakah Anda mendengar nadanya?',
                 style: TextStyle(
                   color: colors.text,
-                  fontSize: 14,
+                  fontSize: FontSizes.bodyLarge,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 10),
+              Spacing.gapSm,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1060,7 +1062,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                     }),
                     child: const Text('Ya, terdengar'),
                   ),
-                  const SizedBox(width: 10),
+                  Spacing.hSm,
                   OutlinedButton(
                     onPressed: () => setState(() {
                       _awaitingAnswer = false;
@@ -1070,38 +1072,38 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              Spacing.gapLg,
             ],
             if (_outcome == _ToneOutcome.heard) ...[
               _ToneResultCard(
                 color: colors.success,
-                icon: Icons.check_circle,
+                icon: AppIcons.checkFilled,
                 title: 'Pengeras suara berfungsi',
                 body: 'Tes mikrofon akan aktif saat sesi dimulai.',
               ),
-              const SizedBox(height: 16),
+              Spacing.gapLg,
             ],
             if (_outcome == _ToneOutcome.notHeard) ...[
               _ToneResultCard(
                 color: colors.warning,
-                icon: Icons.volume_off,
+                icon: AppIcons.volumeOff,
                 title: 'Nada tidak terdengar',
                 body: _remediation,
               ),
-              const SizedBox(height: 16),
+              Spacing.gapLg,
             ],
             if (_outcome == _ToneOutcome.playbackFailed) ...[
               _ToneResultCard(
                 color: colors.error,
-                icon: Icons.error_outline,
+                icon: AppIcons.error,
                 title: 'Nada gagal diputar',
                 body: '${_playbackError ?? ''}\n$_remediation',
               ),
-              const SizedBox(height: 16),
+              Spacing.gapLg,
             ],
             FilledButton.icon(
               onPressed: _isPlaying ? null : _startToneTest,
-              icon: Icon(_isPlaying ? Icons.graphic_eq : Icons.play_arrow),
+              icon: Icon(_isPlaying ? AppIcons.waveform : AppIcons.play),
               label: Text(
                 _isPlaying
                     ? 'Memutar...'
@@ -1110,7 +1112,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                           : 'Putar Ulang'),
               ),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
               ),
             ),
           ],
@@ -1137,17 +1139,17 @@ class _ToneResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
+          Icon(icon, color: color, size: IconSizes.lg),
+          Spacing.hSm,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1157,11 +1159,11 @@ class _ToneResultCard extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: FontSizes.body,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(body, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                Spacing.gapXs,
+                Text(body, style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption)),
               ],
             ),
           ),

@@ -22,6 +22,7 @@ import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
 
 /// Indonesian day names, indexed by `DateTime.weekday` (1 = Monday).
 const List<String> kHariIndonesia = [
@@ -442,7 +443,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Spacing.gapLg,
                       Row(
                         children: [
-                          Icon(Icons.bookmark_outline,
+                          Icon(AppIcons.bookmark,
                               size: IconSizes.sm, color: colors.primary),
                           const SizedBox(width: Spacing.sm),
                           Expanded(
@@ -506,7 +507,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   height: IconSizes.sm,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.description_outlined, size: IconSizes.md),
+              : const Icon(AppIcons.document, size: IconSizes.md),
           label: Text(_exporting ? 'Menyusun…' : 'Buat Notulen (DOCX)'),
         ),
       ],
@@ -523,13 +524,13 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
               ButtonSegment(
                 value: NotulenVariant.dinas,
                 label: Text('Notulen Dinas'),
-                icon: Icon(Icons.account_balance_outlined,
+                icon: Icon(AppIcons.institution,
                     size: IconSizes.md),
               ),
               ButtonSegment(
                 value: NotulenVariant.ringkas,
                 label: Text('Notulen Ringkas'),
-                icon: Icon(Icons.short_text, size: IconSizes.md),
+                icon: Icon(AppIcons.shortText, size: IconSizes.md),
               ),
             ],
             selected: {_form.variant},
@@ -653,7 +654,7 @@ class _ListEditorState extends State<_ListEditor> {
             IconButton(
               tooltip: widget.addLabel,
               constraints: TouchTarget.constraints,
-              icon: const Icon(Icons.add, size: IconSizes.md),
+              icon: const Icon(AppIcons.add, size: IconSizes.md),
               onPressed: _add,
             ),
           ],
@@ -729,7 +730,7 @@ class _TaskEditor extends StatelessWidget {
                 IconButton(
                   tooltip: 'Hapus baris tindak lanjut',
                   constraints: TouchTarget.constraints,
-                  icon: Icon(Icons.delete_outline,
+                  icon: Icon(AppIcons.delete,
                       size: IconSizes.md, color: colors.textSecondary),
                   onPressed: () => onChanged([...tasks]..removeAt(i)),
                 ),
@@ -740,7 +741,7 @@ class _TaskEditor extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: () => onChanged([...tasks, const NotulenTask()]),
-            icon: const Icon(Icons.add, size: IconSizes.md),
+            icon: const Icon(AppIcons.add, size: IconSizes.md),
             label: const Text('Tambah tindak lanjut'),
           ),
         ),

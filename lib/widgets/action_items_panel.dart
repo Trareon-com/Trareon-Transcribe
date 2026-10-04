@@ -23,6 +23,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
 
 /// Indonesian label for a status.
 ///
@@ -159,12 +160,12 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
               child: Row(
                 children: [
-                  Icon(Icons.checklist_outlined,
+                  Icon(AppIcons.checklist,
                       size: IconSizes.md, color: colors.primary),
-                  const SizedBox(width: 8),
+                  Spacing.hSm,
                   Text(
                     'Tindak Lanjut',
                     style: TextStyle(
@@ -174,7 +175,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     ),
                   ),
                   if (exportable.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    Spacing.hSm,
                     Text(
                       '$done/${exportable.length} selesai',
                       style: TextStyle(
@@ -192,7 +193,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     )
                   else
                     Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      _expanded ? AppIcons.expandLess : AppIcons.expandMore,
                       size: IconSizes.lg,
                       color: colors.textSecondary,
                     ),
@@ -202,7 +203,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(Spacing.lg, 0, Spacing.lg, Spacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -241,14 +242,14 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     children: [
                       TextButton.icon(
                         onPressed: _notifier.addActionItem,
-                        icon: const Icon(Icons.add, size: IconSizes.sm),
+                        icon: const Icon(AppIcons.add, size: IconSizes.sm),
                         label: const Text('Tambah tugas'),
                       ),
                       TextButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _copyAsText(exportable),
-                        icon: const Icon(Icons.copy_outlined,
+                        icon: const Icon(AppIcons.copy,
                             size: IconSizes.sm),
                         label: const Text('Salin'),
                       ),
@@ -256,7 +257,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportCsv(exportable),
-                        icon: const Icon(Icons.table_view_outlined,
+                        icon: const Icon(AppIcons.table,
                             size: IconSizes.sm),
                         label: const Text('Ekspor CSV'),
                       ),
@@ -264,7 +265,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportIcs(exportable),
-                        icon: const Icon(Icons.event_outlined,
+                        icon: const Icon(AppIcons.event,
                             size: IconSizes.sm),
                         label: const Text('Ekspor .ics'),
                       ),
@@ -359,7 +360,7 @@ class _ActionRowState extends State<_ActionRow> {
               // A checkbox for the one status transition that happens a
               // hundred times more often than the others.
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: Spacing.xs),
                 child: Semantics(
                   label: 'Tandai "${widget.item.tugas}" selesai',
                   child: Checkbox(
@@ -390,7 +391,7 @@ class _ActionRowState extends State<_ActionRow> {
               ),
               IconButton(
                 tooltip: 'Hapus tugas',
-                icon: const Icon(Icons.close, size: IconSizes.sm),
+                icon: const Icon(AppIcons.close, size: IconSizes.sm),
                 onPressed: widget.onRemove,
               ),
             ],

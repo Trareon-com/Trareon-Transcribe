@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 class PrivacyReportScreen extends ConsumerStatefulWidget {
   const PrivacyReportScreen({super.key});
@@ -38,20 +40,20 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Laporan Privasi')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         children: [
           Card(
             color: isClean ? colors.success.withValues(alpha: 0.1) : null,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(Spacing.lg),
               child: Row(
                 children: [
                   Icon(
-                    isClean ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
+                    isClean ? AppIcons.verifiedUser : AppIcons.warning,
                     color: isClean ? colors.success : colors.warning,
-                    size: 40,
+                    size: IconSizes.hero,
                   ),
-                  const SizedBox(width: 16),
+                  Spacing.hLg,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,13 +70,13 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          Spacing.gapLg,
           // The log comes before the explanation: what actually happened on
           // this machine is the point of the screen, and it used to sit
           // under a screenful of prose.
           if (report.events.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: Spacing.md),
               child: Text('Belum ada aktivitas jaringan tercatat.'),
             )
           else ...[
@@ -84,11 +86,11 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
             ),
             for (final event in report.events)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: Text('• $event'),
               ),
           ],
-          const SizedBox(height: 16),
+          Spacing.gapLg,
           const Text(
             'Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi '
             'berlangsung — baik saat merekam langsung maupun saat mengimpor berkas. '

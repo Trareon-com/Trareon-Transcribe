@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/enhance_queue_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 class EnhanceQueueView extends ConsumerWidget {
   const EnhanceQueueView({super.key});
@@ -40,7 +41,7 @@ class EnhanceQueueView extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_motion_outlined,
+              Icon(AppIcons.enhanceQueue,
                   size: IconSizes.sm, color: colors.primary),
               const SizedBox(width: Spacing.sm),
               Expanded(
@@ -64,7 +65,7 @@ class EnhanceQueueView extends ConsumerWidget {
                   child: IconButton(
                     visualDensity: VisualDensity.compact,
                     constraints: TouchTarget.constraints,
-                    icon: Icon(Icons.cancel_outlined,
+                    icon: Icon(AppIcons.cancel,
                         size: IconSizes.md, color: colors.textSecondary),
                     onPressed: notifier.cancelAll,
                   ),
@@ -102,9 +103,9 @@ class EnhanceQueueView extends ConsumerWidget {
                               ? job.progress.clamp(0.0, 1.0)
                               : null,
                         ),
-                      EnhanceJobStatus.failed => Icon(Icons.error_outline,
+                      EnhanceJobStatus.failed => Icon(AppIcons.error,
                           size: IconSizes.sm, color: colors.error),
-                      _ => Icon(Icons.schedule,
+                      _ => Icon(AppIcons.clock,
                           size: IconSizes.sm, color: colors.textTertiary),
                     },
                   ),
@@ -161,8 +162,8 @@ class EnhanceQueueView extends ConsumerWidget {
                       constraints: TouchTarget.constraints,
                       icon: Icon(
                         job.status == EnhanceJobStatus.failed
-                            ? Icons.close
-                            : Icons.stop_circle_outlined,
+                            ? AppIcons.close
+                            : AppIcons.stopCircle,
                         size: IconSizes.md,
                         color: colors.textSecondary,
                       ),

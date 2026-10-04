@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import '../services/session_store.dart';
+import '../theme/app_tokens.dart';
 
 class UsageStats {
   final int totalSessions;
@@ -153,30 +154,30 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Dasbor Penggunaan')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         children: [
           Row(
             children: [
               Expanded(
                 child: _StatCard(label: 'Total Sesi', value: '${stats.totalSessions}'),
               ),
-              const SizedBox(width: 12),
+              Spacing.hMd,
               Expanded(
                 child: _StatCard(label: 'Jam Ditranskrip', value: hours),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          Spacing.gapMd,
           _StatCard(label: 'Total Segmen Transkrip', value: '${stats.totalSegments}'),
-          const SizedBox(height: 24),
+          Spacing.gapXl,
           if (stats.sessionsByMode.isEmpty)
             const Text('Belum ada data sesi tersimpan.')
           else ...[
             Text('Sesi per Mode', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
+            Spacing.gapSm,
             for (final entry in stats.sessionsByMode.entries)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -202,7 +203,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

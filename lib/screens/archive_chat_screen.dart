@@ -24,6 +24,7 @@ import '../state/library_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
+import '../theme/app_icons.dart';
 
 class ArchiveChatScreen extends ConsumerStatefulWidget {
   const ArchiveChatScreen({super.key, this.onOpenSession});
@@ -144,7 +145,7 @@ class _EmptyPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.forum_outlined, size: 48, color: colors.textTertiary),
+            Icon(AppIcons.chat, size: IconSizes.hero, color: colors.textTertiary),
             Spacing.gapMd,
             Text(
               sessions == 0
@@ -375,7 +376,7 @@ class _Composer extends StatelessWidget {
           const SizedBox(width: Spacing.sm),
           OutlinedButton.icon(
             onPressed: busy ? null : onSearch,
-            icon: const Icon(Icons.search, size: 18),
+            icon: const Icon(AppIcons.search, size: IconSizes.md),
             label: const Text('Cari'),
           ),
           const SizedBox(width: Spacing.sm),
@@ -387,7 +388,7 @@ class _Composer extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.auto_awesome_outlined, size: 18),
+                : const Icon(AppIcons.enhance, size: IconSizes.md),
             label: const Text('Jawab'),
           ),
         ],

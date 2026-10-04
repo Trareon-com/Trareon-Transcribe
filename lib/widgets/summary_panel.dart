@@ -13,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
 import 'summary_template_editor.dart';
+import '../theme/app_icons.dart';
 
 /// Editable AI summary for one session.
 ///
@@ -162,28 +163,28 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome_outlined, size: 18, color: colors.primary),
-                  const SizedBox(width: 8),
+                  Icon(AppIcons.enhance, size: IconSizes.md, color: colors.primary),
+                  Spacing.hSm,
                   Text(
                     'Ringkasan AI',
                     style: TextStyle(
                       color: colors.text,
-                      fontSize: 14,
+                      fontSize: FontSizes.bodyLarge,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (state.status == SummaryStatus.ready) ...[
-                    const SizedBox(width: 8),
-                    Icon(Icons.check_circle, size: 14, color: colors.primary),
+                    Spacing.hSm,
+                    Icon(AppIcons.checkFilled, size: IconSizes.xs, color: colors.primary),
                   ],
                   if (state.dirty) ...[
-                    const SizedBox(width: 6),
+                    Spacing.hSm,
                     Text(
                       'belum disimpan',
-                      style: TextStyle(color: colors.textTertiary, fontSize: 11),
+                      style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
                     ),
                   ],
                   const Spacer(),
@@ -195,8 +196,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                     )
                   else
                     Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 20,
+                      _expanded ? AppIcons.expandLess : AppIcons.expandMore,
+                      size: IconSizes.lg,
                       color: colors.textSecondary,
                     ),
                 ],
@@ -205,13 +206,13 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(Spacing.lg, 0, Spacing.lg, Spacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!settings.summary.enabled)
                     _Notice(
-                      icon: Icons.info_outline,
+                      icon: AppIcons.info,
                       message:
                           'Ringkasan AI mati. Fitur ini satu-satunya yang memakai '
                           'jaringan — nyalakan di Pengaturan → Ringkasan AI bila '
@@ -238,8 +239,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                               helperMaxLines: 2,
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
+                                horizontal: Spacing.sm,
+                                vertical: Spacing.sm,
                               ),
                             ),
                             items: [
@@ -275,7 +276,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         IconButton(
                           tooltip: 'Kelola template ringkasan',
                           constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.tune, size: IconSizes.md),
+                          icon: const Icon(AppIcons.tune, size: IconSizes.md),
                           onPressed: busy
                               ? null
                               : () => showSummaryTemplateManager(context),
@@ -285,9 +286,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                           onPressed: busy ? null : _generate,
                           icon: Icon(
                             state.status == SummaryStatus.ready
-                                ? Icons.refresh
-                                : Icons.auto_awesome,
-                            size: 16,
+                                ? AppIcons.refresh
+                                : AppIcons.enhance,
+                            size: IconSizes.sm,
                           ),
                           label: Text(
                             state.status == SummaryStatus.ready
@@ -298,7 +299,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                       ],
                     ),
                     if (state.progress != null) ...[
-                      const SizedBox(height: 10),
+                      Spacing.gapSm,
                       // F15: a three-hour meeting is many round trips, and
                       // a panel that shows nothing for twenty minutes reads
                       // as a hang rather than as work in progress.
@@ -307,7 +308,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         colors: colors,
                       ),
                     ],
-                    const SizedBox(height: 10),
+                    Spacing.gapSm,
                     if (_showRendered(state))
                       _CitedSummary(
                         provenance: state.provenance!,
@@ -321,23 +322,23 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         minLines: 5,
                         readOnly: busy,
                         onChanged: ref.read(_provider.notifier).edit,
-                        style: const TextStyle(fontSize: 13, height: 1.45),
+                        style: const TextStyle(fontSize: FontSizes.body, height: 1.45),
                         decoration: const InputDecoration(
                           hintText:
                               'Ringkasan akan muncul di sini. Anda bisa menyuntingnya '
                               'sebelum menyimpan.',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.all(12),
+                          contentPadding: EdgeInsets.all(Spacing.md),
                         ),
                       ),
                     if (state.droppedCitations > 0) ...[
-                      const SizedBox(height: 8),
+                      Spacing.gapSm,
                       // Surfaced rather than swallowed: a summary with
                       // many invalid citations came from a model that is
                       // guessing, and that is worth knowing before the
                       // notulen is signed.
                       _Notice(
-                        icon: Icons.report_gmailerrorred_outlined,
+                        icon: AppIcons.report,
                         message:
                             '${state.droppedCitations} rujukan dibuang karena '
                             'tidak cocok dengan transkrip. Periksa ringkasan '
@@ -345,7 +346,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         color: colors.textSecondary,
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -355,9 +356,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                 setState(() => _editing = !_editing),
                             icon: Icon(
                               _editing
-                                  ? Icons.visibility_outlined
-                                  : Icons.edit_outlined,
-                              size: 16,
+                                  ? AppIcons.show
+                                  : AppIcons.edit,
+                              size: IconSizes.sm,
                             ),
                             label: Text(_editing ? 'Lihat rujukan' : 'Sunting'),
                           ),
@@ -377,22 +378,22 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                     ),
                                   );
                                 },
-                          icon: const Icon(Icons.copy_outlined, size: 16),
+                          icon: const Icon(AppIcons.copy, size: IconSizes.sm),
                           label: const Text('Salin'),
                         ),
-                        const SizedBox(width: 8),
+                        Spacing.hSm,
                         FilledButton.tonalIcon(
                           onPressed: state.dirty && !busy ? _save : null,
-                          icon: const Icon(Icons.save_outlined, size: 16),
+                          icon: const Icon(AppIcons.save, size: IconSizes.sm),
                           label: const Text('Simpan'),
                         ),
                       ],
                     ),
                   ],
                   if (state.error != null) ...[
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     _Notice(
-                      icon: Icons.error_outline,
+                      icon: AppIcons.error,
                       message: state.error!,
                       color: colors.error,
                     ),
@@ -422,12 +423,12 @@ class _Notice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 8),
+        Icon(icon, size: IconSizes.sm, color: color),
+        Spacing.hSm,
         Expanded(
           child: Text(
             message,
-            style: TextStyle(color: color, fontSize: 12, height: 1.35),
+            style: TextStyle(color: color, fontSize: FontSizes.caption, height: 1.35),
           ),
         ),
       ],
@@ -455,7 +456,7 @@ class _CitedSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
         border: Border.all(color: colors.divider),
         borderRadius: Radii.smAll,
@@ -481,7 +482,7 @@ class _CitedSummary extends StatelessWidget {
                   ),
                   if (line.citations.isNotEmpty && onSeekToTimestamp != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: Spacing.xs),
                       child: Wrap(
                         spacing: Spacing.xs,
                         children: [
@@ -525,7 +526,7 @@ class _CitationChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: Radii.smAll,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
           child: Text(
             label,
             style: TextStyle(
@@ -560,7 +561,7 @@ class _MapReduceProgress extends StatelessWidget {
             color: colors.textSecondary,
           ),
         ),
-        const SizedBox(height: 4),
+        Spacing.gapXs,
         LinearProgressIndicator(
           // An unknown total must not render as a full bar.
           value: total > 0 ? (progress.done / total).clamp(0.0, 1.0) : null,

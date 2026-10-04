@@ -24,6 +24,7 @@ import 'capabilities_screen.dart';
 import 'privacy_report_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'usage_dashboard_screen.dart';
+import '../theme/app_icons.dart';
 
 /// Below this width the category rail becomes a horizontal chip strip.
 /// Two panes still fit at the app's 800 px minimum window (232 px rail +
@@ -62,16 +63,16 @@ extension SettingsCategoryLabel on SettingsCategory {
       };
 
   IconData get icon => switch (this) {
-        SettingsCategory.tampilan => Icons.palette_outlined,
-        SettingsCategory.modelMode => Icons.psychology_outlined,
-        SettingsCategory.audio => Icons.graphic_eq_outlined,
-        SettingsCategory.kamus => Icons.menu_book_outlined,
-        SettingsCategory.penyimpanan => Icons.folder_outlined,
-        SettingsCategory.ringkasan => Icons.auto_awesome_outlined,
-        SettingsCategory.notulen => Icons.description_outlined,
-        SettingsCategory.kepatuhan => Icons.verified_user_outlined,
-        SettingsCategory.penyiapan => Icons.health_and_safety_outlined,
-        SettingsCategory.tentang => Icons.info_outlined,
+        SettingsCategory.tampilan => AppIcons.appearance,
+        SettingsCategory.modelMode => AppIcons.model,
+        SettingsCategory.audio => AppIcons.waveform,
+        SettingsCategory.kamus => AppIcons.glossary,
+        SettingsCategory.penyimpanan => AppIcons.folder,
+        SettingsCategory.ringkasan => AppIcons.enhance,
+        SettingsCategory.notulen => AppIcons.document,
+        SettingsCategory.kepatuhan => AppIcons.verifiedUser,
+        SettingsCategory.penyiapan => AppIcons.health,
+        SettingsCategory.tentang => AppIcons.info,
       };
 }
 
@@ -182,17 +183,17 @@ class _SaveFailureBanner extends ConsumerWidget {
     return Material(
       color: colors.error.withValues(alpha: 0.12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: colors.error, size: 18),
-            const SizedBox(width: 10),
+            Icon(AppIcons.error, color: colors.error, size: IconSizes.md),
+            Spacing.hSm,
             Expanded(
               child: Semantics(
                 liveRegion: true,
                 child: Text(
                   failure.userMessage,
-                  style: TextStyle(color: colors.text, fontSize: 12),
+                  style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
                 ),
               ),
             ),
@@ -224,18 +225,18 @@ class _CategoryRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.md, horizontal: Spacing.sm),
       children: [
         for (final category in SettingsCategory.values)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: Spacing.xs),
             child: Material(
               color: category == selected
                   ? colors.primary.withValues(alpha: 0.12)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(Radii.md),
               child: InkWell(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(Radii.md),
                 onTap: () => onSelected(category),
                 child: Padding(
                   // 10 rather than 12: the tenth category (Kepatuhan PDP)
@@ -243,22 +244,22 @@ class _CategoryRail extends StatelessWidget {
                   // settings pane you have to scroll a rail to reach is
                   // one people do not find.
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                      horizontal: Spacing.md, vertical: Spacing.sm),
                   child: Row(
                     children: [
                       Icon(
                         category.icon,
-                        size: 18,
+                        size: IconSizes.md,
                         color: category == selected
                             ? colors.primary
                             : colors.textSecondary,
                       ),
-                      const SizedBox(width: 10),
+                      Spacing.hSm,
                       Expanded(
                         child: Text(
                           category.label,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: FontSizes.bodyLarge,
                             fontWeight: category == selected
                                 ? FontWeight.w600
                                 : FontWeight.w400,
@@ -291,11 +292,11 @@ class _CategoryChips extends StatelessWidget {
       height: 52,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
         children: [
           for (final category in SettingsCategory.values)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: Spacing.sm),
               child: ChoiceChip(
                 label: Text(category.label),
                 selected: category == selected,
@@ -322,7 +323,7 @@ class _CategoryContent extends ConsumerWidget {
 
     return ListView(
       key: ValueKey(category),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.lg, Spacing.lg, Spacing.xxxl),
       children: switch (category) {
         SettingsCategory.tampilan => _tampilan(settings, notifier),
         SettingsCategory.modelMode =>
@@ -349,7 +350,7 @@ class _CategoryContent extends ConsumerWidget {
           title: 'Tampilan',
           children: [
             SettingsTile(
-              icon: Icons.palette_outlined,
+              icon: AppIcons.appearance,
               label: 'Tema',
               subtitle: switch (settings.theme) {
                 AppThemeMode.system =>
@@ -380,7 +381,7 @@ class _CategoryContent extends ConsumerWidget {
           title: 'Model & Mode',
           children: [
             SettingsTile(
-              icon: Icons.psychology_outlined,
+              icon: AppIcons.model,
               label: 'Model default',
               subtitle: isModelAvailable(settings.defaultModel,
                       libraryPath: settings.libraryPath)
@@ -419,7 +420,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsSwitch(
-              icon: Icons.speed_outlined,
+              icon: AppIcons.speed,
               label: 'Cepat dulu, lalu diperhalus',
               subtitle: settings.progressiveEnabled
                   ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
@@ -430,7 +431,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsSwitch(
-              icon: Icons.memory_outlined,
+              icon: AppIcons.chip,
               label: 'Akselerasi GPU',
               subtitle: _gpuSubtitle(settings.gpuEnabled),
               value: settings.gpuEnabled,
@@ -438,7 +439,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.meeting_room_outlined,
+              icon: AppIcons.meetingRoom,
               label: 'Mode default',
               subtitle: switch (settings.defaultMode) {
                 SessionMode.webinar => 'Mikrofon mati, suara sistem direkam.',
@@ -454,7 +455,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.translate_outlined,
+              icon: AppIcons.translate,
               label: 'Bahasa',
               subtitle: settings.language == null
                   ? 'Bahasa dideteksi otomatis per segmen.'
@@ -471,12 +472,12 @@ class _CategoryContent extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        Spacing.gapMd,
         SettingsSection(
           title: 'Transkripsi',
           children: [
             SettingsTile(
-              icon: Icons.speed_outlined,
+              icon: AppIcons.speed,
               label: 'Perbandingan Kecepatan',
               subtitle:
                   'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
@@ -510,7 +511,7 @@ class _CategoryContent extends ConsumerWidget {
           title: 'Audio & Suara',
           children: [
             SettingsSwitch(
-              icon: Icons.graphic_eq_outlined,
+              icon: AppIcons.waveform,
               label: 'Abaikan jeda sunyi',
               subtitle: settings.vadEnabled
                   ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
@@ -524,7 +525,7 @@ class _CategoryContent extends ConsumerWidget {
             // improvement: on already-clean speech it can cost a word,
             // and whether it helps is a property of the room.
             SettingsSwitch(
-              icon: Icons.noise_control_off_outlined,
+              icon: AppIcons.noise,
               label: 'Pengurangan derau (RNNoise)',
               subtitle: settings.noiseReduction
                   ? 'Derau ruangan — kipas, AC, lalu lintas — ditekan '
@@ -538,7 +539,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.spatial_audio_outlined,
+              icon: AppIcons.spatialAudio,
               label: 'Hapus suara ganda',
               subtitle: settings.defaultMode == SessionMode.online
                   ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
@@ -551,7 +552,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsSwitch(
-              icon: Icons.timer_outlined,
+              icon: AppIcons.timer,
               label: 'Berhenti sendiri saat sunyi',
               subtitle: settings.autoStopMinutes != null
                   ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
@@ -562,7 +563,7 @@ class _CategoryContent extends ConsumerWidget {
             if (settings.autoStopMinutes != null) ...[
               const SettingsDivider(),
               SettingsTile(
-                icon: Icons.timer_10_outlined,
+                icon: AppIcons.timer10,
                 label: 'Lama sunyi sebelum berhenti',
                 trailing: CompactDropdown<int>(
                   value: settings.autoStopMinutes!,
@@ -587,11 +588,11 @@ class _CategoryContent extends ConsumerWidget {
           children: [
             Builder(
               builder: (context) => SettingsTile(
-                icon: Icons.folder_outlined,
+                icon: AppIcons.folder,
                 label: 'Folder output',
                 subtitle: settings.libraryPath,
                 trailing:
-                    Icon(Icons.chevron_right, color: colors.textTertiary, size: 18),
+                    Icon(AppIcons.chevronRight, color: colors.textTertiary, size: IconSizes.md),
                 onTap: () async {
                   final dir = await FilePicker.platform.getDirectoryPath(
                     dialogTitle: 'Pilih folder output',
@@ -605,7 +606,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.save_alt_outlined,
+              icon: AppIcons.saveAs,
               label: 'Format ekspor default',
               subtitle: 'Format yang sudah tercentang saat dialog Ekspor dibuka.',
               trailing: CompactDropdown<String>(
@@ -624,28 +625,28 @@ class _CategoryContent extends ConsumerWidget {
           title: 'Penyiapan & Diagnostik',
           children: [
             SettingsTile(
-              icon: Icons.health_and_safety_outlined,
+              icon: AppIcons.health,
               label: 'Diagnostik',
               subtitle: 'Periksa folder, model, mikrofon dan ruang disk. '
                   'Semuanya lokal.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => openDiagnostics(context),
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.assistant_direction_outlined,
+              icon: AppIcons.guide,
               label: 'Jalankan Ulang Penyiapan',
               subtitle: 'Pilih ulang mikrofon, pengeras suara dan model, '
                   'lalu uji suara.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => openSetupWizard(context),
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.privacy_tip_outlined,
+              icon: AppIcons.privacy,
               label: 'Laporan Privasi',
               subtitle: 'Apa yang pernah keluar dari komputer ini.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => PrivacyReportScreen()),
               ),
@@ -655,11 +656,11 @@ class _CategoryContent extends ConsumerWidget {
             // of one question: that one is "what has it sent?", this one
             // is "what could it send, and what is on?".
             SettingsTile(
-              icon: Icons.account_tree_outlined,
+              icon: AppIcons.hierarchy,
               label: 'Apa Jalan di Mana',
               subtitle: 'Setiap kemampuan, tempatnya berjalan, dan '
                   'statusnya sekarang.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const CapabilitiesScreen(),
@@ -671,10 +672,10 @@ class _CategoryContent extends ConsumerWidget {
               builder: (context, ref, _) {
                 final settings = ref.watch(settingsProvider);
                 return SettingsTile(
-                  icon: Icons.analytics_outlined,
+                  icon: AppIcons.analytics,
                   label: 'Dasbor Penggunaan',
                   subtitle: 'Berapa lama Anda merekam, per minggu.',
-                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       // Without libraryPath the screen can't scan any
@@ -702,19 +703,19 @@ class _CategoryContent extends ConsumerWidget {
           title: 'Tentang',
           children: [
             SettingsTile(
-              icon: Icons.system_update_alt_outlined,
+              icon: AppIcons.update,
               label: 'Cek Pembaruan',
               subtitle: 'Versi saat ini $kAppVersion. Memeriksa pembaruan '
                   'menghubungi GitHub dan dicatat di Laporan Privasi.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => _checkForUpdate(context, ref),
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.info_outlined,
+              icon: AppIcons.info,
               label: 'Tentang Trareon',
               subtitle: 'Transkripsi offline, privasi terjamin.',
-              trailing: const Icon(Icons.chevron_right, size: 18),
+              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => _showAboutDialog(context),
             ),
           ],
@@ -800,14 +801,14 @@ class _CategoryContent extends ConsumerWidget {
       applicationName: 'Trareon Transcribe',
       applicationVersion: kAppVersion,
       applicationIcon: Icon(
-        Icons.mic,
+        AppIcons.mic,
         size: IconSizes.hero,
         color: Theme.of(context).extension<AppColorSet>()?.primary ??
             AppColors.light.primary,
       ),
       children: [
         const Text('Transkripsi offline, privasi terjamin.'),
-        const SizedBox(height: 16),
+        Spacing.gapLg,
         const Text('Dibangun dengan Flutter + Rust'),
       ],
     );

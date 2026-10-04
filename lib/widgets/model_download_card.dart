@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// One model row in the onboarding download list.
 ///
@@ -28,10 +30,10 @@ class ModelDownloadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>()!;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(color: colors.border),
       ),
       child: Column(
@@ -39,8 +41,8 @@ class ModelDownloadCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(_iconFor(status), size: 18, color: _colorFor(status, colors)),
-              const SizedBox(width: 10),
+              Icon(_iconFor(status), size: IconSizes.md, color: _colorFor(status, colors)),
+              Spacing.hSm,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,15 +50,15 @@ class ModelDownloadCard extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: FontSizes.body,
                         fontWeight: FontWeight.w600,
                         color: colors.text,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    Spacing.gapXs,
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: 11, color: colors.textTertiary),
+                      style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
                     ),
                   ],
                 ),
@@ -64,16 +66,16 @@ class ModelDownloadCard extends StatelessWidget {
               Text(
                 sizeLabel,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: FontSizes.micro,
                   fontWeight: FontWeight.w600,
                   color: colors.textSecondary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          Spacing.gapSm,
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(Radii.xs),
             child: LinearProgressIndicator(
               value: status == DownloadStatus.ready ? 1.0 : progress,
               minHeight: 6,
@@ -81,11 +83,11 @@ class ModelDownloadCard extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation(_colorFor(status, colors)),
             ),
           ),
-          const SizedBox(height: 6),
+          Spacing.gapSm,
           Text(
             errorText ?? _statusText(),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: FontSizes.micro,
               color: errorText != null ? colors.error : colors.textTertiary,
             ),
           ),
@@ -95,10 +97,10 @@ class ModelDownloadCard extends StatelessWidget {
   }
 
   IconData _iconFor(DownloadStatus s) => switch (s) {
-        DownloadStatus.downloading => Icons.downloading,
-        DownloadStatus.ready => Icons.check_circle_outline,
-        DownloadStatus.error => Icons.error_outline,
-        DownloadStatus.idle => Icons.cloud_download_outlined,
+        DownloadStatus.downloading => AppIcons.downloading,
+        DownloadStatus.ready => AppIcons.check,
+        DownloadStatus.error => AppIcons.error,
+        DownloadStatus.idle => AppIcons.cloudDownload,
       };
 
   Color _colorFor(DownloadStatus s, AppColorSet c) => switch (s) {

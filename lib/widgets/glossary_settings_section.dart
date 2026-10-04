@@ -30,6 +30,7 @@ import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
 import 'app_toast.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
 
 /// Terms a brand-new install is offered, as chips to tap rather than a
 /// prefilled list — a glossary the user did not choose is a glossary they
@@ -199,7 +200,7 @@ class _GlossarySettingsSectionState
           title: 'Kamus Istilah',
           children: [
             SettingsSwitch(
-              icon: Icons.menu_book_outlined,
+              icon: AppIcons.glossary,
               label: 'Pakai kamus istilah',
               subtitle: glossary.enabled
                   ? 'Istilah di bawah dibisikkan ke mesin transkripsi supaya '
@@ -213,7 +214,7 @@ class _GlossarySettingsSectionState
             ),
             const SettingsDivider(),
             SettingsSwitch(
-              icon: Icons.auto_fix_high_outlined,
+              icon: AppIcons.autoFix,
               label: 'Perbaiki ejaan yang mirip',
               subtitle: glossary.postCorrection
                   ? 'Kata yang hampir sama dengan istilah di kamus '
@@ -253,7 +254,7 @@ class _GlossarySettingsSectionState
                         height: TouchTarget.minimum,
                         child: FilledButton.icon(
                           onPressed: _addTyped,
-                          icon: const Icon(Icons.add, size: IconSizes.md),
+                          icon: const Icon(AppIcons.add, size: IconSizes.md),
                           label: const Text('Tambah'),
                         ),
                       ),
@@ -300,7 +301,7 @@ class _GlossarySettingsSectionState
                       children: [
                         for (final suggestion in suggestions)
                           ActionChip(
-                            avatar: const Icon(Icons.add, size: IconSizes.sm),
+                            avatar: const Icon(AppIcons.add, size: IconSizes.sm),
                             label: Text(suggestion),
                             tooltip: 'Tambahkan $suggestion ke kamus',
                             onPressed: () async {
@@ -323,7 +324,7 @@ class _GlossarySettingsSectionState
                 children: [
                   OutlinedButton.icon(
                     onPressed: _import,
-                    icon: const Icon(Icons.file_upload_outlined,
+                    icon: const Icon(AppIcons.fileUpload,
                         size: IconSizes.md),
                     label: const Text('Impor .txt / .csv'),
                   ),
@@ -331,14 +332,14 @@ class _GlossarySettingsSectionState
                     onPressed: glossary.terms.isEmpty
                         ? null
                         : () => _export(csv: false),
-                    icon: const Icon(Icons.file_download_outlined,
+                    icon: const Icon(AppIcons.fileDownload,
                         size: IconSizes.md),
                     label: const Text('Ekspor .txt'),
                   ),
                   OutlinedButton.icon(
                     onPressed:
                         glossary.terms.isEmpty ? null : () => _export(csv: true),
-                    icon: const Icon(Icons.table_view_outlined,
+                    icon: const Icon(AppIcons.table,
                         size: IconSizes.md),
                     label: const Text('Ekspor .csv'),
                   ),
@@ -380,7 +381,7 @@ class _PromptBudget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            overflowing ? Icons.warning_amber_rounded : Icons.check_circle,
+            overflowing ? AppIcons.warning : AppIcons.checkFilled,
             size: IconSizes.sm,
             color: overflowing ? colors.warning : colors.success,
           ),

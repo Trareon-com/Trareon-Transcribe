@@ -12,6 +12,7 @@ import '../utils/format_time.dart';
 import '../utils/speaker_color.dart';
 import '../widgets/empty_state.dart';
 import 'speaker_avatar.dart';
+import '../theme/app_icons.dart';
 
 /// Scrolling transcript.
 ///
@@ -575,7 +576,7 @@ class _TranscriptViewState extends State<TranscriptView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Segmen disalin',
-                style: TextStyle(fontSize: 12, color: colors.text)),
+                style: TextStyle(fontSize: FontSizes.caption, color: colors.text)),
             duration: const Duration(seconds: 1),
             backgroundColor: colors.surface,
             behavior: SnackBarBehavior.floating,
@@ -610,7 +611,7 @@ class _TranscriptViewState extends State<TranscriptView> {
 
     if (widget.segments.isEmpty) {
       return const EmptyState(
-        icon: Icons.mic_none_outlined,
+        icon: AppIcons.mic,
         title: 'Belum ada transkrip',
         subtitle: 'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)',
       );
@@ -633,7 +634,7 @@ class _TranscriptViewState extends State<TranscriptView> {
       children: [
         // Search + Toolbar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
           decoration: BoxDecoration(
             color: colors.surface,
             border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
@@ -646,14 +647,14 @@ class _TranscriptViewState extends State<TranscriptView> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
-                    style: TextStyle(color: colors.text, fontSize: 13),
+                    style: TextStyle(color: colors.text, fontSize: FontSizes.body),
                     decoration: InputDecoration(
                       hintText: 'Cari...',
-                      hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
-                      prefixIcon: Icon(Icons.search, size: 16, color: colors.textTertiary),
+                      hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
+                      prefixIcon: Icon(AppIcons.search, size: IconSizes.sm, color: colors.textTertiary),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, size: 14, color: colors.textTertiary),
+                              icon: Icon(AppIcons.clear, size: IconSizes.xs, color: colors.textTertiary),
                               onPressed: _clearSearch,
                               tooltip: 'Bersihkan pencarian',
                             )
@@ -661,7 +662,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                       filled: true,
                       fillColor: colors.chipBackground,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(Radii.md),
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: EdgeInsets.zero,
@@ -670,7 +671,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              Spacing.hSm,
               // A live region as well as a label: the count is the one piece
               // of state on this screen that changes on its own, so a screen
               // reader should re-read it rather than wait to be asked.
@@ -680,18 +681,18 @@ class _TranscriptViewState extends State<TranscriptView> {
                   _searchQuery.isEmpty
                       ? '${widget.segments.length} segmen'
                       : '$itemCount dari ${widget.segments.length} segmen',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
                 ),
               ),
-              const SizedBox(width: 4),
+              Spacing.hXs,
               if (_isPlayerMode)
                 IconButton(
                   tooltip: _followActive
                       ? 'Ikuti pemutaran: aktif'
                       : 'Ikuti pemutaran: mati',
                   icon: Icon(
-                    _followActive ? Icons.my_location : Icons.location_disabled,
-                    size: 18,
+                    _followActive ? AppIcons.locate : AppIcons.offline,
+                    size: IconSizes.md,
                     color: _followActive ? colors.primary : colors.textTertiary,
                   ),
                   onPressed: () {
@@ -704,8 +705,8 @@ class _TranscriptViewState extends State<TranscriptView> {
                 IconButton(
                   tooltip: _autoScroll ? 'Auto-scroll aktif' : 'Auto-scroll mati',
                   icon: Icon(
-                    _autoScroll ? Icons.vertical_align_bottom : Icons.pause_circle_outline,
-                    size: 18,
+                    _autoScroll ? AppIcons.scrollToBottom : AppIcons.pause,
+                    size: IconSizes.md,
                     color: _autoScroll ? colors.primary : colors.textTertiary,
                   ),
                   onPressed: () => setState(() => _autoScroll = !_autoScroll),
@@ -716,8 +717,8 @@ class _TranscriptViewState extends State<TranscriptView> {
                       ? 'Tinjau: hanya segmen yang perlu diperiksa'
                       : 'Tinjau ($_lowConfidenceCount segmen perlu diperiksa)',
                   icon: Icon(
-                    _reviewOnly ? Icons.flag : Icons.flag_outlined,
-                    size: 18,
+                    _reviewOnly ? AppIcons.flagFilled : AppIcons.flag,
+                    size: IconSizes.md,
                     color: _reviewOnly ? colors.warning : colors.textTertiary,
                   ),
                   onPressed: () => setState(() {
@@ -733,7 +734,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                 ),
               IconButton(
                 tooltip: 'Salin semua',
-                icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
+                icon: Icon(AppIcons.copy, size: IconSizes.md, color: colors.textSecondary),
                 onPressed: () => _copyAllToClipboard(context),
               ),
             ],
@@ -744,7 +745,7 @@ class _TranscriptViewState extends State<TranscriptView> {
         Expanded(
           child: itemCount == 0
               ? const EmptyState(
-                  icon: Icons.search_off,
+                  icon: AppIcons.searchOff,
                   title: 'Tidak ada segmen cocok',
                 )
               : NotificationListener<UserScrollNotification>(
@@ -764,7 +765,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                       // Rows above the anchor, laid out upwards. Empty
                       // (childCount 0) whenever the anchor is 0.
                       SliverPadding(
-                        padding: const EdgeInsets.only(left: 12, right: 12, top: 8),
+                        padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, top: Spacing.sm),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) =>
@@ -775,7 +776,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                       ),
                       SliverPadding(
                         key: _forwardSliverKey,
-                        padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                        padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, bottom: Spacing.sm),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (context, index) =>
@@ -825,7 +826,7 @@ class _ShortcutHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
@@ -942,11 +943,11 @@ class TranscriptSegmentTile extends StatelessWidget {
           '${segment.speaker} pada ${formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round()))}: ${segment.text}',
       selected: isActive,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.only(bottom: Spacing.sm),
         child: Container(
           decoration: BoxDecoration(
             color: activeBg,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(Radii.md),
             border: Border.all(
               color: activeBorder.withValues(alpha: showOutline ? 0.5 : 0.0),
               width: showOutline ? 1.5 : 0,
@@ -966,13 +967,13 @@ class TranscriptSegmentTile extends StatelessWidget {
                 _openEditDialog(context);
               }
             },
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(Radii.md),
             child: Padding(
               padding: const EdgeInsets.only(
-                left: 12,
-                right: 8,
-                top: 10,
-                bottom: 10,
+                left: Spacing.md,
+                right: Spacing.sm,
+                top: Spacing.sm,
+                bottom: Spacing.sm,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,10 +982,10 @@ class TranscriptSegmentTile extends StatelessWidget {
                   Container(
                     width: 3,
                     height: 16,
-                    margin: const EdgeInsets.only(top: 3, right: 10),
+                    margin: const EdgeInsets.only(top: Spacing.xs, right: Spacing.sm),
                     decoration: BoxDecoration(
                       color: speakerColor.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(Radii.xs),
                     ),
                   ),
                   // Speaker label + time
@@ -999,15 +1000,15 @@ class TranscriptSegmentTile extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              SpeakerAvatar(name: displaySpeaker, color: speakerColor, size: 22),
-                              const SizedBox(width: 6),
+                              SpeakerAvatar(name: displaySpeaker, color: speakerColor, size: IconSizes.lg),
+                              Spacing.hSm,
                               Flexible(
                                 child: Text(
                                   displaySpeaker,
                                   style: TextStyle(
                                     color: speakerColor,
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                    fontSize: FontSizes.caption,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   maxLines: 1,
@@ -1015,17 +1016,17 @@ class TranscriptSegmentTile extends StatelessWidget {
                                 ),
                               ),
                               if (onRename != null) ...[
-                                const SizedBox(width: 2),
-                                Icon(Icons.edit_outlined, size: 10, color: speakerColor.withValues(alpha: 0.5)),
+                                Spacing.hXs,
+                                Icon(AppIcons.edit, size: 10, color: speakerColor.withValues(alpha: 0.5)),
                               ],
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          Spacing.gapXs,
                           Text(
                             formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round())),
                             style: TextStyle(
                               color: colors.textTertiary,
-                              fontSize: 10,
+                              fontSize: FontSizes.overline,
                               fontFeatures: const [FontFeature.tabularFigures()],
                             ),
                           ),
@@ -1033,7 +1034,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  Spacing.hSm,
                   // Content
                   Expanded(
                     child: Column(
@@ -1046,13 +1047,13 @@ class TranscriptSegmentTile extends StatelessWidget {
                             maxLines: null,
                             style: TextStyle(
                               color: colors.text,
-                              fontSize: 14,
+                              fontSize: FontSizes.bodyLarge,
                               height: 1.45,
                             ),
                             decoration: const InputDecoration(
                               isDense: true,
                               border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.all(8),
+                              contentPadding: EdgeInsets.all(Spacing.sm),
                             ),
                           )
                         else
@@ -1063,7 +1064,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                                 searchQuery,
                                 TextStyle(
                                   color: colors.text,
-                                  fontSize: 14,
+                                  fontSize: FontSizes.bodyLarge,
                                   height: 1.45,
                                   letterSpacing: 0.1,
                                 ),
@@ -1072,7 +1073,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                             ),
                           ),
                         if (segment.isPartial) ...[
-                          const SizedBox(height: 4),
+                          Spacing.gapXs,
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1084,11 +1085,11 @@ class TranscriptSegmentTile extends StatelessWidget {
                                   color: colors.primary,
                                 ),
                               ),
-                              const SizedBox(width: 5),
+                              Spacing.hXs,
                               Text(
                                 'Memperbaiki…',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: FontSizes.overline,
                                   color: colors.textTertiary,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -1097,20 +1098,20 @@ class TranscriptSegmentTile extends StatelessWidget {
                           ),
                         ],
                         if (segment.lowConfidence) ...[
-                          const SizedBox(height: 4),
+                          Spacing.gapXs,
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.warning_amber_rounded,
-                                size: 12,
+                                AppIcons.warning,
+                                size: IconSizes.xs,
                                 color: colors.warning,
                               ),
-                              const SizedBox(width: 4),
+                              Spacing.hXs,
                               Text(
                                 'Kepercayaan rendah',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: FontSizes.overline,
                                   color: colors.warning,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -1136,7 +1137,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                         SizedBox.fromSize(
                           size: TouchTarget.minimumSize,
                           child: IconButton(
-                            icon: Icon(Icons.copy_outlined, size: 16, color: colors.textTertiary),
+                            icon: Icon(AppIcons.copy, size: IconSizes.sm, color: colors.textTertiary),
                             onPressed: onCopy,
                             padding: EdgeInsets.zero,
                             tooltip: 'Salin segmen',
@@ -1146,7 +1147,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                         SizedBox.fromSize(
                           size: TouchTarget.minimumSize,
                           child: IconButton(
-                            icon: Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
+                            icon: Icon(AppIcons.edit, size: IconSizes.sm, color: colors.textTertiary),
                             onPressed: onStartInlineEdit ??
                                 () => _openEditDialog(context),
                             padding: EdgeInsets.zero,
@@ -1181,8 +1182,8 @@ class TranscriptSegmentTile extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 8),
-            Text('Edit Transkrip', style: TextStyle(color: colors.text, fontSize: 16)),
+            Spacing.hSm,
+            Text('Edit Transkrip', style: TextStyle(color: colors.text, fontSize: FontSizes.title)),
           ],
         ),
         content: TextField(
@@ -1190,13 +1191,13 @@ class TranscriptSegmentTile extends StatelessWidget {
           autofocus: true,
           maxLines: null,
           minLines: 3,
-          style: TextStyle(color: colors.text, fontSize: 14, height: 1.4),
+          style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge, height: 1.4),
           decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md)),
             filled: true,
             fillColor: colors.chipBackground,
             hintText: 'Ketik koreksi transkrip...',
-            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
+            hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
           ),
         ),
         actions: [
@@ -1234,21 +1235,21 @@ class TranscriptSegmentTile extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Text('Ganti Nama Pembicara',
-                style: TextStyle(color: colors.text, fontSize: 16)),
+                style: TextStyle(color: colors.text, fontSize: FontSizes.title)),
           ],
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: colors.text, fontSize: 14),
+          style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
           decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md)),
             filled: true,
             fillColor: colors.chipBackground,
             hintText: 'Nama baru...',
-            hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
+            hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
           ),
         ),
         actions: [

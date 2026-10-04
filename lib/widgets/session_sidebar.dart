@@ -8,6 +8,8 @@ import '../state/library_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
 import 'enhance_queue_view.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// Width of the permanent sidebar. Narrow enough that the workspace still
 /// has 540 px at the app's 800 px minimum window.
@@ -125,10 +127,10 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
         children: [
           _Header(onOpenSettings: widget.onOpenSettings),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.xs, Spacing.md, Spacing.sm),
             child: FilledButton.icon(
               onPressed: widget.onNewSession,
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(AppIcons.add, size: IconSizes.md),
               label: const Text('Sesi baru'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(40),
@@ -136,24 +138,24 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
             child: SizedBox(
               height: 36,
               child: TextField(
                 controller: _search,
                 focusNode: widget.searchFocusNode,
                 onChanged: _onSearchChanged,
-                style: TextStyle(color: colors.text, fontSize: 13),
+                style: TextStyle(color: colors.text, fontSize: FontSizes.body),
                 decoration: InputDecoration(
                   hintText: 'Cari sesi... (Ctrl+L)',
-                  hintStyle: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
                   prefixIcon:
-                      Icon(Icons.search, size: 16, color: colors.textTertiary),
+                      Icon(AppIcons.search, size: IconSizes.sm, color: colors.textTertiary),
                   suffixIcon: _search.text.isEmpty
                       ? null
                       : IconButton(
-                          icon: Icon(Icons.clear,
-                              size: 14, color: colors.textTertiary),
+                          icon: Icon(AppIcons.clear,
+                              size: IconSizes.xs, color: colors.textTertiary),
                           tooltip: 'Bersihkan pencarian',
                           onPressed: () {
                             _debounce?.cancel();
@@ -166,7 +168,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(Radii.md),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -175,7 +177,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
           ),
           if (sortedTags.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.sm, Spacing.md, 0),
               child: Wrap(
                 spacing: 4,
                 runSpacing: 4,
@@ -184,7 +186,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                     FilterChip(
                       label: Text(
                         tag,
-                        style: const TextStyle(fontSize: 11),
+                        style: const TextStyle(fontSize: FontSizes.micro),
                       ),
                       selected: _tagFilter.contains(tag),
                       visualDensity: VisualDensity.compact,
@@ -202,7 +204,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                     ActionChip(
                       label: const Text(
                         'Semua',
-                        style: TextStyle(fontSize: 11),
+                        style: TextStyle(fontSize: FontSizes.micro),
                       ),
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize:
@@ -212,7 +214,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                 ],
               ),
             ),
-          const SizedBox(height: 8),
+          Spacing.gapSm,
           // Background "perhalus transkrip" jobs (F5). Above the session
           // list so a running pass is never scrolled out of sight.
           const EnhanceQueueView(),
@@ -229,7 +231,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                   )
                 : entries.isEmpty
                     ? Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(Spacing.lg),
                         child: Text(
                           library.error != null
                               ? 'Folder sesi tidak bisa dibaca:\n${library.error}'
@@ -238,11 +240,11 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                                       'mulai merekam.'
                                   : 'Tidak ada sesi yang cocok.',
                           style: TextStyle(
-                              color: colors.textTertiary, fontSize: 12),
+                              color: colors.textTertiary, fontSize: FontSizes.caption),
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
                         itemCount: entries.length,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
@@ -257,21 +259,21 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
           ),
           Divider(height: 1, color: colors.divider),
           _FooterAction(
-            icon: Icons.upload_file_outlined,
+            icon: AppIcons.uploadFile,
             label: 'Impor berkas',
             onTap: widget.onOpenUpload,
           ),
           _FooterAction(
-            icon: Icons.forum_outlined,
+            icon: AppIcons.chat,
             label: 'Tanya arsip rapat',
             onTap: widget.onOpenArchiveChat,
           ),
           _FooterAction(
-            icon: Icons.folder_open_outlined,
+            icon: AppIcons.folderOpen,
             label: 'Kelola perpustakaan',
             onTap: widget.onOpenLibrary,
           ),
-          const SizedBox(height: 6),
+          Spacing.gapSm,
         ],
       ),
     );
@@ -287,27 +289,27 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 6),
+      padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.sm, Spacing.sm, Spacing.sm),
       child: Row(
         children: [
           Image.asset('assets/logo.png',
               width: 20,
               height: 20,
               errorBuilder: (_, _, _) => const SizedBox.shrink()),
-          const SizedBox(width: 8),
+          Spacing.hSm,
           Expanded(
             child: Text(
               'Trareon Transcribe',
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: colors.text,
-                fontSize: 14,
+                fontSize: FontSizes.bodyLarge,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, size: 18),
+            icon: const Icon(AppIcons.settings, size: IconSizes.md),
             tooltip: 'Pengaturan (Ctrl+,)',
             onPressed: onOpenSettings,
             color: colors.textSecondary,
@@ -329,14 +331,14 @@ class _RecordingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      padding: const EdgeInsets.fromLTRB(Spacing.sm, 0, Spacing.sm, Spacing.sm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
         decoration: BoxDecoration(
           color: selected
               ? colors.primary.withValues(alpha: 0.12)
               : colors.chipBackground,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
         child: Row(
           children: [
@@ -348,12 +350,12 @@ class _RecordingRow extends StatelessWidget {
                 color: colors.recording,
               ),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Text(
               'Sedang merekam',
               style: TextStyle(
                 color: colors.text,
-                fontSize: 12,
+                fontSize: FontSizes.caption,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -380,17 +382,17 @@ class _SessionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: Spacing.xs),
       child: Material(
         color: selected
             ? colors.primary.withValues(alpha: 0.12)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.md),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.md),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -400,11 +402,11 @@ class _SessionRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: selected ? colors.primary : colors.text,
-                    fontSize: 13,
+                    fontSize: FontSizes.body,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                Spacing.gapXs,
                 Text(
                   [
                     entry.date,
@@ -414,7 +416,7 @@ class _SessionRow extends StatelessWidget {
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: colors.textTertiary, fontSize: 11),
+                  style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
                 ),
               ],
             ),
@@ -442,17 +444,17 @@ class _FooterAction extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: colors.textSecondary),
-            const SizedBox(width: 10),
+            Icon(icon, size: IconSizes.sm, color: colors.textSecondary),
+            Spacing.hSm,
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
               ),
             ),
           ],

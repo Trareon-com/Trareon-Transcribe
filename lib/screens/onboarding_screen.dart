@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../widgets/model_download_card.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// First-launch onboarding — model download screen.
 ///
@@ -35,24 +37,24 @@ class OnboardingScreen extends StatelessWidget {
       backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.xxl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 'Selamat datang di Trareon Transcribe',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: FontSizes.headline,
                   fontWeight: FontWeight.w700,
                   color: colors.text,
                 ),
               ),
-              const SizedBox(height: 6),
+              Spacing.gapSm,
               Text(
                 'Aplikasi ini bekerja 100% offline. Kami perlu mengunduh dua model ke perangkat Anda — proses ini hanya terjadi sekali.',
-                style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                style: TextStyle(fontSize: FontSizes.body, color: colors.textSecondary),
               ),
-              const SizedBox(height: 24),
+              Spacing.gapXl,
               ModelDownloadCard(
                 title: quick.title,
                 subtitle: quick.subtitle,
@@ -61,7 +63,7 @@ class OnboardingScreen extends StatelessWidget {
                 status: quick.status,
                 errorText: quick.error,
               ),
-              const SizedBox(height: 12),
+              Spacing.gapMd,
               ModelDownloadCard(
                 title: accurate.title,
                 subtitle: accurate.subtitle,
@@ -82,27 +84,27 @@ class OnboardingScreen extends StatelessWidget {
                       onRetryAccurate();
                     }
                   },
-                  icon: const Icon(Icons.refresh, size: 16),
+                  icon: const Icon(AppIcons.refresh, size: IconSizes.sm),
                   label: const Text('Coba lagi'),
                 ),
-              const SizedBox(height: 12),
+              Spacing.gapMd,
               ElevatedButton(
                 onPressed: allReady ? onContinue : null,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.md),
                 ),
                 child: Text(
                   allReady ? 'Mulai menggunakan' : 'Mengunduh...',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(height: 6),
+              Spacing.gapSm,
               Text(
                 allReady
                     ? 'Siap. Model tidak akan pernah dikirim ke mana pun.'
                     : 'Anda boleh menutup aplikasi — unduhan akan dilanjutkan di latar belakang.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: colors.textTertiary),
+                style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
               ),
             ],
           ),
