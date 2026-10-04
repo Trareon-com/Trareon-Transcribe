@@ -19,11 +19,13 @@ import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/action_items_panel.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
 import '../widgets/completion_banner.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
+import '../widgets/speaker_manager_dialog.dart';
 import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
 
@@ -357,6 +359,35 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     });
     _onSegmentsMutated();
     _schedulePersist();
+  }
+
+  /// "Kelola Pembicara" (F10): rename, merge, and remember names for the
+  /// next meeting.
+  ///
+  /// A merge is the same operation as a rename onto an existing name —
+  /// both relabel every segment — so one code path serves both and the
+  /// transcript cannot end up with two speakers sharing a name.
+  Future<void> _manageSpeakers() async {
+    final actions = await showSpeakerManager(context, segments: _segments);
+    if (actions == null || actions.isEmpty || !mounted) return;
+    setState(() {
+      for (final action in actions) {
+        final (from, to) = switch (action) {
+          RenameSpeaker(:final from, :final to) => (from, to),
+          MergeSpeakers(:final from, :final into) => (from, into),
+        };
+        _segments = _segments
+            .map((s) => s.speaker == from ? s.copyWith(speaker: to) : s)
+            .toList();
+      }
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      '${actions.length} perubahan pembicara diterapkan.',
+    );
   }
 
   void _schedulePersist() {
@@ -990,6 +1021,28 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             ),
                           ),
                         ],
+                        if (_segments.isNotEmpty)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.people_outline, size: 16),
+                            label: const Text(
+                              'Pembicara',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            onPressed: _manageSpeakers,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(
+                                color: colors.primary.withValues(alpha: 0.3),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         OutlinedButton.icon(
                           icon: const Icon(Icons.upload_outlined, size: 16),
                           label: const Text('Ekspor', style: TextStyle(fontSize: 13)),

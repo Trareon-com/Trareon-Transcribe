@@ -51,6 +51,12 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
   /// inherited from Settings at the moment a file lands (audit A.11 upload
   /// zone, blueprint §4.6). Seeded from Settings on first build.
   String? _language;
+
+  /// How many people the user says are in the recordings, or 0 for
+  /// "work it out" (F10). The acoustic clustering over-splits a long
+  /// recording of one voice, and this is the one piece of information
+  /// that fixes it.
+  int _speakerHint = 0;
   String? _modelId;
   bool _optionsSeeded = false;
 
@@ -87,9 +93,11 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
         _ImportOptions(
           language: _language,
           modelId: _modelId ?? kKnownModelIds.first,
+          speakerHint: _speakerHint,
           enabled: !busy,
           onLanguageChanged: (v) => setState(() => _language = v),
           onModelChanged: (v) => setState(() => _modelId = v),
+          onSpeakerHintChanged: (v) => setState(() => _speakerHint = v),
         ),
         const SizedBox(height: 12),
         Row(
@@ -216,6 +224,7 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
           ? modelPathForId(refineId, libraryPath: settings.libraryPath)
           : null,
       modelId: useProgressive ? refineId : modelId,
+      speakerHint: _speakerHint,
     );
     if (mounted) await widget.onProcessed?.call();
   }
@@ -311,16 +320,20 @@ class _ImportOptions extends StatelessWidget {
   const _ImportOptions({
     required this.language,
     required this.modelId,
+    required this.speakerHint,
     required this.enabled,
     required this.onLanguageChanged,
     required this.onModelChanged,
+    required this.onSpeakerHintChanged,
   });
 
   final String? language;
   final String modelId;
+  final int speakerHint;
   final bool enabled;
   final ValueChanged<String?> onLanguageChanged;
   final ValueChanged<String> onModelChanged;
+  final ValueChanged<int> onSpeakerHintChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -348,6 +361,27 @@ class _ImportOptions extends StatelessWidget {
           items: [
             for (final id in kKnownModelIds)
               DropdownMenuItem(value: id, child: Text(modelDisplayLabel(id))),
+          ],
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Jumlah pembicara',
+          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+        ),
+        DropdownButton<int>(
+          value: speakerHint,
+          onChanged:
+              enabled ? (v) => v == null ? null : onSpeakerHintChanged(v) : null,
+          items: const [
+            DropdownMenuItem(value: 0, child: Text('Deteksi otomatis')),
+            DropdownMenuItem(value: 1, child: Text('1 orang')),
+            DropdownMenuItem(value: 2, child: Text('2 orang')),
+            DropdownMenuItem(value: 3, child: Text('3 orang')),
+            DropdownMenuItem(value: 4, child: Text('4 orang')),
+            DropdownMenuItem(value: 5, child: Text('5 orang')),
+            DropdownMenuItem(value: 6, child: Text('6 orang')),
+            DropdownMenuItem(value: 8, child: Text('8 orang')),
+            DropdownMenuItem(value: 10, child: Text('10 orang')),
           ],
         ),
       ],

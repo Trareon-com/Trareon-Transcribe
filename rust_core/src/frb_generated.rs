@@ -2813,6 +2813,7 @@ fn wire__crate__api__progressive_transcribe_file_impl(
             let api_gpu_enabled = <bool>::sse_decode(&mut deserializer);
             let api_gpu_device = <i32>::sse_decode(&mut deserializer);
             let api_glossary = <crate::glossary::GlossaryConfig>::sse_decode(&mut deserializer);
+            let api_speaker_hint = <u32>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::error::TranscribeError>((move || {
@@ -2824,6 +2825,7 @@ fn wire__crate__api__progressive_transcribe_file_impl(
                         api_gpu_enabled,
                         api_gpu_device,
                         api_glossary,
+                        api_speaker_hint,
                     )?;
                     std::result::Result::Ok(output_ok)
                 })())

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../src/rust/actions.dart' as rust_actions;
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/archive.dart' as rust_archive;
+import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../src/rust/completion.dart' as rust_completion;
@@ -159,6 +160,7 @@ abstract class RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   });
 
   /// Which file the in-flight [batchTranscribeFiles] call is currently on.
@@ -297,6 +299,15 @@ abstract class RustBridge {
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
   });
+
+  /// Every capability, where it runs and whether it is on (F14).
+  ///
+  /// Comes from the same list `rust_core/src/privacy.rs` checks against
+  /// the source, so the screen cannot drift from what the code does.
+  /// Local and pure.
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  );
 
   /// Lists models offered by the configured summary endpoint. Sends no
   /// transcript content — used to populate the settings dropdown.
@@ -742,6 +753,7 @@ class RustBridgeMock implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split(Platform.pathSeparator).last,
     quickSegments: const [],
@@ -853,6 +865,11 @@ class RustBridgeMock implements RustBridge {
     List<Bookmark> bookmarks = const [],
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
+
+  @override
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) async => const [];
 
   @override
   Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
@@ -1370,11 +1387,13 @@ class RustEngineBridge implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) => rust_api.progressiveTranscribeFile(
     quickModelPath: quickModelPath,
     refineModelPath: refineModelPath,
     path: path,
     language: language,
+    speakerHint: speakerHint,
     gpuEnabled: gpuEnabled,
     gpuDevice: gpuDevice,
     glossary: glossary,
@@ -1518,6 +1537,11 @@ class RustEngineBridge implements RustBridge {
     config: config,
     bookmarks: bookmarks,
   );
+
+  @override
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) => rust_api.describeCapabilities(settings: _toRustSettings(settings));
 
   @override
   Future<rust_mapreduce.MapReduceProgress?> summaryProgress() =>

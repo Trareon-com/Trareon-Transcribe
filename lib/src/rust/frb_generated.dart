@@ -412,6 +412,7 @@ abstract class RustLibApi extends BaseApi {
     required bool gpuEnabled,
     required int gpuDevice,
     required GlossaryConfig glossary,
+    required int speakerHint,
   });
 
   Future<List<AuditEntry>> crateApiReadAuditLog({required int limit});
@@ -3056,6 +3057,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required bool gpuEnabled,
     required int gpuDevice,
     required GlossaryConfig glossary,
+    required int speakerHint,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -3068,6 +3070,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_bool(gpuEnabled, serializer);
           sse_encode_i_32(gpuDevice, serializer);
           sse_encode_box_autoadd_glossary_config(glossary, serializer);
+          sse_encode_u_32(speakerHint, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3088,6 +3091,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           gpuEnabled,
           gpuDevice,
           glossary,
+          speakerHint,
         ],
         apiImpl: this,
       ),
@@ -3105,6 +3109,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "gpuEnabled",
           "gpuDevice",
           "glossary",
+          "speakerHint",
         ],
       );
 

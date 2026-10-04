@@ -310,6 +310,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setVadEnabled(bool enabled) =>
       _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
 
+  Future<void> setNoiseReduction(bool enabled) => _apply(
+        state.copyWith(noiseReduction: enabled),
+        label: 'Pengurangan derau',
+      );
+
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
         minutes == null
             ? state.copyWith(clearAutoStop: true)

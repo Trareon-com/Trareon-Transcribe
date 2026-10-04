@@ -376,6 +376,7 @@ pub fn progressive_transcribe_file(
     gpu_enabled: bool,
     gpu_device: i32,
     glossary: crate::glossary::GlossaryConfig,
+    speaker_hint: u32,
 ) -> Result<ProgressiveFileResult, TranscribeError> {
     let engine = crate::progressive::ProgressiveEngine::load(
         std::path::Path::new(&quick_model_path),
@@ -475,7 +476,9 @@ pub fn progressive_transcribe_file(
     // labelled from a single diarizer over the same audio so the quick and
     // refined rows for one utterance agree — a label that flips when the
     // refine pass lands reads as a bug to the user.
-    let mut diarizer = crate::diarization::Diarizer::new();
+    // `speaker_hint` caps the clustering the same way the single-pass
+    // import does (F10); 0 means "work it out".
+    let mut diarizer = crate::diarization::Diarizer::with_max_speakers(speaker_hint as usize);
     crate::diarization::label_segments(&mut diarizer, &audio.samples, &mut refined_segments);
     let labels: std::collections::HashMap<String, String> = refined_segments
         .iter()

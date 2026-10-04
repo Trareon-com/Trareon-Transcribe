@@ -430,6 +430,7 @@ class _ProgressiveBridge extends _NoopBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async {
     progressiveCalls.add(path);
     onCall?.call(path);

@@ -14,6 +14,7 @@ import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/actions.dart' as rust_actions;
 import 'package:transcribe/src/rust/archive.dart' as rust_archive;
+import 'package:transcribe/src/rust/capabilities.dart' as rust_capabilities;
 import 'package:transcribe/src/rust/mapreduce.dart' as rust_mapreduce;
 import 'package:transcribe/src/rust/provenance.dart' as rust_provenance;
 import 'package:transcribe/src/rust/completion.dart' as rust_completion;
@@ -56,6 +57,7 @@ mixin SummaryBridgeStubs {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => rust_api.ProgressiveFileResult(
     filename: path.split('/').last,
     quickSegments: const [],
@@ -166,6 +168,10 @@ mixin SummaryBridgeStubs {
   }) async => throw UnsupportedError('test bridge does not generate summaries');
 
   Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
+
+  Future<List<rust_capabilities.Capability>> describeCapabilities(
+    AppSettings settings,
+  ) async => const [];
 
   Future<List<rust_actions.ActionItem>> parseActionItems(
     String summary,

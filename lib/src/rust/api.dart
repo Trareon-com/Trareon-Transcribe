@@ -253,6 +253,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   required bool gpuEnabled,
   required int gpuDevice,
   required GlossaryConfig glossary,
+  required int speakerHint,
 }) => RustLib.instance.api.crateApiProgressiveTranscribeFile(
   quickModelPath: quickModelPath,
   refineModelPath: refineModelPath,
@@ -261,6 +262,7 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
   glossary: glossary,
+  speakerHint: speakerHint,
 );
 
 /// Transcribes every file in `files` against a single loaded model.

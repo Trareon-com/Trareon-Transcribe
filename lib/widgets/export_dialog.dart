@@ -129,6 +129,8 @@ Future<bool> showEksporDialog(
                     ('vtt', 'VTT', 'Takarir untuk web', Icons.language_outlined),
                     ('html', 'HTML', 'Halaman web yang sudah ditata', Icons.web_outlined),
                     ('docx', 'DOCX', 'Dokumen Microsoft Word', Icons.article_outlined),
+                    ('pdf', 'PDF', 'Dokumen siap cetak, font ikut disertakan', Icons.picture_as_pdf_outlined),
+                    ('csv', 'CSV', 'Tabel per segmen untuk spreadsheet', Icons.table_view_outlined),
                   ])
                     CheckboxListTile(
                       dense: true,
@@ -276,6 +278,8 @@ Future<bool> showEksporDialog(
     if (selected.contains('vtt')) rust_ekspor.ExportFormat.vtt,
     if (selected.contains('html')) rust_ekspor.ExportFormat.html,
     if (selected.contains('docx')) rust_ekspor.ExportFormat.docx,
+    if (selected.contains('pdf')) rust_ekspor.ExportFormat.pdf,
+    if (selected.contains('csv')) rust_ekspor.ExportFormat.csv,
   ];
 
   try {
