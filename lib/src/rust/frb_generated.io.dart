@@ -6,6 +6,8 @@
 import 'api.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'completion.dart';
+import 'coverage.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -119,6 +121,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus dco_decode_check_status(dynamic raw);
 
   @protected
+  CompletionOutcome dco_decode_completion_outcome(dynamic raw);
+
+  @protected
+  CompletionProgress dco_decode_completion_progress(dynamic raw);
+
+  @protected
+  CoverageReport dco_decode_coverage_report(dynamic raw);
+
+  @protected
   CustomSummaryTemplate dco_decode_custom_summary_template(dynamic raw);
 
   @protected
@@ -176,6 +187,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Check> dco_decode_list_check(dynamic raw);
 
   @protected
+  List<CompletionProgress> dco_decode_list_completion_progress(dynamic raw);
+
+  @protected
   List<CustomSummaryTemplate> dco_decode_list_custom_summary_template(
     dynamic raw,
   );
@@ -206,6 +220,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
+
+  @protected
+  List<TimeRange> dco_decode_list_time_range(dynamic raw);
 
   @protected
   List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
@@ -303,6 +320,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Theme dco_decode_theme(dynamic raw);
+
+  @protected
+  TimeRange dco_decode_time_range(dynamic raw);
 
   @protected
   TindakLanjut dco_decode_tindak_lanjut(dynamic raw);
@@ -431,6 +451,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus sse_decode_check_status(SseDeserializer deserializer);
 
   @protected
+  CompletionOutcome sse_decode_completion_outcome(SseDeserializer deserializer);
+
+  @protected
+  CompletionProgress sse_decode_completion_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CoverageReport sse_decode_coverage_report(SseDeserializer deserializer);
+
+  @protected
   CustomSummaryTemplate sse_decode_custom_summary_template(
     SseDeserializer deserializer,
   );
@@ -498,6 +529,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Check> sse_decode_list_check(SseDeserializer deserializer);
 
   @protected
+  List<CompletionProgress> sse_decode_list_completion_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<CustomSummaryTemplate> sse_decode_list_custom_summary_template(
     SseDeserializer deserializer,
   );
@@ -538,6 +574,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SessionEvent> sse_decode_list_session_event(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<TimeRange> sse_decode_list_time_range(SseDeserializer deserializer);
 
   @protected
   List<TindakLanjut> sse_decode_list_tindak_lanjut(
@@ -649,6 +688,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Theme sse_decode_theme(SseDeserializer deserializer);
+
+  @protected
+  TimeRange sse_decode_time_range(SseDeserializer deserializer);
 
   @protected
   TindakLanjut sse_decode_tindak_lanjut(SseDeserializer deserializer);
@@ -809,6 +851,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_check_status(CheckStatus self, SseSerializer serializer);
 
   @protected
+  void sse_encode_completion_outcome(
+    CompletionOutcome self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_completion_progress(
+    CompletionProgress self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_coverage_report(
+    CoverageReport self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_custom_summary_template(
     CustomSummaryTemplate self,
     SseSerializer serializer,
@@ -893,6 +953,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_check(List<Check> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_completion_progress(
+    List<CompletionProgress> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_custom_summary_template(
     List<CustomSummaryTemplate> self,
     SseSerializer serializer,
@@ -946,6 +1012,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_session_event(
     List<SessionEvent> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_time_range(
+    List<TimeRange> self,
     SseSerializer serializer,
   );
 
@@ -1089,6 +1161,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_theme(Theme self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_time_range(TimeRange self, SseSerializer serializer);
 
   @protected
   void sse_encode_tindak_lanjut(TindakLanjut self, SseSerializer serializer);

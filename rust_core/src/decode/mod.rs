@@ -111,6 +111,52 @@ pub fn decode_audio_file(path: &Path) -> Result<AudioBuffer, TranscribeError> {
     })
 }
 
+/// Length of an audio file without decoding it.
+///
+/// Reads the container's frame count, which every format this app records
+/// or imports carries. Returns `None` when the header does not declare one
+/// (some streamed MP3s) — the caller then has to decode to find out, and
+/// should say so rather than guessing.
+///
+/// The coverage check runs on every session save, including three-hour
+/// ones; decoding 1.4 GB of WAV to learn how long it is would make saving
+/// a meeting slower than recording it.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn probe_duration_secs(path: &Path) -> Result<Option<f64>, TranscribeError> {
+    let file = File::open(path).map_err(TranscribeError::from)?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+    let probed = symphonia::default::get_probe()
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
+        .map_err(|e| TranscribeError::AudioDecode(format!("unsupported or corrupt file: {e}")))?;
+    let Some(track) = probed
+        .format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+    else {
+        return Err(TranscribeError::AudioDecode(
+            "no decodable audio track found".into(),
+        ));
+    };
+    let (Some(frames), Some(rate)) = (track.codec_params.n_frames, track.codec_params.sample_rate)
+    else {
+        return Ok(None);
+    };
+    if rate == 0 {
+        return Ok(None);
+    }
+    Ok(Some(frames as f64 / rate as f64))
+}
+
 fn append_as_mono(decoded: &AudioBufferRef, out: &mut Vec<f32>) {
     let spec = *decoded.spec();
     let channels = spec.channels.count().max(1);

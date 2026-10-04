@@ -9,6 +9,11 @@ pub mod error;
 mod frb_generated;
 
 pub mod audio;
+/// Post-stop transcript completion: re-transcribes the stretches the live
+/// worker never reached, from the saved WAV.
+pub mod completion;
+/// Which seconds of a recording the transcript actually accounts for.
+pub mod coverage;
 pub mod decode;
 pub mod dedupe;
 pub mod diarization;
@@ -19,6 +24,8 @@ pub mod flight_recorder;
 /// Kamus istilah: Whisper `initial_prompt` biasing + conservative
 /// post-correction. Part of the transcription hot path.
 pub mod glossary;
+/// Rejects the captions Whisper invents over silence.
+pub mod hallucination;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
 pub mod journal;

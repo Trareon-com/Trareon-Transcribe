@@ -38,6 +38,10 @@ path = "src/bin/poll_probe.rs"
 name = "session_start_probe"
 path = "src/bin/session_start_probe.rs"
 
+[[bin]]
+name = "complete_probe"
+path = "src/bin/complete_probe.rs"
+
 [dependencies]
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }

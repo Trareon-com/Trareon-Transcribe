@@ -211,6 +211,104 @@ impl DualVad {
     }
 }
 
+/// How speech regions are carved out of a recording by
+/// [`speech_regions`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SegmentationConfig {
+    /// Non-speech this long ends a region. Shorter silences are inside it —
+    /// without hangover, every breath would split a sentence in two.
+    pub tail_silence_secs: f64,
+    /// Regions shorter than this are discarded as detector noise.
+    pub min_speech_secs: f64,
+    /// Added either side of each region, so a word whose onset the detector
+    /// clipped is still inside the audio handed to Whisper.
+    pub pad_secs: f64,
+}
+
+impl Default for SegmentationConfig {
+    fn default() -> Self {
+        Self {
+            tail_silence_secs: 0.6,
+            min_speech_secs: 0.25,
+            pad_secs: 0.3,
+        }
+    }
+}
+
+/// The stretches of `samples` (16 kHz mono f32) that hold speech.
+///
+/// Returned as `(start, end)` pairs in seconds relative to the start of
+/// `samples`, in time order, never overlapping.
+///
+/// This is what keeps silence out of Whisper. Fed a silent 30-second chunk
+/// the model does not return nothing — it returns the most common caption
+/// in its training data for that situation, which on Indonesian audio is
+/// `[MENGENI]`. The cheapest fix is not to ask it.
+pub fn speech_regions(
+    vad: &mut DualVad,
+    samples: &[f32],
+    config: SegmentationConfig,
+) -> TranscribeResult<Vec<(f64, f64)>> {
+    const FRAME_SECS: f64 = FRAME_SAMPLES_10MS as f64 / 16_000.0;
+    let mut frame_buf = [0i16; FRAME_SAMPLES_10MS];
+    let mut regions: Vec<(f64, f64)> = Vec::new();
+    let mut open: Option<(f64, f64)> = None;
+
+    for (index, frame) in samples
+        .as_chunks::<FRAME_SAMPLES_10MS>()
+        .0
+        .iter()
+        .enumerate()
+    {
+        for (sample, out) in frame.iter().zip(frame_buf.iter_mut()) {
+            *out = (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+        }
+        let at = index as f64 * FRAME_SECS;
+        if !vad.is_speech(&frame_buf)? {
+            if let Some((start, last_speech)) = open {
+                if at - last_speech >= config.tail_silence_secs {
+                    push_region(&mut regions, start, last_speech + FRAME_SECS, config);
+                    open = None;
+                }
+            }
+            continue;
+        }
+        open = match open {
+            Some((start, _)) => Some((start, at)),
+            None => Some((at, at)),
+        };
+    }
+    if let Some((start, last_speech)) = open {
+        push_region(&mut regions, start, last_speech + FRAME_SECS, config);
+    }
+
+    let total_secs = samples.len() as f64 / 16_000.0;
+    Ok(pad_and_merge(regions, total_secs, config))
+}
+
+fn push_region(regions: &mut Vec<(f64, f64)>, start: f64, end: f64, config: SegmentationConfig) {
+    if end - start >= config.min_speech_secs {
+        regions.push((start, end));
+    }
+}
+
+fn pad_and_merge(
+    regions: Vec<(f64, f64)>,
+    total_secs: f64,
+    config: SegmentationConfig,
+) -> Vec<(f64, f64)> {
+    let mut merged: Vec<(f64, f64)> = Vec::with_capacity(regions.len());
+    for (start, end) in regions {
+        let start = (start - config.pad_secs).max(0.0);
+        let end = (end + config.pad_secs).min(total_secs);
+        match merged.last_mut() {
+            Some(last) if start <= last.1 => last.1 = last.1.max(end),
+            _ => merged.push((start, end)),
+        }
+    }
+    merged
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,5 +358,57 @@ mod tests {
     fn empty_frame_is_not_speech() {
         let mut d = EnergyDetector::new(0.02);
         assert!(!d.is_speech(&[]));
+    }
+
+    // --- speech_regions -------------------------------------------------
+
+    #[test]
+    fn silence_yields_no_speech_regions() {
+        // The property the hallucination fix rests on: digital silence must
+        // never be handed to Whisper. 30 s of zeros.
+        let mut vad = DualVad::new(VadConfig::default()).unwrap();
+        let samples = vec![0.0f32; 16_000 * 30];
+        let regions = speech_regions(&mut vad, &samples, SegmentationConfig::default()).unwrap();
+        assert!(regions.is_empty(), "silence produced regions: {regions:?}");
+    }
+
+    #[test]
+    fn an_empty_buffer_yields_no_regions() {
+        let mut vad = DualVad::new(VadConfig::default()).unwrap();
+        assert!(speech_regions(&mut vad, &[], SegmentationConfig::default())
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn regions_shorter_than_the_minimum_are_discarded() {
+        let config = SegmentationConfig::default();
+        let mut regions = Vec::new();
+        push_region(&mut regions, 1.0, 1.1, config); // 100 ms — noise
+        push_region(&mut regions, 2.0, 2.5, config); // 500 ms — kept
+        assert_eq!(regions, vec![(2.0, 2.5)]);
+    }
+
+    #[test]
+    fn padding_never_leaves_the_recording() {
+        let config = SegmentationConfig::default();
+        let padded = pad_and_merge(vec![(0.0, 1.0), (9.5, 10.0)], 10.0, config);
+        assert_eq!(padded, vec![(0.0, 1.3), (9.2, 10.0)]);
+    }
+
+    #[test]
+    fn padding_merges_regions_it_makes_touch() {
+        let config = SegmentationConfig::default();
+        // 0.3 s padding either side closes a 0.4 s hole.
+        let padded = pad_and_merge(vec![(1.0, 2.0), (2.4, 3.0)], 10.0, config);
+        assert_eq!(padded, vec![(0.7, 3.3)]);
+    }
+
+    #[test]
+    fn distant_regions_stay_separate() {
+        let config = SegmentationConfig::default();
+        let padded = pad_and_merge(vec![(1.0, 2.0), (120.0, 130.0)], 200.0, config);
+        assert_eq!(padded.len(), 2);
+        assert_eq!(padded[1], (119.7, 130.3));
     }
 }

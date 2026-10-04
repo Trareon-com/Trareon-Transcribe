@@ -557,6 +557,121 @@ pub fn get_batch_progress() -> Option<crate::stt::file::BatchProgressSnapshot> {
     crate::stt::file::read_batch_progress()
 }
 
+// --- Transcript completion (ITEM 0) ----------------------------------------
+//
+// "Every second recorded ends up in the transcript." The live worker can
+// fall behind the meeting on a slow device, and Stop cannot wait for it —
+// so what it never reached is transcribed afterwards from the saved WAV.
+// Entirely local; this is the transcription path.
+
+/// Length of an audio file in seconds, from its header where possible.
+///
+/// Falls back to a full decode only when the container declares no frame
+/// count, so the coverage check on save stays cheap for a 1.4 GB WAV.
+pub fn audio_duration_secs(path: String) -> Result<f64, TranscribeError> {
+    let path = std::path::PathBuf::from(path);
+    if let Some(secs) = crate::decode::probe_duration_secs(&path)? {
+        return Ok(secs);
+    }
+    Ok(crate::decode::decode_audio_file(&path)?.duration_secs)
+}
+
+/// What `segments` account for across a recording of `total_secs`, and
+/// which stretches they miss. Pure; no decode, no inference.
+pub fn transcript_coverage(
+    segments: Vec<Segment>,
+    total_secs: f64,
+) -> crate::coverage::CoverageReport {
+    crate::coverage::report(&segments, total_secs, crate::coverage::MIN_GAP_SECS)
+}
+
+/// [`transcript_coverage`] against the real length of `audio_path`.
+pub fn transcript_coverage_for_audio(
+    segments: Vec<Segment>,
+    audio_path: String,
+) -> Result<crate::coverage::CoverageReport, TranscribeError> {
+    let total = audio_duration_secs(audio_path)?;
+    Ok(transcript_coverage(segments, total))
+}
+
+/// Folds `incoming` into `existing` by timestamp, keeping every existing
+/// segment. Exposed so the UI can merge without re-running a pass.
+pub fn merge_transcript_segments(existing: Vec<Segment>, incoming: Vec<Segment>) -> Vec<Segment> {
+    crate::coverage::merge_by_timestamp(existing, incoming, crate::coverage::MERGE_TOLERANCE_SECS)
+}
+
+/// Transcribes the stretches of `audio_path` that `existing` does not
+/// cover, and returns the merged transcript.
+///
+/// `job_key` identifies this pass in [`read_completion_progress`] — the
+/// session directory, in practice. Progress is published per source, so a
+/// "Rapat Online" session's two tracks report independently.
+///
+/// Returns `existing` untouched (and `added = 0`) when the transcript
+/// already covers the recording, or when the uncovered stretches hold no
+/// speech — a meeting with ten silent minutes at the end is complete, and
+/// must not sit at "Menyelesaikan transkrip…" forever.
+#[allow(clippy::too_many_arguments)]
+pub fn complete_session_transcript(
+    model_path: String,
+    audio_path: String,
+    job_key: String,
+    existing: Vec<Segment>,
+    language: Option<String>,
+    gpu_enabled: bool,
+    gpu_device: i32,
+    glossary: crate::glossary::GlossaryConfig,
+    vad_enabled: bool,
+) -> Result<crate::completion::CompletionOutcome, TranscribeError> {
+    let audio_path = std::path::PathBuf::from(audio_path);
+    let source = crate::completion::source_for_audio(&audio_path).to_string();
+    let engine = crate::stt::WhisperEngine::load_with_gpu(
+        &PathBuf::from(&model_path),
+        gpu_enabled,
+        gpu_device,
+    )?;
+    let request = crate::completion::CompletionRequest {
+        audio_path,
+        source: source.clone(),
+        language,
+        glossary,
+        vad_enabled,
+    };
+    let progress_key = job_key.clone();
+    let progress_source = source.clone();
+    let outcome =
+        crate::completion::complete_transcript(&engine, &request, existing, |fraction, eta| {
+            crate::completion::publish_progress(crate::completion::CompletionProgress {
+                job_key: progress_key.clone(),
+                source: progress_source.clone(),
+                fraction,
+                eta_secs: eta,
+                done: fraction >= 1.0,
+            });
+        });
+    // The slot is cleared whether the pass succeeded or failed: a stuck
+    // "34%" in the sidebar after an error is its own bug report.
+    crate::completion::clear_progress(&job_key, &source);
+    outcome
+}
+
+/// Per-source progress of every completion pass currently running.
+pub fn read_completion_progress() -> Vec<crate::completion::CompletionProgress> {
+    crate::completion::read_progress()
+}
+
+/// Forgets one source's progress slot — used when a job is cancelled.
+pub fn clear_completion_progress(job_key: String, source: String) {
+    crate::completion::clear_progress(&job_key, &source);
+}
+
+/// Whether `text`, as a whole segment, is a caption Whisper invented over
+/// silence rather than something a person said. Exposed so the UI can
+/// explain a dropped line instead of silently removing it.
+pub fn is_non_speech_text(text: String) -> bool {
+    crate::hallucination::is_non_speech(&text)
+}
+
 // --- AI summary (the only networked feature; opt-in) -----------------------
 //
 // See `summary.rs` for the full privacy contract. In short: these two

@@ -5,6 +5,8 @@
 
 import 'audio.dart';
 import 'audio/device.dart';
+import 'completion.dart';
+import 'coverage.dart';
 import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
@@ -279,6 +281,94 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
 /// done, so without it a long import shows a spinner that never moves.
 Future<BatchProgressSnapshot?> getBatchProgress() =>
     RustLib.instance.api.crateApiGetBatchProgress();
+
+/// Length of an audio file in seconds, from its header where possible.
+///
+/// Falls back to a full decode only when the container declares no frame
+/// count, so the coverage check on save stays cheap for a 1.4 GB WAV.
+Future<double> audioDurationSecs({required String path}) =>
+    RustLib.instance.api.crateApiAudioDurationSecs(path: path);
+
+/// What `segments` account for across a recording of `total_secs`, and
+/// which stretches they miss. Pure; no decode, no inference.
+Future<CoverageReport> transcriptCoverage({
+  required List<Segment> segments,
+  required double totalSecs,
+}) => RustLib.instance.api.crateApiTranscriptCoverage(
+  segments: segments,
+  totalSecs: totalSecs,
+);
+
+/// [`transcript_coverage`] against the real length of `audio_path`.
+Future<CoverageReport> transcriptCoverageForAudio({
+  required List<Segment> segments,
+  required String audioPath,
+}) => RustLib.instance.api.crateApiTranscriptCoverageForAudio(
+  segments: segments,
+  audioPath: audioPath,
+);
+
+/// Folds `incoming` into `existing` by timestamp, keeping every existing
+/// segment. Exposed so the UI can merge without re-running a pass.
+Future<List<Segment>> mergeTranscriptSegments({
+  required List<Segment> existing,
+  required List<Segment> incoming,
+}) => RustLib.instance.api.crateApiMergeTranscriptSegments(
+  existing: existing,
+  incoming: incoming,
+);
+
+/// Transcribes the stretches of `audio_path` that `existing` does not
+/// cover, and returns the merged transcript.
+///
+/// `job_key` identifies this pass in [`read_completion_progress`] — the
+/// session directory, in practice. Progress is published per source, so a
+/// "Rapat Online" session's two tracks report independently.
+///
+/// Returns `existing` untouched (and `added = 0`) when the transcript
+/// already covers the recording, or when the uncovered stretches hold no
+/// speech — a meeting with ten silent minutes at the end is complete, and
+/// must not sit at "Menyelesaikan transkrip…" forever.
+Future<CompletionOutcome> completeSessionTranscript({
+  required String modelPath,
+  required String audioPath,
+  required String jobKey,
+  required List<Segment> existing,
+  String? language,
+  required bool gpuEnabled,
+  required int gpuDevice,
+  required GlossaryConfig glossary,
+  required bool vadEnabled,
+}) => RustLib.instance.api.crateApiCompleteSessionTranscript(
+  modelPath: modelPath,
+  audioPath: audioPath,
+  jobKey: jobKey,
+  existing: existing,
+  language: language,
+  gpuEnabled: gpuEnabled,
+  gpuDevice: gpuDevice,
+  glossary: glossary,
+  vadEnabled: vadEnabled,
+);
+
+/// Per-source progress of every completion pass currently running.
+Future<List<CompletionProgress>> readCompletionProgress() =>
+    RustLib.instance.api.crateApiReadCompletionProgress();
+
+/// Forgets one source's progress slot — used when a job is cancelled.
+Future<void> clearCompletionProgress({
+  required String jobKey,
+  required String source,
+}) => RustLib.instance.api.crateApiClearCompletionProgress(
+  jobKey: jobKey,
+  source: source,
+);
+
+/// Whether `text`, as a whole segment, is a caption Whisper invented over
+/// silence rather than something a person said. Exposed so the UI can
+/// explain a dropped line instead of silently removing it.
+Future<bool> isNonSpeechText({required String text}) =>
+    RustLib.instance.api.crateApiIsNonSpeechText(text: text);
 
 /// Generates a Markdown meeting summary for `segments` using `config`.
 ///

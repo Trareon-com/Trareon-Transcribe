@@ -31,7 +31,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use crate::audio::{HptMode, RingBuffer};
@@ -83,6 +83,16 @@ pub struct LiveWorkerConfig {
     /// Mirrors `SessionConfig::glossary` — the kamus istilah biases Whisper's
     /// `initial_prompt` and, optionally, repairs its output.
     pub glossary: GlossaryConfig,
+    /// Fastest model installed on this machine, for the single-model live
+    /// path to fall back to when the chosen one cannot keep up.
+    ///
+    /// Picking `large-v3-turbo-q5` as the live model on a device that runs
+    /// it at RTF 0.05 does not produce a slower transcript, it produces
+    /// almost none: the worker falls a minute further behind every minute
+    /// and Stop discards the backlog. The accurate transcript then comes
+    /// from the post-stop completion pass (`crate::completion`), which has
+    /// no real-time constraint. `None` disables the substitution.
+    pub fallback_model_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +111,10 @@ pub struct LiveWorker {
     finished: Arc<AtomicBool>,
     finished_mutex: Arc<Mutex<()>>,
     finished_cvar: Arc<Condvar>,
+    /// Samples this worker has actually run through Whisper. Compared
+    /// against what capture has delivered to produce the live
+    /// "tertinggal N detik" indicator — see [`Self::processed_samples`].
+    processed: Arc<AtomicU64>,
 }
 
 impl LiveWorker {
@@ -127,15 +141,101 @@ impl LiveWorker {
     ) -> Result<Self, TranscribeError> {
         match config.refine_model_path.clone() {
             Some(_) => Self::spawn_adaptive(config, samples_rx, events_tx),
-            None => {
-                let engine = WhisperEngine::load_with_gpu(
-                    &config.quick_model_path,
-                    config.gpu_enabled,
-                    config.gpu_device,
-                )?;
-                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+            None => Self::spawn_single(config, samples_rx, events_tx),
+        }
+    }
+
+    /// Single-model live worker, with the keep-up check in front of it.
+    ///
+    /// Before this, picking an accurate model in single-model mode on a
+    /// slow machine produced a transcript with the first few seconds of the
+    /// meeting in it and nothing else — the worker fell behind from the
+    /// first chunk and never recovered. The benchmark is the same bounded,
+    /// cached probe adaptive HPT uses (a local sine wave; no user audio,
+    /// no network), so the second source in a "Rapat Online" session pays
+    /// nothing for it.
+    fn spawn_single(
+        config: LiveWorkerConfig,
+        samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
+        events_tx: std::sync::mpsc::Sender<LiveEvent>,
+    ) -> Result<Self, TranscribeError> {
+        let fallback = config
+            .fallback_model_path
+            .clone()
+            .filter(|path| path != &config.quick_model_path);
+        let Some(fallback) = fallback else {
+            let engine = WhisperEngine::load_with_gpu(
+                &config.quick_model_path,
+                config.gpu_enabled,
+                config.gpu_device,
+            )?;
+            return Self::spawn_with_engine(engine, config, samples_rx, events_tx);
+        };
+
+        let key = BenchmarkKey {
+            model: config.quick_model_path.to_string_lossy().into_owned(),
+            gpu_enabled: config.gpu_enabled,
+            gpu_device: config.gpu_device,
+        };
+        if let Some(route) = recall_route(&key) {
+            return Self::spawn_single_route(route, &fallback, config, samples_rx, events_tx);
+        }
+
+        let engine = WhisperEngine::load_with_gpu(
+            &config.quick_model_path,
+            config.gpu_enabled,
+            config.gpu_device,
+        )?;
+        let deadline = crate::benchmark::benchmark_deadline(HPT_LIVE_FLOOR);
+        match crate::benchmark::benchmark_rtf_bounded(engine, deadline) {
+            crate::benchmark::BenchmarkOutcome::Measured { rtf, engine } => {
+                let route = if rtf >= HPT_LIVE_FLOOR {
+                    HptRoute::DirectRefine
+                } else {
+                    HptRoute::QuickOnly
+                };
+                tracing::info!(rtf, ?route, "single-model live keep-up check");
+                remember_route(&key, route);
+                if route == HptRoute::DirectRefine {
+                    return Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                        .map(|worker| worker.with_route(route));
+                }
+                drop(engine);
+                Self::spawn_single_route(route, &fallback, config, samples_rx, events_tx)
+            }
+            crate::benchmark::BenchmarkOutcome::TooSlow => {
+                tracing::info!(
+                    deadline_secs = deadline.as_secs_f64(),
+                    "chosen live model outran its benchmark deadline; using the fastest \
+                     installed model for the live preview"
+                );
+                remember_route(&key, HptRoute::QuickOnly);
+                Self::spawn_single_route(
+                    HptRoute::QuickOnly,
+                    &fallback,
+                    config,
+                    samples_rx,
+                    events_tx,
+                )
             }
         }
+    }
+
+    fn spawn_single_route(
+        route: HptRoute,
+        fallback_model_path: &Path,
+        config: LiveWorkerConfig,
+        samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
+        events_tx: std::sync::mpsc::Sender<LiveEvent>,
+    ) -> Result<Self, TranscribeError> {
+        let model = if route == HptRoute::QuickOnly {
+            fallback_model_path
+        } else {
+            config.quick_model_path.as_path()
+        };
+        let engine = WhisperEngine::load_with_gpu(model, config.gpu_enabled, config.gpu_device)?;
+        Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+            .map(|worker| worker.with_route(route))
     }
 
     /// Single-model worker over an already-loaded engine. Used by
@@ -162,6 +262,8 @@ impl LiveWorker {
         let finished_thread = Arc::clone(&finished);
         let finished_cvar_thread = Arc::clone(&finished_cvar);
         let _finished_mutex_thread = Arc::clone(&finished_mutex);
+        let processed = Arc::new(AtomicU64::new(0));
+        let processed_thread = Arc::clone(&processed);
         let thread = std::thread::spawn(move || {
             let mut pipeline = match LivePipeline::new(
                 &engine,
@@ -191,6 +293,7 @@ impl LiveWorker {
                     source: source.clone(),
                     level,
                 });
+                let ingested = samples.len() as u64;
                 match pipeline.ingest(&samples) {
                     Ok(segments) => {
                         for segment in segments {
@@ -199,6 +302,7 @@ impl LiveWorker {
                     }
                     Err(error) => tracing::error!(source = %source, %error, "live pipeline failed"),
                 }
+                processed_thread.fetch_add(ingested, Ordering::Relaxed);
             }
             finished_thread.store(true, Ordering::SeqCst);
             finished_cvar_thread.notify_one();
@@ -210,53 +314,76 @@ impl LiveWorker {
             finished,
             finished_mutex,
             finished_cvar,
+            processed,
         })
     }
 
+    /// Samples this worker has run through Whisper so far.
+    ///
+    /// Subtract from what capture has delivered and divide by the sample
+    /// rate to get how far behind the live transcript is. On a device where
+    /// the model cannot keep up this grows without bound, which is exactly
+    /// the state the user needs told about while there is still time to do
+    /// something about it.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn processed_samples(&self) -> u64 {
+        self.processed.load(Ordering::Relaxed)
+    }
+
+    /// Signals the worker to exit and returns immediately.
+    ///
+    /// Stop must not block the UI. The previous implementation waited up to
+    /// five seconds for the thread and then leaked it anyway, so on the
+    /// device this was measured on — where one chunk of q5 inference takes
+    /// 110 seconds — Stop cost a five-second freeze and then leaked the
+    /// thread regardless. The five seconds bought nothing.
+    ///
+    /// The queued audio is not lost by exiting here: it is on disk in the
+    /// session's WAV, and `crate::completion` transcribes exactly the
+    /// stretches this worker never reached, afterwards, with the model the
+    /// user chose rather than whatever the live path had to settle for.
     pub fn stop(&mut self) {
         if let Some(stop_tx) = self.stop_tx.take() {
             let _ = stop_tx.send(());
         }
-        if let Some(thread) = self.thread.take() {
-            // Wait up to 5 seconds for the thread to finish, then leak it if still running.
-            let timeout = std::time::Duration::from_secs(5);
-            let guard = match self.finished_mutex.lock() {
-                Ok(g) => g,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            let timed_out = {
-                let mut g = guard;
-                let start = std::time::Instant::now();
-                loop {
-                    if self.finished.load(Ordering::SeqCst) {
-                        break false;
-                    }
-                    let elapsed = start.elapsed();
-                    if elapsed >= timeout {
-                        break true;
-                    }
-                    let remaining = timeout - elapsed;
-                    let result = self.finished_cvar.wait_timeout(g, remaining).ok();
-                    match result {
-                        Some((new_g, wait_result)) => {
-                            g = new_g;
-                            if wait_result.timed_out() {
-                                break true;
-                            }
-                        }
-                        None => {
-                            // Condvar error — treat as timed out
-                            break true;
-                        }
+        let Some(thread) = self.thread.take() else {
+            return;
+        };
+        if self.finished.load(Ordering::SeqCst) {
+            let _ = thread.join();
+            return;
+        }
+        // Mid-inference. Detach: the thread observes the stop signal when
+        // its current chunk finishes and exits on its own.
+        tracing::debug!("LiveWorker still running at stop; detaching rather than blocking the UI");
+        std::mem::forget(thread);
+    }
+
+    /// Blocks until the worker thread has exited, up to `timeout`. Tests
+    /// use this; the app never does, because Stop is a UI action.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn wait_for_exit(&self, timeout: std::time::Duration) -> bool {
+        let mut guard = match self.finished_mutex.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let start = std::time::Instant::now();
+        loop {
+            if self.finished.load(Ordering::SeqCst) {
+                return true;
+            }
+            let elapsed = start.elapsed();
+            if elapsed >= timeout {
+                return false;
+            }
+            match self.finished_cvar.wait_timeout(guard, timeout - elapsed) {
+                Ok((next, result)) => {
+                    guard = next;
+                    if result.timed_out() && !self.finished.load(Ordering::SeqCst) {
+                        return false;
                     }
                 }
-            };
-            if timed_out {
-                tracing::warn!("LiveWorker thread did not exit within 5s; leaking thread handle");
-                // Leak the JoinHandle so the thread continues but we no longer block.
-                std::mem::forget(thread);
-            } else {
-                let _ = thread.join();
+                Err(_) => return false,
             }
         }
     }
@@ -295,6 +422,8 @@ impl LiveWorker {
         let finished_thread = Arc::clone(&finished);
         let finished_cvar_thread = Arc::clone(&finished_cvar);
         let _finished_mutex_thread = Arc::clone(&finished_mutex);
+        let processed = Arc::new(AtomicU64::new(0));
+        let processed_thread = Arc::clone(&processed);
         let thread = std::thread::spawn(move || {
             let mut pipeline = match LivePipelineHpt::new(
                 &engine,
@@ -324,6 +453,7 @@ impl LiveWorker {
                     source: source.clone(),
                     level,
                 });
+                let ingested = samples.len() as u64;
                 match pipeline.ingest(&samples) {
                     Ok((quick, refined)) => {
                         // Quick pass first — UI renders immediately.
@@ -339,6 +469,7 @@ impl LiveWorker {
                         tracing::error!(source = %source, %error, "hpt live pipeline failed")
                     }
                 }
+                processed_thread.fetch_add(ingested, Ordering::Relaxed);
             }
             finished_thread.store(true, Ordering::SeqCst);
             finished_cvar_thread.notify_one();
@@ -350,6 +481,7 @@ impl LiveWorker {
             finished,
             finished_mutex,
             finished_cvar,
+            processed,
         })
     }
 
@@ -734,6 +866,11 @@ impl<'a> LivePipeline<'a> {
             }
         }
         crate::progressive::filter_loops(&mut fresh);
+        // Room tone loud enough to pass the VAD still reads as silence to
+        // Whisper, which answers with a subtitle caption rather than an
+        // empty string. Dropping those here keeps `[MENGENI]` out of the
+        // live transcript as well as the file one.
+        crate::hallucination::filter_segments(&mut fresh);
         crate::glossary::correct_segments(&mut fresh, &self.glossary_terms);
         crate::confidence::apply_confidence_routing(&mut fresh);
         if let Some(last) = fresh.last() {
@@ -848,6 +985,8 @@ impl<'a> LivePipelineHpt<'a> {
         // file-mode HPT in api.rs).
         crate::progressive::filter_loops(&mut quick);
         crate::progressive::filter_loops(&mut refined);
+        crate::hallucination::filter_segments(&mut quick);
+        crate::hallucination::filter_segments(&mut refined);
         crate::glossary::correct_segments(&mut quick, &self.glossary_terms);
         crate::glossary::correct_segments(&mut refined, &self.glossary_terms);
         crate::confidence::apply_confidence_routing(&mut quick);
