@@ -2234,3 +2234,172 @@ Yang perlu owner putuskan: apakah sesi integrasi memang dibolehkan
 menyentuh remote (dan izin `gh` dibuka), dan apakah cabang ini di-rebase
 ke `main` terkini sebelum PR. Isi Sprint 4 sendiri siap: gate hijau,
 worktree bersih.
+
+
+# Putaran perbaikan CI — Sprint 4 (`sprint/04-differentiators`)
+
+Verifikasi independen gagal pada satu tes Rust:
+`pdp::audit::tests::the_log_is_append_only_and_newest_first`,
+`605 passed; 1 failed`. Satu akar masalah, pada **isolasi tes**, bukan
+pada kode produksi. Tidak ada tes yang dilemahkan dan tidak ada lint yang
+dimatikan — jumlah tes justru naik dari 606 ke 608.
+
+## 1 · `pdp::audit::tests::the_log_is_append_only_and_newest_first` · **DONE**
+
+**Gejala di CI.** Tes menulis tiga entri ("satu", "dua", "tiga") lalu
+membaca lognya kembali, dan menemukan lima:
+
+```
+left:  ["perpustakaan", "tiga", "hilang", "dua", "satu"]
+right: ["tiga", "dua", "satu"]
+```
+
+Urutannya penting: "hilang" terselip di antara "dua" dan "tiga". Jadi
+entri asing itu bukan sisa dari jalanan sebelumnya — keduanya ditulis
+*bersamaan* dengan tes ini.
+
+**Akar masalah.** `pdp::audit::DIR_OVERRIDE` adalah satu slot
+proses-lebar (`static Mutex<Option<PathBuf>>`, `audit.rs:130`). Begitu
+sebuah tes mengalihkan log, slot itu berlaku untuk **semua** utas, jadi
+log temp milik tes itu ikut menampung tulisan audit dari utas lain.
+`retention::tests::deleting_something_already_gone_is_not_a_failure`
+memanggil `retention::apply`, yang mencatat satu entri per penghapusan
+plus satu ringkasan sapuan (`retention.rs:165/180/191`) — "hilang" dan
+"perpustakaan", tepat dua nama asing di atas. Tes itu tidak memegang
+`LOG_DIR_LOCK` dan tidak mengalihkan log ke mana pun, jadi entrinya
+mendarat di direktori tes audit yang sedang berjalan di sebelahnya.
+
+**Reproduksi lokal** (membuktikan akar masalah, bukan menduganya):
+`cargo test --lib 'pdp::' -- --test-threads 8`, enam jalanan →
+**gagal 5 dari 6**, dan yang tumbang berganti-ganti antara empat tes
+audit yang berbeda. Setelah penanda `LOG_DIR_LOCK` ditambahkan ke satu
+tes retention itu sebagai uji hipotesis minimal: **6/6 lulus**. Hipotesis
+terkonfirmasi.
+
+**Mengapa kuncinya diganti, bukan ditambal.** `LOG_DIR_LOCK` hanya
+mengikat tes yang **memanggil** `set_log_dir`; tes yang sekadar
+**memicu** tulisan audit lewat kode produksi terkena dampak yang sama,
+dan tidak ada disiplin yang membuat itu bisa ditemukan sebelum CI merah.
+Kontraknya sendiri yang salah bentuk. Jadi:
+
+1. **`DIR_OVERRIDE` kini `thread_local!`.** `cargo test` memberi setiap
+   tes utasnya sendiri, sehingga dua pengalihan tidak lagi bisa saling
+   melihat dan `LOG_DIR_LOCK` dihapus seluruhnya. Produksi tidak pernah
+   memanggil `set_log_dir`, jadi slot per-utas tidak berbiaya di sana.
+2. **`TestLogDir`, sebuah penjaga RAII**, menggantikan pasangan
+   `set_log_dir(Some(..))` / `set_log_dir(None)` yang ditulis tangan.
+   Ini juga memperbaiki **cacat kedua** yang ikut terlihat: pembersihan
+   pada `with_temp_log` lama berjalan *setelah* badan tes, jadi satu
+   asersi yang gagal meninggalkan pengalihan menunjuk ke direktori yang
+   sudah dihapus dan mutex dalam keadaan *poisoned* — itulah sebab
+   kegagalan merembet ke tes audit lain pada reproduksi di atas.
+3. **Build tes tidak lagi punya direktori log bawaan.** `log_path()`
+   mengembalikan galat jika tidak ada pengalihan, alih-alih jatuh ke
+   `~/.config/TrareonTranscribe/`.
+
+**Cacat ketiga, yang ditemukan sambil jalan: suite menulis ke log audit
+pengembang yang sebenarnya.** `~/.config/TrareonTranscribe/audit.jsonl`
+di mesin ini berisi 35 entri, dan **seluruhnya** droppings tes — 19 ×
+`AudioDeleted "hilang"` dan 16 × `RetentionApplied "perpustakaan"`,
+bertambah dua setiap kali `cargo test` dijalankan tanpa tes audit yang
+kebetulan berjalan paralel. Untuk sebuah fitur kepatuhan UU PDP, log
+audit yang bisa dikarang oleh suite tes adalah cacat yang serius:
+append-only kehilangan artinya kalau isinya tidak berasal dari tindakan
+nyata. Poin 3 di atas menutupnya. Berkasnya **tidak dihapus** — aturan
+tetap melarang menghapus data pengguna, dan ini di luar repo; lihat
+"Celah yang diketahui".
+
+**Regresi dikunci dua tes baru** (`+2`, jadi 608):
+
+- `another_thread_writing_its_own_log_cannot_reach_this_one` — satu utas
+  lain membuka `TestLogDir`-nya sendiri dan menulis; log utas ini harus
+  tetap berisi hanya tulisannya sendiri. Dengan desain slot tunggal yang
+  lama, tes ini gagal.
+- `a_test_that_forgets_to_redirect_cannot_touch_the_real_log` —
+  `log_path()` dan `append()` harus **galat** di build tes bila tidak ada
+  pengalihan, bukan menemukan berkas orang lain.
+
+- Berkas: `rust_core/src/pdp/audit.rs` (`thread_local! DIR_OVERRIDE`,
+  `override_dir()`, `default_log_dir()`, `TestLogDir` + `Drop`;
+  `LOG_DIR_LOCK` dan `use std::sync::Mutex` dihapus),
+  `rust_core/src/pdp/retention.rs` (dua tes memakai `TestLogDir`)
+- Tes ditambahkan: 2 (606 → 608)
+- Commit: `bd6d2e2`
+
+## Gate verifikasi (semua hijau)
+
+```
+cd rust_core && cargo fmt --check          → FMT OK
+cargo clippy --all-targets -- -D warnings  → Finished, 0 peringatan
+cargo test --lib                           → 608 passed; 0 failed  (4 jalanan berturut)
+flutter analyze                            → No issues found! (14,4 s)
+flutter test                               → 548 passed
+flutter build linux --release              → ✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+**Stabilitas, bukan sekadar hijau sekali.** Karena akar masalahnya balapan
+antar-utas, subset `pdp::` dijalankan ulang pada `--test-threads 8` —
+kondisi yang sebelumnya menggagalkan 5 dari 6 jalanan: **57/57 lulus,
+6 dari 6 jalanan**.
+
+**Bukti terukur bahwa log nyata tidak lagi tersentuh.** `wc -l` pada
+`~/.config/TrareonTranscribe/audit.jsonl` sebelum dan sesudah satu
+jalanan `cargo test --lib` penuh: **35 → 35**. Sebelum perbaikan,
+setiap jalanan menambah dua baris.
+
+Satu peringatan clippy muncul di tengah jalan dan diperbaiki, bukan
+dibungkam: `unused_doc_comment` karena doc comment diletakkan di atas
+invokasi makro `thread_local!`; komentarnya dipindahkan ke dalam makro,
+menempel pada `static`-nya.
+
+## Smoke test aplikasi nyata
+
+Perubahan ini hampir seluruhnya pada tes, tetapi `log_path()` **adalah**
+fungsi produksi yang strukturnya diubah, jadi build rilis diuji sampai ke
+penampil log audit:
+
+1. Instance basi dari sesi sebelumnya masih hidup (PID 327191), jadi
+   peluncuran pertama justru memperlihatkan gerbang singleton bekerja
+   ("Trareon Transcribe is already running"). Keduanya di-`pkill` lalu
+   aplikasi diluncurkan ulang bersih.
+2. Jendela 1280×720 muncul, UI Bahasa Indonesia utuh ("Siap merekam",
+   "Mulai Rekam", "atau tekan Ctrl+R"), 7 sesi perpustakaan tampil di
+   sidebar, kedua perangkat terdeteksi (`Suara sistem` → `trareon_silent`,
+   sesuai OFFICE AUDIO RULES).
+3. Pengaturan → **Kepatuhan PDP** → mode diaktifkan → gulir ke
+   **Log audit** → **Lihat log**.
+4. Dialog "Log audit" menampilkan isi log nyata, **terbaru di atas**
+   (04/10/2026 21:39 di baris pertama), dengan label Bahasa Indonesia
+   yang benar: "Kebijakan retensi dijalankan — perpustakaan ·
+   1 dihapus, 0 gagal" dan "Audio dihapus — hilang · retensi, umur
+   1 hari". Jadi `log_path()` di build non-tes masih membaca
+   `~/.config/TrareonTranscribe/audit.jsonl` seperti sebelumnya.
+
+   Tangkapan layar itu sekaligus bukti visual cacat ketiga di atas:
+   setiap baris yang terlihat di penampil adalah entri yang ditulis oleh
+   `cargo test`, bukan oleh pemakaian aplikasi.
+5. Mode Kepatuhan PDP dikembalikan ke **mati** (keadaan semula), dialog
+   ditutup, `pkill -9 -x transcribe` setelahnya. Tidak ada perekaman yang
+   dimulai, jadi mikrofon nyata tidak pernah dibuka.
+
+## Celah yang diketahui
+
+- **35 entri tes di log audit nyata belum dibersihkan.**
+  `~/.config/TrareonTranscribe/audit.jsonl` masih memuat 19 × "hilang"
+  dan 16 × "perpustakaan". Perbaikan ini menghentikan penambahannya,
+  tidak menghapus yang sudah ada: aturan tetap melarang sesi ini
+  menghapus data di direktori pengguna. Owner boleh mengosongkan berkas
+  itu kapan saja — isinya tidak merujuk ke sesi nyata mana pun.
+- **Pesan gerbang singleton masih berbahasa Inggris** ("Trareon
+  Transcribe is already running / Only one instance ... can run at a
+  time"), terlihat pada langkah 1 smoke test. String lama, bukan bagian
+  putaran ini, tetapi melanggar aturan "semua string UI dalam Bahasa
+  Indonesia" dan layak jadi item sprint berikutnya.
+- Pola `TestLogDir` sekarang satu-satunya cara aman menulis entri audit
+  dari sebuah tes. Tes baru mana pun yang memanggil `retention::apply`,
+  `pdp::acknowledge_consent`, atau jalur redaksi di `api.rs:1010` harus
+  memasangnya lebih dulu — kalau lupa, tes itu kini galat dengan pesan
+  yang jelas alih-alih merusak tes lain.
+- Catatan dari putaran verifikasi independen sebelumnya tetap berlaku
+  tanpa perubahan: push / PR / merge **tidak** dijalankan, dan basis
+  cabang terhadap `main` terkini masih perlu keputusan owner.
