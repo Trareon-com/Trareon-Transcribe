@@ -38,30 +38,33 @@ fi
 mkdir -p "$TARGET/audio"
 
 # `datasets` streams FLEURS, so only the requested clips are downloaded
-# rather than the whole 14 GB release.
-python3 - "$TARGET" "$CLIPS" <<'PY'
-import sys, pathlib, wave
+# rather than the whole release.
+python3 - "$TARGET" "$CLIPS" <<'PYEOF'
+import sys, pathlib
 
 target = pathlib.Path(sys.argv[1])
 want = int(sys.argv[2])
 
 try:
-    from datasets import load_dataset
+    from datasets import load_dataset, Audio
 except ImportError:
     sys.exit(
         "pustaka `datasets` belum terpasang.\n"
-        "  pip install datasets soundfile\n"
+        "  pip install datasets\n"
         "atau pakai manifes buatan sendiri (lihat docs/WER-BENCH.md)."
     )
 
-print(f"mengunduh {want} klip FLEURS id_id (streaming)…", file=sys.stderr)
-stream = load_dataset(
-    "google/fleurs", "id_id", split="test", streaming=True, trust_remote_code=True
-)
+print(f"mengunduh {want} klip FLEURS id_id (streaming)...", file=sys.stderr)
+stream = load_dataset("google/fleurs", "id_id", split="test", streaming=True)
+# decode=False hands over the published file bytes instead of a decoded
+# array. It needs no audio backend installed, and writing the bytes
+# through means the benchmark measures the clip as published rather than
+# as this script happened to re-encode it.
+stream = stream.cast_column("audio", Audio(decode=False))
 
 manifest = target / "manifest.tsv"
 lines = [
-    "# FLEURS id_id (CC-BY 4.0) — ucapan baca, bukan rapat.",
+    "# FLEURS id_id (CC-BY 4.0) - ucapan baca, bukan rapat.",
     "# Dibuat oleh scripts/fetch_wer_corpus.sh; jangan di-commit.",
 ]
 written = 0
@@ -70,31 +73,24 @@ for row in stream:
         break
     reference = (row.get("transcription") or "").strip()
     audio = row.get("audio") or {}
-    samples = audio.get("array")
-    rate = audio.get("sampling_rate")
-    if not reference or samples is None or not rate:
+    payload = audio.get("bytes")
+    source = audio.get("path") or row.get("path") or "klip.wav"
+    if not reference or not payload:
         continue
 
-    name = f"{written:04d}.wav"
-    path = target / "audio" / name
-    with wave.open(str(path), "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(int(rate))
-        wav.writeframes(b"".join(
-            int(max(-1.0, min(1.0, float(s))) * 32767).to_bytes(2, "little", signed=True)
-            for s in samples
-        ))
+    suffix = pathlib.Path(source).suffix or ".wav"
+    name = f"{written:04d}{suffix}"
+    (target / "audio" / name).write_bytes(payload)
     # Tab-separated, and the reference must not contain one.
-    lines.append(f"audio/{name}\t{reference.replace(chr(9), ' ')}")
+    lines.append("audio/%s\t%s" % (name, reference.replace(chr(9), " ")))
     written += 1
 
 if written == 0:
     sys.exit("tidak ada klip yang bisa diambil")
 
 manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
-print(f"{written} klip → {manifest}", file=sys.stderr)
-PY
+print(f"{written} klip -> {manifest}", file=sys.stderr)
+PYEOF
 
 cat > "$TARGET/.gitignore" <<'EOF'
 # Benchmark audio is never committed: it is someone else's, it is large,
