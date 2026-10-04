@@ -8,6 +8,8 @@
 /// would match nothing ever again.
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/services/dart_prefs.dart';
@@ -31,6 +33,19 @@ TranscriptSegment _seg(
       confidence: 0.9,
       isPartial: partial,
     );
+
+/// Seeds the remembered names *in memory only*.
+///
+/// `rememberSpeakerAlias` awaits an atomic file write, and inside
+/// `testWidgets` the fake-async zone never completes real file I/O — an
+/// awaited write there hangs the test until the ten-minute timeout.
+void seedAliases(Map<String, String> aliases) {
+  if (aliases.isEmpty) {
+    DartPrefs.instance.remove(kSpeakerAliasesKey);
+  } else {
+    DartPrefs.instance.setString(kSpeakerAliasesKey, jsonEncode(aliases));
+  }
+}
 
 /// The dialog, pumped and ready to drive.
 Future<List<SpeakerAction>?> _openManager(
@@ -128,9 +143,8 @@ void main() {
   });
 
   group('the dialog', () {
-    setUp(() async {
-      await DartPrefs.instance.load();
-      await forgetAllSpeakerAliases();
+    setUp(() {
+      seedAliases(const {});
     });
 
     testWidgets('merging two speakers returns one merge action',
@@ -145,7 +159,9 @@ void main() {
       expect(find.text('Peserta 4'), findsOneWidget);
 
       // Merge the smaller one into the larger.
-      await tester.tap(find.byTooltip('Gabungkan dengan pembicara lain').last);
+      await tester.tap(
+        find.widgetWithIcon(IconButton, Icons.merge_outlined).last,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Peserta 2 ('));
       await tester.pumpAndSettle();
@@ -160,7 +176,7 @@ void main() {
         (tester) async {
       await _openManager(tester, [_seg('Saya', 0)]);
       final button = tester.widget<IconButton>(
-        find.byTooltip('Tidak ada pembicara lain untuk digabung'),
+        find.widgetWithIcon(IconButton, Icons.merge_outlined),
       );
       expect(button.onPressed, isNull);
     });
@@ -178,7 +194,7 @@ void main() {
     });
 
     testWidgets('a remembered name is offered, not applied', (tester) async {
-      await rememberSpeakerAlias('Peserta 2', 'Pak Budi');
+      seedAliases({'Peserta 2': 'Pak Budi'});
       await _openManager(tester, [_seg('Peserta 2', 0)]);
 
       // Offered…
@@ -198,7 +214,7 @@ void main() {
 
     testWidgets('renaming onto an existing name merges instead of duplicating',
         (tester) async {
-      await rememberSpeakerAlias('Peserta 4', 'Pak Budi');
+      seedAliases({'Peserta 4': 'Pak Budi'});
       await _openManager(tester, [
         _seg('Pak Budi', 0, duration: 20),
         _seg('Peserta 4', 20, duration: 10),
