@@ -1651,6 +1651,33 @@ GPU) pada commit `d27be9a`, bukan disalin dari rencana.
 | `flutter test` | **548 lulus, 0 gagal** |
 | `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
 
+Satu tes lagi di luar gate karena butuh model dan ~70 detik CPU — tes
+integrasi ITEM 0 poin 5, dijalankan terpisah:
+
+```
+TRAREON_COMPLETION_IT=1 TRAREON_COMPLETION_WAV=/tmp/item0/speaker.wav \
+  cargo test --lib completion::tests::completion_pass -- --test-threads=1
+
+test completion::tests::completion_pass_covers_the_speech_in_a_real_recording ... ok
+test completion::tests::completion_pass_fills_only_the_gap_and_keeps_existing_text ... ok
+test result: ok. 2 passed; 0 failed; finished in 70.66s
+```
+
+WAV-nya adalah `speaker.wav` sesi 10:12 yang jadi bukti awal ITEM 0 (359,7
+detik, ucapan di 0–30 s dan 150–180 s, sisanya senyap). Tes pertama
+menegaskan ketiga hal yang diminta brief: ada segmen yang dihasilkan, tidak
+ada baris halusinasi yang lolos, dan **cakupan ≥ 95% dari durasi ucapan**
+tanpa celah berucapan tersisa.
+
+**Cacat yang ditemukan saat menjalankannya.** Tes itu sebelumnya *lulus
+dalam 0,5 detik tanpa mentranskrip apa pun*: `integration_fixtures`
+mengembalikan `None` tanpa sepatah kata bila `TRAREON_COMPLETION_WAV` tidak
+diisi, sementara komentar dokumennya hanya menyebut
+`TRAREON_COMPLETION_IT=1`. Jadi mengikuti instruksinya menghasilkan tes
+hijau yang melaporkan cakupan yang tidak pernah diukur — lebih buruk
+daripada tidak punya tes. Diperbaiki di `c68078d`: ikut serta tanpa rekaman
+sekarang gagal keras dan menyebut apa yang harus dilakukan.
+
 ---
 
 ## ITEM 0 (P0) — "Setiap detik yang terekam masuk ke transkrip" ✅
@@ -2024,7 +2051,7 @@ Modul Rust baru dan berkas tes baru di sprint ini. Angka tes adalah jumlah
 
 | Item | Berkas utama | Tes |
 |---|---|---|
-| ITEM 0 | `rust_core/src/coverage.rs` (20), `completion.rs` (12), `hallucination.rs` (12), `stt/file.rs`, `lib/state/enhance_queue_model.dart`, `lib/widgets/completion_banner.dart` | `test/completion_queue_test.dart` (24) |
+| ITEM 0 | `rust_core/src/coverage.rs` (20), `completion.rs` (12, dua di antaranya integrasi ber-env-var), `hallucination.rs` (12), `stt/file.rs`, `lib/state/enhance_queue_model.dart`, `lib/widgets/completion_banner.dart` | `test/completion_queue_test.dart` (24) |
 | F6 | `rust_core/src/actions.rs` (29), `lib/widgets/action_items_panel.dart`, `lib/widgets/notulen_dialog.dart` | `test/action_items_test.dart` (12, bersama F7) |
 | F7 | `rust_core/src/provenance.rs` (18), `lib/widgets/summary_panel.dart` | `test/action_items_test.dart` |
 | F10 | `rust_core/src/diarization.rs`, `lib/widgets/speaker_manager_dialog.dart`, `lib/services/speaker_aliases.dart`, `lib/widgets/file_upload_zone.dart` | `test/speakers_test.dart` (12) |
@@ -2076,6 +2103,10 @@ di pemutar kini inline, bukan dialog), `test/summary_model_test.dart`,
 * **PDF memakai satu bobot font** (regular). Tebal/miring akan
   melipatgandakan ~740 kB yang sudah ikut di binary.
 * **Uji audio Windows (WASAPI)** tidak dijalankan — lihat di bawah.
+* **Tes integrasi ITEM 0 tidak ikut gate biasa.** Ia butuh model dan ~70
+  detik CPU, jadi tetap di balik dua env var dan harus dijalankan manual
+  (perintahnya ada di atas). Yang sudah diperbaiki adalah ia tidak lagi
+  bisa lulus diam-diam tanpa bekerja; yang belum: CI belum menjalankannya.
 * **`test/perf/library_index_perf_test.dart` goyah di mesin yang sibuk.**
   Ambangnya wall-clock keras (200 sesi < 500 ms). Sekali gagal saat suite
   penuh dijalankan bersamaan dengan pekerjaan lain di mesin ini; dijalankan
