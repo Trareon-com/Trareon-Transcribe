@@ -1375,3 +1375,111 @@ and the dialogs.
   before/after word-error-rate comparison was run on real Indonesian audio,
   so "cheapest large accuracy win" remains the audit's claim rather than a
   measured result here.
+
+---
+
+# Penggabungan origin/main ke sprint/03-indonesia
+
+Dikerjakan setelah laporan Sprint 3 di atas, saat `origin/main` sudah berisi
+PR #9 (`faa3f36`, "port orphaned recording fixes + modernise GitHub
+Actions"). Merge yang tertinggal setengah jalan diselesaikan dengan menjaga
+niat kedua sisi.
+
+## Berkas yang bentrok dan cara penyelesaiannya
+
+**`.github/workflows/release.yml` — DONE.** Struktur sprint ini
+dipertahankan: setiap job build mengunggah *workflow artifact*, lalu satu job
+`publish` mengumpulkan semuanya, menulis satu `SHA256SUMS` yang mencakup
+seluruh berkas, dan mengunggahnya sekaligus (butir 29). Di atas struktur itu
+dipasang modernisasi dari main: runner Ubuntu dipaku ke `ubuntu-24.04`
+(bukan `ubuntu-latest`) di `source-release`, `build-linux`, dan `publish`;
+`softprops/action-gh-release` dinaikkan ke `v3` di job `publish` — satu-satunya
+tempat yang masih memanggilnya. `actions/checkout@v7` dan
+`Swatinem/rust-cache@v2.9.2` dari main masuk tanpa bentrok.
+
+Satu langkah dari main sengaja **tidak** dibawa: "Generate checksum" per-job
+yang menulis `*.sha256` di sebelah arsip sumber. Manifes tunggal di `publish`
+sudah mencakup arsip itu, dan `publish` justru menghapus `*.sha256`
+per-platform sebelum menghitung — kalau tidak, berkas checksum ikut
+ter-checksum di dalam manifes. Alasan ini ditulis sebagai komentar di job
+`source-release` agar tidak "diperbaiki" kembali nanti.
+
+**`lib/state/session_model.dart` — DONE.** Penjaga start-ganda dari main
+dipakai utuh: `_launching` diset sinkron sebelum `await` pertama dan
+dibersihkan di `finally`, jadi klik ganda pada Mulai (atau Ctrl+R ditahan)
+tidak lagi membuat sesi Rust kedua yang terlantar. Reset
+`bookmarks: const []` milik sprint ini tetap ada di `copyWith` pembuatan sesi
+baru — penanda rapat sebelumnya tidak boleh ikut ke rapat baru karena
+timestamp-nya sudah tidak ada.
+
+Bagian `_resolveDevices` menggabung bersih ke versi main: hint speaker
+dilewatkan apa adanya, termasuk `null`. Itu memang perbaikannya — hint kosong
+yang membuat engine menyelesaikan sendiri audio sistem (ScreenCaptureKit di
+macOS, `.monitor` sink default di Linux, render device default di Windows).
+Tebakan nama di sisi Dart justru yang dulu mematikannya.
+
+**`lib/widgets/empty_state.dart` — DONE.** Tata letak compact + scroll dari
+main (di 800x600 panel transkrip hanya ~140px, sedangkan tata letak penuh
+butuh ~220px, sehingga dulu muncul garis overflow kuning-hitam) digabung
+dengan semantik aksesibilitas sprint ini: ikon dibungkus `ExcludeSemantics`
+karena hanya mengulang judul, dan judul ditandai `Semantics(header: true)`.
+Keduanya kini hidup di dalam `LayoutBuilder` yang sama; ikon hanya dirender
+saat tidak compact, sesuai aturan main.
+
+**`test/session_double_start_test.dart`** (berkas baru dari main) perlu
+`glossary: kEmptyGlossary` pada `SessionConfig`-nya plus impor
+`bridge_service.dart`: cabang ini sudah menambahkan glosarium sebagai
+parameter wajib. Tanpa itu `flutter analyze` gagal.
+
+Berkas lain dari main (`.github/dependabot.yml`, `ci.yml`,
+`docs/REPO-HEALTH-REPORT.md`, `main_screen.dart`, `bridge_service.dart`,
+empat berkas Rust, dan tiga berkas tes) tergabung otomatis tanpa bentrok.
+
+## Gate verifikasi (setelah merge, semua hijau)
+
+```
+cd rust_core && cargo fmt --check            → bersih
+cargo clippy --all-targets -- -D warnings    → bersih (tanpa peringatan)
+cargo test --lib                             → 381 passed; 0 failed; 0 ignored
+flutter analyze                              → No issues found!
+flutter test                                 → All tests passed! (455 tes)
+flutter build linux --release                → ✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+Jumlah tes Rust naik dari 376 (laporan Sprint 3) ke 381 karena tes port dari
+main: `sck_handler_registration` dan `wants_zero_setup_capture`.
+
+## Smoke test aplikasi nyata
+
+Build rilis dijalankan di DISPLAY=:0 (log dibatasi ke
+`/tmp/trareon_smoke.log`).
+
+1. **1280x720, idle.** Workspace kosong tampil penuh — ikon mikrofon, "Siap
+   merekam", dua baris penjelasan, tombol "Mulai Rekam". Tidak ada garis
+   overflow.
+2. **Diperkecil ke 800x600.** Ikon hilang, teks dan tombol tetap terbaca,
+   tetap tanpa garis overflow — persis aturan compact yang digabung tadi.
+   Panel transkrip juga memakai `EmptyState` compact ("Belum ada transkrip")
+   tanpa ikon.
+3. **Ctrl+R dua kali berselang 2 detik.** Sidebar hanya menampilkan satu
+   "Sedang merekam", tidak ada sesi kedua — penjaga `_launching`/lifecycle
+   bekerja.
+4. **Audio uji** `rapat_id.mp3` diputar ke sink lewat `paplay`. VU "Suara
+   sistem" bergerak; setelah pemutaran kedua, transkrip muncul: **2 segmen**,
+   "Hari ini kita membahas anggaran kuartal 4. Budi bertanggung jawab
+   menyelesaikan." — jalur capture → VAD → Whisper → UI utuh setelah merge.
+   Model "Akurat" (q5) di CPU lemah ini memang butuh ~2 menit untuk klip 15
+   detik, jadi transkrip baru muncul setelah penantian itu.
+5. **Berhenti.** Dialog konfirmasi menyebut "2 segmen transkrip"; setelah
+   dikonfirmasi, sesi tersimpan dan muncul di sidebar ("Sesi 2026-10-04
+   10:12 · 8 detik · 2 segmen"). Laporan akhir sesi jujur: mikrofon tidak
+   menghasilkan suara sama sekali (memang tidak ada mic di mesin ini) dan
+   audio sistem 93% senyap (benar — 2×15 detik bicara dalam sesi 6 menit).
+6. `pkill -9 -x transcribe` setelahnya.
+
+## Celah yang diketahui
+
+- Jalur notarisasi macOS di `release.yml` tetap belum terbukti; merge ini
+  tidak mengubah statusnya, hanya memindahkan job-nya ke runner yang dipaku.
+- `actions/upload-artifact` / `download-artifact` dibiarkan di `v4`. Keduanya
+  tidak ada di diff main, jadi tidak ikut dinaikkan di sini.
