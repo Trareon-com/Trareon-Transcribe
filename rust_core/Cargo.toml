@@ -59,6 +59,12 @@ sha2 = "0.10"
 hex = "0.4"
 hound = "3"
 strsim = "0.11"
+# Local full-text index over every session (F12 "Tanya arsip rapat").
+# `bundled` compiles SQLite from the amalgamation rather than linking the
+# system one: the feature needs FTS5, and whether a distro's libsqlite3
+# was built with it is not something an offline desktop app can check at
+# install time.
+rusqlite = { version = "0.37", features = ["bundled"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "stream", "json"] }
 futures-util = "0.3"
 bytes = "1"

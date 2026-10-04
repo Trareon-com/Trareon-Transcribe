@@ -666,6 +666,45 @@ pub async fn generate_summary(
     parse_chat_response(&body)
 }
 
+/// Sends one already-composed prompt to the configured endpoint.
+///
+/// The seam the archive chat (F12) goes through. `archive` builds the
+/// prompt from locally retrieved passages and hands it here, so the one
+/// module in the crate that opens a socket stays the one module in the
+/// crate that opens a socket — which is the property `privacy::tests`
+/// checks and the Privacy Report claims.
+pub async fn ask(config: SummaryConfig, prompt: String) -> Result<String, TranscribeError> {
+    validate(&config)?;
+    if prompt.trim().is_empty() {
+        return Err(TranscribeError::Summary("Pertanyaan kosong.".into()));
+    }
+    let url = chat_endpoint(config.provider, &config.base_url);
+    let mut request = client(config.timeout_secs)?
+        .post(&url)
+        .json(&request_body(&config, &prompt));
+    if !config.api_key.trim().is_empty() {
+        request = request.bearer_auth(config.api_key.trim());
+    }
+    let response = request.send().await.map_err(|e| {
+        TranscribeError::Summary(format!(
+            "tidak bisa menghubungi {url}: {e}. Pastikan layanan berjalan dan URL benar."
+        ))
+    })?;
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|e| TranscribeError::Summary(format!("gagal membaca jawaban {url}: {e}")))?;
+    if !status.is_success() {
+        return Err(TranscribeError::Summary(format!(
+            "HTTP {} dari {url} — {}",
+            status.as_u16(),
+            snippet(&body)
+        )));
+    }
+    parse_chat_response(&body)
+}
+
 /// Lists the models the configured endpoint offers, so the UI can present a
 /// dropdown instead of a free-text field. Sends no transcript content.
 pub async fn list_summary_models(

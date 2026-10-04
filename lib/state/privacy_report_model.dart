@@ -12,6 +12,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 3. checking for updates ([PrivacyReportNotifier.recordUpdateCheck])
 /// 4. opening the releases page in the user's browser
 ///    ([PrivacyReportNotifier.recordExternalLink])
+/// 5. asking a question of the meeting archive
+///    ([PrivacyReportNotifier.recordArchiveQuestion]) — the same endpoint
+///    as (2), and only the locally retrieved passages are sent
 ///
 /// The report is only worth anything if that list and the code agree, so
 /// `test/privacy_proof_test.dart` asserts that every call site which can
@@ -63,6 +66,18 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   /// auditing.
   void recordSummaryRequest(String endpoint) {
     _record('Ringkasan AI dikirim ke $endpoint');
+  }
+
+  /// Called when the user asks the meeting archive a question (F12).
+  ///
+  /// Recorded separately from a summary even though it uses the same
+  /// endpoint: what leaves the machine is different — passages from
+  /// several past meetings rather than one transcript — and a report
+  /// that filed it under "Ringkasan AI" would understate that.
+  void recordArchiveQuestion(String endpoint, int passageCount) {
+    _record(
+      'Pertanyaan arsip dikirim ke $endpoint ($passageCount kutipan rapat)',
+    );
   }
 
   /// Called when the user presses "Cek Pembaruan". Only the version manifest

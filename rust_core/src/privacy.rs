@@ -114,6 +114,56 @@ mod tests {
         }
     }
 
+    /// Features the app describes as local must be local.
+    ///
+    /// Each of these was added as a *local* capability and each has an
+    /// obvious cloud version someone could reach for later: an archive
+    /// index that calls an embedding API, a compliance log that ships to
+    /// a server, a WER benchmark that uploads its audio. The Privacy
+    /// Report tells the user none of that happens, so the claim is
+    /// checked here rather than maintained by memory.
+    ///
+    /// `archive` is the interesting one: the "Tanya arsip rapat" answer
+    /// *is* networked, deliberately. It reaches the network by handing a
+    /// prompt to `summary::ask` — the one place in the crate that owns an
+    /// HTTP client — and this test is what keeps it that way.
+    #[test]
+    fn local_only_features_stay_local() {
+        let base = manifest_dir().join("src");
+        let local_only = [
+            "archive.rs",
+            "pdp/mod.rs",
+            "pdp/audit.rs",
+            "pdp/redaction.rs",
+            "pdp/retention.rs",
+            "actions.rs",
+            "provenance.rs",
+            "mapreduce.rs",
+            "coverage.rs",
+            "completion.rs",
+            "hallucination.rs",
+        ];
+        let forbidden = [
+            "reqwest",
+            "http://",
+            "https://",
+            "tokio::net",
+            "download_with_resume",
+        ];
+        for relative in local_only {
+            let path = base.join(relative);
+            let content = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("{relative} must exist for this scan: {e}"));
+            for pattern in &forbidden {
+                assert!(
+                    !content.contains(pattern),
+                    "{relative} contains '{pattern}' — it is documented as a \
+                     local-only feature"
+                );
+            }
+        }
+    }
+
     /// Enumerates every module performing HTTP, so adding a third one is a
     /// deliberate, reviewed act rather than an accident.
     #[test]

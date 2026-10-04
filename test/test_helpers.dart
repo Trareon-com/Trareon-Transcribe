@@ -12,6 +12,7 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
+import 'package:transcribe/src/rust/archive.dart' as rust_archive;
 import 'package:transcribe/src/rust/completion.dart' as rust_completion;
 import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -95,6 +96,53 @@ mixin SummaryBridgeStubs {
 
   Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
       const [];
+
+  // ── Tanya arsip rapat (F12) ────────────────────────────────────────
+  //
+  // Inert: indexing is a no-op, retrieval finds nothing, and asking a
+  // question throws — the archive answer is a networked path, so a test
+  // that reaches it by accident must fail loudly.
+
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => false;
+
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => 0;
+
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) async {}
+
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) async => const [];
+
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) async =>
+      rust_archive.ArchiveStats(sessions: 0, passages: 0, bytes: BigInt.zero);
+
+  Future<void> archiveClear(String libraryPath) async {}
+
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('test bridge does not answer archive questions');
 
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,

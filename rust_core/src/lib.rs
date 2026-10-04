@@ -2,6 +2,8 @@
 /// and CSV export.
 pub mod actions;
 pub mod api;
+/// Local full-text index over every session ("Tanya arsip rapat").
+pub mod archive;
 /// Synthetic 5 000-segment / 3-hour meeting used by the performance tests.
 #[cfg(test)]
 pub mod bench_fixture;

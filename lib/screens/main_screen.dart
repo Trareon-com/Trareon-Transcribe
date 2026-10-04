@@ -28,6 +28,7 @@ import '../widgets/session_controls.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/animated_record_button.dart';
 import '../widgets/transcript_view.dart';
+import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
 import 'transcript_player_screen.dart';
@@ -61,6 +62,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   /// Session shown in the workspace instead of the live recording panel.
   SessionRecord? _openSession;
   bool _openingSession = false;
+
+  /// Where to land in [_openSession], when it was opened by a citation
+  /// rather than by picking it from the sidebar (F12 / F7).
+  double? _openSessionSeek;
 
   /// Polled while recording so the confirmation badge and the Stop
   /// integrity summary read the same numbers.
@@ -362,7 +367,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!mounted) return;
     _forgetRecoverable(session);
     if (recovered != null) {
-      setState(() => _openSession = null);
+      setState(() {
+      _openSession = null;
+      _openSessionSeek = null;
+    });
       _startHealthPolling(recovered.sessionId);
       _startDiskWatch();
     }
@@ -574,7 +582,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Recording always takes over the workspace: starting a session while
     // reading an old one and having the new transcript appear nowhere
     // visible is how a recording gets lost.
-    if (_openSession != null) setState(() => _openSession = null);
+    if (_openSession != null) {
+      setState(() {
+        _openSession = null;
+        _openSessionSeek = null;
+      });
+    }
     // start() can hang for a long time with zero other feedback while
     // waiting on a native macOS permission dialog (e.g. first-ever Webinar/
     // system-audio capture) — without this the record button just looks
@@ -645,14 +658,40 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (mounted) unawaited(ref.read(libraryListProvider.notifier).refresh());
   }
 
+  /// Opens "Tanya Arsip Rapat" (F12). A citation in an answer brings the
+  /// user back here with the right session open at the right moment.
+  Future<void> _openArchiveChat() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArchiveChatScreen(
+          onOpenSession: (dirPath, timestamp) {
+            Navigator.of(context).pop();
+            final entry = ref
+                .read(libraryListProvider)
+                .entries
+                .where((e) => e.dirPath == dirPath)
+                .firstOrNull;
+            if (entry != null) {
+              unawaited(_selectSession(entry, seekSeconds: timestamp));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   /// Loads a session's transcript and shows it in the workspace.
-  Future<void> _selectSession(LibraryEntry entry) async {
+  ///
+  /// [seekSeconds] is set when a citation chose the moment as well as the
+  /// meeting; null leaves the player at the start as before.
+  Future<void> _selectSession(LibraryEntry entry, {double? seekSeconds}) async {
     setState(() => _openingSession = true);
     final record = await loadSessionRecord(entry.dirPath);
     if (!mounted) return;
     setState(() {
       _openingSession = false;
       _openSession = record;
+      _openSessionSeek = record == null ? null : seekSeconds;
     });
     if (record == null && context.mounted) {
       AppToast.show(context, '"${entry.title}" tidak bisa dibuka.',
@@ -661,7 +700,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _newSession() {
-    setState(() => _openSession = null);
+    setState(() {
+      _openSession = null;
+      _openSessionSeek = null;
+    });
     _sidebarSearchFocus.unfocus();
   }
 
@@ -740,6 +782,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       onOpenLibrary: () => _openLibrary(),
       onOpenUpload: () => _openLibrary(tab: 1),
       onOpenSettings: _openSettings,
+      onOpenArchiveChat: _openArchiveChat,
       searchFocusNode: _sidebarSearchFocus,
       isRecording: isActive,
     );
@@ -806,6 +849,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       isPaused: isPaused,
                       openSession: _openSession,
                       openingSession: _openingSession,
+                      openSessionSeek: _openSessionSeek,
                       onCloseSession: _newSession,
                       vuLevel: vuLevel,
                       captureHealth: _captureHealth,
@@ -860,6 +904,7 @@ class _Workspace extends StatelessWidget {
     required this.isPaused,
     required this.openSession,
     required this.openingSession,
+    this.openSessionSeek,
     required this.onCloseSession,
     required this.vuLevel,
     required this.captureHealth,
@@ -892,6 +937,7 @@ class _Workspace extends StatelessWidget {
   final bool isPaused;
   final SessionRecord? openSession;
   final bool openingSession;
+  final double? openSessionSeek;
   final VoidCallback onCloseSession;
   final VuLevel? vuLevel;
   final rust_session.CaptureHealth? captureHealth;
@@ -927,7 +973,11 @@ class _Workspace extends StatelessWidget {
     final opened = openSession;
     if (opened != null) {
       return TranscriptPlayerScreen(
-        key: ValueKey(opened.dirPath),
+        // The seek is part of the key: a second citation into a session
+        // that is already open has to re-enter the player, otherwise the
+        // jump silently does nothing.
+        key: ValueKey('${opened.dirPath}@${openSessionSeek ?? 0}'),
+        initialSeekSeconds: openSessionSeek,
         title: opened.title,
         durationSeconds: opened.durationSeconds,
         segments: opened.segments,

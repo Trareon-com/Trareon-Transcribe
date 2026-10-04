@@ -93,6 +93,10 @@ void main() {
       'generateSummary(': 'recordSummaryRequest',
       'checkForUpdate(': 'recordUpdateCheck',
       'launchUrl(': 'recordExternalLink',
+      // F12: the archive answer reuses the summary endpoint, but what
+      // it sends is different — passages from several past meetings —
+      // so it is recorded as its own kind of outbound call.
+      'archiveAsk(': 'recordArchiveQuestion',
     };
     final recorders = File(
       'lib/state/privacy_report_model.dart',
@@ -126,6 +130,7 @@ void main() {
       '.downloadModel(': 'recordModelDownload',
       '.generateSummary(': 'onNetworkRequest',
       'launchUrl(': 'recordExternalLink',
+      '.archiveAsk(': '_onNetworkRequest',
     };
 
     /// `constructor` -> `recorder that must be handed to it`. Ordering is

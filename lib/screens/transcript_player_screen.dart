@@ -56,6 +56,14 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
   /// selection rather than popping anything.
   final VoidCallback? onClose;
 
+  /// Where to land when the screen opens, in seconds.
+  ///
+  /// A citation — from "Tanya arsip rapat" (F12) or a summary bullet in
+  /// another session (F7) — names a moment, not just a meeting, and
+  /// dumping the user at 0:00 of a two-hour recording loses exactly the
+  /// thing the citation was for.
+  final double? initialSeekSeconds;
+
   const TranscriptPlayerScreen({
     super.key,
     required this.title,
@@ -66,6 +74,7 @@ class TranscriptPlayerScreen extends ConsumerStatefulWidget {
     this.sessionDirPath,
     this.meta = SessionMeta.empty,
     this.onClose,
+    this.initialSeekSeconds,
   });
 
   @override
@@ -129,6 +138,14 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     super.initState();
     _segments = List.of(widget.segments);
     _timeline = SegmentTimeline(_segments);
+    // Highlight the cited line before the audio is even loaded, so the
+    // jump is visible on a session whose audio was deleted by the
+    // retention policy (F13) as well as on one that still has it.
+    final jump = widget.initialSeekSeconds;
+    if (jump != null && jump > 0) {
+      _position.value = jump;
+      _activeIndex.value = _timeline.indexAt(jump);
+    }
     _summary = widget.meta.summary;
     _bookmarks = List.of(widget.meta.bookmarks);
     _notulenForm = widget.meta.notulen;
@@ -286,6 +303,10 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       await _player.setSourceDeviceFile(widget.audioPath!);
       final duration = await _player.getDuration();
       if (mounted) setState(() => _duration = duration);
+      // Before the position subscription, not after: the player's first
+      // tick is 0:00 and would otherwise drag the highlight back off the
+      // cited line.
+      if (_position.value > 0) await _seekTo(_position.value);
       _positionSub = _player.onPositionChanged.listen((position) {
         final seconds = position.inMilliseconds / 1000.0;
         _position.value = seconds;

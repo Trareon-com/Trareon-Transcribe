@@ -4,6 +4,7 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'actions.dart';
+import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
 import 'completion.dart';
@@ -528,6 +529,85 @@ Future<String> applyGlossaryCorrections({
 }) => RustLib.instance.api.crateApiApplyGlossaryCorrections(
   text: text,
   terms: terms,
+);
+
+/// Indexes one session, replacing whatever was indexed for it before.
+/// Returns how many passages went in.
+Future<int> archiveIndexSession({
+  required String libraryPath,
+  required String dirPath,
+  required String title,
+  required String date,
+  required List<Segment> segments,
+  required String summary,
+  required BigInt transcriptSize,
+  required PlatformInt64 transcriptMtimeMs,
+}) => RustLib.instance.api.crateApiArchiveIndexSession(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+  title: title,
+  date: date,
+  segments: segments,
+  summary: summary,
+  transcriptSize: transcriptSize,
+  transcriptMtimeMs: transcriptMtimeMs,
+);
+
+/// Whether `dir_path`'s transcript has changed since it was indexed.
+Future<bool> archiveIsStale({
+  required String libraryPath,
+  required String dirPath,
+  required BigInt transcriptSize,
+  required PlatformInt64 transcriptMtimeMs,
+}) => RustLib.instance.api.crateApiArchiveIsStale(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+  transcriptSize: transcriptSize,
+  transcriptMtimeMs: transcriptMtimeMs,
+);
+
+/// Drops a session from the index — called when the user deletes it.
+Future<void> archiveForgetSession({
+  required String libraryPath,
+  required String dirPath,
+}) => RustLib.instance.api.crateApiArchiveForgetSession(
+  libraryPath: libraryPath,
+  dirPath: dirPath,
+);
+
+/// Ranked passages for `question`. Purely local; this is what the UI
+/// can show before (or instead of) asking a model anything.
+Future<List<ArchiveHit>> archiveSearch({
+  required String libraryPath,
+  required String question,
+  required int limit,
+}) => RustLib.instance.api.crateApiArchiveSearch(
+  libraryPath: libraryPath,
+  question: question,
+  limit: limit,
+);
+
+Future<ArchiveStats> archiveStats({required String libraryPath}) =>
+    RustLib.instance.api.crateApiArchiveStats(libraryPath: libraryPath);
+
+Future<void> archiveClear({required String libraryPath}) =>
+    RustLib.instance.api.crateApiArchiveClear(libraryPath: libraryPath);
+
+/// Answers `question` from the archive.
+///
+/// Retrieval is local. The composed answer comes from the configured
+/// summary endpoint, and **only the retrieved passages** are sent — not
+/// the archive, not the audio, not the file paths. Returns the answer
+/// alongside the passages it was allowed to use, so the UI can render
+/// each `[K1]` as a link into the meeting it came from.
+Future<ArchiveAnswer> archiveAsk({
+  required String libraryPath,
+  required String question,
+  required SummaryConfig config,
+}) => RustLib.instance.api.crateApiArchiveAsk(
+  libraryPath: libraryPath,
+  question: question,
+  config: config,
 );
 
 /// What `config` would mask in `text`, with byte offsets so the UI can

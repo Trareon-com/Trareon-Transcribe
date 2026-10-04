@@ -5,6 +5,7 @@
 
 import 'actions.dart';
 import 'api.dart';
+import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
 import 'completion.dart';
@@ -54,6 +55,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AppSettings dco_decode_app_settings(dynamic raw);
+
+  @protected
+  ArchiveAnswer dco_decode_archive_answer(dynamic raw);
+
+  @protected
+  ArchiveHit dco_decode_archive_hit(dynamic raw);
+
+  @protected
+  ArchiveStats dco_decode_archive_stats(dynamic raw);
 
   @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
@@ -203,10 +213,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_i_32(dynamic raw);
 
   @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
   List<ActionItem> dco_decode_list_action_item(dynamic raw);
+
+  @protected
+  List<ArchiveHit> dco_decode_list_archive_hit(dynamic raw);
 
   @protected
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
@@ -465,6 +481,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppSettings sse_decode_app_settings(SseDeserializer deserializer);
 
   @protected
+  ArchiveAnswer sse_decode_archive_answer(SseDeserializer deserializer);
+
+  @protected
+  ArchiveHit sse_decode_archive_hit(SseDeserializer deserializer);
+
+  @protected
+  ArchiveStats sse_decode_archive_stats(SseDeserializer deserializer);
+
+  @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
 
   @protected
@@ -636,10 +661,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
   List<ActionItem> sse_decode_list_action_item(SseDeserializer deserializer);
+
+  @protected
+  List<ArchiveHit> sse_decode_list_archive_hit(SseDeserializer deserializer);
 
   @protected
   List<AudioDeviceInfo> sse_decode_list_audio_device_info(
@@ -937,6 +968,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_app_settings(AppSettings self, SseSerializer serializer);
 
   @protected
+  void sse_encode_archive_answer(ArchiveAnswer self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_hit(ArchiveHit self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_stats(ArchiveStats self, SseSerializer serializer);
+
+  @protected
   void sse_encode_audio_device_info(
     AudioDeviceInfo self,
     SseSerializer serializer,
@@ -1162,11 +1202,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_action_item(
     List<ActionItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_archive_hit(
+    List<ArchiveHit> self,
     SseSerializer serializer,
   );
 

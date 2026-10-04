@@ -855,6 +855,110 @@ pub fn apply_glossary_corrections(text: String, terms: Vec<String>) -> String {
     crate::glossary::apply_corrections(&text, &terms)
 }
 
+// --- Tanya arsip rapat (F12) ------------------------------------------------
+//
+// A local FTS5 index over every session, plus a question-answering step
+// that reuses the summary endpoint. Indexing and retrieval never touch
+// the network; only the answer does, and only through `summary::ask`.
+
+/// Indexes one session, replacing whatever was indexed for it before.
+/// Returns how many passages went in.
+#[allow(clippy::too_many_arguments)]
+pub fn archive_index_session(
+    library_path: String,
+    dir_path: String,
+    title: String,
+    date: String,
+    segments: Vec<Segment>,
+    summary: String,
+    transcript_size: u64,
+    transcript_mtime_ms: i64,
+) -> Result<u32, TranscribeError> {
+    let mut db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::index_session(
+        &mut db,
+        &dir_path,
+        &title,
+        &date,
+        &segments,
+        &summary,
+        transcript_size,
+        transcript_mtime_ms,
+    )
+}
+
+/// Whether `dir_path`'s transcript has changed since it was indexed.
+pub fn archive_is_stale(
+    library_path: String,
+    dir_path: String,
+    transcript_size: u64,
+    transcript_mtime_ms: i64,
+) -> Result<bool, TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::is_stale(&db, &dir_path, transcript_size, transcript_mtime_ms)
+}
+
+/// Drops a session from the index — called when the user deletes it.
+pub fn archive_forget_session(
+    library_path: String,
+    dir_path: String,
+) -> Result<(), TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::forget_session(&db, &dir_path)
+}
+
+/// Ranked passages for `question`. Purely local; this is what the UI
+/// can show before (or instead of) asking a model anything.
+pub fn archive_search(
+    library_path: String,
+    question: String,
+    limit: u32,
+) -> Result<Vec<crate::archive::ArchiveHit>, TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::search(&db, &question, limit)
+}
+
+pub fn archive_stats(
+    library_path: String,
+) -> Result<crate::archive::ArchiveStats, TranscribeError> {
+    let path = std::path::Path::new(&library_path);
+    let db = crate::archive::open(path)?;
+    crate::archive::stats(&db, path)
+}
+
+pub fn archive_clear(library_path: String) -> Result<(), TranscribeError> {
+    let db = crate::archive::open(std::path::Path::new(&library_path))?;
+    crate::archive::clear(&db)
+}
+
+/// Answers `question` from the archive.
+///
+/// Retrieval is local. The composed answer comes from the configured
+/// summary endpoint, and **only the retrieved passages** are sent — not
+/// the archive, not the audio, not the file paths. Returns the answer
+/// alongside the passages it was allowed to use, so the UI can render
+/// each `[K1]` as a link into the meeting it came from.
+pub async fn archive_ask(
+    library_path: String,
+    question: String,
+    config: crate::summary::SummaryConfig,
+) -> Result<crate::archive::ArchiveAnswer, TranscribeError> {
+    let sources = archive_search(
+        library_path,
+        question.clone(),
+        crate::archive::MAX_CONTEXT_PASSAGES as u32,
+    )?;
+    if sources.is_empty() {
+        return Ok(crate::archive::ArchiveAnswer {
+            answer: "Tidak ditemukan di arsip rapat.".to_string(),
+            sources,
+        });
+    }
+    let prompt = crate::archive::build_question_prompt(&question, &sources);
+    let answer = crate::summary::ask(config, prompt).await?;
+    Ok(crate::archive::ArchiveAnswer { answer, sources })
+}
+
 // --- Mode Kepatuhan UU PDP (F13) -------------------------------------------
 //
 // Redaction on export, retention limits, a local audit log and the

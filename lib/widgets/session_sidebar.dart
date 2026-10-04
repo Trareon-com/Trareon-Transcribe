@@ -37,6 +37,7 @@ class SessionSidebar extends ConsumerStatefulWidget {
     required this.onOpenLibrary,
     required this.onOpenUpload,
     required this.onOpenSettings,
+    required this.onOpenArchiveChat,
     required this.searchFocusNode,
     this.isRecording = false,
   });
@@ -50,6 +51,9 @@ class SessionSidebar extends ConsumerStatefulWidget {
   final VoidCallback onOpenLibrary;
   final VoidCallback onOpenUpload;
   final VoidCallback onOpenSettings;
+
+  /// Opens "Tanya Arsip Rapat" (F12).
+  final VoidCallback onOpenArchiveChat;
 
   /// Focused by Ctrl+L / ⌘L.
   final FocusNode searchFocusNode;
@@ -194,6 +198,11 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
             icon: Icons.upload_file_outlined,
             label: 'Impor berkas',
             onTap: widget.onOpenUpload,
+          ),
+          _FooterAction(
+            icon: Icons.forum_outlined,
+            label: 'Tanya arsip rapat',
+            onTap: widget.onOpenArchiveChat,
           ),
           _FooterAction(
             icon: Icons.folder_open_outlined,

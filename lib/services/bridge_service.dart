@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../src/rust/api.dart' as rust_api;
+import '../src/rust/archive.dart' as rust_archive;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../src/rust/completion.dart' as rust_completion;
@@ -194,6 +195,53 @@ abstract class RustBridge {
 
   /// Per-source progress of every completion pass currently running.
   Future<List<rust_completion.CompletionProgress>> completionProgress();
+
+  // ── Tanya arsip rapat (F12) ────────────────────────────────────────
+  //
+  // Indexing and retrieval are local. Only [archiveAsk] leaves the
+  // machine, and only with the passages retrieval already selected.
+
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  });
+
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  });
+
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  });
+
+  /// Ranked passages for a question. No network.
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  });
+
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath);
+
+  Future<void> archiveClear(String libraryPath);
+
+  /// **Networked**, to the configured summary endpoint only. Sends the
+  /// retrieved passages and the question; nothing else.
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  });
 
   /// **The only networked call in the app.** Sends the rendered transcript
   /// text (never audio, never paths) to the user-configured endpoint and
@@ -692,6 +740,54 @@ class RustBridgeMock implements RustBridge {
   @override
   Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
       const [];
+
+  @override
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => false;
+
+  @override
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) async => 0;
+
+  @override
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) async {}
+
+  @override
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) async => const [];
+
+  @override
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) async =>
+      rust_archive.ArchiveStats(sessions: 0, passages: 0, bytes: BigInt.zero);
+
+  @override
+  Future<void> archiveClear(String libraryPath) async {}
+
+  @override
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not answer archive questions');
 
   /// The mock never performs I/O of any kind — a test that reaches the
   /// summary path must fail loudly rather than silently hit a real endpoint.
@@ -1240,6 +1336,79 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<List<rust_completion.CompletionProgress>> completionProgress() =>
       rust_api.readCompletionProgress();
+
+  @override
+  Future<bool> archiveIsStale({
+    required String libraryPath,
+    required String dirPath,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) => rust_api.archiveIsStale(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+    transcriptSize: BigInt.from(transcriptSize),
+    transcriptMtimeMs: transcriptModifiedMs,
+  );
+
+  @override
+  Future<int> archiveIndexSession({
+    required String libraryPath,
+    required String dirPath,
+    required String title,
+    required String date,
+    required List<TranscriptSegment> segments,
+    required String summary,
+    required int transcriptSize,
+    required int transcriptModifiedMs,
+  }) => rust_api.archiveIndexSession(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+    title: title,
+    date: date,
+    segments: segments.map(toRustSegment).toList(),
+    summary: summary,
+    transcriptSize: BigInt.from(transcriptSize),
+    transcriptMtimeMs: transcriptModifiedMs,
+  );
+
+  @override
+  Future<void> archiveForgetSession({
+    required String libraryPath,
+    required String dirPath,
+  }) => rust_api.archiveForgetSession(
+    libraryPath: libraryPath,
+    dirPath: dirPath,
+  );
+
+  @override
+  Future<List<rust_archive.ArchiveHit>> archiveSearch({
+    required String libraryPath,
+    required String question,
+    int limit = 12,
+  }) => rust_api.archiveSearch(
+    libraryPath: libraryPath,
+    question: question,
+    limit: limit,
+  );
+
+  @override
+  Future<rust_archive.ArchiveStats> archiveStats(String libraryPath) =>
+      rust_api.archiveStats(libraryPath: libraryPath);
+
+  @override
+  Future<void> archiveClear(String libraryPath) =>
+      rust_api.archiveClear(libraryPath: libraryPath);
+
+  @override
+  Future<rust_archive.ArchiveAnswer> archiveAsk({
+    required String libraryPath,
+    required String question,
+    required rust_summary.SummaryConfig config,
+  }) => rust_api.archiveAsk(
+    libraryPath: libraryPath,
+    question: question,
+    config: config,
+  );
 
   @override
   Future<String> generateSummary({
