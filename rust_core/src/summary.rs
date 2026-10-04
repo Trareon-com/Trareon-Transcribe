@@ -267,6 +267,38 @@ pub fn system_prompt(language: &str) -> String {
     )
 }
 
+/// System prompt for answering a question over retrieved passages (F12).
+///
+/// Deliberately *not* [`system_prompt`]. That one tells the model it is a
+/// notulis turning a transcript into a document and to emit "Markdown
+/// murni tanpa kalimat pembuka atau penutup" — correct for a summary and
+/// actively wrong for a question, because it pushes the model towards a
+/// heading instead of an answer. Against a real Ollama `qwen2.5:0.5b`,
+/// asking "Kapan tenggat peluncuran aplikasi?" with the summarisation
+/// system prompt returned the topic line
+/// `01:30 - 02:00 [Tenggat peluncuran aplikasi]`; the same passages and
+/// the same question with the prompt below return the fact and its
+/// citation. A small model obeys its system prompt literally, which is a
+/// reason to get it right rather than a reason to require a big model.
+pub fn question_system_prompt(language: &str) -> String {
+    let output_language = if language.eq_ignore_ascii_case("en") {
+        "English"
+    } else {
+        "Bahasa Indonesia"
+    };
+    format!(
+        "Anda menjawab pertanyaan tentang arsip rapat.\n\
+         Aturan wajib:\n\
+         - Tulis jawaban dalam {output_language}, sebagai kalimat utuh.\n\
+         - Gunakan HANYA kutipan yang diberikan. Jangan mengarang nama, \
+           angka, tanggal, atau keputusan.\n\
+         - Akhiri setiap pernyataan dengan rujukan kutipannya: [K1], [K2].\n\
+         - Jika kutipan tidak cukup, tulis \"Tidak ditemukan di arsip rapat\".\n\
+         - Jangan menyalin ulang judul atau stempel waktu kutipan sebagai \
+           jawaban; jawablah pertanyaannya."
+    )
+}
+
 /// The user message: instruction + transcript (truncated to
 /// [`MAX_TRANSCRIPT_CHARS`]) + whatever the notulis flagged during the meeting.
 ///
@@ -575,9 +607,9 @@ fn client(timeout_secs: u64) -> Result<reqwest::Client, TranscribeError> {
         .map_err(|e| TranscribeError::Summary(format!("gagal membuat HTTP client: {e}")))
 }
 
-fn request_body(config: &SummaryConfig, prompt: &str) -> serde_json::Value {
+fn request_body(config: &SummaryConfig, system: &str, prompt: &str) -> serde_json::Value {
     let messages = serde_json::json!([
-        { "role": "system", "content": system_prompt(&config.language) },
+        { "role": "system", "content": system },
         { "role": "user", "content": prompt },
     ]);
     match config.provider {
@@ -629,9 +661,11 @@ pub async fn generate_summary(
     let url = chat_endpoint(config.provider, &config.base_url);
     let prompt = build_prompt(&config, &transcript, &bookmarks);
 
-    let mut request = client(config.timeout_secs)?
-        .post(&url)
-        .json(&request_body(&config, &prompt));
+    let mut request = client(config.timeout_secs)?.post(&url).json(&request_body(
+        &config,
+        &system_prompt(&config.language),
+        &prompt,
+    ));
     if !config.api_key.trim().is_empty() {
         request = request.bearer_auth(config.api_key.trim());
     }
@@ -679,9 +713,12 @@ pub async fn ask(config: SummaryConfig, prompt: String) -> Result<String, Transc
         return Err(TranscribeError::Summary("Pertanyaan kosong.".into()));
     }
     let url = chat_endpoint(config.provider, &config.base_url);
-    let mut request = client(config.timeout_secs)?
-        .post(&url)
-        .json(&request_body(&config, &prompt));
+    let mut request = client(config.timeout_secs)?.post(&url).json(&request_body(
+        &config,
+        // Not the summarisation prompt: see `question_system_prompt`.
+        &question_system_prompt(&config.language),
+        &prompt,
+    ));
     if !config.api_key.trim().is_empty() {
         request = request.bearer_auth(config.api_key.trim());
     }
@@ -923,6 +960,31 @@ mod tests {
         assert!(prompt.contains("## Risiko"));
     }
 
+    /// The question path must not inherit the summarisation persona.
+    ///
+    /// Regression test for a real failure: `ask()` used the notulen
+    /// system prompt, whose "Markdown murni tanpa kalimat pembuka"
+    /// instruction made a small model answer "Kapan tenggat peluncuran
+    /// aplikasi?" with the topic line `01:30 - 02:00 [Tenggat peluncuran
+    /// aplikasi]` instead of the fact.
+    #[test]
+    fn asking_a_question_does_not_use_the_summarising_persona() {
+        let question = question_system_prompt("id");
+        let summarise = system_prompt("id");
+        assert_ne!(question, summarise);
+        // The summariser's shape instructions are what broke the answer.
+        assert!(summarise.contains("Markdown murni"));
+        assert!(!question.contains("Markdown murni"));
+        assert!(!question.contains("notulis rapat profesional"));
+        // What the answer path does need.
+        assert!(question.contains("[K1]"));
+        assert!(question.contains("kalimat utuh"));
+        assert!(question.contains("Tidak ditemukan di arsip rapat"));
+        // And it still refuses to invent, like every other prompt here.
+        assert!(question.contains("Jangan mengarang"));
+        assert!(question_system_prompt("en").contains("English"));
+    }
+
     #[test]
     fn system_prompt_switches_output_language() {
         assert!(system_prompt("id").contains("Bahasa Indonesia"));
@@ -1095,10 +1157,11 @@ mod tests {
                 model: "m".into(),
                 ..Default::default()
             };
-            let body = request_body(&config, "PROMPT");
+            let body = request_body(&config, "SYSTEM", "PROMPT");
             let messages = body["messages"].as_array().unwrap();
             assert_eq!(messages.len(), 2);
             assert_eq!(messages[0]["role"], "system");
+            assert_eq!(messages[0]["content"], "SYSTEM");
             assert_eq!(messages[1]["role"], "user");
             assert_eq!(messages[1]["content"], "PROMPT");
             assert_eq!(
