@@ -1646,7 +1646,7 @@ GPU) pada commit `d27be9a`, bukan disalin dari rencana.
 |---|---|
 | `cargo fmt --check` | bersih |
 | `cargo clippy --all-targets -- -D warnings` | bersih (0 peringatan) |
-| `cargo test --lib` | **605 lulus, 0 gagal** |
+| `cargo test --lib` | **606 lulus, 0 gagal** |
 | `flutter analyze` | **No issues found!** (termasuk level info) |
 | `flutter test` | **548 lulus, 0 gagal** |
 | `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
@@ -1662,6 +1662,35 @@ test completion::tests::completion_pass_covers_the_speech_in_a_real_recording ..
 test completion::tests::completion_pass_fills_only_the_gap_and_keeps_existing_text ... ok
 test result: ok. 2 passed; 0 failed; finished in 70.66s
 ```
+
+Dan kriteria keluar F12, juga di luar gate karena butuh Ollama lokal:
+
+```
+TRAREON_ARCHIVE_LIVE=1 cargo test --test archive_chat_live -- --nocapture
+
+--- JAWABAN ---
+Tenggat peluncuran aplikasi digeser ke bulan November. [K1]
+---------------
+[K1] Rapat Jadwal (2026-09-01) 01:30
+test result: ok. 1 passed; 0 failed.
+```
+
+Dijalankan 3× berturut-turut dengan `qwen2.5:0.5b` — model yang disebut
+brief — dan lulus ketiganya.
+
+**Cacat yang ditemukan saat menjalankannya.** Pertama kali dijalankan, tes
+ini **gagal**: pencarian memeringkat rapat yang benar dan kutipannya tepat,
+tetapi jawabannya adalah baris topik `01:30 - 02:00 [Tenggat peluncuran
+aplikasi]`, bukan faktanya. Sebabnya `ask()` memakai ulang
+`system_prompt()` milik peringkasan, yang memberi tahu model bahwa ia
+notulis yang mengubah transkrip menjadi dokumen dan harus mengeluarkan
+"Markdown murni tanpa kalimat pembuka atau penutup" — benar untuk
+ringkasan, salah untuk pertanyaan. Mengirim kutipan dan pertanyaan yang
+sama ke model yang sama lewat Ollama mentah (tanpa prompt sistem itu)
+mengembalikan faktanya, jadi modelnya patuh dan instruksinyalah yang
+keliru. Diperbaiki di `cc3d038`: jalur tanya punya prompt sistemnya
+sendiri, dan `request_body` sekarang menerima prompt sistem alih-alih
+mengasumsikannya, supaya kedua jalur tidak bisa diam-diam berbagi lagi.
 
 WAV-nya adalah `speaker.wav` sesi 10:12 yang jadi bukti awal ITEM 0 (359,7
 detik, ucapan di 0–30 s dan 150–180 s, sisanya senyap). Tes pertama
@@ -1868,7 +1897,9 @@ kutipan kedua ke sesi yang sudah terbuka tetap melompat.
 
 Kriteria keluar: tes integrasi Rust menjawab pertanyaan atas 3 sesi
 sintetis dengan kutipan yang benar (digerbangi env var, memakai Ollama
-lokal bila ada).
+lokal bila ada). **Dijalankan sungguhan** terhadap `qwen2.5:0.5b` dan
+lulus 3/3 — keluarannya dikutip di bagian gate di atas, bersama bug prompt
+sistem yang ditemukannya.
 
 ---
 
