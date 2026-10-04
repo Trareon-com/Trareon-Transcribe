@@ -15,8 +15,10 @@ import 'state/models.dart';
 import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_icons.dart';
+import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
+import 'widgets/platform_chrome.dart';
 import 'widgets/setup_overlay.dart';
 
 /// Smallest window the layout is designed to survive, and the size a first
@@ -152,8 +154,12 @@ class TranscribeApp extends ConsumerWidget {
         AppThemeMode.light => ThemeMode.light,
         AppThemeMode.system => ThemeMode.system,
       },
-      themeAnimationDuration: const Duration(milliseconds: 300),
-      themeAnimationCurve: Curves.easeInOut,
+      themeAnimationDuration: Motion.slow,
+      themeAnimationCurve: AppEasing.standard,
+      // Every route, not just the main screen: hiding the native title bar
+      // hides it everywhere, so the chrome has to be above the navigator.
+      builder: (context, child) =>
+          WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
       // First-launch routing: when models aren't downloaded yet, show the
       // dedicated onboarding/download screen. SetupWizardScreen is reached
       // from Settings → "Jalankan Ulang Penyiapan".

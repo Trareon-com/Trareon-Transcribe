@@ -96,6 +96,42 @@ class WindowTopInset extends StatelessWidget {
   }
 }
 
+/// Wraps the whole app with the window chrome.
+///
+/// At the *root*, not inside the main screen. Hiding the native title bar
+/// hides it for every route, so a screen that is not the main screen (the
+/// first-run onboarding, the preflight blocker) was left with no way to move,
+/// minimise or close the window at all. The Windows build in sprint 5's
+/// verification run came up on the preflight blocker with no caption buttons,
+/// which is how this was found.
+///
+/// On Linux this is a pass-through: GTK still draws a real title bar.
+class WindowChromeScaffold extends StatelessWidget {
+  const WindowChromeScaffold({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isDesktop || _platform == TargetPlatform.linux) return child;
+    final colors = context.colors;
+    return ColoredBox(
+      color: colors.surface,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(child: WindowTopInset()),
+              const WindowsCaptionButtons(),
+            ],
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
 /// Windows caption buttons: minimise, maximise/restore, close.
 ///
 /// Drawn to the Windows 11 metrics (46x32, close turns red on hover) so snap
