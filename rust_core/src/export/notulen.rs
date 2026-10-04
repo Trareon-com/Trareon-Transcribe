@@ -1107,6 +1107,18 @@ mod tests {
         assert_eq!(&bytes[0..2], b"PK");
     }
 
+    /// Writes a real notulen DOCX to `$TRAREON_NOTULEN_DUMP` when that env var
+    /// is set, so `scripts/validate_notulen.py` can read it back with an
+    /// independent OOXML parser. A no-op in the normal test run.
+    #[test]
+    fn dump_notulen_docx_for_external_validation() {
+        let Ok(path) = std::env::var("TRAREON_NOTULEN_DUMP") else {
+            return;
+        };
+        let bytes = to_docx_bytes(&form(), &[]).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
+    }
+
     // --- kop surat -------------------------------------------------------
 
     #[test]
