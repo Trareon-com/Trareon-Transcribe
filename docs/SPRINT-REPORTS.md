@@ -1483,3 +1483,147 @@ Build rilis dijalankan di DISPLAY=:0 (log dibatasi ke
   tidak mengubah statusnya, hanya memindahkan job-nya ke runner yang dipaku.
 - `actions/upload-artifact` / `download-artifact` dibiarkan di `v4`. Keduanya
   tidak ada di diff main, jadi tidak ikut dinaikkan di sini.
+
+---
+
+# Putaran perbaikan CI — Sprint 3 (`sprint/03-indonesia`)
+
+Verifikasi independen / CI GitHub gagal setelah merge. Dua akar masalah
+ditemukan, keduanya pada **tes**, bukan pada kode produksi — dan keduanya
+sejenis: tes yang mengukur lingkungan alih-alih perilaku yang diklaimnya.
+Tidak ada tes yang dilemahkan dan tidak ada lint yang dimatikan.
+
+## 1 · `test/enhance_queue_test.dart` — 5 tes gagal di CI · **DONE**
+
+**Gejala di CI.** `450 tests passed, 5 failed`, semuanya di grup
+`EnhanceQueueNotifier`: `Expected: <1>` (jumlah panggilan mesin), 
+`Expected: ['PPBJ']` (glosarium), dan `Bad state: No element`.
+
+**Akar masalah.** `EnhanceQueueNotifier.considerSession()`
+(`lib/state/enhance_queue_model.dart:262`) menolak mengantre apa pun kecuali
+model akurat terpasang, lewat `isModelAvailable(kAccurateModelId, ...)`.
+Fungsi itu memeriksa `$HOME/Library/Caches/TrareonTranscribe/models/` tanpa
+syarat. Di mesin ini berkas `ggml-large-v3-turbo-q5_0.bin` (574 MB) ada, jadi
+tes lulus; runner CI tidak pernah mengunduhnya, jadi tidak ada job yang
+terantre dan setiap asersi antrean kehilangan objeknya. Bukan kegagalan
+produksi: gerbang "model harus terpasang" memang benar.
+
+**Reproduksi lokal** (membuktikan akar masalah, bukan menduganya):
+`HOME=/tmp/fakehome flutter test test/enhance_queue_test.dart` menghasilkan
+**5 kegagalan yang persis sama** dengan CI.
+
+**Perbaikan.** Tes kini menanam berkas model tiruan di dalam direktori temp
+yang sudah dipakainya sebagai `libraryPath`. Mesinnya tiruan, jadi isinya
+tidak pernah dibaca — `isModelAvailable()` hanya memeriksa keberadaan berkas.
+Nama berkas diambil dari `modelPathForId()`, bukan ditulis literal, supaya
+tidak bisa melenceng dari pemetaan yang dipakai gerbang produksi.
+
+Dua tes yang **lulus di CI karena alasan yang salah** juga diperbaiki: "a
+session with no audio is never queued" dan "an already-enhanced session is
+not queued again" sebelumnya lulus karena modelnya hilang, bukan karena
+gerbang yang mereka klaim uji. Keduanya sekarang menanam model, jadi
+penolakan yang mereka amati hanya bisa berasal dari gerbang audio dan
+gerbang "sudah pernah". Cakupan bertambah, bukan berkurang.
+
+- Berkas: `test/enhance_queue_test.dart` (+24 baris, pembantu
+  `installAccurateModelStub()` dan tiga pemanggilannya)
+- Commit: `a2e44e5`
+
+## 2 · `journal::tests::a_three_hour_journal_writes_and_replays_linearly` · **DONE**
+
+**Gejala.** Gagal acak di `cargo test --lib`: `380 passed; 1 failed`, dengan
+`replaying 4x the segments took 12.7x as long — that is the shape of a
+quadratic replay, not a linear one`. Lulus sendirian, gagal di suite penuh.
+
+**Akar masalah.** Yang diukur yang salah, bukan algoritmanya. Tes mengambil
+**satu** sampel wall-clock per ukuran lalu membaginya, dengan ambang 10,0
+padahal nilai linear yang diharapkan 4,0 — kelonggaran hanya 2,5×. Dengan 381
+tes berbagi 4 inti, utas yang di-*deschedule* menumpuk wall-clock tanpa
+mengerjakan apa pun, dan inflasi itu **tak berbatas atas**.
+
+**Bukti terukur** (15 jalanan di bawah 6 proses pemakan CPU): replay identik
+berbiaya 94 ms sampai 468 ms, dan kedua ukuran pernah **terbalik total** —
+1250 segmen 901 ms melawan 5000 segmen 172 ms. Tidak ada ambang atau
+rata-rata yang bisa menyelamatkan rasio wall-clock seperti itu; dua upaya
+pertama (fastest-of-5, lalu equal-work di atas wall-clock) masih gagal
+masing-masing pada 10,3× dan 3,2×. Itu menunjuk ke desain pengukurannya,
+bukan ke konstantanya.
+
+**Perbaikan** — dua langkah, keduanya menghapus sumber derau alih-alih
+merata-ratakannya:
+
+1. **Equal-work, bukan equal-calls.** Jurnal kecil diputar `SIZE_FACTOR`
+   kali melawan satu lintasan jurnal besar, jadi kedua sisi mencerna jumlah
+   segmen yang sama dan berdurasi sama. Linear ⇒ biaya setara; kuadratik ⇒
+   yang besar `SIZE_FACTOR`× lebih mahal. Tidak ada lagi baseline yang
+   bergantung ukuran untuk dikalibrasi.
+2. **Waktu CPU utas** (`CLOCK_THREAD_CPUTIME_ID` via `libc`, yang sudah jadi
+   dependensi unix) untuk asersi bentuk kompleksitas. Jam itu tidak berdetak
+   saat utas diparkir, yaitu persis derau yang membuat tes ini goyah.
+
+Anggaran latensi (`< 2 s`) tetap diukur dengan wall-clock, karena yang
+dijanjikannya memang wall-clock yang ditunggu pengguna; kelonggarannya lebih
+dari satu orde besaran, jadi kontensi tidak bisa menjangkaunya. Jalur
+non-unix memakai `Instant` sebagai pengganti (`cargo test --lib` adalah job
+Linux di CI).
+
+**Verifikasi bahwa tesnya masih bergigi** — bukan sekadar lulus: regresi
+kuadratik disuntikkan sengaja ke `replay()` (satu pemindaian linear per
+baris, `order.iter().position(...)`). Tes **menangkapnya pada 2,6×** dengan
+pesan yang dimaksud, sementara jalanan bersih berkumpul di ≤ 1,29×. Suntikan
+sudah dicabut kembali (tidak ada sisa `TEMP` di pohon kerja).
+
+- Berkas: `rust_core/src/journal.rs` (pembantu `thread_cpu_micros()`,
+  `Cost`, `replay_cost()`, `cheapest_cost()`; `replay()` sendiri **tidak**
+  diubah)
+- Commit: `75e4385`
+
+## Gate verifikasi (semua hijau)
+
+```
+cd rust_core && cargo fmt --check          → FMT OK
+cargo clippy --all-targets -- -D warnings  → Finished, 0 peringatan
+cargo test --lib                           → 381 passed; 0 failed  (6 jalanan berturut)
+flutter analyze                            → No issues found! (12,7 s)
+flutter test                               → 455 passed            (sebelumnya 450 + 5 gagal)
+flutter build linux --release              → ✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+**Gate tambahan, dalam kondisi CI yang sebenarnya.** Karena akar masalah
+nomor 1 adalah ketergantungan lingkungan, suite penuh dijalankan ulang
+dengan model akurat tidak terlihat:
+
+```
+HOME=/tmp/fakehome flutter test            → 455 passed
+```
+
+Itu pembuktian yang menentukan: kondisi yang menggagalkan CI sekarang lulus.
+
+**Stabilitas, bukan sekadar hijau sekali.** Tes journal dijalankan 25× di
+bawah 8 proses pemakan CPU pada 4 inti (oversubscription 2×, jauh lebih
+kasar daripada CI): **25/25 lulus**, rasio CPU berkumpul di 0,76–1,29
+sementara wall-clock berayun 114–965 ms. Ayunan 8,5× itulah yang dulu
+diukur oleh asersi lama.
+
+## Smoke test aplikasi nyata
+
+Kedua perubahan hanya menyentuh berkas tes, jadi tidak ada perubahan UI atau
+capture. Build rilis tetap diluncurkan untuk memastikan tidak ada yang rusak:
+jendela 1280×720 muncul, UI Bahasa Indonesia utuh ("Siap merekam",
+"Mulai Rekam", "atau tekan Ctrl+R"), kedua perangkat terdeteksi (Mikrofon dan
+Suara sistem, keduanya `alsa_*.pci-0000_00_1f.3`), dan 4 sesi perpustakaan
+yang sudah ada tampil benar di sidebar — termasuk "Sesi 2026-10-04 10:12 ·
+8 detik · 2 segmen" dari smoke test merge sebelumnya. Log keluaran 320 byte
+tanpa galat. `pkill -9 -x transcribe` setelahnya.
+
+## Celah yang diketahui
+
+- Jalur notarisasi macOS di `release.yml` masih belum terbukti; putaran ini
+  tidak menyentuhnya.
+- `isModelAvailable()` memeriksa `~/Library/Caches/...` di semua platform,
+  termasuk Linux. Itu perilaku lama dan bukan bagian dari perbaikan ini,
+  tetapi memang alasan sebuah tes bisa lulus di laptop pengembang dan gagal
+  di CI. Tes lain yang bergantung model sebaiknya menanam stub dengan cara
+  yang sama.
+- Tes benchmark lain (`a_three_hour_journal_of_refined_passes_...`) hanya
+  mencetak wall-clock tanpa mengasersinya, jadi tidak bisa goyah.
