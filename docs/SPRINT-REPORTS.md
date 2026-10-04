@@ -1058,3 +1058,320 @@ still starts, not a re-verification of Sprint 2's capture claims.
   packaging step now takes ~30 s longer to fail than before.
 - Everything in Sprint 2's own "Known gaps" list above still stands;
   this round fixed CI, not product scope.
+
+---
+
+# Sprint 3 report — branch `sprint/03-indonesia`
+
+> Theme: make the Indonesian-first claim real. The blueprint's §4 feature
+> gap (F2 notulen, F3 kamus istilah, F5 transkrip ulang, F8 template, F9
+> bookmark) plus audit items 22–29.
+
+11 commits on top of `origin/main`; 105 files changed, +15 403 / −682.
+
+## Verification gate
+
+All green, run on the final commit (`d5a4ba8`) with a clean working tree.
+
+```
+$ cd rust_core && cargo fmt --check
+(no output)
+
+$ cargo clippy --all-targets -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s)
+
+$ cargo test --lib
+test result: ok. 376 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+$ flutter analyze
+No issues found!
+
+$ flutter test
+02:08 +436: All tests passed!
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+Test counts moved from **315 → 376** Rust unit tests (+61) and
+**333 → 436** Dart tests (+103).
+
+Ten new Dart test files account for 101 of those: `enhance_queue_test`
+(21), `notulen_form_test` (13), `glossary_settings_test` (11),
+`localization_test` (10), `theme_tokens_test` (10), `text_scaling_test`
+(9), `accessibility_test` (8), `bookmark_test` (8),
+`summary_template_editor_test` (8), `copy_inventory_test` (3). On the Rust
+side the sprint's modules carry `glossary` 26, `summary` 37,
+`export::notulen` 22, `bookmark` 3.
+
+## Per item
+
+### Item 22 · Kamus istilah / `initial_prompt` (F3) · **DONE**
+
+Glossary terms are fed to Whisper as `initial_prompt`, with a per-session
+list layered over a global dictionary in Settings. Session terms win.
+
+Files: `rust_core/src/glossary.rs`, `rust_core/src/stt/`,
+`rust_core/src/settings.rs`, `lib/widgets/glossary_settings_section.dart`
+(global dictionary in Settings), `lib/widgets/session_controls.dart`
+(the per-session "Istilah rapat" dialog).
+Tests: `glossary` 26 Rust, `test/glossary_settings_test.dart` 11 Dart.
+Commits: `9d48c67` (engine), `e10a446` (UI).
+
+### Item 23 · Notulen Rapat DOCX per Tata Naskah Dinas (F2) · **DONE**
+
+`NotulenForm` + `draft_from_summary` + `to_docx_bytes`: kop surat,
+identity table, Pembahasan / Keputusan / Tindak Lanjut, signature block,
+and a Ringkas variant that drops the letterhead. Prefilled from the
+`NotulenRapat` summary template so the user edits rather than types.
+
+Files: `rust_core/src/export/notulen.rs`, `lib/widgets/notulen_dialog.dart`,
+`lib/widgets/notulen_settings_section.dart`, `scripts/validate_notulen.py`.
+Tests: `export::notulen` 22 Rust, `test/notulen_form_test.dart` 13 Dart,
+plus an independent read-back (below).
+Commits: `9d48c67`, `995ff08`, `d5a4ba8`.
+
+**Independent verification.** The engine asserting on its own
+WordprocessingML proves little — the writer and the assertions share
+assumptions. `scripts/validate_notulen.py` opens the output with
+python-docx, a different OOXML implementation. On a generated document:
+32 paragraphs, 3 tables, every required heading and identity field
+present, and both glossary terms (`PPBJ`, `RKAKL`) survived into the text:
+
+```
+$ python3 scripts/validate_notulen.py /tmp/notulen_sample.docx \
+    --expect PPBJ --expect RKAKL
+    paragraphs: 32  tables: 3
+    body characters: 842
+    expected terms found: 2/2 ['PPBJ', 'RKAKL']
+OK    the document opens and carries every required section
+```
+
+### Item 24 · Bookmark saat merekam (F9) · **DONE**
+
+Ctrl+B marks the current moment during recording, with an optional note;
+markers survive into the player and become `Poin Penting` in the notulen.
+`retainAlignedBookmarks` drops rather than clamps a marker that falls past
+the end of a re-transcribed transcript.
+
+Files: `rust_core/src/export/mod.rs` (the `Bookmark` type),
+`rust_core/src/export/notulen.rs` (`poin_penting_from_bookmarks`),
+`lib/widgets/bookmark_bar.dart`, `lib/screens/transcript_player_screen.dart`.
+Tests: `bookmark` 3 Rust, `test/bookmark_test.dart` 8 Dart.
+Commits: `e10a446`, `995ff08`.
+
+### Item 25 · Aksesibilitas · **DONE**
+
+`Semantics` across the main surfaces, a live region that announces new
+transcript rows as they arrive, 48 px minimum touch targets, and the dead
+`StreamToggle` label bug fixed (it compared its visible label against the
+English literals `'Mic'`/`'Speaker'`, so translating the label silently
+broke the screen-reader announcement — it now takes a `StreamSource` enum).
+
+Two real defects fell out of writing the tests: `TranscriptPlayerScreen`
+had icon buttons under 48 px, and the live-region announcer counted
+recovered sessions as "new rows" on load, so a recovery read the whole
+transcript aloud.
+
+Files: `lib/widgets/*`, `lib/screens/*`.
+Tests: `test/accessibility_test.dart` 8, `test/text_scaling_test.dart` 9
+(1.5× scale at the 800×600 minimum window).
+Commit: `ce22c02`.
+
+### Item 26 · Infrastruktur i18n (ARB + `flutter_localizations`) · **PARTIAL**
+
+**Done:** the infrastructure, working end to end. `l10n.yaml` with
+`app_id.arb` as the *template* (so a new string is written in Indonesian
+and English is what shows up as incomplete), `app_en.arb` at full key
+parity (41/41), `flutter_localizations` + `intl`, `generate: true`,
+generated `AppLocalizations` wired into both `MaterialApp`s, and
+`_AlreadyRunningApp` converted to be a real consumer so the path is
+exercised rather than merely plumbed.
+
+**Not done:** extraction of the remaining screens. The audit sizes this
+item **L** and the blueprint schedules it as a *jalur paralel*; 41 keys are
+in the ARB, the rest of the UI is still hardcoded Indonesian literals. The
+app is not yet switchable to English at runtime, and there is no UI
+language selector (`AppSettings.language` is the *transcription* language,
+a different setting — the ARB keys for the selector exist but nothing
+reads them yet).
+
+Two findings worth recording:
+
+* `flutter gen-l10n` emits `supportedLocales` alphabetically, so Flutter's
+  default resolution falls back to `supportedLocales.first` — **English** —
+  for any system locale that is neither `id` nor `en`. For an
+  Indonesian-first product that is backwards. `resolveLocale` in
+  `main.dart` makes the fallback Indonesian; five of the ten tests in
+  `localization_test.dart` pin that behaviour.
+* The generated Dart is **committed**, like the FRB bindings in
+  `lib/src/rust/`. Gitignoring it reproduces exactly the failure
+  `tracked_sources_test.dart` was written to catch — green locally, then CI
+  fails with `uri_does_not_exist` because the import has no file behind it.
+  That test caught it in this sprint, which is the second time it has paid
+  for itself.
+
+Files: `l10n.yaml`, `lib/l10n/`, `lib/main.dart`, `pubspec.yaml`.
+Tests: `test/localization_test.dart` 10.
+Commit: `124a20f`.
+
+### Item 27 · Flight recorder · **DONE**
+
+Initialised at startup, lifecycle transitions logged as metadata, and
+"Ekspor Log Diagnostik" on the Diagnostik screen writes a `.zip` of the
+rotated logs plus the doctor report — with the copy stating plainly that
+no transcript or audio is in it. The machinery already existed and nothing
+had ever called it.
+
+Files: `lib/services/flight_recorder_service.dart`,
+`lib/screens/diagnostics_screen.dart`, `lib/main.dart`.
+Commit: `eb385af`.
+
+### Item 28 · Transkrip ulang otomatis dengan model akurat (F5) · **DONE**
+
+After the meeting, a session transcribed with the quick model is
+re-transcribed with the accurate one in the background. The old transcript
+stays in place until the new one succeeds; a failed pass leaves it exactly
+as it was. Hand-renamed speakers survive a slight timestamp shift;
+an engine label never overrides the accurate pass's labelling. The queue
+pauses while a recording is running.
+
+A test-only defect was fixed properly rather than papered over: six cases
+waited a fixed 50 ms for async file I/O and were racy on a loaded machine.
+`EnhanceQueueNotifier` now exposes an `idle` future and the tests await it.
+
+Files: `lib/state/enhance_queue_model.dart`, `lib/widgets/enhance_queue_view.dart`.
+Tests: `test/enhance_queue_test.dart` 21.
+Commits: `e10a446`, `567d748`.
+
+### Item 29 · Notarisasi macOS, `.deb`/AppImage, SHA256 · **DONE (Linux verified, macOS unverifiable here)**
+
+`scripts/package_deb.sh` produces a real amd64 package: bundle in `/opt`
+(the shape Chrome and VS Code use, because the binary needs its `lib/` and
+`data/` siblings), wrapper in `/usr/bin`, `.desktop` entry with
+`StartupWMClass` so the window matches the launcher, 256×256 hicolor icon,
+and a `Depends` line carrying the `t64` alternatives so it installs on both
+Ubuntu 22.04 and 24.04. Models are deliberately excluded (142 MB + 548 MB
+would make a 700 MB package); `--with-models` overrides for air-gapped use.
+
+`scripts/package_macos.sh` signs with a Developer ID and notarizes when
+`MACOS_SIGN_IDENTITY` is set, and still produces an ad-hoc signed DMG when
+it is not. `release.yml` resolves secret availability into a step output
+first, because secrets cannot be read in a job-level `if:` — a fork with no
+Apple account must still get a release.
+
+Every build job now uploads to a workflow artifact and a single `publish`
+job writes one `SHA256SUMS` covering every file. Per-job uploads made a
+complete manifest impossible: no job could see the other platforms'
+outputs.
+
+**Verified locally** against the real release bundle:
+
+```
+$ bash scripts/package_deb.sh
+  deb:  dist/trareon-transcribe_1.0.0_amd64.deb
+  size: 17M
+
+$ dpkg-deb --info dist/trareon-transcribe_1.0.0_amd64.deb
+ Depends: libc6 (>= 2.34), libgtk-3-0 (>= 3.24) | libgtk-3-0t64 (>= 3.24),
+  libglib2.0-0 (>= 2.66) | libglib2.0-0t64 (>= 2.66),
+  libasound2 | libasound2t64, libpulse0, zlib1g (>= 1:1.2.11)
+
+$ desktop-file-validate .../trareon-transcribe.desktop
+(hint only — see Known gaps)
+```
+
+Files: `scripts/package_deb.sh`, `scripts/package_macos.sh`,
+`.github/workflows/release.yml`, `DISTRIBUTION.md`.
+Commit: `73d21fa`.
+
+### F8 · Template ringkasan yang bisa disunting · **DONE**
+
+Built-in templates can be duplicated and edited, custom ones created from
+scratch, and either deleted; a built-in is copied rather than mutated.
+
+Files: `lib/widgets/summary_template_editor.dart`, `rust_core/src/summary.rs`.
+Tests: `test/summary_template_editor_test.dart` 8, `summary` 37 Rust.
+Commits: `995ff08`, `431cc24`.
+
+### §4.4 · Bahasa manusia, bukan jargon · **DONE**
+
+`VAD → Abaikan jeda sunyi`, `Echo Dedupe → Hapus suara ganda`,
+`Progressive Mode → Cepat dulu, lalu diperhalus`, `API key → Kunci API`,
+`Action Items → Tindak Lanjut`, and the rest of the audit's A.12 table.
+`test/copy_inventory_test.dart` reads `lib/` and fails on a known English
+UI word or internal acronym, stripping Dart interpolations first so
+`${settings.autoStopMinutes}` is not read as "Settings". It is a blocklist
+with a suggested replacement per entry, deliberately not a general English
+detector — that would flag Markdown, Ollama and DOCX and be silenced.
+
+Commit: `eb385af`.
+
+### Design tokens · **DONE**
+
+Colour moved into the theme with a lint that keeps it there.
+Tests: `test/theme_tokens_test.dart` 10. Commit: `3ba038b`.
+
+## Smoke test
+
+Release build launched on `:0` per the standard recipe, 1280×720 window.
+
+**Main screen.** Came up in full Indonesian with no English leakage:
+sidebar "Sesi baru" / "Cari sesi… (Ctrl+L)" over three real library
+sessions (`Sesi 2026-10-01 02:18` · 49 detik · 7 segmen, `Sesi Pendek
+Tanpa Transkrip` · 0 segmen, `Sesi 2026-10-01 05:23` · 5 detik · 2
+segmen); the session header with Webinar / Rapat Online / Rapat Offline,
+the "Akurat" model picker and the "Istilah rapat" button; both ALSA
+devices resolved under "Perangkat" (Mikrofon + Suara sistem, both
+toggled on); and the "Siap merekam" empty state with the single primary
+"Mulai Rekam" action and its `Ctrl+R` hint.
+
+**Glossary (F3/item 22).** Clicking "Istilah rapat" opened the dialog
+titled "Istilah khusus rapat ini" with the helper line "Satu istilah per
+baris: nama peserta, singkatan, nama program. Diutamakan di atas kamus di
+Pengaturan." — and it was **populated with terms persisted from an earlier
+run** (`Pak Budi Santoso`, `SPBE`, `RKAKL`), which is the persistence path
+working, not a fixture. Actions read "Batal" / "Simpan".
+
+`/tmp/trareon_smoke.log` was **0 bytes** — no stderr at all, including
+from the newly added localisation delegates. Process killed with
+`pkill -9 -x transcribe` afterwards.
+
+No capture run was performed this round. The sprint's only change to the
+live capture path is the glossary `initial_prompt`, which is covered by 26
+Rust tests; the UI changes smoke-tested above are the localisation wiring
+and the dialogs.
+
+## Known gaps
+
+- **Item 26 is PARTIAL by design and is the main one.** The infrastructure
+  works, but only 41 strings are in the ARB and there is no runtime
+  language switch. Finishing it means extracting every remaining screen and
+  adding a UI-language setting distinct from the existing transcription
+  `language` field. The audit sizes it **L**; it is the one item in this
+  sprint that is not closed.
+- **macOS signing and notarization are unverified.** There is no macOS
+  machine here. `scripts/package_macos.sh` is syntax-checked (`bash -n`)
+  and the secret-gating logic is reasoned through above, but whether a
+  Developer ID build actually notarizes can only be established by CI with
+  the secrets present. The ad-hoc path is the one that has been exercised.
+- **The AppImage is CI-only in practice.** `appimagetool` needs
+  `APPIMAGE_EXTRACT_AND_RUN=1` on a host without FUSE; this was not built
+  locally this round, only the `.deb`.
+- **`desktop-file-validate` emits one hint**, not an error: `Categories`
+  lists both `AudioVideo` and `Office` as main categories, so the app may
+  appear twice in some application menus. Kept deliberately — a notulis
+  looks for this tool under Office, and a transcription tool belongs under
+  AudioVideo. Exit code is 0, so CI is unaffected.
+- **The two perf tests are load-sensitive.** `library_index_perf_test` and
+  `transcript_view_perf_test` failed once during this sprint when the full
+  suite ran concurrently with a release build on this weak CPU, and passed
+  in isolation and in every uncontended full run (`436 passed`). They
+  assert wall-clock budgets, so they are measuring the machine as much as
+  the code. Worth converting to a relative/scale-factor assertion rather
+  than an absolute millisecond budget.
+- **Glossary accuracy is not measured.** The terms demonstrably reach
+  Whisper as `initial_prompt` and survive into the exported notulen, but no
+  before/after word-error-rate comparison was run on real Indonesian audio,
+  so "cheapest large accuracy win" remains the audit's claim rather than a
+  measured result here.
