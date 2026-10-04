@@ -61,13 +61,20 @@ void main() {
       reason: 'only the backup exists; there is no transcript yet',
     );
 
-    final transcript = File('${dir.path}${Platform.pathSeparator}transcript.json');
-    await transcript.writeAsString(encodeTranscriptJson(segments(['versi baru'])));
+    final transcript = File(
+      '${dir.path}${Platform.pathSeparator}transcript.json',
+    );
+    await transcript.writeAsString(
+      encodeTranscriptJson(segments(['versi baru'])),
+    );
     await writeSessionMeta(dir.path, const SessionMeta(title: 'Rapat'));
 
     final found = transcriptFileIn(dir);
     expect(found, isNotNull);
-    expect(parseTranscriptJson(await found!.readAsString()).first.text, 'versi baru');
+    expect(
+      parseTranscriptJson(await found!.readAsString()).first.text,
+      'versi baru',
+    );
   });
 
   test('a corrupt backup reads as absent rather than throwing', () async {

@@ -122,7 +122,9 @@ class _AppListRowState extends State<AppListRow> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.subheading.cw(
-                              widget.selected ? colors.primaryText : colors.text,
+                              widget.selected
+                                  ? colors.primaryText
+                                  : colors.text,
                               widget.selected
                                   ? FontWeight.w600
                                   : FontWeight.w500,

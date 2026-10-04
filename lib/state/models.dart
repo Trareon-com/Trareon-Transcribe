@@ -5,13 +5,16 @@ library;
 
 import 'dart:io';
 
-
 import '../src/rust/glossary.dart' show GlossaryConfig;
 import '../src/rust/pdp.dart' show PdpSettings;
 import '../src/rust/pdp/redaction.dart' show RedactionConfig;
 import '../src/rust/pdp/retention.dart' show RetentionPolicy;
 import '../src/rust/settings.dart'
-    show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
+    show
+        CustomSummaryTemplate,
+        GlossarySettings,
+        NotulenDefaults,
+        SummarySettings;
 import '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
@@ -26,9 +29,14 @@ export '../src/rust/pdp/audit.dart' show AuditAction, AuditEntry;
 export '../src/rust/pdp/redaction.dart' show PiiKind, PiiMatch, RedactionConfig;
 export '../src/rust/pdp/retention.dart'
     show RetentionItem, RetentionPlan, RetentionPolicy;
-export '../src/rust/provenance.dart' show Citation, SummaryLine, SummaryProvenance;
+export '../src/rust/provenance.dart'
+    show Citation, SummaryLine, SummaryProvenance;
 export '../src/rust/settings.dart'
-    show CustomSummaryTemplate, GlossarySettings, NotulenDefaults, SummarySettings;
+    show
+        CustomSummaryTemplate,
+        GlossarySettings,
+        NotulenDefaults,
+        SummarySettings;
 export '../src/rust/summary.dart'
     show SummaryConfig, SummaryProvider, SummaryTemplate;
 
@@ -372,6 +380,7 @@ class TranscriptSegment {
   final double confidence;
   final bool isPartial;
   final bool lowConfidence;
+
   /// Average log probability per token from Whisper (negative, e.g. -0.5).
   /// Mirrors rust_core's Segment.avg_log_prob; not surfaced in the UI today
   /// but carried through so export round-trips don't silently drop it.

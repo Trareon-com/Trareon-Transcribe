@@ -217,7 +217,11 @@ class AppEmptyState extends StatelessWidget {
 enum AppEmptyTone { neutral, error }
 
 class _Plate extends StatelessWidget {
-  const _Plate({required this.icon, required this.badgeIcon, required this.accent});
+  const _Plate({
+    required this.icon,
+    required this.badgeIcon,
+    required this.accent,
+  });
 
   final IconData icon;
   final IconData? badgeIcon;
@@ -376,9 +380,7 @@ class LevelMeter extends StatelessWidget {
           height: height,
           child: Stack(
             children: [
-              Positioned.fill(
-                child: ColoredBox(color: colors.hairlineStrong),
-              ),
+              Positioned.fill(child: ColoredBox(color: colors.hairlineStrong)),
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: level.clamp(0.0, 1.0)),
                 duration: Motion.instant,
@@ -446,7 +448,9 @@ class _LiveWaveformState extends State<LiveWaveform> {
             for (var i = 0; i < _history.length; i++)
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 0.75),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.xs / 4,
+                  ),
                   child: AnimatedContainer(
                     duration: Motion.instant,
                     curve: AppEasing.decelerate,

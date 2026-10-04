@@ -97,8 +97,9 @@ void main() {
       await writeSessionDir(root, '20261231-Baru', segments: [seg('b')]);
       // Touching the old session — what renaming or saving a summary does —
       // used to relabel it today and move it to the top (audit A.2-7).
-      File('${root.path}/20260101-Lama/transkrip.json')
-          .setLastModifiedSync(DateTime.now());
+      File(
+        '${root.path}/20260101-Lama/transkrip.json',
+      ).setLastModifiedSync(DateTime.now());
 
       final load = await loadLibraryIndex(root.path);
       expect(load.entries.map((e) => e.title), ['Baru', 'Lama']);
@@ -141,17 +142,19 @@ void main() {
       );
     });
 
-    test('a new session is picked up without re-parsing the old ones',
-        () async {
-      await writeSessionDir(root, '20260930-Satu', segments: [seg('satu')]);
-      await loadLibraryIndex(root.path);
-      await waitForIndex();
+    test(
+      'a new session is picked up without re-parsing the old ones',
+      () async {
+        await writeSessionDir(root, '20260930-Satu', segments: [seg('satu')]);
+        await loadLibraryIndex(root.path);
+        await waitForIndex();
 
-      await writeSessionDir(root, '20261001-Dua', segments: [seg('dua')]);
-      final reload = await loadLibraryIndex(root.path);
-      expect(reload.parsedFromDisk, 1);
-      expect(reload.entries, hasLength(2));
-    });
+        await writeSessionDir(root, '20261001-Dua', segments: [seg('dua')]);
+        final reload = await loadLibraryIndex(root.path);
+        expect(reload.parsedFromDisk, 1);
+        expect(reload.entries, hasLength(2));
+      },
+    );
 
     test('a corrupt index costs one slow open, not the library', () async {
       await writeSessionDir(root, '20260930-Rapat', segments: [seg('halo')]);
@@ -166,20 +169,21 @@ void main() {
 
     test('an index from a future version is discarded, not trusted', () async {
       await writeSessionDir(root, '20260930-Rapat', segments: [seg('halo')]);
-      indexFile().writeAsStringSync(jsonEncode({
-        'version': kLibraryIndexVersion + 1,
-        'entries': [
-          {'dir': '20260930-Rapat', 'title': 'Judul Palsu'},
-        ],
-      }));
+      indexFile().writeAsStringSync(
+        jsonEncode({
+          'version': kLibraryIndexVersion + 1,
+          'entries': [
+            {'dir': '20260930-Rapat', 'title': 'Judul Palsu'},
+          ],
+        }),
+      );
 
       final load = await loadLibraryIndex(root.path);
       expect(load.entries.single.title, 'Rapat');
       expect(load.parsedFromDisk, 1);
     });
 
-    test('stores directory names, so moving the library still works',
-        () async {
+    test('stores directory names, so moving the library still works', () async {
       await writeSessionDir(root, '20260930-Rapat', segments: [seg('halo')]);
       await loadLibraryIndex(root.path);
       await waitForIndex();
@@ -201,16 +205,22 @@ void main() {
       final entry = (await loadLibraryIndex(root.path)).entries.single;
       expect(entry.haystack, contains('anggaran'));
       expect(entry.haystack, contains('rust'));
-      expect(entry.haystack, isNot(contains('KEPUTUSAN')),
-          reason: 'the haystack is pre-lowercased so search never has to be');
+      expect(
+        entry.haystack,
+        isNot(contains('KEPUTUSAN')),
+        reason: 'the haystack is pre-lowercased so search never has to be',
+      );
     });
 
-    test('the deep scan finds a word buried in the transcript body',
-        () async {
-      await writeSessionDir(root, '20260930-Rapat', segments: [
-        seg('pembukaan'),
-        seg('soal zirkonium', speaker: 'Peserta 1'),
-      ]);
+    test('the deep scan finds a word buried in the transcript body', () async {
+      await writeSessionDir(
+        root,
+        '20260930-Rapat',
+        segments: [
+          seg('pembukaan'),
+          seg('soal zirkonium', speaker: 'Peserta 1'),
+        ],
+      );
       await writeSessionDir(root, '20260930-Lain', segments: [seg('halo')]);
       final entries = (await loadLibraryIndex(root.path)).entries;
 

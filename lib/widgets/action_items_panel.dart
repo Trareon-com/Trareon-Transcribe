@@ -34,11 +34,11 @@ import '../theme/app_icons.dart';
 /// come from the Rust side, so two spellings would mean a status that
 /// reads one way on screen and another in the file.
 String actionStatusLabel(ActionStatus status) => switch (status) {
-      ActionStatus.belum => 'Belum mulai',
-      ActionStatus.berjalan => 'Sedang berjalan',
-      ActionStatus.selesai => 'Selesai',
-      ActionStatus.dibatalkan => 'Dibatalkan',
-    };
+  ActionStatus.belum => 'Belum mulai',
+  ActionStatus.berjalan => 'Sedang berjalan',
+  ActionStatus.selesai => 'Selesai',
+  ActionStatus.dibatalkan => 'Dibatalkan',
+};
 
 class ActionItemsPanel extends ConsumerStatefulWidget {
   const ActionItemsPanel({
@@ -85,8 +85,11 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       AppToast.show(context, '$what disimpan: $filename');
     } catch (e) {
       if (!mounted) return;
-      AppToast.show(context, 'Gagal menyimpan $what: $e',
-          type: ToastType.error);
+      AppToast.show(
+        context,
+        'Gagal menyimpan $what: $e',
+        type: ToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -95,13 +98,14 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
   Future<void> _exportIcs(List<ActionItem> items) async {
     final bridge = ref.read(rustBridgeProvider);
     final now = DateTime.now();
-    final today = '${now.year.toString().padLeft(4, '0')}-'
+    final today =
+        '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
     try {
       final ics = await bridge.actionItemsToIcs(
         items: items,
-        calendarName: 'Tindak Lanjut — ${widget.sessionTitle}',
+        calendarName: 'Tindak Lanjut: ${widget.sessionTitle}',
         today: today,
       );
       await _write('tindak-lanjut.ics', ics, 'Kalender tindak lanjut');
@@ -124,7 +128,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
 
   Future<void> _copyAsText(List<ActionItem> items) async {
     final lines = [
-      'Tindak Lanjut — ${widget.sessionTitle}',
+      'Tindak Lanjut: ${widget.sessionTitle}',
       for (final item in items)
         '- ${item.tugas}'
             '${item.penanggungJawab.isEmpty ? '' : ' (PJ: ${item.penanggungJawab})'}'
@@ -138,7 +142,8 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final items = ref.watch(widget.provider).actionItems;
     // Only rows with a task can be exported; a blank row the user added
     // and has not filled in yet is not something to put in a calendar.
@@ -146,8 +151,9 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       for (final item in items)
         if (item.tugas.trim().isNotEmpty) item,
     ];
-    final done =
-        exportable.where((i) => i.status == ActionStatus.selesai).length;
+    final done = exportable
+        .where((i) => i.status == ActionStatus.selesai)
+        .length;
 
     return Container(
       decoration: BoxDecoration(
@@ -160,11 +166,17 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
               child: Row(
                 children: [
-                  Icon(AppIcons.checklist,
-                      size: IconSizes.md, color: colors.primary),
+                  Icon(
+                    AppIcons.checklist,
+                    size: IconSizes.md,
+                    color: colors.primary,
+                  ),
                   Spacing.hSm,
                   Text(
                     'Tindak Lanjut',
@@ -203,7 +215,12 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(Spacing.lg, 0, Spacing.lg, Spacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                0,
+                Spacing.lg,
+                Spacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -249,24 +266,21 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _copyAsText(exportable),
-                        icon: const Icon(AppIcons.copy,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.copy, size: IconSizes.sm),
                         label: const Text('Salin'),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportCsv(exportable),
-                        icon: const Icon(AppIcons.table,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.table, size: IconSizes.sm),
                         label: const Text('Ekspor CSV'),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportIcs(exportable),
-                        icon: const Icon(AppIcons.event,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.event, size: IconSizes.sm),
                         label: const Text('Ekspor .ics'),
                       ),
                     ],
@@ -329,14 +343,16 @@ class _ActionRowState extends State<_ActionRow> {
   }
 
   void _emit({ActionStatus? status}) {
-    widget.onChanged(ActionItem(
-      id: widget.item.id,
-      tugas: _tugas.text,
-      penanggungJawab: _pj.text,
-      tenggat: _tenggat.text,
-      status: status ?? widget.item.status,
-      segmentIds: widget.item.segmentIds,
-    ));
+    widget.onChanged(
+      ActionItem(
+        id: widget.item.id,
+        tugas: _tugas.text,
+        penanggungJawab: _pj.text,
+        tenggat: _tenggat.text,
+        status: status ?? widget.item.status,
+        segmentIds: widget.item.segmentIds,
+      ),
+    );
   }
 
   @override
@@ -398,7 +414,10 @@ class _ActionRowState extends State<_ActionRow> {
           ),
           if (citations.isNotEmpty && widget.onSeekToSegment != null)
             Padding(
-              padding: const EdgeInsets.only(left: 40, top: Spacing.xs),
+              padding: const EdgeInsets.only(
+                left: TouchTarget.minimum - Spacing.sm,
+                top: Spacing.xs,
+              ),
               child: Wrap(
                 spacing: Spacing.xs,
                 children: [
@@ -418,7 +437,10 @@ class _ActionRowState extends State<_ActionRow> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.only(left: 40, top: Spacing.xs),
+            padding: const EdgeInsets.only(
+              left: TouchTarget.minimum - Spacing.sm,
+              top: Spacing.xs,
+            ),
             child: Row(
               children: [
                 Expanded(

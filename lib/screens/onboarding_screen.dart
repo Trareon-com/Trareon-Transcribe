@@ -28,7 +28,8 @@ class OnboardingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final quick = state.quick;
     final accurate = state.accurate;
     final allReady = state.allReady;
@@ -37,7 +38,10 @@ class OnboardingScreen extends StatelessWidget {
       backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.xxl),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.xl,
+            vertical: Spacing.xxl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -51,8 +55,11 @@ class OnboardingScreen extends StatelessWidget {
               ),
               Spacing.gapSm,
               Text(
-                'Aplikasi ini bekerja 100% offline. Kami perlu mengunduh dua model ke perangkat Anda — proses ini hanya terjadi sekali.',
-                style: TextStyle(fontSize: FontSizes.body, color: colors.textSecondary),
+                'Aplikasi ini bekerja 100% offline. Kami perlu mengunduh dua model ke perangkat Anda, proses ini hanya terjadi sekali.',
+                style: TextStyle(
+                  fontSize: FontSizes.body,
+                  color: colors.textSecondary,
+                ),
               ),
               Spacing.gapXl,
               ModelDownloadCard(
@@ -94,7 +101,7 @@ class OnboardingScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: Spacing.md),
                 ),
                 child: Text(
-                  allReady ? 'Mulai menggunakan' : 'Mengunduh...',
+                  allReady ? 'Mulai menggunakan' : 'Mengunduh…',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -102,9 +109,12 @@ class OnboardingScreen extends StatelessWidget {
               Text(
                 allReady
                     ? 'Siap. Model tidak akan pernah dikirim ke mana pun.'
-                    : 'Anda boleh menutup aplikasi — unduhan akan dilanjutkan di latar belakang.',
+                    : 'Anda boleh menutup aplikasi, unduhan akan dilanjutkan di latar belakang.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
+                style: TextStyle(
+                  fontSize: FontSizes.micro,
+                  color: colors.textTertiary,
+                ),
               ),
             ],
           ),

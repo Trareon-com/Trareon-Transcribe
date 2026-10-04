@@ -30,7 +30,8 @@ class CaptureConfirmationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final health = this.health;
     if (health == null || health.channels.where((c) => c.expected).isEmpty) {
       return const SizedBox.shrink();
@@ -77,7 +78,10 @@ class CaptureConfirmationBadge extends StatelessWidget {
           children: [
             Icon(icon, size: IconSizes.xs, color: color),
             Spacing.hXs,
-            Text(label, style: TextStyle(color: color, fontSize: FontSizes.micro)),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: FontSizes.micro),
+            ),
           ],
         ),
       ),
@@ -95,7 +99,8 @@ class CaptureIntegritySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final expected = health.channels.where((c) => c.expected).toList();
 
     return Column(
@@ -111,7 +116,10 @@ class CaptureIntegritySummary extends StatelessWidget {
         if (expected.isEmpty)
           Text(
             'Tidak ada sumber audio yang diminta untuk sesi ini.',
-            style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: FontSizes.caption,
+            ),
           )
         else
           for (final channel in expected) ...[
@@ -131,7 +139,10 @@ class CaptureIntegritySummary extends StatelessWidget {
                   Expanded(
                     child: Text(
                       warning,
-                      style: TextStyle(color: colors.error, fontSize: FontSizes.caption),
+                      style: TextStyle(
+                        color: colors.error,
+                        fontSize: FontSizes.caption,
+                      ),
                     ),
                   ),
                 ],
@@ -150,7 +161,8 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final delivered = channel.confirmed;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +203,7 @@ Future<void> showCaptureIntegrityDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(
-        health.warnings.isEmpty ? 'Sesi selesai' : 'Sesi selesai — ada masalah',
+        health.warnings.isEmpty ? 'Sesi selesai' : 'Sesi selesai, ada masalah',
       ),
       content: SizedBox(
         width: 420,

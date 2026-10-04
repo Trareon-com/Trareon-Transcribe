@@ -61,7 +61,8 @@ class _AuditLogViewState extends State<AuditLogView> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final entries = _entries;
     return SizedBox(
       width: 700,
@@ -100,32 +101,32 @@ class _AuditLogViewState extends State<AuditLogView> {
           Expanded(
             child: switch ((entries, _error)) {
               (_, final String error) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text(
-                      'Log audit tidak bisa dibaca: $error',
-                      style: TextStyle(color: colors.error),
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Log audit tidak bisa dibaca: $error',
+                    style: TextStyle(color: colors.error),
                   ),
                 ),
+              ),
               (null, _) => const Center(child: CircularProgressIndicator()),
               (final List<AuditEntry> list, _) when list.isEmpty => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text(
-                      'Belum ada catatan. Log terisi saat sesi dibuat, '
-                      'transkrip diekspor, atau data dihapus.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textTertiary),
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Belum ada catatan. Log terisi saat sesi dibuat, '
+                    'transkrip diekspor, atau data dihapus.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colors.textTertiary),
                   ),
                 ),
+              ),
               (final List<AuditEntry> list, _) => ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) =>
-                      _AuditRow(entry: list[index], colors: colors),
-                ),
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, index) =>
+                    _AuditRow(entry: list[index], colors: colors),
+              ),
             },
           ),
         ],
@@ -144,9 +145,13 @@ class _AuditRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       dense: true,
-      leading: Icon(_iconFor(entry.action), size: IconSizes.md, color: colors.primary),
+      leading: Icon(
+        _iconFor(entry.action),
+        size: IconSizes.md,
+        color: colors.primary,
+      ),
       title: Text(
-        '${auditActionLabel(entry.action)} — ${entry.subject}',
+        '${auditActionLabel(entry.action)}: ${entry.subject}',
         style: TextStyle(fontSize: FontSizes.body, color: colors.text),
       ),
       subtitle: Text(

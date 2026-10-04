@@ -440,24 +440,48 @@ class AppColorSet extends ThemeExtension<AppColorSet> {
   List<BoxShadow> get shadowRaised => isDark
       ? const []
       : [
-          BoxShadow(color: shadow.withValues(alpha: 0.06), blurRadius: 2, offset: const Offset(0, 1)),
-          BoxShadow(color: shadow.withValues(alpha: 0.04), blurRadius: 1, offset: const Offset(0, 1)),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.06),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.04),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
         ];
 
   /// Elevation 3: a menu or popover.
   List<BoxShadow> get shadowOverlay => isDark
       ? const []
       : [
-          BoxShadow(color: shadow.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 8)),
-          BoxShadow(color: shadow.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ];
 
   /// Elevation 4: a dialog, sheet or toast.
   List<BoxShadow> get shadowModal => isDark
       ? const []
       : [
-          BoxShadow(color: shadow.withValues(alpha: 0.16), blurRadius: 48, offset: const Offset(0, 16)),
-          BoxShadow(color: shadow.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.16),
+            blurRadius: 48,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: shadow.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ];
 
   /// Legacy role names kept so the whole app did not have to be renamed in

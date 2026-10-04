@@ -59,7 +59,8 @@ class _RetranscribeDialog extends ConsumerStatefulWidget {
   final String? currentLanguage;
 
   @override
-  ConsumerState<_RetranscribeDialog> createState() => _RetranscribeDialogState();
+  ConsumerState<_RetranscribeDialog> createState() =>
+      _RetranscribeDialogState();
 }
 
 class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
@@ -74,10 +75,8 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
     final settings = ref.read(settingsProvider);
     // Default to the *accurate* model when it's available: re-transcribing is
     // almost always an attempt to improve on a fast first pass.
-    final preferred = isModelAvailable(
-      'large-v3-turbo-q5',
-      libraryPath: settings.libraryPath,
-    )
+    final preferred =
+        isModelAvailable('large-v3-turbo-q5', libraryPath: settings.libraryPath)
         ? 'large-v3-turbo-q5'
         : settings.defaultModel;
     _modelId = widget.currentModel == preferred
@@ -145,7 +144,8 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final settings = ref.watch(settingsProvider);
     final models = availableModelIds(settings.libraryPath);
 
@@ -161,11 +161,16 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
             Text(
               'Audio asli akan ditranskrip ulang. Transkrip lama diganti hanya '
               'kalau proses berhasil.',
-              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: FontSizes.caption,
+              ),
             ),
             Spacing.gapMd,
             DropdownButtonFormField<String>(
-              initialValue: models.contains(_modelId) ? _modelId : models.firstOrNull,
+              initialValue: models.contains(_modelId)
+                  ? _modelId
+                  : models.firstOrNull,
               isDense: true,
               decoration: const InputDecoration(
                 labelText: 'Kualitas model',
@@ -173,7 +178,10 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               ),
               items: [
                 for (final id in models)
-                  DropdownMenuItem(value: id, child: Text(modelDisplayLabel(id))),
+                  DropdownMenuItem(
+                    value: id,
+                    child: Text(modelDisplayLabel(id)),
+                  ),
               ],
               onChanged: _running
                   ? null
@@ -200,7 +208,10 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               Spacing.gapMd,
               Text(
                 'Tidak ada model terpasang.',
-                style: TextStyle(color: colors.error, fontSize: FontSizes.caption),
+                style: TextStyle(
+                  color: colors.error,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ],
             if (_running) ...[
@@ -216,7 +227,10 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
                   Expanded(
                     child: Text(
                       'Memproses… ini bisa memakan waktu untuk rekaman panjang.',
-                      style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: FontSizes.caption,
+                      ),
                     ),
                   ),
                 ],
@@ -226,7 +240,10 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               Spacing.gapMd,
               Text(
                 _error!,
-                style: TextStyle(color: colors.error, fontSize: FontSizes.caption),
+                style: TextStyle(
+                  color: colors.error,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ],
           ],

@@ -59,7 +59,8 @@ class _ArchiveChatScreenState extends ConsumerState<ArchiveChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final state = ref.watch(archiveChatProvider);
     final notifier = ref.read(archiveChatProvider.notifier);
     final library = ref.watch(libraryListProvider);
@@ -145,7 +146,11 @@ class _EmptyPrompt extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.chat, size: IconSizes.hero, color: colors.textTertiary),
+            Icon(
+              AppIcons.chat,
+              size: IconSizes.hero,
+              color: colors.textTertiary,
+            ),
             Spacing.gapMd,
             Text(
               sessions == 0

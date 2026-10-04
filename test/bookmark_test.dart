@@ -26,25 +26,27 @@ void main() {
       expect(session.state.bookmarks, isEmpty);
     });
 
-    test('markers land in timestamp order regardless of insertion order',
-        () async {
-      final session = notifier();
-      await session.start();
+    test(
+      'markers land in timestamp order regardless of insertion order',
+      () async {
+        final session = notifier();
+        await session.start();
 
-      session.addBookmark(note: 'pertama');
-      session.addBookmark(note: 'kedua');
-      // Both land at ~0 s in a test, so assert the ordering invariant rather
-      // than exact values.
-      final bookmarks = session.state.bookmarks;
-      expect(bookmarks.length, 2);
-      for (var i = 1; i < bookmarks.length; i++) {
-        expect(
-          bookmarks[i].timestamp,
-          greaterThanOrEqualTo(bookmarks[i - 1].timestamp),
-        );
-      }
-      expect(bookmarks.map((b) => b.note), containsAll(['pertama', 'kedua']));
-    });
+        session.addBookmark(note: 'pertama');
+        session.addBookmark(note: 'kedua');
+        // Both land at ~0 s in a test, so assert the ordering invariant rather
+        // than exact values.
+        final bookmarks = session.state.bookmarks;
+        expect(bookmarks.length, 2);
+        for (var i = 1; i < bookmarks.length; i++) {
+          expect(
+            bookmarks[i].timestamp,
+            greaterThanOrEqualTo(bookmarks[i - 1].timestamp),
+          );
+        }
+        expect(bookmarks.map((b) => b.note), containsAll(['pertama', 'kedua']));
+      },
+    );
 
     test('the note is optional and trimmed', () async {
       final session = notifier();
@@ -64,22 +66,25 @@ void main() {
       expect(session.state.bookmarks, isEmpty);
     });
 
-    test('starting a new session clears the previous meeting markers',
-        () async {
-      final session = notifier();
-      await session.start();
-      session.addBookmark(note: 'rapat pertama');
-      expect(session.state.bookmarks, isNotEmpty);
+    test(
+      'starting a new session clears the previous meeting markers',
+      () async {
+        final session = notifier();
+        await session.start();
+        session.addBookmark(note: 'rapat pertama');
+        expect(session.state.bookmarks, isNotEmpty);
 
-      await session.stop();
-      await session.start();
-      expect(
-        session.state.bookmarks,
-        isEmpty,
-        reason: 'carrying markers over would point them at timestamps that no '
-            'longer exist',
-      );
-    });
+        await session.stop();
+        await session.start();
+        expect(
+          session.state.bookmarks,
+          isEmpty,
+          reason:
+              'carrying markers over would point them at timestamps that no '
+              'longer exist',
+        );
+      },
+    );
   });
 
   group('sidecar round-trip', () {
@@ -121,8 +126,9 @@ void main() {
     test('a hand-edited sidecar cannot inject a nonsense marker', () async {
       final dir = await Directory.systemTemp.createTemp('trareon-bookmark-');
       try {
-        await File('${dir.path}${Platform.pathSeparator}$kMetaFilename')
-            .writeAsString('''
+        await File(
+          '${dir.path}${Platform.pathSeparator}$kMetaFilename',
+        ).writeAsString('''
 {
   "version": 1,
   "title": "Rapat",

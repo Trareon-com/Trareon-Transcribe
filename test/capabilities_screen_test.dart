@@ -66,9 +66,9 @@ class _CapabilityBridge extends NoopBridge {
 }
 
 Widget _app(_CapabilityBridge bridge) => buildTestAppWithOverrides(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-      child: const CapabilitiesScreen(),
-    );
+  overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+  child: const CapabilitiesScreen(),
+);
 
 void main() {
   testWidgets('lists every capability with where it runs', (tester) async {
@@ -88,22 +88,21 @@ void main() {
     expect(find.text('huggingface.co'), findsOneWidget);
   });
 
-  testWidgets('a networked feature that is off says so, and says why',
-      (tester) async {
+  testWidgets('a networked feature that is off says so, and says why', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(_CapabilityBridge()));
     await tester.pumpAndSettle();
 
     // Two enabled rows, one not.
     expect(find.text('Tidak aktif'), findsOneWidget);
     expect(find.text('Aktif'), findsNWidgets(2));
-    expect(
-      find.text('Ringkasan AI dimatikan di Pengaturan.'),
-      findsOneWidget,
-    );
+    expect(find.text('Ringkasan AI dimatikan di Pengaturan.'), findsOneWidget);
   });
 
-  testWidgets('the summary counts local against networked honestly',
-      (tester) async {
+  testWidgets('the summary counts local against networked honestly', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(_CapabilityBridge()));
     await tester.pumpAndSettle();
 
@@ -118,16 +117,18 @@ void main() {
     );
   });
 
-  testWidgets('each row names the module, so the claim can be checked',
-      (tester) async {
+  testWidgets('each row names the module, so the claim can be checked', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(_CapabilityBridge()));
     await tester.pumpAndSettle();
     expect(find.text('Kode: rust_core/src/stt/mod.rs'), findsOneWidget);
     expect(find.text('Kode: rust_core/src/summary.rs'), findsOneWidget);
   });
 
-  testWidgets('a library with nothing networked says that plainly',
-      (tester) async {
+  testWidgets('a library with nothing networked says that plainly', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(_CapabilityBridge(rows: [_rows.first])));
     await tester.pumpAndSettle();
     expect(
@@ -136,8 +137,9 @@ void main() {
     );
   });
 
-  testWidgets('a failure to read the list is shown, not an empty table',
-      (tester) async {
+  testWidgets('a failure to read the list is shown, not an empty table', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(_CapabilityBridge(fail: true)));
     await tester.pumpAndSettle();
     expect(

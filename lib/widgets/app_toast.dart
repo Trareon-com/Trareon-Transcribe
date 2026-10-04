@@ -56,22 +56,19 @@ class AppToast {
     final handle = ToastHandle(
       message: message,
       type: type,
+      lifetime: life,
       actionLabel: actionLabel,
       onAction: onAction,
     );
     _live.insert(0, handle);
     while (_live.length > kMaxToasts) {
-      _live.removeLast().timer?.cancel();
-    }
-    if (life > Duration.zero) {
-      handle.timer = Timer(life, () => dismiss(handle));
+      _live.removeLast();
     }
     _ensureHost(overlay);
     _host?.markNeedsBuild();
   }
 
   static void dismiss(ToastHandle handle) {
-    handle.timer?.cancel();
     _live.remove(handle);
     if (_live.isEmpty) {
       _host?.remove();
@@ -83,11 +80,8 @@ class AppToast {
 
   /// Clears every toast. Used by tests and when the app tears down.
   static void clear() {
-    for (final handle in _live) {
-      handle.timer?.cancel();
-    }
     _live.clear();
-    _host?.remove();
+    if (_host?.mounted ?? false) _host?.remove();
     _host = null;
   }
 
@@ -123,15 +117,20 @@ class ToastHandle {
   ToastHandle({
     required this.message,
     required this.type,
+    required this.lifetime,
     this.actionLabel,
     this.onAction,
   });
 
   final String message;
   final ToastType type;
+
+  /// How long it stays. `Duration.zero` means "until dismissed", which is
+  /// what an error gets.
+  final Duration lifetime;
+
   final String? actionLabel;
   final VoidCallback? onAction;
-  Timer? timer;
 }
 
 class _Toast extends StatefulWidget {
@@ -150,14 +149,24 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
     duration: Motion.slow,
   );
 
+  /// The auto-dismiss timer lives here rather than on the handle so that it
+  /// dies with the widget. A static timer outlived the widget tree, which is
+  /// a leak in the app and an outright failure in a widget test.
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
     _c.forward();
+    final life = widget.handle.lifetime;
+    if (life > Duration.zero) {
+      _timer = Timer(life, widget.onDismiss);
+    }
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -197,7 +206,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               Spacing.hSm,
               Flexible(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                  padding: const EdgeInsets.only(top: Spacing.xs / 4),
                   child: Text(
                     handle.message,
                     style: AppText.body.c(colors.text),

@@ -48,8 +48,9 @@ extension ElevationSurface on Elevation {
 
   Color? border(AppColorSet colors) => switch (this) {
     Elevation.flat => null,
-    Elevation.hairline || Elevation.raised || Elevation.overlay =>
-      colors.hairline,
+    Elevation.hairline ||
+    Elevation.raised ||
+    Elevation.overlay => colors.hairline,
     Elevation.modal => colors.hairlineStrong,
   };
 }
@@ -189,7 +190,12 @@ class AppCard extends StatelessWidget {
 /// A 1 px rule. Named so nobody reaches for `Divider` and gets Material's
 /// 16 px of vertical space for free.
 class AppHairline extends StatelessWidget {
-  const AppHairline({super.key, this.color, this.indent = 0, this.strong = false});
+  const AppHairline({
+    super.key,
+    this.color,
+    this.indent = 0,
+    this.strong = false,
+  });
 
   final Color? color;
   final double indent;
@@ -254,10 +260,7 @@ class AppSectionCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(
-            left: Spacing.xs,
-            bottom: Spacing.sm,
-          ),
+          padding: const EdgeInsets.only(left: Spacing.xs, bottom: Spacing.sm),
           child: Row(
             children: [
               if (icon != null) ...[

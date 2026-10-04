@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import 'redaction_preview.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
+import 'app_toast.dart';
 
 /// Records an export in the local audit log, best effort.
 ///
@@ -42,9 +43,9 @@ Future<void> _auditExport(
 /// format ID (e.g. 'md'). Falls back to the input unchanged for ids that are
 /// already short-form ('txt', 'json', etc.).
 String _toDialogFormatId(String settingsFormat) => switch (settingsFormat) {
-      'markdown' => 'md',
-      _ => settingsFormat,
-    };
+  'markdown' => 'md',
+  _ => settingsFormat,
+};
 
 /// Dialog for selecting ekspor formats and output directory.
 /// Returns true if the ekspor was initiated, false if cancelled.
@@ -71,7 +72,8 @@ Future<bool> showEksporDialog(
     context: context,
     builder: (dialogCtx) => StatefulBuilder(
       builder: (dialogCtx, setState) {
-        final colors = Theme.of(dialogCtx).extension<AppColorSet>() ?? AppColors.light;
+        final colors =
+            Theme.of(dialogCtx).extension<AppColorSet>() ?? AppColors.light;
         return AlertDialog(
           backgroundColor: colors.surface,
           title: Row(
@@ -81,7 +83,11 @@ Future<bool> showEksporDialog(
               Expanded(
                 child: Text(
                   'Ekspor "${session.title}"',
-                  style: TextStyle(color: colors.text, fontSize: FontSizes.title, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: FontSizes.title,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -103,16 +109,22 @@ Future<bool> showEksporDialog(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(AppIcons.warning,
-                              size: IconSizes.sm, color: colors.warning),
+                          Icon(
+                            AppIcons.warning,
+                            size: IconSizes.sm,
+                            color: colors.warning,
+                          ),
                           Spacing.hSm,
                           Expanded(
                             child: Text(
-                              'Transkrip sesi ini belum lengkap — masih ada '
+                              'Transkrip sesi ini belum lengkap, masih ada '
                               'audio yang sedang ditranskripsi. Hasil ekspor '
                               'sekarang akan kehilangan bagian itu.',
                               style: TextStyle(
-                                  color: colors.warning, fontSize: FontSizes.micro, height: 1.35),
+                                color: colors.warning,
+                                fontSize: FontSizes.micro,
+                                height: 1.35,
+                              ),
                             ),
                           ),
                         ],
@@ -120,26 +132,87 @@ Future<bool> showEksporDialog(
                     ),
                   Text(
                     'Pilih format ekspor:',
-                    style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: FontSizes.body,
+                    ),
                   ),
                   Spacing.gapSm,
                   for (final format in const [
-                    ('md', 'Markdown', 'Dengan waktu & nama pembicara', AppIcons.document),
-                    ('txt', 'TXT', 'Teks biasa tanpa waktu', AppIcons.textSnippet),
-                    ('json', 'JSON', 'Data lengkap untuk program lain', AppIcons.json),
-                    ('srt', 'SRT', 'Takarir untuk pemutar video', AppIcons.captions),
+                    (
+                      'md',
+                      'Markdown',
+                      'Dengan waktu & nama pembicara',
+                      AppIcons.document,
+                    ),
+                    (
+                      'txt',
+                      'TXT',
+                      'Teks biasa tanpa waktu',
+                      AppIcons.textSnippet,
+                    ),
+                    (
+                      'json',
+                      'JSON',
+                      'Data lengkap untuk program lain',
+                      AppIcons.json,
+                    ),
+                    (
+                      'srt',
+                      'SRT',
+                      'Takarir untuk pemutar video',
+                      AppIcons.captions,
+                    ),
                     ('vtt', 'VTT', 'Takarir untuk web', AppIcons.language),
-                    ('html', 'HTML', 'Halaman web yang sudah ditata', AppIcons.web),
-                    ('docx', 'DOCX', 'Dokumen Microsoft Word', AppIcons.article),
-                    ('pdf', 'PDF', 'Dokumen siap cetak, font ikut disertakan', AppIcons.pdf),
-                    ('csv', 'CSV', 'Tabel per segmen untuk spreadsheet', AppIcons.table),
+                    (
+                      'html',
+                      'HTML',
+                      'Halaman web yang sudah ditata',
+                      AppIcons.web,
+                    ),
+                    (
+                      'docx',
+                      'DOCX',
+                      'Dokumen Microsoft Word',
+                      AppIcons.article,
+                    ),
+                    (
+                      'pdf',
+                      'PDF',
+                      'Dokumen siap cetak, font ikut disertakan',
+                      AppIcons.pdf,
+                    ),
+                    (
+                      'csv',
+                      'CSV',
+                      'Tabel per segmen untuk spreadsheet',
+                      AppIcons.table,
+                    ),
                   ])
                     CheckboxListTile(
                       dense: true,
                       visualDensity: VisualDensity.compact,
-                      title: Text(format.$2, style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge)),
-                      subtitle: Text(format.$3, style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro)),
-                      secondary: Icon(format.$4, size: IconSizes.md, color: selected.contains(format.$1) ? colors.primary : colors.textTertiary),
+                      title: Text(
+                        format.$2,
+                        style: TextStyle(
+                          color: colors.text,
+                          fontSize: FontSizes.bodyLarge,
+                        ),
+                      ),
+                      subtitle: Text(
+                        format.$3,
+                        style: TextStyle(
+                          color: colors.textTertiary,
+                          fontSize: FontSizes.micro,
+                        ),
+                      ),
+                      secondary: Icon(
+                        format.$4,
+                        size: IconSizes.md,
+                        color: selected.contains(format.$1)
+                            ? colors.primary
+                            : colors.textTertiary,
+                      ),
                       value: selected.contains(format.$1),
                       activeColor: colors.primary,
                       checkColor: colors.onPrimary,
@@ -159,15 +232,20 @@ Future<bool> showEksporDialog(
                       padding: const EdgeInsets.only(bottom: Spacing.sm),
                       child: Row(
                         children: [
-                          Icon(AppIcons.bookmark,
-                              size: IconSizes.xs, color: colors.primary),
+                          Icon(
+                            AppIcons.bookmark,
+                            size: IconSizes.xs,
+                            color: colors.primary,
+                          ),
                           Spacing.hSm,
                           Expanded(
                             child: Text(
                               '${bookmarks.length} poin penting disertakan '
                               'sebagai bagian "Poin Penting"',
-                              style:
-                                  TextStyle(color: colors.primary, fontSize: FontSizes.micro),
+                              style: TextStyle(
+                                color: colors.primary,
+                                fontSize: FontSizes.micro,
+                              ),
                             ),
                           ),
                         ],
@@ -178,13 +256,19 @@ Future<bool> showEksporDialog(
                       padding: const EdgeInsets.only(bottom: Spacing.sm),
                       child: Row(
                         children: [
-                          Icon(AppIcons.enhance,
-                              size: IconSizes.xs, color: colors.primary),
+                          Icon(
+                            AppIcons.enhance,
+                            size: IconSizes.xs,
+                            color: colors.primary,
+                          ),
                           Spacing.hSm,
                           Expanded(
                             child: Text(
                               'Ringkasan AI disertakan di Markdown, TXT, HTML & DOCX',
-                              style: TextStyle(color: colors.primary, fontSize: FontSizes.micro),
+                              style: TextStyle(
+                                color: colors.primary,
+                                fontSize: FontSizes.micro,
+                              ),
                             ),
                           ),
                         ],
@@ -196,16 +280,21 @@ Future<bool> showEksporDialog(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(AppIcons.hide,
-                              size: IconSizes.xs, color: colors.primary),
+                          Icon(
+                            AppIcons.hide,
+                            size: IconSizes.xs,
+                            color: colors.primary,
+                          ),
                           Spacing.hSm,
                           Expanded(
                             child: Text(
                               'Mode Kepatuhan PDP aktif: data pribadi akan '
                               'disamarkan di file hasil ekspor. Transkrip '
                               'tersimpan tidak berubah.',
-                              style:
-                                  TextStyle(color: colors.primary, fontSize: FontSizes.micro),
+                              style: TextStyle(
+                                color: colors.primary,
+                                fontSize: FontSizes.micro,
+                              ),
                             ),
                           ),
                           TextButton(
@@ -221,7 +310,10 @@ Future<bool> showEksporDialog(
                     ),
                   Text(
                     'Semua file dalam 1 folder',
-                    style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
+                    style: TextStyle(
+                      color: colors.textTertiary,
+                      fontSize: FontSizes.micro,
+                    ),
                   ),
                 ],
               ),
@@ -230,10 +322,15 @@ Future<bool> showEksporDialog(
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(false),
-              child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: colors.textSecondary),
+              ),
             ),
             FilledButton.icon(
-              onPressed: selected.isEmpty ? null : () => Navigator.of(dialogCtx).pop(true),
+              onPressed: selected.isEmpty
+                  ? null
+                  : () => Navigator.of(dialogCtx).pop(true),
               icon: const Icon(AppIcons.folderOpen, size: IconSizes.md),
               label: const Text('Pilih Folder'),
             ),
@@ -257,15 +354,18 @@ Future<bool> showEksporDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(ctx).extension<AppColorSet>()?.surface ?? AppColors.light.surface,
+        backgroundColor:
+            Theme.of(ctx).extension<AppColorSet>()?.surface ??
+            AppColors.light.surface,
         content: Row(
           children: [
             const SizedBox(
-              width: 24, height: 24,
+              width: 24,
+              height: 24,
               child: CircularProgressIndicator(strokeWidth: 2.5),
             ),
             Spacing.hLg,
-            Text('Mengekspor ${selected.length} format...'),
+            Text('Mengekspor ${selected.length} format…'),
           ],
         ),
       ),
@@ -307,26 +407,17 @@ Future<bool> showEksporDialog(
     // Tutup loading dialog
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ekspor berhasil ke: $outputDir'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    AppToast.show(
+      context,
+      'Ekspor berhasil ke: $outputDir',
+      type: ToastType.success,
     );
     return true;
   } catch (e) {
     if (!context.mounted) return false;
     // Tutup loading dialog
     Navigator.of(context, rootNavigator: true).pop();
-    final colors =
-        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ekspor gagal: $e'),
-        backgroundColor: colors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.show(context, 'Ekspor gagal: $e', type: ToastType.error);
     return false;
   }
 }

@@ -49,7 +49,8 @@ class StreamToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Semantics(
       label: source.announcement(enabled: enabled),
@@ -59,9 +60,14 @@ class StreamToggle extends StatelessWidget {
         onTap: () => onChanged(!enabled),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.sm,
+          ),
           decoration: BoxDecoration(
-            color: enabled ? accent.withValues(alpha: 0.15) : colors.chipBackground,
+            color: enabled
+                ? accent.withValues(alpha: 0.15)
+                : colors.chipBackground,
             borderRadius: BorderRadius.circular(Radii.xl),
             border: Border.all(
               color: enabled ? accent.withValues(alpha: 0.4) : colors.border,

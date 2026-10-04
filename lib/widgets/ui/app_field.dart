@@ -143,7 +143,9 @@ class _AppTextFieldState extends State<AppTextField> {
             borderRadius: Radii.mdAll,
             border: Border.all(
               color: border,
-              width: _focused || hasError ? Strokes.focusRing : Strokes.hairline,
+              width: _focused || hasError
+                  ? Strokes.focusRing
+                  : Strokes.hairline,
             ),
             // A 3 px halo on focus, so the ring is visible even where the
             // field sits against a same-coloured neighbour.

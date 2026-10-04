@@ -157,7 +157,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -169,7 +170,10 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             // Step content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.xxl, vertical: Spacing.lg),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.xxl,
+                  vertical: Spacing.lg,
+                ),
                 child: _buildStepBody(),
               ),
             ),
@@ -223,9 +227,13 @@ class _WizardProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xxl, vertical: Spacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.xxl,
+        vertical: Spacing.md,
+      ),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(bottom: BorderSide(color: colors.divider)),
@@ -245,7 +253,9 @@ class _WizardProgress extends StatelessWidget {
                         height: 6,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(Radii.xs),
-                          color: isDone || isActive ? colors.primary : colors.border,
+                          color: isDone || isActive
+                              ? colors.primary
+                              : colors.border,
                         ),
                       ),
                     ),
@@ -261,11 +271,17 @@ class _WizardProgress extends StatelessWidget {
             children: [
               Text(
                 'Langkah ${step + 1} dari $total',
-                style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: FontSizes.body,
+                ),
               ),
               Text(
                 '${((step + 1) / total * 100).round()}%',
-                style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                style: TextStyle(
+                  color: colors.textTertiary,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ],
           ),
@@ -296,7 +312,8 @@ class _WizardNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
@@ -319,7 +336,9 @@ class _WizardNavigation extends StatelessWidget {
               if (onCancel != null)
                 TextButton(
                   onPressed: onCancel,
-                  style: TextButton.styleFrom(foregroundColor: colors.textSecondary),
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.textSecondary,
+                  ),
                   child: const Text('Tutup'),
                 ),
             ],
@@ -329,8 +348,13 @@ class _WizardNavigation extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.md),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.xl,
+                vertical: Spacing.md,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
             ),
             child: Text(isLast ? 'Selesai' : 'Lanjut'),
           ),
@@ -356,7 +380,8 @@ class _StepContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -372,13 +397,21 @@ class _StepContent extends StatelessWidget {
         Spacing.gapLg,
         Text(
           title,
-          style: TextStyle(color: colors.text, fontSize: FontSizes.headline, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: colors.text,
+            fontSize: FontSizes.headline,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         Spacing.gapMd,
         Text(
           description,
           textAlign: TextAlign.center,
-          style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.bodyLarge, height: 1.5),
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.bodyLarge,
+            height: 1.5,
+          ),
         ),
         if (child != null) ...[Spacing.gapXl, child!],
       ],
@@ -413,14 +446,15 @@ class _SpecDetectStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return _StepContent(
       icon: AppIcons.chip,
       title: '1. Deteksi Spesifikasi',
       description: detected
           ? 'Sistem Anda siap! Model direkomendasikan berdasarkan spesifikasi.'
-          : 'Memeriksa sistem...',
+          : 'Memeriksa sistem…',
       child: detected
           ? Container(
               padding: const EdgeInsets.all(Spacing.lg),
@@ -440,7 +474,9 @@ class _SpecDetectStep extends StatelessWidget {
                   _SpecRow(
                     icon: AppIcons.chip,
                     label: ramIsEstimate ? 'RAM (perkiraan)' : 'RAM',
-                    value: ramMb == null ? 'tidak diketahui' : _ramLabel(ramMb!),
+                    value: ramMb == null
+                        ? 'tidak diketahui'
+                        : _ramLabel(ramMb!),
                   ),
                   Spacing.gapMd,
                   _SpecRow(
@@ -475,12 +511,23 @@ class _SpecRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Row(
       children: [
-        Icon(icon, size: IconSizes.lg, color: highlighted ? colors.primary : colors.textSecondary),
+        Icon(
+          icon,
+          size: IconSizes.lg,
+          color: highlighted ? colors.primary : colors.textSecondary,
+        ),
         Spacing.hMd,
-        Text(label, style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body)),
+        Text(
+          label,
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.body,
+          ),
+        ),
         const Spacer(),
         Text(
           value,
@@ -522,7 +569,8 @@ class _ModelChoiceStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
       icon: AppIcons.model,
       title: '2. Pilih Model',
@@ -564,14 +612,18 @@ class _ModelChoiceStep extends StatelessWidget {
                             m.$2,
                             style: TextStyle(
                               color: colors.text,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                               fontSize: FontSizes.bodyLarge,
                             ),
                           ),
                           Text(
                             m.$3,
                             style: TextStyle(
-                              color: isSelected ? colors.primary : colors.textTertiary,
+                              color: isSelected
+                                  ? colors.primary
+                                  : colors.textTertiary,
                               fontSize: FontSizes.caption,
                             ),
                           ),
@@ -624,9 +676,15 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
       final mic = savedMic != null && inputs.any((d) => d.name == savedMic)
           ? savedMic
           : (inputs.isNotEmpty
-                ? inputs.firstWhere((d) => d.isDefault, orElse: () => inputs.first).name
+                ? inputs
+                      .firstWhere(
+                        (d) => d.isDefault,
+                        orElse: () => inputs.first,
+                      )
+                      .name
                 : null);
-      final speaker = savedSpeaker != null && outputs.any((d) => d.name == savedSpeaker)
+      final speaker =
+          savedSpeaker != null && outputs.any((d) => d.name == savedSpeaker)
           ? savedSpeaker
           : outputs
                 .firstWhere(
@@ -674,7 +732,9 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
     if (Platform.isLinux) {
       // PipeWire/PulseAudio expose every sink as a `.monitor` source; the
       // engine picks one automatically.
-      return _inputDevices.any((d) => d.name.toLowerCase().contains('monitor')) ||
+      return _inputDevices.any(
+            (d) => d.name.toLowerCase().contains('monitor'),
+          ) ||
           _outputDevices.isNotEmpty;
     }
     // Windows: WASAPI loopback needs no driver at all, only an output
@@ -697,17 +757,19 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
   String get _loopbackBody {
     if (_loopbackReady) {
       return switch (Platform.operatingSystem) {
-        'macos' => 'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
+        'macos' =>
+          'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
         'linux' =>
           'Trareon merekam suara sistem lewat monitor sink PipeWire/PulseAudio '
-              '— tidak perlu memasang apa pun.',
+              ', tidak perlu memasang apa pun.',
         _ =>
-          'Trareon merekam suara sistem lewat WASAPI loopback — tidak '
+          'Trareon merekam suara sistem lewat WASAPI loopback, tidak '
               'perlu memasang apa pun.',
       };
     }
     return switch (Platform.operatingSystem) {
-      'macos' => 'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
+      'macos' =>
+        'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
       'linux' =>
         'Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan '
             'PipeWire atau PulseAudio berjalan.',
@@ -735,7 +797,8 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final ready = _loopbackReady;
     final accent = ready ? colors.success : colors.warning;
     return _StepContent(
@@ -799,18 +862,24 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                       Spacing.gapSm,
                       Text(
                         _loopbackBody,
-                        style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: FontSizes.caption,
+                        ),
                       ),
                       if (!ready) ...[
                         Spacing.gapSm,
                         OutlinedButton.icon(
-                          onPressed: () => setState(() => _showGuide = !_showGuide),
+                          onPressed: () =>
+                              setState(() => _showGuide = !_showGuide),
                           icon: Icon(
                             _showGuide ? AppIcons.expandLess : AppIcons.help,
                             size: IconSizes.sm,
                           ),
                           label: Text(_showGuide ? 'Sembunyikan' : 'Panduan'),
-                          style: OutlinedButton.styleFrom(foregroundColor: colors.text),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.text,
+                          ),
                         ),
                         if (_showGuide) ...[
                           Spacing.gapSm,
@@ -822,7 +891,10 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                             ),
                             child: Text(
                               _loopbackGuide,
-                              style: const TextStyle(fontSize: FontSizes.caption, height: 1.5),
+                              style: const TextStyle(
+                                fontSize: FontSizes.caption,
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         ],
@@ -851,7 +923,8 @@ class _AudioDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     // The label used to be a constructor parameter the widget never
     // rendered, so both pickers were unlabelled dropdowns of device ids.
     return Column(
@@ -890,7 +963,12 @@ class _AudioDropdown extends StatelessWidget {
                         ),
                       )
                       .toList()
-                : [DropdownMenuItem(value: value, child: Text(value ?? 'Bawaan sistem'))],
+                : [
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(value ?? 'Bawaan sistem'),
+                    ),
+                  ],
             onChanged: onChanged,
           ),
         ),
@@ -960,7 +1038,9 @@ class _ToneTestStepState extends State<_ToneTestStep> {
       if (i < fadeLen) envelope = i / fadeLen;
       if (i > numSamples - fadeLen) envelope = (numSamples - i) / fadeLen;
       final sample =
-          (amplitude * envelope * math.sin(2 * math.pi * frequency * i / sampleRate))
+          (amplitude *
+                  envelope *
+                  math.sin(2 * math.pi * frequency * i / sampleRate))
               .round()
               .clamp(-32768, 32767);
       wav.setInt16(44 + i * 2, sample, Endian.little);
@@ -1028,17 +1108,21 @@ class _ToneTestStepState extends State<_ToneTestStep> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
       icon: AppIcons.waveform,
       title: '4. Uji Suara',
-      description: 'Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.',
+      description:
+          'Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.',
       child: Container(
         padding: const EdgeInsets.all(Spacing.lg),
         decoration: BoxDecoration(
           color: colors.surface,
           borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: _isPlaying ? colors.primary : colors.border),
+          border: Border.all(
+            color: _isPlaying ? colors.primary : colors.border,
+          ),
         ),
         child: Column(
           children: [
@@ -1106,13 +1190,16 @@ class _ToneTestStepState extends State<_ToneTestStep> {
               icon: Icon(_isPlaying ? AppIcons.waveform : AppIcons.play),
               label: Text(
                 _isPlaying
-                    ? 'Memutar...'
+                    ? 'Memutar…'
                     : (_outcome == _ToneOutcome.untested && !_awaitingAnswer
                           ? 'Putar Nada Uji'
                           : 'Putar Ulang'),
               ),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.lg,
+                  vertical: Spacing.md,
+                ),
               ),
             ),
           ],
@@ -1137,7 +1224,8 @@ class _ToneResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.all(Spacing.md),
       decoration: BoxDecoration(
@@ -1163,7 +1251,13 @@ class _ToneResultCard extends StatelessWidget {
                   ),
                 ),
                 Spacing.gapXs,
-                Text(body, style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption)),
+                Text(
+                  body,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: FontSizes.caption,
+                  ),
+                ),
               ],
             ),
           ),

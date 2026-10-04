@@ -11,9 +11,9 @@ import 'package:transcribe/app_version.dart';
 /// direction. This is the gate that keeps them together.
 void main() {
   String pubspecVersion() {
-    final line = File('pubspec.yaml')
-        .readAsLinesSync()
-        .firstWhere((l) => l.startsWith('version:'));
+    final line = File(
+      'pubspec.yaml',
+    ).readAsLinesSync().firstWhere((l) => l.startsWith('version:'));
     // "version: 1.0.0+1" -> "1.0.0"
     return line.split(':')[1].trim().split('+').first;
   }

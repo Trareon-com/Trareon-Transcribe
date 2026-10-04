@@ -20,9 +20,9 @@ void main() {
 
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    container
-        .read(batchUploadProvider.notifier)
-        .addFiles([for (var i = 0; i < fileCount; i++) '/tmp/rapat-$i.wav']);
+    container.read(batchUploadProvider.notifier).addFiles([
+      for (var i = 0; i < fileCount; i++) '/tmp/rapat-$i.wav',
+    ]);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -30,10 +30,7 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light(),
           home: const Scaffold(
-            body: Padding(
-              padding: EdgeInsets.all(12),
-              child: FileUploadZone(),
-            ),
+            body: Padding(padding: EdgeInsets.all(12), child: FileUploadZone()),
           ),
         ),
       ),

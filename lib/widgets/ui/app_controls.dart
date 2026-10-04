@@ -214,7 +214,9 @@ class AppSwitch extends StatelessWidget {
             color: trackColor,
             borderRadius: Radii.pillAll,
             border: Border.all(
-              color: value && on ? Colors.transparent : colors.borderInteractive,
+              color: value && on
+                  ? Colors.transparent
+                  : colors.borderInteractive,
             ),
           ),
           child: AnimatedAlign(
@@ -318,18 +320,20 @@ class AppCheckbox extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: AppText.body.c(
-                  !on
-                      ? colors.textDisabled
-                      : value && strikeWhenChecked
-                      ? colors.textTertiary
-                      : colors.text,
-                ).copyWith(
-                  decoration: value && strikeWhenChecked
-                      ? TextDecoration.lineThrough
-                      : null,
-                  decorationColor: colors.textTertiary,
-                ),
+                style: AppText.body
+                    .c(
+                      !on
+                          ? colors.textDisabled
+                          : value && strikeWhenChecked
+                          ? colors.textTertiary
+                          : colors.text,
+                    )
+                    .copyWith(
+                      decoration: value && strikeWhenChecked
+                          ? TextDecoration.lineThrough
+                          : null,
+                      decorationColor: colors.textTertiary,
+                    ),
               ),
             ),
           ],
@@ -465,10 +469,7 @@ class _MenuRow<T> extends StatelessWidget {
             style: AppText.body.c(fg),
           ),
         ),
-        if (entry.shortcut != null) ...[
-          Spacing.hLg,
-          KeyHint(entry.shortcut!),
-        ],
+        if (entry.shortcut != null) ...[Spacing.hLg, KeyHint(entry.shortcut!)],
       ],
     );
   }

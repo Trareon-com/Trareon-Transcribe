@@ -14,11 +14,16 @@ class SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const SettingsSection({super.key, required this.title, required this.children});
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -57,8 +62,15 @@ class SettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Divider(height: 1, thickness: 1, color: colors.divider, indent: 56, endIndent: 16);
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: colors.divider,
+      indent: 56,
+      endIndent: 16,
+    );
   }
 }
 
@@ -80,12 +92,16 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(Radii.lg),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         child: Row(
           children: [
             Icon(icon, size: IconSizes.lg, color: colors.textSecondary),
@@ -96,13 +112,21 @@ class SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w500, color: colors.text),
+                    style: TextStyle(
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w500,
+                      color: colors.text,
+                    ),
                   ),
                   if (subtitle != null) ...[
                     Spacing.gapXs,
                     Text(
                       subtitle!,
-                      style: TextStyle(fontSize: FontSizes.caption, color: colors.textTertiary, height: 1.3),
+                      style: TextStyle(
+                        fontSize: FontSizes.caption,
+                        color: colors.textTertiary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ],
@@ -134,15 +158,25 @@ class SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     // One node per row: a reader announcing the icon, then the label, then the
     // helper text, then "switch" is four stops for one decision.
     return MergeSemantics(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         child: Row(
           children: [
-            ExcludeSemantics(child: Icon(icon, size: IconSizes.lg, color: colors.textSecondary)),
+            ExcludeSemantics(
+              child: Icon(
+                icon,
+                size: IconSizes.lg,
+                color: colors.textSecondary,
+              ),
+            ),
             Spacing.hMd,
             Expanded(
               child: Column(
@@ -150,12 +184,20 @@ class SettingsSwitch extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w500, color: colors.text),
+                    style: TextStyle(
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w500,
+                      color: colors.text,
+                    ),
                   ),
                   Spacing.gapXs,
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: FontSizes.caption, color: colors.textTertiary, height: 1.3),
+                    style: TextStyle(
+                      fontSize: FontSizes.caption,
+                      color: colors.textTertiary,
+                      height: 1.3,
+                    ),
                   ),
                 ],
               ),
@@ -191,9 +233,13 @@ class CompactDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.chipBackground,
         borderRadius: BorderRadius.circular(Radii.md),
@@ -210,7 +256,10 @@ class CompactDropdown<T> extends StatelessWidget {
                   value: item,
                   child: Text(
                     labelBuilder(item),
-                    style: TextStyle(fontSize: FontSizes.body, color: colors.text),
+                    style: TextStyle(
+                      fontSize: FontSizes.body,
+                      color: colors.text,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -220,7 +269,11 @@ class CompactDropdown<T> extends StatelessWidget {
             if (newValue != null) onChanged(newValue);
           },
           dropdownColor: colors.surface,
-          icon: Icon(AppIcons.chevronDown, size: IconSizes.md, color: colors.textSecondary),
+          icon: Icon(
+            AppIcons.chevronDown,
+            size: IconSizes.md,
+            color: colors.textSecondary,
+          ),
           style: TextStyle(fontSize: FontSizes.body, color: colors.text),
           borderRadius: BorderRadius.circular(Radii.md),
         ),
@@ -236,12 +289,16 @@ class InfoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: () => _showInfoDialog(context, colors),
       borderRadius: BorderRadius.circular(Radii.lg),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: Spacing.xs,
+        ),
         decoration: BoxDecoration(
           color: colors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(Radii.lg),
@@ -254,7 +311,11 @@ class InfoBadge extends StatelessWidget {
             Spacing.hXs,
             Text(
               'Penjelasan',
-              style: TextStyle(fontSize: FontSizes.micro, fontWeight: FontWeight.w600, color: colors.primary),
+              style: TextStyle(
+                fontSize: FontSizes.micro,
+                fontWeight: FontWeight.w600,
+                color: colors.primary,
+              ),
             ),
           ],
         ),

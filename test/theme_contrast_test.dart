@@ -122,10 +122,7 @@ void main() {
         const selected = <WidgetState>{WidgetState.selected};
         final fg = style.foregroundColor!.resolve(selected)!;
         final bg = style.backgroundColor!.resolve(selected)!;
-        expect(
-          contrastRatio(fg, bg),
-          greaterThanOrEqualTo(kWcagAaNormalText),
-        );
+        expect(contrastRatio(fg, bg), greaterThanOrEqualTo(kWcagAaNormalText));
       });
     }
   });

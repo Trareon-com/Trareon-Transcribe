@@ -37,13 +37,15 @@ class DiscardSession extends RecoveryChoice {
 Future<RecoveryChoice?> showRecoveryDialog(
   BuildContext context,
   List<rust_session.RecoverableSession> sessions, {
+
   /// Recovery resumes capture, and only one session can be live at a
   /// time. Disabled (with the reason shown) rather than silently ignored.
   bool canRecover = true,
 }) {
   return showDialog<RecoveryChoice>(
     context: context,
-    builder: (context) => _RecoveryDialog(sessions: sessions, canRecover: canRecover),
+    builder: (context) =>
+        _RecoveryDialog(sessions: sessions, canRecover: canRecover),
   );
 }
 
@@ -55,7 +57,8 @@ class _RecoveryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return AlertDialog(
       title: const Text('Pulihkan sesi yang terhenti'),
       content: SizedBox(
@@ -68,14 +71,18 @@ class _RecoveryDialog extends StatelessWidget {
               sessions.length == 1
                   ? 'Satu sesi berhenti tanpa disimpan. Berikut isinya:'
                   : '${sessions.length} sesi berhenti tanpa disimpan. Berikut isinya:',
-              style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: FontSizes.body,
+              ),
             ),
             Spacing.gapMd,
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: sessions.length,
-                separatorBuilder: (_, _) => Divider(color: colors.divider, height: 16),
+                separatorBuilder: (_, _) =>
+                    Divider(color: colors.divider, height: 16),
                 itemBuilder: (context, index) => _RecoverableTile(
                   session: sessions[index],
                   canRecover: canRecover,
@@ -117,7 +124,9 @@ class _RecoverableTile extends StatelessWidget {
     if (session.speakerAudioSecs > 0) {
       audio.add('audio sistem ${formatDurationId(session.speakerAudioSecs)}');
     }
-    parts.add(audio.isEmpty ? 'tanpa rekaman audio' : 'audio: ${audio.join(', ')}');
+    parts.add(
+      audio.isEmpty ? 'tanpa rekaman audio' : 'audio: ${audio.join(', ')}',
+    );
     return parts.join(' · ');
   }
 
@@ -132,8 +141,10 @@ class _RecoverableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final hasAnything = session.segmentCount > 0 ||
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final hasAnything =
+        session.segmentCount > 0 ||
         session.micAudioSecs > 0 ||
         session.speakerAudioSecs > 0;
 
@@ -151,7 +162,10 @@ class _RecoverableTile extends StatelessWidget {
         Spacing.gapXs,
         Text(
           '$_startedAt · ${formatDurationId(session.durationSecs)}',
-          style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.caption,
+          ),
         ),
         Spacing.gapXs,
         Text(
@@ -166,7 +180,8 @@ class _RecoverableTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton.icon(
-              onPressed: () => Navigator.of(context).pop(DiscardSession(session)),
+              onPressed: () =>
+                  Navigator.of(context).pop(DiscardSession(session)),
               icon: const Icon(AppIcons.delete, size: IconSizes.sm),
               label: const Text('Hapus'),
               style: TextButton.styleFrom(foregroundColor: colors.error),

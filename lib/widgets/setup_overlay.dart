@@ -33,8 +33,7 @@ class SetupOverlay extends ConsumerStatefulWidget {
   const SetupOverlay({super.key, required this.child, this.runChecks});
 
   /// Creates a SetupOverlay that skips preflight checks.
-  const SetupOverlay.test({super.key, required this.child})
-      : runChecks = null;
+  const SetupOverlay.test({super.key, required this.child}) : runChecks = null;
 
   @override
   ConsumerState<SetupOverlay> createState() => _SetupOverlayState();
@@ -69,7 +68,8 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     if (result == null || _dismissed) return widget.child;
 
@@ -91,18 +91,27 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
               child: Row(
                 children: [
-                  Icon(AppIcons.warning,
-                      size: IconSizes.md, color: colors.warning),
+                  Icon(
+                    AppIcons.warning,
+                    size: IconSizes.md,
+                    color: colors.warning,
+                  ),
                   Spacing.hSm,
                   Expanded(
                     child: Semantics(
                       liveRegion: true,
                       child: Text(
                         'Perlu diperiksa: ${summariseNames(result.warnings)}.',
-                        style: TextStyle(color: colors.text, fontSize: FontSizes.body),
+                        style: TextStyle(
+                          color: colors.text,
+                          fontSize: FontSizes.body,
+                        ),
                       ),
                     ),
                   ),
@@ -141,7 +150,8 @@ class _BlockingFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Scaffold(
       backgroundColor: colors.background,
       body: Center(
@@ -182,14 +192,19 @@ class _BlockingFailure extends StatelessWidget {
                         Text(
                           messageOf(check),
                           style: TextStyle(
-                              color: colors.textSecondary, fontSize: FontSizes.body),
+                            color: colors.textSecondary,
+                            fontSize: FontSizes.body,
+                          ),
                         ),
                         if (check.remediation != null) ...[
                           Spacing.gapXs,
                           Text(
                             check.remediation!,
                             style: TextStyle(
-                                color: colors.text, fontSize: FontSizes.body, height: 1.35),
+                              color: colors.text,
+                              fontSize: FontSizes.body,
+                              height: 1.35,
+                            ),
                           ),
                         ],
                       ],

@@ -41,7 +41,11 @@ class ModelDownloadCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(_iconFor(status), size: IconSizes.md, color: _colorFor(status, colors)),
+              Icon(
+                _iconFor(status),
+                size: IconSizes.md,
+                color: _colorFor(status, colors),
+              ),
               Spacing.hSm,
               Expanded(
                 child: Column(
@@ -58,7 +62,10 @@ class ModelDownloadCard extends StatelessWidget {
                     Spacing.gapXs,
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
+                      style: TextStyle(
+                        fontSize: FontSizes.micro,
+                        color: colors.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -97,25 +104,25 @@ class ModelDownloadCard extends StatelessWidget {
   }
 
   IconData _iconFor(DownloadStatus s) => switch (s) {
-        DownloadStatus.downloading => AppIcons.downloading,
-        DownloadStatus.ready => AppIcons.check,
-        DownloadStatus.error => AppIcons.error,
-        DownloadStatus.idle => AppIcons.cloudDownload,
-      };
+    DownloadStatus.downloading => AppIcons.downloading,
+    DownloadStatus.ready => AppIcons.check,
+    DownloadStatus.error => AppIcons.error,
+    DownloadStatus.idle => AppIcons.cloudDownload,
+  };
 
   Color _colorFor(DownloadStatus s, AppColorSet c) => switch (s) {
-        DownloadStatus.ready => c.success,
-        DownloadStatus.error => c.error,
-        _ => c.primary,
-      };
+    DownloadStatus.ready => c.success,
+    DownloadStatus.error => c.error,
+    _ => c.primary,
+  };
 
   String _statusText() => switch (status) {
-        DownloadStatus.idle => 'Belum diunduh',
-        DownloadStatus.downloading =>
-          '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
-        DownloadStatus.ready => 'Siap',
-        DownloadStatus.error => 'Gagal — coba lagi',
-      };
+    DownloadStatus.idle => 'Belum diunduh',
+    DownloadStatus.downloading =>
+      '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
+    DownloadStatus.ready => 'Siap',
+    DownloadStatus.error => 'Gagal, coba lagi',
+  };
 }
 
 enum DownloadStatus { idle, downloading, ready, error }

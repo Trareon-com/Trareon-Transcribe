@@ -220,6 +220,11 @@ abstract final class Measure {
   /// not produce unreadable 200-character lines.
   static const double reading = 680;
 
+  /// 960: [reading] plus the transcript's speaker column, its row actions and
+  /// the padding either side. The width the transcript column is capped at,
+  /// so the prose itself lands near [reading].
+  static const double transcriptColumn = 960;
+
   /// 560: the widest a hero column (empty state, onboarding step) gets.
   static const double hero = 560;
 

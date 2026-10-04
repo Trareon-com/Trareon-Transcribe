@@ -201,10 +201,7 @@ Future<bool> showAppConfirm({
                 onPressed: () => Navigator.of(context).pop(true),
               ),
       ],
-      child: Text(
-        message,
-        style: AppText.body.c(context.colors.textSecondary),
-      ),
+      child: Text(message, style: AppText.body.c(context.colors.textSecondary)),
     ),
   );
   return result ?? false;

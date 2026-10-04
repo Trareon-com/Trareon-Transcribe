@@ -40,8 +40,9 @@ void main() {
   /// The GUI bug this guards: the record button sat on "⚡ Memulai..." while
   /// the engine was wedged, so the user had no way to tell a slow start from
   /// a dead one and no way back to idle.
-  testWidgets('a failed start returns the button to idle and shows the error',
-      (WidgetTester tester) async {
+  testWidgets('a failed start returns the button to idle and shows the error', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -54,8 +55,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Mulai'), findsOneWidget);
-    await tester.tap(find.text('Mulai'));
+    expect(find.text('Mulai Rekam'), findsOneWidget);
+    await tester.tap(find.text('Mulai Rekam'));
     await tester.pumpAndSettle();
 
     expect(bridge.startAttempts, 1);
@@ -65,7 +66,7 @@ void main() {
       reason: 'the button must not stay in its busy state after a failure',
     );
     expect(
-      find.text('Mulai'),
+      find.text('Mulai Rekam'),
       findsOneWidget,
       reason: 'the button must be pressable again',
     );
@@ -80,8 +81,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('a mid-session capture failure is surfaced as a toast',
-      (WidgetTester tester) async {
+  testWidgets('a mid-session capture failure is surfaced as a toast', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -98,16 +100,23 @@ void main() {
 
     // `pump`, not `pumpAndSettle`: a recording session runs an elapsed-time
     // timer and a pulsing button animation, so the tree never settles.
-    await tester.tap(find.text('Mulai'));
+    await tester.tap(find.text('Mulai Rekam'));
     await tester.pump();
     await tester.pump();
-    expect(find.text('Berhenti'), findsOneWidget, reason: 'session should be recording');
+    expect(
+      find.text('Berhenti'),
+      findsOneWidget,
+      reason: 'session should be recording',
+    );
 
-    bridge.notices.add(const SessionNotice(
-      level: SessionNoticeLevel.error,
-      source: 'mic',
-      message: 'Mikrofon berhenti merekam: perangkat audio terus melaporkan error.',
-    ));
+    bridge.notices.add(
+      const SessionNotice(
+        level: SessionNoticeLevel.error,
+        source: 'mic',
+        message:
+            'Mikrofon berhenti merekam: perangkat audio terus melaporkan error.',
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -120,28 +129,31 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  test('a failed start leaves the session model idle, not half-recording',
-      () async {
-    final bridge = _FailingStartBridge();
-    final container = ProviderContainer(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-    );
-    addTearDown(container.dispose);
+  test(
+    'a failed start leaves the session model idle, not half-recording',
+    () async {
+      final bridge = _FailingStartBridge();
+      final container = ProviderContainer(
+        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+      );
+      addTearDown(container.dispose);
 
-    await expectLater(
-      container.read(sessionProvider.notifier).start(),
-      throwsA(isA<Exception>()),
-    );
+      await expectLater(
+        container.read(sessionProvider.notifier).start(),
+        throwsA(isA<Exception>()),
+      );
 
-    final state = container.read(sessionProvider);
-    expect(state.lifecycle, SessionLifecycle.idle);
-    expect(
-      state.sessionId,
-      isNull,
-      reason: 'a session id from a failed start would leak into stop()/export',
-    );
-    await settingsToSettle();
-  });
+      final state = container.read(sessionProvider);
+      expect(state.lifecycle, SessionLifecycle.idle);
+      expect(
+        state.sessionId,
+        isNull,
+        reason:
+            'a session id from a failed start would leak into stop()/export',
+      );
+      await settingsToSettle();
+    },
+  );
 
   test('the notice provider is empty until a session exists', () async {
     final bridge = _NoticeBridge();

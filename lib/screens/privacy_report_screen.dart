@@ -12,7 +12,8 @@ class PrivacyReportScreen extends ConsumerStatefulWidget {
   const PrivacyReportScreen({super.key});
 
   @override
-  ConsumerState<PrivacyReportScreen> createState() => _PrivacyReportScreenState();
+  ConsumerState<PrivacyReportScreen> createState() =>
+      _PrivacyReportScreenState();
 }
 
 class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
@@ -21,7 +22,10 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _ticker = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => setState(() {}),
+    );
   }
 
   @override
@@ -35,7 +39,8 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
     final report = ref.watch(privacyReportProvider);
     final elapsed = DateTime.now().difference(report.launchedAt);
     final isClean = report.networkCallCount == 0;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Laporan Privasi')),
@@ -62,7 +67,9 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
                           '${report.networkCallCount} panggilan jaringan sejak aplikasi dibuka',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        Text('Sesi berjalan selama ${_formatDuration(elapsed)}'),
+                        Text(
+                          'Sesi berjalan selama ${_formatDuration(elapsed)}',
+                        ),
                       ],
                     ),
                   ),
@@ -93,19 +100,19 @@ class _PrivacyReportScreenState extends ConsumerState<PrivacyReportScreen> {
           Spacing.gapLg,
           const Text(
             'Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi '
-            'berlangsung — baik saat merekam langsung maupun saat mengimpor berkas. '
+            'berlangsung, baik saat merekam langsung maupun saat mengimpor berkas. '
             'Audio tidak pernah keluar '
             'dari perangkat ini.\n\n'
             'Ada empat aktivitas jaringan yang sah, dan semuanya Anda mulai sendiri:\n'
-            '1. Unduh model whisper — dari huggingface.co, hanya saat Anda memilih model '
+            '1. Unduh model whisper: dari huggingface.co, hanya saat Anda memilih model '
             'yang belum ada di perangkat.\n'
-            '2. Ringkasan AI — mengirim teks transkrip (bukan audio) ke endpoint yang Anda '
+            '2. Ringkasan AI: mengirim teks transkrip (bukan audio) ke endpoint yang Anda '
             'atur sendiri. Fitur ini mati secara bawaan dan defaultnya menunjuk ke Ollama '
             'di komputer ini (localhost), jadi bawaannya pun tidak keluar dari perangkat.\n'
-            '3. Cek pembaruan — mengambil satu berkas versi dari raw.githubusercontent.com '
+            '3. Cek pembaruan: mengambil satu berkas versi dari raw.githubusercontent.com '
             'saat Anda menekan "Cek Pembaruan". Tidak ada yang diunduh atau dijalankan '
             'secara otomatis.\n'
-            '4. "Lihat Rilis" — membuka halaman rilis di peramban Anda.\n\n'
+            '4. "Lihat Rilis": membuka halaman rilis di peramban Anda.\n\n'
             'Keempatnya tercatat di riwayat di atas, lengkap dengan tujuannya. Setiap '
             'titik di kode yang bisa memulai salah satunya wajib mencatat dirinya sendiri '
             'lebih dulu; hal itu diuji otomatis (test/privacy_proof_test.dart).',

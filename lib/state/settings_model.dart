@@ -39,8 +39,9 @@ class SettingsSaveFailure {
 
 /// The last settings write that failed, or null. Watched by the settings
 /// UI, which shows a banner with a retry until the write succeeds.
-final settingsSaveFailureProvider =
-    StateProvider<SettingsSaveFailure?>((ref) => null);
+final settingsSaveFailureProvider = StateProvider<SettingsSaveFailure?>(
+  (ref) => null,
+);
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final RustBridge _bridge;
@@ -50,7 +51,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   bool _userActed = false;
 
   SettingsNotifier(this._bridge, {this.onSaveFailure})
-      : super(AppSettings.defaults()) {
+    : super(AppSettings.defaults()) {
     _load();
   }
 
@@ -81,7 +82,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       summaryTemplates: loaded.summaryTemplates,
       notulen: loaded.notulen,
       autoRetranscribe: loaded.autoRetranscribe,
-      defaultExportFormat: DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
+      defaultExportFormat:
+          DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
       micDeviceId: DartPrefs.instance.getString('micDeviceId'),
       speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
       progressiveEnabled: loaded.progressiveEnabled,
@@ -110,7 +112,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> _backgroundBenchmark(AppSettings settings) async {
     if (state.rtfScore != 0.0) return;
-    final q5Path = modelPathForId('large-v3-turbo-q5', libraryPath: settings.libraryPath);
+    final q5Path = modelPathForId(
+      'large-v3-turbo-q5',
+      libraryPath: settings.libraryPath,
+    );
     final q5File = File(q5Path);
     if (!await q5File.exists()) return;
     try {
@@ -127,7 +132,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   // kKnownModelIds (see settings_side_panel.dart) so an out-of-catalog
   // value can't crash it, without discarding the user's actual selection.
   AppSettings _sanitizeDefaultModel(AppSettings settings) {
-    if (isModelAvailable(settings.defaultModel, libraryPath: settings.libraryPath)) {
+    if (isModelAvailable(
+      settings.defaultModel,
+      libraryPath: settings.libraryPath,
+    )) {
       return settings;
     }
     const fallback = 'base';
@@ -155,13 +163,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _report(null);
     } catch (e) {
       state = previous;
-      _report(SettingsSaveFailure(
-        label: label,
-        message: '$e',
-        pending: next,
-        saveToBridge: saveToBridge,
-        savePrefs: savePrefs,
-      ));
+      _report(
+        SettingsSaveFailure(
+          label: label,
+          message: '$e',
+          pending: next,
+          saveToBridge: saveToBridge,
+          savePrefs: savePrefs,
+        ),
+      );
     }
   }
 
@@ -190,16 +200,18 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _apply(state.copyWith(theme: theme), label: 'Tema');
 
   Future<void> toggleTheme() async {
-    final next = state.theme == AppThemeMode.dark ? AppThemeMode.light : AppThemeMode.dark;
+    final next = state.theme == AppThemeMode.dark
+        ? AppThemeMode.light
+        : AppThemeMode.dark;
     await setTheme(next);
   }
 
   Future<void> setProgressiveEnabled(bool enabled) => _apply(
-        state.copyWith(progressiveEnabled: enabled),
-        // Rust owns this now. It used to be written to DartPrefs and never
-        // read back, so the toggle silently reverted to "on" on every launch.
-        label: 'Cepat dulu, lalu diperhalus',
-      );
+    state.copyWith(progressiveEnabled: enabled),
+    // Rust owns this now. It used to be written to DartPrefs and never
+    // read back, so the toggle silently reverted to "on" on every launch.
+    label: 'Cepat dulu, lalu diperhalus',
+  );
 
   Future<void> setGpuEnabled(bool enabled) =>
       _apply(state.copyWith(gpuEnabled: enabled), label: 'Akselerasi GPU');
@@ -208,23 +220,23 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _apply(state.copyWith(gpuDevice: device), label: 'Perangkat GPU');
 
   Future<void> setRtfScore(double score) => _apply(
-        state.copyWith(rtfScore: score),
-        label: 'Skor benchmark',
-        saveToBridge: false,
-        savePrefs: () async {
-          DartPrefs.instance.setDouble('rtfScore', score);
-          await DartPrefs.instance.save();
-        },
-      );
+    state.copyWith(rtfScore: score),
+    label: 'Skor benchmark',
+    saveToBridge: false,
+    savePrefs: () async {
+      DartPrefs.instance.setDouble('rtfScore', score);
+      await DartPrefs.instance.save();
+    },
+  );
 
   Future<void> setHptMode(HptMode mode) => _apply(
-        state.copyWith(hptMode: mode),
-        label: 'Cara transkripsi bertahap',
-        savePrefs: () async {
-          DartPrefs.instance.setInt('hptMode', mode.index);
-          await DartPrefs.instance.save();
-        },
-      );
+    state.copyWith(hptMode: mode),
+    label: 'Cara transkripsi bertahap',
+    savePrefs: () async {
+      DartPrefs.instance.setInt('hptMode', mode.index);
+      await DartPrefs.instance.save();
+    },
+  );
 
   /// Updates the opt-in AI-summary configuration. Persisted through Rust
   /// alongside the rest of the settings (see `SummarySettings` for why the
@@ -256,16 +268,17 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       setGlossaryTerms([...state.glossary.terms, term]);
 
   Future<void> removeGlossaryTerm(String term) => setGlossaryTerms(
-        state.glossary.terms
-            .where((t) => t.toLowerCase() != term.toLowerCase())
-            .toList(),
-      );
+    state.glossary.terms
+        .where((t) => t.toLowerCase() != term.toLowerCase())
+        .toList(),
+  );
 
   // ── Template ringkasan buatan sendiri (F8) ────────────────────────────
 
   Future<void> saveSummaryTemplate(CustomSummaryTemplate template) {
-    final existing = state.summaryTemplates
-        .indexWhere((candidate) => candidate.id == template.id);
+    final existing = state.summaryTemplates.indexWhere(
+      (candidate) => candidate.id == template.id,
+    );
     final next = [...state.summaryTemplates];
     if (existing >= 0) {
       next[existing] = template;
@@ -279,12 +292,13 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> deleteSummaryTemplate(String id) => _apply(
-        state.copyWith(
-          summaryTemplates:
-              state.summaryTemplates.where((t) => t.id != id).toList(),
-        ),
-        label: 'Template ringkasan',
-      );
+    state.copyWith(
+      summaryTemplates: state.summaryTemplates
+          .where((t) => t.id != id)
+          .toList(),
+    ),
+    label: 'Template ringkasan',
+  );
 
   // ── Notulen resmi (F2) ────────────────────────────────────────────────
 
@@ -294,9 +308,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   // ── Transkrip ulang otomatis (F5) ─────────────────────────────────────
 
   Future<void> setAutoRetranscribe(bool? enabled) => _apply(
-        state.copyWith(autoRetranscribe: enabled),
-        label: 'Perhalus transkrip otomatis',
-      );
+    state.copyWith(autoRetranscribe: enabled),
+    label: 'Perhalus transkrip otomatis',
+  );
 
   Future<void> setDefaultModel(String modelId) =>
       _apply(state.copyWith(defaultModel: modelId), label: 'Model default');
@@ -311,54 +325,54 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
 
   Future<void> setNoiseReduction(bool enabled) => _apply(
-        state.copyWith(noiseReduction: enabled),
-        label: 'Pengurangan derau',
-      );
+    state.copyWith(noiseReduction: enabled),
+    label: 'Pengurangan derau',
+  );
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
-        minutes == null
-            ? state.copyWith(clearAutoStop: true)
-            : state.copyWith(autoStopMinutes: minutes),
-        label: 'Berhenti sendiri saat sunyi',
-      );
+    minutes == null
+        ? state.copyWith(clearAutoStop: true)
+        : state.copyWith(autoStopMinutes: minutes),
+    label: 'Berhenti sendiri saat sunyi',
+  );
 
   Future<void> setDefaultExportFormat(String format) => _apply(
-        state.copyWith(defaultExportFormat: format),
-        label: 'Format ekspor default',
-        savePrefs: () async {
-          DartPrefs.instance.setString('defaultExportFormat', format);
-          await DartPrefs.instance.save();
-        },
-      );
+    state.copyWith(defaultExportFormat: format),
+    label: 'Format ekspor default',
+    savePrefs: () async {
+      DartPrefs.instance.setString('defaultExportFormat', format);
+      await DartPrefs.instance.save();
+    },
+  );
 
   Future<void> setLibraryPath(String path) =>
       _apply(state.copyWith(libraryPath: path), label: 'Folder output');
 
   Future<void> setMicDeviceName(String? name) => _apply(
-        state.copyWith(micDeviceId: name),
-        label: 'Mikrofon',
-        savePrefs: () async {
-          if (name != null) {
-            DartPrefs.instance.setString('micDeviceId', name);
-          } else {
-            DartPrefs.instance.remove('micDeviceId');
-          }
-          await DartPrefs.instance.save();
-        },
-      );
+    state.copyWith(micDeviceId: name),
+    label: 'Mikrofon',
+    savePrefs: () async {
+      if (name != null) {
+        DartPrefs.instance.setString('micDeviceId', name);
+      } else {
+        DartPrefs.instance.remove('micDeviceId');
+      }
+      await DartPrefs.instance.save();
+    },
+  );
 
   Future<void> setSpeakerDeviceName(String? name) => _apply(
-        state.copyWith(speakerDeviceId: name),
-        label: 'Pengeras suara',
-        savePrefs: () async {
-          if (name != null) {
-            DartPrefs.instance.setString('speakerDeviceId', name);
-          } else {
-            DartPrefs.instance.remove('speakerDeviceId');
-          }
-          await DartPrefs.instance.save();
-        },
-      );
+    state.copyWith(speakerDeviceId: name),
+    label: 'Pengeras suara',
+    savePrefs: () async {
+      if (name != null) {
+        DartPrefs.instance.setString('speakerDeviceId', name);
+      } else {
+        DartPrefs.instance.remove('speakerDeviceId');
+      }
+      await DartPrefs.instance.save();
+    },
+  );
 }
 
 /// Trims blanks and case-insensitive duplicates while keeping the user's
@@ -377,7 +391,9 @@ List<String> dedupeTerms(Iterable<String> terms) {
   return out;
 }
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((
+  ref,
+) {
   return SettingsNotifier(
     ref.read(rustBridgeProvider),
     onSaveFailure: (failure) =>

@@ -559,15 +559,32 @@ icon rail** with tooltips and count badges; the collapse animates 200 ms
 
 ### 7.3 Transcript player
 
-Document layout: the transcript column is capped at `Measure.reading` and
-centred. Sticky player bar at the bottom: elevation 4, `xl` radius, 12px inset
-from the edges, containing play/pause, the elapsed/total in `mono` tabular, a
-**waveform scrubber** (pre-computed peaks, `n200`/`s4` unplayed, `accent`
-played, a 2px `accent` playhead), and a speed `AppMenu`. The active segment gets
-an `accentSubtle` fill and a 2px `accent` left rail and auto-scrolls. Summary is
-a side card at `wide` and a top card below `wide`, sectioned (`Ringkasan`,
-`Keputusan`, `Tindak lanjut`); action items are real checkboxes; provenance
-renders as `AppChip`s that seek the audio.
+Document layout: the transcript column is capped at `Measure.transcriptColumn`
+(960, which puts the prose itself near `Measure.reading`) and centred, with a
+148 px speaker column so "Pembicara 1" is never truncated.
+
+The player is a **sticky bar attached to the bottom edge**, not a floating
+island: its content is capped at the same measure as the transcript and
+centred, so the scrubber lines up with the text it scrubs instead of
+stretching across 1920 px, and it never occludes a line. It holds play/pause,
++/-10 s, the elapsed and total in `mono` tabular, a speed `AppMenu`, and the
+scrubber.
+
+The scrubber is `SpeechTimeline`, and the name is deliberate. It looks and
+behaves like an audio waveform, but each bar is the fraction of its time slice
+that the **transcript** covers with speech, not an audio peak: decoding a
+three-hour WAV for peaks would cost more than the whole screen, and inventing
+peaks would be fabricated data in a production UI. The gaps are where nobody
+was talking, which is what somebody scrubbing a meeting is actually looking
+for. Played bars are `accent`, unplayed are `hairlineStrong`, and a 2 px
+`accent` playhead marks the position. A session whose audio the retention
+policy deleted still renders the bars, disabled: where people spoke is worth
+seeing even when the recording cannot be played.
+
+The active segment gets an `accentSubtle` fill and a 2 px `accent` left rail
+and auto-scrolls. Summary is a side card at `wide` and a top card below
+`wide`, sectioned (`Ringkasan`, `Keputusan`, `Tindak lanjut`); action items are
+real checkboxes; provenance renders as `AppChip`s that seek the audio.
 
 ### 7.4 Settings
 

@@ -66,7 +66,7 @@ String waktuIndonesia(DateTime start, double durationSeconds) {
   String clock(DateTime at) =>
       '${at.hour.toString().padLeft(2, '0')}.${at.minute.toString().padLeft(2, '0')}';
   final end = start.add(Duration(seconds: durationSeconds.round()));
-  return '${clock(start)} – ${clock(end)} WIB';
+  return '${clock(start)} - ${clock(end)} WIB';
 }
 
 /// Speaker labels worth offering as peserta.
@@ -255,7 +255,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     );
     if (!mounted) return;
     setState(() {
-      _form = draft == null && widget.saved == null &&
+      _form =
+          draft == null &&
+              widget.saved == null &&
               widget.summary.trim().isNotEmpty
           // No parse, but there *is* a summary — do not silently lose it.
           ? form.copyWith(pembahasan: widget.summary.trim())
@@ -305,7 +307,8 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return AlertDialog(
       backgroundColor: colors.surface,
@@ -327,47 +330,56 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                     Spacing.gapLg,
                     _sectionLabel('Identitas rapat', colors),
                     Spacing.gapSm,
-                    _field('judul', 'Judul Rapat', _form.judul,
-                        (v) => _form = _form.copyWith(judul: v)),
+                    _field(
+                      'judul',
+                      'Judul Rapat',
+                      _form.judul,
+                      (v) => _form = _form.copyWith(judul: v),
+                    ),
                     if (_form.variant == NotulenVariant.dinas) ...[
                       Spacing.gapMd,
-                      _field('nomor', 'Nomor Notulen', _form.nomor,
-                          (v) => _form = _form.copyWith(nomor: v),
-                          hint: 'mis. ND-12/AG.3/2026'),
+                      _field(
+                        'nomor',
+                        'Nomor Notulen',
+                        _form.nomor,
+                        (v) => _form = _form.copyWith(nomor: v),
+                        hint: 'mis. ND-12/AG.3/2026',
+                      ),
                       Spacing.gapMd,
-                      _field('instansi', 'Instansi (kop surat)', _form.instansi,
-                          (v) => _form = _form.copyWith(instansi: v)),
+                      _field(
+                        'instansi',
+                        'Instansi (kop surat)',
+                        _form.instansi,
+                        (v) => _form = _form.copyWith(instansi: v),
+                      ),
                       Spacing.gapMd,
-                      _field('unitKerja', 'Unit kerja (baris kedua kop)',
-                          _form.unitKerja,
-                          (v) => _form = _form.copyWith(unitKerja: v)),
+                      _field(
+                        'unitKerja',
+                        'Unit kerja (baris kedua kop)',
+                        _form.unitKerja,
+                        (v) => _form = _form.copyWith(unitKerja: v),
+                      ),
                     ],
                     Spacing.gapMd,
                     Row(
                       children: [
                         Expanded(
-                          child: _field('hari', 'Hari', _form.hari,
-                              (v) => _form = _form.copyWith(hari: v)),
+                          child: _field(
+                            'hari',
+                            'Hari',
+                            _form.hari,
+                            (v) => _form = _form.copyWith(hari: v),
+                          ),
                         ),
                         const SizedBox(width: Spacing.md),
                         Expanded(
                           flex: 2,
-                          child: _field('tanggal', 'Tanggal', _form.tanggal,
-                              (v) => _form = _form.copyWith(tanggal: v)),
-                        ),
-                      ],
-                    ),
-                    Spacing.gapMd,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _field('waktu', 'Waktu', _form.waktu,
-                              (v) => _form = _form.copyWith(waktu: v)),
-                        ),
-                        const SizedBox(width: Spacing.md),
-                        Expanded(
-                          child: _field('tempat', 'Tempat/Media', _form.tempat,
-                              (v) => _form = _form.copyWith(tempat: v)),
+                          child: _field(
+                            'tanggal',
+                            'Tanggal',
+                            _form.tanggal,
+                            (v) => _form = _form.copyWith(tanggal: v),
+                          ),
                         ),
                       ],
                     ),
@@ -376,13 +388,42 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       children: [
                         Expanded(
                           child: _field(
-                              'pimpinan', 'Pimpinan Rapat', _form.pimpinan,
-                              (v) => _form = _form.copyWith(pimpinan: v)),
+                            'waktu',
+                            'Waktu',
+                            _form.waktu,
+                            (v) => _form = _form.copyWith(waktu: v),
+                          ),
                         ),
                         const SizedBox(width: Spacing.md),
                         Expanded(
-                          child: _field('notulis', 'Notulis', _form.notulis,
-                              (v) => _form = _form.copyWith(notulis: v)),
+                          child: _field(
+                            'tempat',
+                            'Tempat/Media',
+                            _form.tempat,
+                            (v) => _form = _form.copyWith(tempat: v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Spacing.gapMd,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _field(
+                            'pimpinan',
+                            'Pimpinan Rapat',
+                            _form.pimpinan,
+                            (v) => _form = _form.copyWith(pimpinan: v),
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.md),
+                        Expanded(
+                          child: _field(
+                            'notulis',
+                            'Notulis',
+                            _form.notulis,
+                            (v) => _form = _form.copyWith(notulis: v),
+                          ),
                         ),
                       ],
                     ),
@@ -393,8 +434,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       items: _form.peserta,
                       hint: 'Nama peserta',
                       addLabel: 'Tambah peserta',
-                      onChanged: (items) =>
-                          setState(() => _form = _form.copyWith(peserta: items)),
+                      onChanged: (items) => setState(
+                        () => _form = _form.copyWith(peserta: items),
+                      ),
                     ),
                     Spacing.gapLg,
                     _sectionLabel('Agenda', colors),
@@ -415,7 +457,8 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       minLines: 3,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        hintText: 'Isi pembahasan. Terisi otomatis dari '
+                        hintText:
+                            'Isi pembahasan. Terisi otomatis dari '
                             'ringkasan AI kalau ada.',
                         isDense: true,
                       ),
@@ -429,7 +472,8 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       hint: 'Keputusan rapat',
                       addLabel: 'Tambah keputusan',
                       onChanged: (items) => setState(
-                          () => _form = _form.copyWith(keputusan: items)),
+                        () => _form = _form.copyWith(keputusan: items),
+                      ),
                     ),
                     Spacing.gapLg,
                     _sectionLabel('Tindak Lanjut', colors),
@@ -437,14 +481,18 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                     _TaskEditor(
                       tasks: _form.tindakLanjut,
                       onChanged: (tasks) => setState(
-                          () => _form = _form.copyWith(tindakLanjut: tasks)),
+                        () => _form = _form.copyWith(tindakLanjut: tasks),
+                      ),
                     ),
                     if (widget.bookmarks.isNotEmpty) ...[
                       Spacing.gapLg,
                       Row(
                         children: [
-                          Icon(AppIcons.bookmark,
-                              size: IconSizes.sm, color: colors.primary),
+                          Icon(
+                            AppIcons.bookmark,
+                            size: IconSizes.sm,
+                            color: colors.primary,
+                          ),
                           const SizedBox(width: Spacing.sm),
                           Expanded(
                             child: Text(
@@ -465,8 +513,11 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       dense: true,
                       controlAffinity: ListTileControlAffinity.leading,
                       value: _form.lampirkanTranskrip,
-                      onChanged: (v) => setState(() => _form =
-                          _form.copyWith(lampirkanTranskrip: v ?? false)),
+                      onChanged: (v) => setState(
+                        () => _form = _form.copyWith(
+                          lampirkanTranskrip: v ?? false,
+                        ),
+                      ),
                       title: const Text('Lampirkan transkrip lengkap'),
                       subtitle: Text(
                         '${widget.session.segmentsCount} baris transkrip '
@@ -515,53 +566,52 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   }
 
   Widget _variantPicker(AppColorSet colors) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionLabel('Bentuk notulen', colors),
-          Spacing.gapSm,
-          SegmentedButton<NotulenVariant>(
-            segments: const [
-              ButtonSegment(
-                value: NotulenVariant.dinas,
-                label: Text('Notulen Dinas'),
-                icon: Icon(AppIcons.institution,
-                    size: IconSizes.md),
-              ),
-              ButtonSegment(
-                value: NotulenVariant.ringkas,
-                label: Text('Notulen Ringkas'),
-                icon: Icon(AppIcons.shortText, size: IconSizes.md),
-              ),
-            ],
-            selected: {_form.variant},
-            onSelectionChanged: (selection) => setState(
-                () => _form = _form.copyWith(variant: selection.first)),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _sectionLabel('Bentuk notulen', colors),
+      Spacing.gapSm,
+      SegmentedButton<NotulenVariant>(
+        segments: const [
+          ButtonSegment(
+            value: NotulenVariant.dinas,
+            label: Text('Notulen Dinas'),
+            icon: Icon(AppIcons.institution, size: IconSizes.md),
           ),
-          Spacing.gapSm,
-          Text(
-            _form.variant == NotulenVariant.dinas
-                ? 'Format lengkap tata naskah dinas: kop surat, nomor, '
-                    'daftar peserta bernomor dan blok tanda tangan.'
-                : 'Satu halaman tanpa kop surat dan tanda tangan, untuk '
-                    'dibagikan cepat.',
-            style: TextStyle(
-              fontSize: FontSizes.caption,
-              color: colors.textTertiary,
-              height: 1.3,
-            ),
+          ButtonSegment(
+            value: NotulenVariant.ringkas,
+            label: Text('Notulen Ringkas'),
+            icon: Icon(AppIcons.shortText, size: IconSizes.md),
           ),
         ],
-      );
-
-  Widget _sectionLabel(String text, AppColorSet colors) => Text(
-        text,
+        selected: {_form.variant},
+        onSelectionChanged: (selection) =>
+            setState(() => _form = _form.copyWith(variant: selection.first)),
+      ),
+      Spacing.gapSm,
+      Text(
+        _form.variant == NotulenVariant.dinas
+            ? 'Format lengkap tata naskah dinas: kop surat, nomor, '
+                  'daftar peserta bernomor dan blok tanda tangan.'
+            : 'Satu halaman tanpa kop surat dan tanda tangan, untuk '
+                  'dibagikan cepat.',
         style: TextStyle(
           fontSize: FontSizes.caption,
-          fontWeight: FontWeight.w600,
           color: colors.textTertiary,
-          letterSpacing: 0.5,
+          height: 1.3,
         ),
-      );
+      ),
+    ],
+  );
+
+  Widget _sectionLabel(String text, AppColorSet colors) => Text(
+    text,
+    style: TextStyle(
+      fontSize: FontSizes.caption,
+      fontWeight: FontWeight.w600,
+      color: colors.textTertiary,
+      letterSpacing: 0.5,
+    ),
+  );
 
   Widget _field(
     String key,
@@ -569,17 +619,16 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     String initial,
     void Function(String) onChanged, {
     String? hint,
-  }) =>
-      TextField(
-        controller: _controller(key, initial),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        onChanged: onChanged,
-      );
+  }) => TextField(
+    controller: _controller(key, initial),
+    decoration: InputDecoration(
+      labelText: label,
+      hintText: hint,
+      border: const OutlineInputBorder(),
+      isDense: true,
+    ),
+    onChanged: onChanged,
+  );
 }
 
 /// A reorder-free editable list of single-line strings.
@@ -630,9 +679,8 @@ class _ListEditorState extends State<_ListEditor> {
                 InputChip(
                   label: Text('${i + 1}. ${widget.items[i]}'),
                   deleteButtonTooltipMessage: 'Hapus ${widget.items[i]}',
-                  onDeleted: () => widget.onChanged(
-                    [...widget.items]..removeAt(i),
-                  ),
+                  onDeleted: () =>
+                      widget.onChanged([...widget.items]..removeAt(i)),
                 ),
             ],
           ),
@@ -673,7 +721,8 @@ class _TaskEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -707,8 +756,7 @@ class _TaskEditor extends StatelessWidget {
                       isDense: true,
                     ),
                     onChanged: (v) => onChanged(
-                      [...tasks]..[i] =
-                          tasks[i].copyWith(penanggungJawab: v),
+                      [...tasks]..[i] = tasks[i].copyWith(penanggungJawab: v),
                     ),
                   ),
                 ),
@@ -730,8 +778,11 @@ class _TaskEditor extends StatelessWidget {
                 IconButton(
                   tooltip: 'Hapus baris tindak lanjut',
                   constraints: TouchTarget.constraints,
-                  icon: Icon(AppIcons.delete,
-                      size: IconSizes.md, color: colors.textSecondary),
+                  icon: Icon(
+                    AppIcons.delete,
+                    size: IconSizes.md,
+                    color: colors.textSecondary,
+                  ),
                   onPressed: () => onChanged([...tasks]..removeAt(i)),
                 ),
               ],

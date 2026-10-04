@@ -62,7 +62,12 @@ const List<String> _words = [
   'divisi',
 ];
 
-const List<String> _speakers = ['Pembicara 1', 'Pembicara 2', 'Pembicara 3', 'Pembicara 4'];
+const List<String> _speakers = [
+  'Pembicara 1',
+  'Pembicara 2',
+  'Pembicara 3',
+  'Pembicara 4',
+];
 
 /// Deterministic 32-bit mixer — `dart:math`'s `Random(seed)` is also
 /// deterministic, but an explicit mixer keeps the fixture identical across
@@ -121,17 +126,24 @@ Future<void> writeBenchmarkSession(
       '${date.year.toString().padLeft(4, '0')}'
       '${date.month.toString().padLeft(2, '0')}'
       '${date.day.toString().padLeft(2, '0')}';
-  final dir = Directory('${libraryDir.path}${Platform.pathSeparator}$stamp-$title');
+  final dir = Directory(
+    '${libraryDir.path}${Platform.pathSeparator}$stamp-$title',
+  );
   await dir.create(recursive: true);
   final segments = buildBenchmarkSegments(
     count: segmentCount,
     totalSeconds: segmentCount * 2.16,
     seed: seed,
   );
-  await File('${dir.path}${Platform.pathSeparator}$title.json')
-      .writeAsString(encodeTranscriptJson(segments));
-  await File('${dir.path}${Platform.pathSeparator}$kMetaFilename').writeAsString(
-    jsonEncode(SessionMeta(title: title, language: 'id', model: 'base').toJson()),
+  await File(
+    '${dir.path}${Platform.pathSeparator}$title.json',
+  ).writeAsString(encodeTranscriptJson(segments));
+  await File(
+    '${dir.path}${Platform.pathSeparator}$kMetaFilename',
+  ).writeAsString(
+    jsonEncode(
+      SessionMeta(title: title, language: 'id', model: 'base').toJson(),
+    ),
   );
 }
 

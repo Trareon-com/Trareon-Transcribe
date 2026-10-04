@@ -50,30 +50,30 @@ enum SettingsCategory {
 /// notices is broken.
 extension SettingsCategoryLabel on SettingsCategory {
   String get label => switch (this) {
-        SettingsCategory.tampilan => 'Tampilan',
-        SettingsCategory.modelMode => 'Model & Mode',
-        SettingsCategory.audio => 'Audio & Suara',
-        SettingsCategory.kamus => 'Kamus Istilah',
-        SettingsCategory.penyimpanan => 'Penyimpanan',
-        SettingsCategory.ringkasan => 'Ringkasan AI',
-        SettingsCategory.notulen => 'Notulen Resmi',
-        SettingsCategory.kepatuhan => 'Kepatuhan PDP',
-        SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
-        SettingsCategory.tentang => 'Tentang',
-      };
+    SettingsCategory.tampilan => 'Tampilan',
+    SettingsCategory.modelMode => 'Model & Mode',
+    SettingsCategory.audio => 'Audio & Suara',
+    SettingsCategory.kamus => 'Kamus Istilah',
+    SettingsCategory.penyimpanan => 'Penyimpanan',
+    SettingsCategory.ringkasan => 'Ringkasan AI',
+    SettingsCategory.notulen => 'Notulen Resmi',
+    SettingsCategory.kepatuhan => 'Kepatuhan PDP',
+    SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
+    SettingsCategory.tentang => 'Tentang',
+  };
 
   IconData get icon => switch (this) {
-        SettingsCategory.tampilan => AppIcons.appearance,
-        SettingsCategory.modelMode => AppIcons.model,
-        SettingsCategory.audio => AppIcons.waveform,
-        SettingsCategory.kamus => AppIcons.glossary,
-        SettingsCategory.penyimpanan => AppIcons.folder,
-        SettingsCategory.ringkasan => AppIcons.enhance,
-        SettingsCategory.notulen => AppIcons.document,
-        SettingsCategory.kepatuhan => AppIcons.verifiedUser,
-        SettingsCategory.penyiapan => AppIcons.health,
-        SettingsCategory.tentang => AppIcons.info,
-      };
+    SettingsCategory.tampilan => AppIcons.appearance,
+    SettingsCategory.modelMode => AppIcons.model,
+    SettingsCategory.audio => AppIcons.waveform,
+    SettingsCategory.kamus => AppIcons.glossary,
+    SettingsCategory.penyimpanan => AppIcons.folder,
+    SettingsCategory.ringkasan => AppIcons.enhance,
+    SettingsCategory.notulen => AppIcons.document,
+    SettingsCategory.kepatuhan => AppIcons.verifiedUser,
+    SettingsCategory.penyiapan => AppIcons.health,
+    SettingsCategory.tentang => AppIcons.info,
+  };
 }
 
 /// Settings, in two panes (blueprint §4.5).
@@ -115,7 +115,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final failure = ref.watch(settingsSaveFailureProvider);
 
     return Scaffold(
@@ -178,12 +179,16 @@ class _SaveFailureBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final notifier = ref.read(settingsProvider.notifier);
     return Material(
       color: colors.error.withValues(alpha: 0.12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.sm,
+        ),
         child: Row(
           children: [
             Icon(AppIcons.error, color: colors.error, size: IconSizes.md),
@@ -193,7 +198,10 @@ class _SaveFailureBanner extends ConsumerWidget {
                 liveRegion: true,
                 child: Text(
                   failure.userMessage,
-                  style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: FontSizes.caption,
+                  ),
                 ),
               ),
             ),
@@ -223,9 +231,13 @@ class _CategoryRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.md, horizontal: Spacing.sm),
+      padding: const EdgeInsets.symmetric(
+        vertical: Spacing.md,
+        horizontal: Spacing.sm,
+      ),
       children: [
         for (final category in SettingsCategory.values)
           Padding(
@@ -244,7 +256,9 @@ class _CategoryRail extends StatelessWidget {
                   // settings pane you have to scroll a rail to reach is
                   // one people do not find.
                   padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.md, vertical: Spacing.sm),
+                    horizontal: Spacing.md,
+                    vertical: Spacing.sm,
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -292,7 +306,10 @@ class _CategoryChips extends StatelessWidget {
       height: 52,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.sm,
+        ),
         children: [
           for (final category in SettingsCategory.values)
             Padding(
@@ -319,24 +336,39 @@ class _CategoryContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return ListView(
       key: ValueKey(category),
-      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.lg, Spacing.lg, Spacing.xxxl),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.lg,
+        Spacing.lg,
+        Spacing.xxxl,
+      ),
       children: switch (category) {
         SettingsCategory.tampilan => _tampilan(settings, notifier),
-        SettingsCategory.modelMode =>
-          _modelMode(context, ref, settings, notifier, colors),
+        SettingsCategory.modelMode => _modelMode(
+          context,
+          ref,
+          settings,
+          notifier,
+          colors,
+        ),
         SettingsCategory.audio => _audio(settings, notifier),
         SettingsCategory.kamus => const [GlossarySettingsSection()],
-        SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
+        SettingsCategory.penyimpanan => _penyimpanan(
+          settings,
+          notifier,
+          colors,
+        ),
         SettingsCategory.ringkasan => const [
-            SettingsSection(
-              title: 'Ringkasan AI',
-              children: [SummarySettingsSection()],
-            ),
-          ],
+          SettingsSection(
+            title: 'Ringkasan AI',
+            children: [SummarySettingsSection()],
+          ),
+        ],
         SettingsCategory.notulen => const [NotulenDefaultsSection()],
         SettingsCategory.kepatuhan => const [PdpSettingsSection()],
         SettingsCategory.penyiapan => _penyiapan(context, ref),
@@ -346,28 +378,28 @@ class _CategoryContent extends ConsumerWidget {
   }
 
   List<Widget> _tampilan(AppSettings settings, SettingsNotifier notifier) => [
-        SettingsSection(
-          title: 'Tampilan',
-          children: [
-            SettingsTile(
-              icon: AppIcons.appearance,
-              label: 'Tema',
-              subtitle: switch (settings.theme) {
-                AppThemeMode.system =>
-                  'Mengikuti tema sistem operasi Anda saat ini.',
-                AppThemeMode.light => 'Selalu terang, apa pun tema sistem.',
-                AppThemeMode.dark => 'Selalu gelap, apa pun tema sistem.',
-              },
-              trailing: CompactDropdown<AppThemeMode>(
-                value: settings.theme,
-                items: AppThemeMode.values,
-                labelBuilder: _themeLabel,
-                onChanged: notifier.setTheme,
-              ),
-            ),
-          ],
+    SettingsSection(
+      title: 'Tampilan',
+      children: [
+        SettingsTile(
+          icon: AppIcons.appearance,
+          label: 'Tema',
+          subtitle: switch (settings.theme) {
+            AppThemeMode.system =>
+              'Mengikuti tema sistem operasi Anda saat ini.',
+            AppThemeMode.light => 'Selalu terang, apa pun tema sistem.',
+            AppThemeMode.dark => 'Selalu gelap, apa pun tema sistem.',
+          },
+          trailing: CompactDropdown<AppThemeMode>(
+            value: settings.theme,
+            items: AppThemeMode.values,
+            labelBuilder: _themeLabel,
+            onChanged: notifier.setTheme,
+          ),
         ),
-      ];
+      ],
+    ),
+  ];
 
   List<Widget> _modelMode(
     BuildContext context,
@@ -375,119 +407,123 @@ class _CategoryContent extends ConsumerWidget {
     AppSettings settings,
     SettingsNotifier notifier,
     AppColorSet colors,
-  ) =>
-      [
-        SettingsSection(
-          title: 'Model & Mode',
-          children: [
-            SettingsTile(
-              icon: AppIcons.model,
-              label: 'Model default',
-              subtitle: isModelAvailable(settings.defaultModel,
-                      libraryPath: settings.libraryPath)
-                  ? 'Tersedia di komputer ini.'
-                  : 'Belum diunduh — pilih untuk mengunduhnya.',
-              // settings.defaultModel can be an older/power-user model
-              // (e.g. 'tiny') that's still available on disk but outside
-              // the 2-model catalog this dropdown offers — feeding that
-              // straight in as `value` trips DropdownButton's "exactly one
-              // matching item" assertion. Clamp for display only.
-              trailing: CompactDropdown<String>(
-                value: kKnownModelIds.contains(settings.defaultModel)
-                    ? settings.defaultModel
-                    : kKnownModelIds.first,
-                items: kKnownModelIds,
-                labelBuilder: modelDisplayLabel,
-                onChanged: (modelId) async {
-                  if (isModelAvailable(modelId,
-                      libraryPath: settings.libraryPath)) {
-                    await notifier.setDefaultModel(modelId);
-                    return;
-                  }
-                  // This used to tell the user to "Selesaikan Setup Wizard
-                  // terlebih dahulu" — a wizard with no route into it from
-                  // anywhere in the app. Offer the download instead.
-                  final downloaded = await showModelDownloadDialog(
-                    context: context,
-                    bridge: ref.read(rustBridgeProvider),
-                    modelId: modelId,
-                    modelsDir: resolveTilde(settings.libraryPath),
-                    displayName: modelDisplayLabel(modelId),
-                  );
-                  if (downloaded) await notifier.setDefaultModel(modelId);
-                },
-              ),
-            ),
-            const SettingsDivider(),
-            SettingsSwitch(
-              icon: AppIcons.speed,
-              label: 'Cepat dulu, lalu diperhalus',
-              subtitle: settings.progressiveEnabled
-                  ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
-                      'yang lebih teliti.'
-                  : 'Pakai satu model saja — teks muncul sekali, sudah final.',
-              value: settings.progressiveEnabled,
-              onChanged: notifier.setProgressiveEnabled,
-            ),
-            const SettingsDivider(),
-            SettingsSwitch(
-              icon: AppIcons.chip,
-              label: 'Akselerasi GPU',
-              subtitle: _gpuSubtitle(settings.gpuEnabled),
-              value: settings.gpuEnabled,
-              onChanged: notifier.setGpuEnabled,
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.meetingRoom,
-              label: 'Mode default',
-              subtitle: switch (settings.defaultMode) {
-                SessionMode.webinar => 'Mikrofon mati, suara sistem direkam.',
-                SessionMode.online => 'Mikrofon dan suara sistem direkam.',
-                SessionMode.offline => 'Hanya mikrofon yang direkam.',
-              },
-              trailing: CompactDropdown<SessionMode>(
-                value: settings.defaultMode,
-                items: SessionMode.values,
-                labelBuilder: (m) => m.label,
-                onChanged: notifier.setDefaultMode,
-              ),
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.translate,
-              label: 'Bahasa',
-              subtitle: settings.language == null
-                  ? 'Bahasa dideteksi otomatis per segmen.'
-                  : 'Dipaksa ke satu bahasa — lebih akurat kalau rapatnya '
-                      'memang satu bahasa.',
-              trailing: CompactDropdown<String?>(
-                value: settings.language,
-                items: const [null, 'id', 'en'],
-                labelBuilder: (s) => s == null
-                    ? 'Deteksi otomatis'
-                    : (s == 'id' ? 'Indonesia' : 'English'),
-                onChanged: notifier.setLanguage,
-              ),
-            ),
-          ],
+  ) => [
+    SettingsSection(
+      title: 'Model & Mode',
+      children: [
+        SettingsTile(
+          icon: AppIcons.model,
+          label: 'Model default',
+          subtitle:
+              isModelAvailable(
+                settings.defaultModel,
+                libraryPath: settings.libraryPath,
+              )
+              ? 'Tersedia di komputer ini.'
+              : 'Belum diunduh. Pilih untuk mengunduhnya.',
+          // settings.defaultModel can be an older/power-user model
+          // (e.g. 'tiny') that's still available on disk but outside
+          // the 2-model catalog this dropdown offers — feeding that
+          // straight in as `value` trips DropdownButton's "exactly one
+          // matching item" assertion. Clamp for display only.
+          trailing: CompactDropdown<String>(
+            value: kKnownModelIds.contains(settings.defaultModel)
+                ? settings.defaultModel
+                : kKnownModelIds.first,
+            items: kKnownModelIds,
+            labelBuilder: modelDisplayLabel,
+            onChanged: (modelId) async {
+              if (isModelAvailable(
+                modelId,
+                libraryPath: settings.libraryPath,
+              )) {
+                await notifier.setDefaultModel(modelId);
+                return;
+              }
+              // This used to tell the user to "Selesaikan Setup Wizard
+              // terlebih dahulu" — a wizard with no route into it from
+              // anywhere in the app. Offer the download instead.
+              final downloaded = await showModelDownloadDialog(
+                context: context,
+                bridge: ref.read(rustBridgeProvider),
+                modelId: modelId,
+                modelsDir: resolveTilde(settings.libraryPath),
+                displayName: modelDisplayLabel(modelId),
+              );
+              if (downloaded) await notifier.setDefaultModel(modelId);
+            },
+          ),
         ),
-        Spacing.gapMd,
-        SettingsSection(
-          title: 'Transkripsi',
-          children: [
-            SettingsTile(
-              icon: AppIcons.speed,
-              label: 'Perbandingan Kecepatan',
-              subtitle:
-                  'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
-                  'akurat 56 detik untuk tiap 1 menit audio.\n'
-                  'Model akurat disarankan untuk rapat dan wawancara.',
-              trailing: const SizedBox.shrink(),
-            ),
-          ],
+        const SettingsDivider(),
+        SettingsSwitch(
+          icon: AppIcons.speed,
+          label: 'Cepat dulu, lalu diperhalus',
+          subtitle: settings.progressiveEnabled
+              ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
+                    'yang lebih teliti.'
+              : 'Pakai satu model saja. Teks muncul sekali, sudah final.',
+          value: settings.progressiveEnabled,
+          onChanged: notifier.setProgressiveEnabled,
         ),
-      ];
+        const SettingsDivider(),
+        SettingsSwitch(
+          icon: AppIcons.chip,
+          label: 'Akselerasi GPU',
+          subtitle: _gpuSubtitle(settings.gpuEnabled),
+          value: settings.gpuEnabled,
+          onChanged: notifier.setGpuEnabled,
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.meetingRoom,
+          label: 'Mode default',
+          subtitle: switch (settings.defaultMode) {
+            SessionMode.webinar => 'Mikrofon mati, suara sistem direkam.',
+            SessionMode.online => 'Mikrofon dan suara sistem direkam.',
+            SessionMode.offline => 'Hanya mikrofon yang direkam.',
+          },
+          trailing: CompactDropdown<SessionMode>(
+            value: settings.defaultMode,
+            items: SessionMode.values,
+            labelBuilder: (m) => m.label,
+            onChanged: notifier.setDefaultMode,
+          ),
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.translate,
+          label: 'Bahasa',
+          subtitle: settings.language == null
+              ? 'Bahasa dideteksi otomatis per segmen.'
+              : 'Dipaksa ke satu bahasa, lebih akurat kalau rapatnya '
+                    'memang satu bahasa.',
+          trailing: CompactDropdown<String?>(
+            value: settings.language,
+            items: const [null, 'id', 'en'],
+            labelBuilder: (s) => s == null
+                ? 'Deteksi otomatis'
+                : (s == 'id' ? 'Indonesia' : 'English'),
+            onChanged: notifier.setLanguage,
+          ),
+        ),
+      ],
+    ),
+    Spacing.gapMd,
+    SettingsSection(
+      title: 'Transkripsi',
+      children: [
+        SettingsTile(
+          icon: AppIcons.speed,
+          label: 'Perbandingan Kecepatan',
+          subtitle:
+              'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
+              'akurat 56 detik untuk tiap 1 menit audio.\n'
+              'Model akurat disarankan untuk rapat dan wawancara.',
+          trailing: const SizedBox.shrink(),
+        ),
+      ],
+    ),
+  ];
 
   /// Says what the machine will actually do, not what the switch is set to.
   String _gpuSubtitle(bool enabled) {
@@ -507,220 +543,231 @@ class _CategoryContent extends ConsumerWidget {
   }
 
   List<Widget> _audio(AppSettings settings, SettingsNotifier notifier) => [
-        SettingsSection(
-          title: 'Audio & Suara',
-          children: [
-            SettingsSwitch(
-              icon: AppIcons.waveform,
-              label: 'Abaikan jeda sunyi',
-              subtitle: settings.vadEnabled
-                  ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
-                      'Berlaku mulai sesi berikutnya.'
-                  : 'Semua audio ditranskrip, termasuk bagian yang sunyi.',
-              value: settings.vadEnabled,
-              onChanged: notifier.setVadEnabled,
-            ),
-            const SettingsDivider(),
-            // F17. Deliberately described as a trade-off rather than an
-            // improvement: on already-clean speech it can cost a word,
-            // and whether it helps is a property of the room.
-            SettingsSwitch(
-              icon: AppIcons.noise,
-              label: 'Pengurangan derau (RNNoise)',
-              subtitle: settings.noiseReduction
-                  ? 'Derau ruangan — kipas, AC, lalu lintas — ditekan '
-                      'sebelum transkripsi. Berlaku mulai potongan audio '
-                      'berikutnya.'
-                  : 'Mati. Nyalakan bila ruangan Anda berisik; pada '
-                      'rekaman yang sudah bersih ini bisa menghilangkan '
-                      'satu-dua konsonan.',
-              value: settings.noiseReduction,
-              onChanged: notifier.setNoiseReduction,
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.spatialAudio,
-              label: 'Hapus suara ganda',
-              subtitle: settings.defaultMode == SessionMode.online
-                  ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
-                  : 'Hanya berlaku di mode Rapat Online.',
-              trailing: const InfoBadge(
-                message:
-                    'Membandingkan kemiripan audio dari mikrofon dan '
-                    'pengeras suara, lalu menghapus yang terdengar dua kali.',
-              ),
-            ),
-            const SettingsDivider(),
-            SettingsSwitch(
-              icon: AppIcons.timer,
-              label: 'Berhenti sendiri saat sunyi',
-              subtitle: settings.autoStopMinutes != null
-                  ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
-                  : 'Rekaman berjalan sampai Anda menghentikannya sendiri.',
-              value: settings.autoStopMinutes != null,
-              onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
-            ),
-            if (settings.autoStopMinutes != null) ...[
-              const SettingsDivider(),
-              SettingsTile(
-                icon: AppIcons.timer10,
-                label: 'Lama sunyi sebelum berhenti',
-                trailing: CompactDropdown<int>(
-                  value: settings.autoStopMinutes!,
-                  items: const [1, 2, 3, 5, 10, 15],
-                  labelBuilder: (m) => '$m menit',
-                  onChanged: notifier.setAutoStopMinutes,
-                ),
-              ),
-            ],
-          ],
+    SettingsSection(
+      title: 'Audio & Suara',
+      children: [
+        SettingsSwitch(
+          icon: AppIcons.waveform,
+          label: 'Abaikan jeda sunyi',
+          subtitle: settings.vadEnabled
+              ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
+                    'Berlaku mulai sesi berikutnya.'
+              : 'Semua audio ditranskrip, termasuk bagian yang sunyi.',
+          value: settings.vadEnabled,
+          onChanged: notifier.setVadEnabled,
         ),
-      ];
+        const SettingsDivider(),
+        // F17. Deliberately described as a trade-off rather than an
+        // improvement: on already-clean speech it can cost a word,
+        // and whether it helps is a property of the room.
+        SettingsSwitch(
+          icon: AppIcons.noise,
+          label: 'Pengurangan derau (RNNoise)',
+          subtitle: settings.noiseReduction
+              ? 'Derau ruangan (kipas, AC, lalu lintas) ditekan '
+                    'sebelum transkripsi. Berlaku mulai potongan audio '
+                    'berikutnya.'
+              : 'Mati. Nyalakan bila ruangan Anda berisik; pada '
+                    'rekaman yang sudah bersih ini bisa menghilangkan '
+                    'satu-dua konsonan.',
+          value: settings.noiseReduction,
+          onChanged: notifier.setNoiseReduction,
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.spatialAudio,
+          label: 'Hapus suara ganda',
+          subtitle: settings.defaultMode == SessionMode.online
+              ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
+              : 'Hanya berlaku di mode Rapat Online.',
+          trailing: const InfoBadge(
+            message:
+                'Membandingkan kemiripan audio dari mikrofon dan '
+                'pengeras suara, lalu menghapus yang terdengar dua kali.',
+          ),
+        ),
+        const SettingsDivider(),
+        SettingsSwitch(
+          icon: AppIcons.timer,
+          label: 'Berhenti sendiri saat sunyi',
+          subtitle: settings.autoStopMinutes != null
+              ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
+              : 'Rekaman berjalan sampai Anda menghentikannya sendiri.',
+          value: settings.autoStopMinutes != null,
+          onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
+        ),
+        if (settings.autoStopMinutes != null) ...[
+          const SettingsDivider(),
+          SettingsTile(
+            icon: AppIcons.timer10,
+            label: 'Lama sunyi sebelum berhenti',
+            trailing: CompactDropdown<int>(
+              value: settings.autoStopMinutes!,
+              items: const [1, 2, 3, 5, 10, 15],
+              labelBuilder: (m) => '$m menit',
+              onChanged: notifier.setAutoStopMinutes,
+            ),
+          ),
+        ],
+      ],
+    ),
+  ];
 
   List<Widget> _penyimpanan(
     AppSettings settings,
     SettingsNotifier notifier,
     AppColorSet colors,
-  ) =>
-      [
-        SettingsSection(
-          title: 'Output & Penyimpanan',
-          children: [
-            Builder(
-              builder: (context) => SettingsTile(
-                icon: AppIcons.folder,
-                label: 'Folder output',
-                subtitle: settings.libraryPath,
-                trailing:
-                    Icon(AppIcons.chevronRight, color: colors.textTertiary, size: IconSizes.md),
-                onTap: () async {
-                  final dir = await FilePicker.platform.getDirectoryPath(
-                    dialogTitle: 'Pilih folder output',
-                    initialDirectory: settings.libraryPath,
-                  );
-                  if (dir != null && dir != settings.libraryPath) {
-                    await notifier.setLibraryPath(dir);
-                  }
-                },
-              ),
+  ) => [
+    SettingsSection(
+      title: 'Output & Penyimpanan',
+      children: [
+        Builder(
+          builder: (context) => SettingsTile(
+            icon: AppIcons.folder,
+            label: 'Folder output',
+            subtitle: settings.libraryPath,
+            trailing: Icon(
+              AppIcons.chevronRight,
+              color: colors.textTertiary,
+              size: IconSizes.md,
             ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.saveAs,
-              label: 'Format ekspor default',
-              subtitle: 'Format yang sudah tercentang saat dialog Ekspor dibuka.',
-              trailing: CompactDropdown<String>(
-                value: settings.defaultExportFormat,
-                items: const ['markdown', 'txt', 'json', 'srt', 'vtt', 'html', 'docx'],
-                labelBuilder: (f) => f,
-                onChanged: notifier.setDefaultExportFormat,
-              ),
-            ),
-          ],
+            onTap: () async {
+              final dir = await FilePicker.platform.getDirectoryPath(
+                dialogTitle: 'Pilih folder output',
+                initialDirectory: settings.libraryPath,
+              );
+              if (dir != null && dir != settings.libraryPath) {
+                await notifier.setLibraryPath(dir);
+              }
+            },
+          ),
         ),
-      ];
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.saveAs,
+          label: 'Format ekspor default',
+          subtitle: 'Format yang sudah tercentang saat dialog Ekspor dibuka.',
+          trailing: CompactDropdown<String>(
+            value: settings.defaultExportFormat,
+            items: const [
+              'markdown',
+              'txt',
+              'json',
+              'srt',
+              'vtt',
+              'html',
+              'docx',
+            ],
+            labelBuilder: (f) => f,
+            onChanged: notifier.setDefaultExportFormat,
+          ),
+        ),
+      ],
+    ),
+  ];
 
   List<Widget> _penyiapan(BuildContext context, WidgetRef ref) => [
-        SettingsSection(
-          title: 'Penyiapan & Diagnostik',
-          children: [
-            SettingsTile(
-              icon: AppIcons.health,
-              label: 'Diagnostik',
-              subtitle: 'Periksa folder, model, mikrofon dan ruang disk. '
-                  'Semuanya lokal.',
-              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-              onTap: () => openDiagnostics(context),
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.guide,
-              label: 'Jalankan Ulang Penyiapan',
-              subtitle: 'Pilih ulang mikrofon, pengeras suara dan model, '
-                  'lalu uji suara.',
-              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-              onTap: () => openSetupWizard(context),
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.privacy,
-              label: 'Laporan Privasi',
-              subtitle: 'Apa yang pernah keluar dari komputer ini.',
-              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => PrivacyReportScreen()),
-              ),
-            ),
-            const SettingsDivider(),
-            // Next to the Privacy Report because they answer two halves
-            // of one question: that one is "what has it sent?", this one
-            // is "what could it send, and what is on?".
-            SettingsTile(
-              icon: AppIcons.hierarchy,
-              label: 'Apa Jalan di Mana',
-              subtitle: 'Setiap kemampuan, tempatnya berjalan, dan '
-                  'statusnya sekarang.',
+    SettingsSection(
+      title: 'Penyiapan & Diagnostik',
+      children: [
+        SettingsTile(
+          icon: AppIcons.health,
+          label: 'Diagnostik',
+          subtitle:
+              'Periksa folder, model, mikrofon dan ruang disk. '
+              'Semuanya lokal.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => openDiagnostics(context),
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.guide,
+          label: 'Jalankan Ulang Penyiapan',
+          subtitle:
+              'Pilih ulang mikrofon, pengeras suara dan model, '
+              'lalu uji suara.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => openSetupWizard(context),
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.privacy,
+          label: 'Laporan Privasi',
+          subtitle: 'Apa yang pernah keluar dari komputer ini.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => PrivacyReportScreen()),
+          ),
+        ),
+        const SettingsDivider(),
+        // Next to the Privacy Report because they answer two halves
+        // of one question: that one is "what has it sent?", this one
+        // is "what could it send, and what is on?".
+        SettingsTile(
+          icon: AppIcons.hierarchy,
+          label: 'Apa Jalan di Mana',
+          subtitle:
+              'Setiap kemampuan, tempatnya berjalan, dan '
+              'statusnya sekarang.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const CapabilitiesScreen()),
+          ),
+        ),
+        const SettingsDivider(),
+        Consumer(
+          builder: (context, ref, _) {
+            final settings = ref.watch(settingsProvider);
+            return SettingsTile(
+              icon: AppIcons.analytics,
+              label: 'Dasbor Penggunaan',
+              subtitle: 'Berapa lama Anda merekam, per minggu.',
               trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => const CapabilitiesScreen(),
+                  // Without libraryPath the screen can't scan any
+                  // session folder and always shows the "belum ada
+                  // data" empty state, even with real sessions on disk.
+                  builder: (_) => UsageDashboardScreen(
+                    libraryPath: resolveTilde(settings.libraryPath),
+                  ),
                 ),
               ),
-            ),
-            const SettingsDivider(),
-            Consumer(
-              builder: (context, ref, _) {
-                final settings = ref.watch(settingsProvider);
-                return SettingsTile(
-                  icon: AppIcons.analytics,
-                  label: 'Dasbor Penggunaan',
-                  subtitle: 'Berapa lama Anda merekam, per minggu.',
-                  trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      // Without libraryPath the screen can't scan any
-                      // session folder and always shows the "belum ada
-                      // data" empty state, even with real sessions on disk.
-                      builder: (_) => UsageDashboardScreen(
-                        libraryPath: resolveTilde(settings.libraryPath),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+            );
+          },
         ),
-      ];
+      ],
+    ),
+  ];
 
   List<Widget> _tentang(
     BuildContext context,
     WidgetRef ref,
     AppColorSet colors,
-  ) =>
-      [
-        SettingsSection(
-          title: 'Tentang',
-          children: [
-            SettingsTile(
-              icon: AppIcons.update,
-              label: 'Cek Pembaruan',
-              subtitle: 'Versi saat ini $kAppVersion. Memeriksa pembaruan '
-                  'menghubungi GitHub dan dicatat di Laporan Privasi.',
-              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-              onTap: () => _checkForUpdate(context, ref),
-            ),
-            const SettingsDivider(),
-            SettingsTile(
-              icon: AppIcons.info,
-              label: 'Tentang Trareon',
-              subtitle: 'Transkripsi offline, privasi terjamin.',
-              trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
-              onTap: () => _showAboutDialog(context),
-            ),
-          ],
+  ) => [
+    SettingsSection(
+      title: 'Tentang',
+      children: [
+        SettingsTile(
+          icon: AppIcons.update,
+          label: 'Cek Pembaruan',
+          subtitle:
+              'Versi saat ini $kAppVersion. Memeriksa pembaruan '
+              'menghubungi GitHub dan dicatat di Laporan Privasi.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => _checkForUpdate(context, ref),
         ),
-      ];
+        const SettingsDivider(),
+        SettingsTile(
+          icon: AppIcons.info,
+          label: 'Tentang Trareon',
+          subtitle: 'Transkripsi offline, privasi terjamin.',
+          trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
+          onTap: () => _showAboutDialog(context),
+        ),
+      ],
+    ),
+  ];
 
   Future<void> _checkForUpdate(BuildContext context, WidgetRef ref) async {
     final privacy = ref.read(privacyReportProvider.notifier);
@@ -767,8 +814,11 @@ class _CategoryContent extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.show(context, 'Gagal memeriksa pembaruan: $e',
-            type: ToastType.error);
+        AppToast.show(
+          context,
+          'Gagal memeriksa pembaruan: $e',
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -803,7 +853,8 @@ class _CategoryContent extends ConsumerWidget {
       applicationIcon: Icon(
         AppIcons.mic,
         size: IconSizes.hero,
-        color: Theme.of(context).extension<AppColorSet>()?.primary ??
+        color:
+            Theme.of(context).extension<AppColorSet>()?.primary ??
             AppColors.light.primary,
       ),
       children: [
@@ -816,10 +867,10 @@ class _CategoryContent extends ConsumerWidget {
 }
 
 String _themeLabel(AppThemeMode mode) => switch (mode) {
-      AppThemeMode.light => 'Terang',
-      AppThemeMode.dark => 'Gelap',
-      AppThemeMode.system => 'Sistem',
-    };
+  AppThemeMode.light => 'Terang',
+  AppThemeMode.dark => 'Gelap',
+  AppThemeMode.system => 'Sistem',
+};
 
 /// Opens the setup wizard as a full page. It has 935 lines of tested UI and
 /// contains the only device picker and audio test in the app; until now

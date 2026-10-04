@@ -22,7 +22,10 @@ void main() {
 
       expect(rejected, isEmpty);
       expect(notifier.state, hasLength(2));
-      expect(notifier.state.every((e) => e.status == BatchFileStatus.queued), isTrue);
+      expect(
+        notifier.state.every((e) => e.status == BatchFileStatus.queued),
+        isTrue,
+      );
     });
 
     test('rejects unsupported formats without queuing them', () {
@@ -51,7 +54,11 @@ void main() {
       final notifier = BatchUploadNotifier();
       notifier.addFiles(['/a/corrupt.wav']);
 
-      notifier.updateStatus('/a/corrupt.wav', BatchFileStatus.error, error: 'File tidak bisa dibaca');
+      notifier.updateStatus(
+        '/a/corrupt.wav',
+        BatchFileStatus.error,
+        error: 'File tidak bisa dibaca',
+      );
 
       expect(notifier.state.single.status, BatchFileStatus.error);
       expect(notifier.state.single.error, 'File tidak bisa dibaca');
@@ -117,41 +124,57 @@ void main() {
       expect(notifier.state.single.status, BatchFileStatus.error);
     });
 
-    test('a file over the advertised 2 GB limit is rejected, with the reason',
-        () async {
-      final dir = await Directory.systemTemp.createTemp('trareon_import_');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      final small = File('${dir.path}/kecil.wav')..writeAsBytesSync([1, 2, 3]);
+    test(
+      'a file over the advertised 2 GB limit is rejected, with the reason',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('trareon_import_');
+        addTearDown(() => dir.deleteSync(recursive: true));
+        final small = File('${dir.path}/kecil.wav')
+          ..writeAsBytesSync([1, 2, 3]);
 
-      final notifier = BatchUploadNotifier();
-      expect(notifier.addFiles([small.path]), isEmpty);
-      expect(notifier.state.single.sizeBytes, 3);
-      expect(kMaxImportBytes, 2 * 1024 * 1024 * 1024,
-          reason: 'the drop zone advertises this number, so it has to be the '
-              'one that is enforced');
-    });
+        final notifier = BatchUploadNotifier();
+        expect(notifier.addFiles([small.path]), isEmpty);
+        expect(notifier.state.single.sizeBytes, 3);
+        expect(
+          kMaxImportBytes,
+          2 * 1024 * 1024 * 1024,
+          reason:
+              'the drop zone advertises this number, so it has to be the '
+              'one that is enforced',
+        );
+      },
+    );
 
     test('cancelling a queued file stops it from being processed', () async {
       final notifier = BatchUploadNotifier();
       notifier.addFiles(['/a/satu.mp3', '/a/dua.mp3']);
       notifier.cancelFile('/a/satu.mp3');
 
-      expect(notifier.entryFor('/a/satu.mp3')!.status,
-          BatchFileStatus.cancelled);
+      expect(
+        notifier.entryFor('/a/satu.mp3')!.status,
+        BatchFileStatus.cancelled,
+      );
       expect(notifier.entryFor('/a/dua.mp3')!.status, BatchFileStatus.queued);
 
       final bridge = _TestBridge();
-      await notifier.processBatch(bridge, '/model/path',
-          outputDir: '~/Documents/Trareon Transcribe');
-      expect(bridge.batchedFiles, ['/a/dua.mp3'],
-          reason: 'a cancelled file must never reach the engine');
+      await notifier.processBatch(
+        bridge,
+        '/model/path',
+        outputDir: '~/Documents/Trareon Transcribe',
+      );
+      expect(bridge.batchedFiles, [
+        '/a/dua.mp3',
+      ], reason: 'a cancelled file must never reach the engine');
     });
 
     test('retry puts a failed file back in the queue', () async {
       final notifier = BatchUploadNotifier();
       notifier.addFiles(['/a/crash.mp3']);
-      await notifier.processBatch(_ErrorBridge(), '/model/path',
-          outputDir: '~/Documents/Trareon Transcribe');
+      await notifier.processBatch(
+        _ErrorBridge(),
+        '/model/path',
+        outputDir: '~/Documents/Trareon Transcribe',
+      );
       expect(notifier.state.single.status, BatchFileStatus.error);
       expect(notifier.state.single.error, isNotNull);
 
@@ -167,8 +190,11 @@ void main() {
       final notifier = BatchUploadNotifier();
       notifier.addFiles(['/a/satu.mp3']);
       final bridge = _ClearingBridge(notifier);
-      await notifier.processBatch(bridge, '/model/path',
-          outputDir: '~/Documents/Trareon Transcribe');
+      await notifier.processBatch(
+        bridge,
+        '/model/path',
+        outputDir: '~/Documents/Trareon Transcribe',
+      );
       expect(notifier.state, isEmpty);
     });
 
@@ -189,34 +215,42 @@ void main() {
       expect(notifier.state.single.progress, 1.0);
     });
 
-    test('cancelling during a progressive run stops the files after it',
-        () async {
-      final notifier = BatchUploadNotifier();
-      notifier.addFiles(['/a/satu.mp3', '/a/dua.mp3', '/a/tiga.mp3']);
-      // Cancel the rest while the first file is inside the engine — the
-      // file being transcribed cannot be interrupted, the ones behind it
-      // can.
-      final bridge = _ProgressiveBridge(onCall: (path) {
-        if (path == '/a/satu.mp3') {
-          notifier.cancelFile('/a/dua.mp3');
-          notifier.cancelFile('/a/tiga.mp3');
-        }
-      });
+    test(
+      'cancelling during a progressive run stops the files after it',
+      () async {
+        final notifier = BatchUploadNotifier();
+        notifier.addFiles(['/a/satu.mp3', '/a/dua.mp3', '/a/tiga.mp3']);
+        // Cancel the rest while the first file is inside the engine — the
+        // file being transcribed cannot be interrupted, the ones behind it
+        // can.
+        final bridge = _ProgressiveBridge(
+          onCall: (path) {
+            if (path == '/a/satu.mp3') {
+              notifier.cancelFile('/a/dua.mp3');
+              notifier.cancelFile('/a/tiga.mp3');
+            }
+          },
+        );
 
-      await notifier.processBatch(
-        bridge,
-        '/model/quick',
-        refineModelPath: '/model/refine',
-        outputDir: '~/Documents/Trareon Transcribe',
-      );
+        await notifier.processBatch(
+          bridge,
+          '/model/quick',
+          refineModelPath: '/model/refine',
+          outputDir: '~/Documents/Trareon Transcribe',
+        );
 
-      expect(bridge.progressiveCalls, ['/a/satu.mp3']);
-      expect(notifier.entryFor('/a/satu.mp3')!.status, BatchFileStatus.done);
-      expect(notifier.entryFor('/a/dua.mp3')!.status,
-          BatchFileStatus.cancelled);
-      expect(notifier.entryFor('/a/tiga.mp3')!.status,
-          BatchFileStatus.cancelled);
-    });
+        expect(bridge.progressiveCalls, ['/a/satu.mp3']);
+        expect(notifier.entryFor('/a/satu.mp3')!.status, BatchFileStatus.done);
+        expect(
+          notifier.entryFor('/a/dua.mp3')!.status,
+          BatchFileStatus.cancelled,
+        );
+        expect(
+          notifier.entryFor('/a/tiga.mp3')!.status,
+          BatchFileStatus.cancelled,
+        );
+      },
+    );
   });
 }
 
@@ -233,15 +267,16 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
   @override
-  Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      const Stream.empty();
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
 
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -284,13 +319,17 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<void> downloadModel(String modelsDir, String modelId) async {}
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [];
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => [];
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => [];
+  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async =>
+      [];
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
   @override
@@ -347,18 +386,18 @@ class _TestBridge extends _NoopBridge {
           filename: 'test.mp3',
           durationSecs: 1.0,
           segments: [
-          rust_export.Segment(
-            source: 'mic',
-            speaker: 'MIC',
-            text: 'Halo semua',
-            timestamp: 0,
-            duration: 1.0,
-            language: 'id',
-            confidence: 0.9,
-            isPartial: false,
-            lowConfidence: false,
-            avgLogProb: -0.2,
-          ),
+            rust_export.Segment(
+              source: 'mic',
+              speaker: 'MIC',
+              text: 'Halo semua',
+              timestamp: 0,
+              duration: 1.0,
+              language: 'id',
+              confidence: 0.9,
+              isPartial: false,
+              lowConfidence: false,
+              avgLogProb: -0.2,
+            ),
           ],
           language: 'id',
         ),

@@ -37,12 +37,12 @@ String diagnosticsDirectory() {
 /// Deliberately no username, no hostname and no library path: a diagnostics
 /// bundle is something a user forwards to strangers.
 String environmentSummary() => [
-      'Trareon Transcribe $kAppVersion',
-      'Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
-      'Dart: ${Platform.version}',
-      'Prosesor: ${Platform.numberOfProcessors} inti',
-      'Mode: ${kDebugMode ? 'debug' : 'release'}',
-    ].join('\n');
+  'Trareon Transcribe $kAppVersion',
+  'Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+  'Dart: ${Platform.version}',
+  'Prosesor: ${Platform.numberOfProcessors} inti',
+  'Mode: ${kDebugMode ? 'debug' : 'release'}',
+].join('\n');
 
 /// Thin, failure-tolerant façade over the engine's recorder.
 ///

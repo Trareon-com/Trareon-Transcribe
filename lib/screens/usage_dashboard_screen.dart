@@ -19,18 +19,18 @@ class UsageStats {
   });
 
   factory UsageStats.empty() => const UsageStats(
-        totalSessions: 0,
-        totalMinutesTranscribed: 0,
-        totalSegments: 0,
-        sessionsByMode: {},
-      );
+    totalSessions: 0,
+    totalMinutesTranscribed: 0,
+    totalSegments: 0,
+    sessionsByMode: {},
+  );
 }
 
 String _sourceModeLabel(String source) => switch (source) {
-      'mic' => 'Rapat Offline',
-      'spk' => 'Webinar',
-      _ => 'Rapat Online',
-    };
+  'mic' => 'Rapat Offline',
+  'spk' => 'Webinar',
+  _ => 'Rapat Online',
+};
 
 /// Scans `libraryPath` for session folders (one `.json` transcript per
 /// folder) and aggregates them into [UsageStats]. Pulled out as a plain
@@ -159,7 +159,10 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
           Row(
             children: [
               Expanded(
-                child: _StatCard(label: 'Total Sesi', value: '${stats.totalSessions}'),
+                child: _StatCard(
+                  label: 'Total Sesi',
+                  value: '${stats.totalSessions}',
+                ),
               ),
               Spacing.hMd,
               Expanded(
@@ -168,22 +171,25 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
             ],
           ),
           Spacing.gapMd,
-          _StatCard(label: 'Total Segmen Transkrip', value: '${stats.totalSegments}'),
+          _StatCard(
+            label: 'Total Segmen Transkrip',
+            value: '${stats.totalSegments}',
+          ),
           Spacing.gapXl,
           if (stats.sessionsByMode.isEmpty)
             const Text('Belum ada data sesi tersimpan.')
           else ...[
-            Text('Sesi per Mode', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Sesi per Mode',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             Spacing.gapSm,
             for (final entry in stats.sessionsByMode.entries)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(entry.key),
-                    Text('${entry.value} sesi'),
-                  ],
+                  children: [Text(entry.key), Text('${entry.value} sesi')],
                 ),
               ),
           ],

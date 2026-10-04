@@ -276,9 +276,11 @@ abstract final class AppIcons {
 
   static const IconData show = Icons.visibility_rounded;
 
-  static const IconData sidebarCollapse = Icons.keyboard_double_arrow_left_rounded;
+  static const IconData sidebarCollapse =
+      Icons.keyboard_double_arrow_left_rounded;
 
-  static const IconData sidebarExpand = Icons.keyboard_double_arrow_right_rounded;
+  static const IconData sidebarExpand =
+      Icons.keyboard_double_arrow_right_rounded;
 
   static const IconData sort = Icons.swap_vert_rounded;
 

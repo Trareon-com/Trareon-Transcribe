@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:transcribe/widgets/animated_record_button.dart';
+import 'package:transcribe/widgets/record_button.dart';
 import 'package:transcribe/widgets/empty_state.dart';
-import 'package:transcribe/widgets/mode_selector.dart';
 
 import 'test_helpers.dart';
 import 'package:transcribe/theme/app_icons.dart';
 
-/// 800x600 is the app's smallest supported window (see `linux/`/`macos/`
-/// minimum window size). Controls that run off the right edge there are
+/// 900x600 is the app's smallest supported window since sprint 5
+/// (`WindowSizes.minimum`); 800x600 is kept in the matrix because an older
+/// saved window geometry can still restore to it. Controls that run off the right edge there are
 /// invisible *and* unclickable, with no scroll affordance to hint at it —
 /// the toolbar used to lose "Pengeras Suara" behind Ekspor exactly this way
 /// (b01465a). These tests pin the guarantee to the layout Sprint 2 shipped
@@ -17,11 +17,7 @@ import 'package:transcribe/theme/app_icons.dart';
 void main() {
   /// Fails if any part of [finder]'s widget is outside the window, or if
   /// the frame reported an overflow.
-  void expectFullyOnScreen(
-    WidgetTester tester,
-    Finder finder,
-    String label,
-  ) {
+  void expectFullyOnScreen(WidgetTester tester, Finder finder, String label) {
     expect(finder, findsOneWidget, reason: '$label must be in the tree');
     final rect = tester.getRect(finder);
     final window = tester.view.physicalSize / tester.view.devicePixelRatio;
@@ -43,11 +39,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final size in const [
-    Size(800, 600),
-    Size(900, 700),
-    Size(1024, 768),
-  ]) {
+  for (final size in const [Size(800, 600), Size(900, 700), Size(1024, 768)]) {
     testWidgets(
       'every control stays on screen and clickable at ${size.width.toInt()}x'
       '${size.height.toInt()}',
@@ -57,14 +49,22 @@ void main() {
         // The record button is the one action the screen exists for.
         expectFullyOnScreen(
           tester,
-          find.byType(AnimatedRecordButton),
+          find.byType(RecordButton),
           'the record button',
         );
-        expectFullyOnScreen(tester, find.byType(ModeSelector), 'the mode selector');
-        // Both device toggles, not just the microphone: the system-audio
-        // one (then labelled "Pengeras Suara") is the one that used to
-        // disappear off the right edge behind Ekspor.
-        expectFullyOnScreen(tester, find.text('Mikrofon'), 'the microphone toggle');
+        // The three mode cards replaced the segmented control: each is a
+        // separate hit target, and all three have to be reachable.
+        for (final mode in ['Rapat Offline', 'Rapat Online', 'Webinar']) {
+          expectFullyOnScreen(tester, find.text(mode), 'the "$mode" card');
+        }
+        // Both device chips, not just the microphone: the system-audio one
+        // (then labelled "Pengeras Suara") is the one that used to disappear
+        // off the right edge behind Ekspor.
+        expectFullyOnScreen(
+          tester,
+          find.text('Mikrofon'),
+          'the microphone toggle',
+        );
         expectFullyOnScreen(
           tester,
           find.text('Suara sistem'),
@@ -73,7 +73,7 @@ void main() {
 
         // A hit test that lands on the record button, rather than on
         // whatever is painted over it.
-        await tester.tap(find.byType(AnimatedRecordButton), warnIfMissed: true);
+        await tester.tap(find.byType(RecordButton), warnIfMissed: true);
         await tester.pump();
 
         // `pumpAndSettle` does not fail on overflow, it only prints; this is
@@ -126,7 +126,9 @@ void main() {
       expect(find.text('Belum ada transkrip'), findsOneWidget);
     });
 
-    testWidgets('scrolls rather than clipping a very short pane', (tester) async {
+    testWidgets('scrolls rather than clipping a very short pane', (
+      tester,
+    ) async {
       await pumpIn(tester, 40);
       expect(tester.takeException(), isNull);
       // Reachable by scrolling instead of painted over the edge.

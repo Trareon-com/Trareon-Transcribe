@@ -65,14 +65,17 @@ void main() {
     final large = await _ingest(kBenchmarkSegmentCount);
     final ratio = large / small.clamp(1, 1 << 30);
     // ignore: avoid_print
-    print('[perf] ingest 1250 = ${(small / 1000).toStringAsFixed(2)}ms, '
-        '5000 = ${(large / 1000).toStringAsFixed(2)}ms, ratio = '
-        '${ratio.toStringAsFixed(2)}× for 4× the segments');
+    print(
+      '[perf] ingest 1250 = ${(small / 1000).toStringAsFixed(2)}ms, '
+      '5000 = ${(large / 1000).toStringAsFixed(2)}ms, ratio = '
+      '${ratio.toStringAsFixed(2)}× for 4× the segments',
+    );
 
     expect(
       ratio,
       lessThan(10),
-      reason: 'a 4× longer meeting must not cost 16× as much to ingest — '
+      reason:
+          'a 4× longer meeting must not cost 16× as much to ingest — '
           'that is the O(n²) the map index removed',
     );
     expect(
@@ -117,8 +120,11 @@ void main() {
     bridge.controller.add(quick.last);
     sw.stop();
 
-    expect(notifier.state.segments, hasLength(kBenchmarkSegmentCount),
-        reason: 'a refine must replace in place, never append a duplicate');
+    expect(
+      notifier.state.segments,
+      hasLength(kBenchmarkSegmentCount),
+      reason: 'a refine must replace in place, never append a duplicate',
+    );
     expect(notifier.state.segments.last.isPartial, isFalse);
     expect(notifier.state.segments.last.text, quick.last.text);
     expect(notifier.state.segments.first.text, startsWith('cepat: '));
@@ -157,9 +163,13 @@ void main() {
 
     notifier.editTranscriptSegment(3, 'teks baru');
 
-    expect(notifier.state.segments.length, lengthBefore,
-        reason: 'an edit changes neither length nor list identity, so the '
-            'revision is the only signal the UI can cache against');
+    expect(
+      notifier.state.segments.length,
+      lengthBefore,
+      reason:
+          'an edit changes neither length nor list identity, so the '
+          'revision is the only signal the UI can cache against',
+    );
     expect(notifier.state.revision, greaterThan(before));
     expect(notifier.state.segments[3].text, 'teks baru');
   });

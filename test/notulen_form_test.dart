@@ -24,20 +24,22 @@ void main() {
         expect(kHariIndonesia, contains(hariIndonesia(date)));
       }
       for (var month = 1; month <= 12; month++) {
-        expect(tanggalIndonesia(DateTime(2026, month, 15)),
-            '15 ${kBulanIndonesia[month - 1]} 2026');
+        expect(
+          tanggalIndonesia(DateTime(2026, month, 15)),
+          '15 ${kBulanIndonesia[month - 1]} 2026',
+        );
       }
     });
 
     test('waktu uses dots and spans the recording', () {
       final start = DateTime(2026, 10, 1, 9, 5);
       // 2 h 25 min.
-      expect(waktuIndonesia(start, 8700), '09.05 – 11.30 WIB');
+      expect(waktuIndonesia(start, 8700), '09.05 - 11.30 WIB');
     });
 
     test('a zero-length recording still produces a valid range', () {
       final start = DateTime(2026, 10, 1, 14, 0);
-      expect(waktuIndonesia(start, 0), '14.00 – 14.00 WIB');
+      expect(waktuIndonesia(start, 0), '14.00 - 14.00 WIB');
     });
   });
 
@@ -98,7 +100,7 @@ void main() {
       expect(form.kopSuratPath, '/tmp/kop.png');
       expect(form.hari, 'Kamis');
       expect(form.tanggal, '1 Oktober 2026');
-      expect(form.waktu, '09.00 – 10.30 WIB');
+      expect(form.waktu, '09.00 - 10.30 WIB');
       expect(form.variant, NotulenVariant.dinas);
     });
 
@@ -142,8 +144,9 @@ void main() {
       );
       expect(form.pembahasan, '- Pagu naik 4%');
       expect(form.keputusan, ['Pagu disetujui']);
-      expect(form.peserta, ['Dr. Siti Aminah'],
-          reason: "the summary's participant list beats the speaker labels");
+      expect(form.peserta, [
+        'Dr. Siti Aminah',
+      ], reason: "the summary's participant list beats the speaker labels");
       expect(form.tindakLanjut.single.penanggungJawab, 'Rina');
     });
   });
@@ -190,20 +193,23 @@ void main() {
       expect(restored.lampirkanTranskrip, isTrue);
     });
 
-    test('a hand-edited sidecar with wrong types loads rather than throwing', () {
-      final restored = NotulenFormData.fromJson({
-        'variant': 'tidak-ada-varian-ini',
-        'judul': 42,
-        'peserta': 'bukan daftar',
-        'tindak_lanjut': 'juga bukan daftar',
-        'lampirkan_transkrip': 'ya',
-      });
-      expect(restored.variant, NotulenVariant.dinas, reason: 'safe default');
-      expect(restored.judul, isEmpty);
-      expect(restored.peserta, isEmpty);
-      expect(restored.tindakLanjut, isEmpty);
-      expect(restored.lampirkanTranskrip, isFalse);
-    });
+    test(
+      'a hand-edited sidecar with wrong types loads rather than throwing',
+      () {
+        final restored = NotulenFormData.fromJson({
+          'variant': 'tidak-ada-varian-ini',
+          'judul': 42,
+          'peserta': 'bukan daftar',
+          'tindak_lanjut': 'juga bukan daftar',
+          'lampirkan_transkrip': 'ya',
+        });
+        expect(restored.variant, NotulenVariant.dinas, reason: 'safe default');
+        expect(restored.judul, isEmpty);
+        expect(restored.peserta, isEmpty);
+        expect(restored.tindakLanjut, isEmpty);
+        expect(restored.lampirkanTranskrip, isFalse);
+      },
+    );
 
     test('toRust carries the bookmark lines through as Poin Penting', () {
       final rust = form.toRust(poinPenting: const ['[05:12] keputusan']);

@@ -35,7 +35,9 @@ MemAvailable:    8765432 kB
     final ram = await detectTotalRam();
     expect(ram.isEstimate, isFalse);
     expect(ram.megabytes, greaterThan(0));
-    expect(ram.megabytes,
-        parseProcMeminfoTotalMb(File('/proc/meminfo').readAsStringSync()));
+    expect(
+      ram.megabytes,
+      parseProcMeminfoTotalMb(File('/proc/meminfo').readAsStringSync()),
+    );
   });
 }

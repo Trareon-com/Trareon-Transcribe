@@ -118,10 +118,7 @@ class _AlreadyRunningApp extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     Spacing.gapSm,
-                    Text(
-                      l10n.alreadyRunningBody,
-                      textAlign: TextAlign.center,
-                    ),
+                    Text(l10n.alreadyRunningBody, textAlign: TextAlign.center),
                   ],
                 ),
               ),

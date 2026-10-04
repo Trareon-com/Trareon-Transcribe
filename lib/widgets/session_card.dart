@@ -47,8 +47,18 @@ class SessionCard extends StatelessWidget {
   }
 
   static const _indonesianMonths = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   String _formatDate(String isoDate) {
@@ -67,7 +77,8 @@ class SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final durStr = _formatDuration(durationSeconds);
 
     return Card(
@@ -92,7 +103,11 @@ class SessionCard extends StatelessWidget {
                   color: colors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(Radii.md),
                 ),
-                child: Icon(AppIcons.mic, color: colors.primary, size: IconSizes.lg),
+                child: Icon(
+                  AppIcons.mic,
+                  color: colors.primary,
+                  size: IconSizes.lg,
+                ),
               ),
               Spacing.hMd,
 
@@ -131,25 +146,46 @@ class SessionCard extends StatelessWidget {
                     Spacing.gapXs,
                     Row(
                       children: [
-                        Icon(AppIcons.calendar, size: IconSizes.xs, color: colors.textTertiary),
+                        Icon(
+                          AppIcons.calendar,
+                          size: IconSizes.xs,
+                          color: colors.textTertiary,
+                        ),
                         Spacing.hXs,
                         Text(
                           _formatDate(date),
-                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                          style: TextStyle(
+                            color: colors.textTertiary,
+                            fontSize: FontSizes.caption,
+                          ),
                         ),
                         Spacing.hMd,
-                        Icon(AppIcons.clock, size: IconSizes.xs, color: colors.textTertiary),
+                        Icon(
+                          AppIcons.clock,
+                          size: IconSizes.xs,
+                          color: colors.textTertiary,
+                        ),
                         Spacing.hXs,
                         Text(
                           durStr,
-                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                          style: TextStyle(
+                            color: colors.textTertiary,
+                            fontSize: FontSizes.caption,
+                          ),
                         ),
                         Spacing.hMd,
-                        Icon(AppIcons.segments, size: IconSizes.xs, color: colors.textTertiary),
+                        Icon(
+                          AppIcons.segments,
+                          size: IconSizes.xs,
+                          color: colors.textTertiary,
+                        ),
                         Spacing.hXs,
                         Text(
                           '$segmentsCount segmen',
-                          style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                          style: TextStyle(
+                            color: colors.textTertiary,
+                            fontSize: FontSizes.caption,
+                          ),
                         ),
                       ],
                     ),
@@ -173,18 +209,29 @@ class SessionCard extends StatelessWidget {
               // Actions
               if (onRename != null)
                 IconButton(
-                  icon: Icon(AppIcons.rename,
-                      size: IconSizes.md, color: colors.textTertiary),
+                  icon: Icon(
+                    AppIcons.rename,
+                    size: IconSizes.md,
+                    color: colors.textTertiary,
+                  ),
                   tooltip: 'Ganti nama',
                   onPressed: onRename,
                 ),
               IconButton(
-                icon: Icon(AppIcons.upload, size: IconSizes.md, color: colors.textTertiary),
+                icon: Icon(
+                  AppIcons.upload,
+                  size: IconSizes.md,
+                  color: colors.textTertiary,
+                ),
                 tooltip: 'Ekspor',
                 onPressed: onExport,
               ),
               IconButton(
-                icon: Icon(AppIcons.delete, size: IconSizes.md, color: colors.textTertiary),
+                icon: Icon(
+                  AppIcons.delete,
+                  size: IconSizes.md,
+                  color: colors.textTertiary,
+                ),
                 tooltip: 'Hapus',
                 onPressed: onDelete,
               ),

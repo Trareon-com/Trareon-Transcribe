@@ -202,9 +202,11 @@ class AppButton extends StatelessWidget {
     final colors = context.colors;
     if (s.disabled) {
       return switch (variant) {
-        AppButtonVariant.primary ||
-        AppButtonVariant.danger =>
-          (colors.surfacePressed, colors.textDisabled, null),
+        AppButtonVariant.primary || AppButtonVariant.danger => (
+          colors.surfacePressed,
+          colors.textDisabled,
+          null,
+        ),
         AppButtonVariant.secondary => (
           Colors.transparent,
           colors.textDisabled,

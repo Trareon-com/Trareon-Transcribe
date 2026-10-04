@@ -44,8 +44,5 @@ double contrastRatio(Color a, Color b) {
 /// result against [background]. Use this for semi-transparent foregrounds —
 /// comparing the unblended colours overstates their contrast.
 double contrastRatioBlended(Color foreground, Color background) {
-  return contrastRatio(
-    Color.alphaBlend(foreground, background),
-    background,
-  );
+  return contrastRatio(Color.alphaBlend(foreground, background), background);
 }

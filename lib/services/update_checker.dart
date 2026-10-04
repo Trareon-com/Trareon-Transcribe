@@ -115,9 +115,7 @@ class UpdateChecker {
       final latestVersion = body.trim();
 
       if (latestVersion.isEmpty) {
-        throw UpdateCheckException(
-          'File versi kosong. Coba lagi nanti.',
-        );
+        throw UpdateCheckException('File versi kosong. Coba lagi nanti.');
       }
 
       return UpdateInfo(

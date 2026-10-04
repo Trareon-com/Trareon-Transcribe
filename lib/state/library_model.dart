@@ -31,12 +31,11 @@ class LibraryListState {
     bool? loading,
     String? error,
     bool clearError = false,
-  }) =>
-      LibraryListState(
-        entries: entries ?? this.entries,
-        loading: loading ?? this.loading,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => LibraryListState(
+    entries: entries ?? this.entries,
+    loading: loading ?? this.loading,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 class LibraryListNotifier extends StateNotifier<LibraryListState> {
@@ -48,8 +47,8 @@ class LibraryListNotifier extends StateNotifier<LibraryListState> {
   /// zone where real file I/O does not complete, so a disk-backed sidebar
   /// would leave every main-screen test spinning forever.
   LibraryListNotifier.seeded(List<LibraryEntry> entries)
-      : _libraryPath = '',
-        super(LibraryListState(entries: entries, loading: false));
+    : _libraryPath = '',
+      super(LibraryListState(entries: entries, loading: false));
 
   String _libraryPath;
 
@@ -98,11 +97,13 @@ class LibraryListNotifier extends StateNotifier<LibraryListState> {
 
 final libraryListProvider =
     StateNotifierProvider<LibraryListNotifier, LibraryListState>((ref) {
-  final notifier = LibraryListNotifier(ref.watch(settingsProvider).libraryPath);
-  ref.listen<AppSettings>(settingsProvider, (previous, next) {
-    if (previous?.libraryPath != next.libraryPath) {
-      notifier.setLibraryPath(next.libraryPath);
-    }
-  });
-  return notifier;
-});
+      final notifier = LibraryListNotifier(
+        ref.watch(settingsProvider).libraryPath,
+      );
+      ref.listen<AppSettings>(settingsProvider, (previous, next) {
+        if (previous?.libraryPath != next.libraryPath) {
+          notifier.setLibraryPath(next.libraryPath);
+        }
+      });
+      return notifier;
+    });

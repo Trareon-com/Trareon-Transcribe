@@ -26,35 +26,49 @@ class _FailingExportBridge extends NoopBridge {
 }
 
 TranscriptSegment _segment(String text) => TranscriptSegment(
-      source: 'mic',
-      speaker: 'MIC',
-      text: text,
-      timestamp: 0,
-      duration: 1,
-      language: 'id',
-      confidence: 0.9,
-      isPartial: false,
-    );
+  source: 'mic',
+  speaker: 'MIC',
+  text: text,
+  timestamp: 0,
+  duration: 1,
+  language: 'id',
+  confidence: 0.9,
+  isPartial: false,
+);
 
 void main() {
-  test('stop() surfaces a TranscribeSaveError when the export write fails', () async {
-    final bridge = _FailingExportBridge();
-    final notifier = SessionNotifier(bridge, SessionMode.offline, 'models/ggml-base.bin');
-    notifier.state = notifier.state.copyWith(sessionId: 'session-1');
-    notifier.setSegments([_segment('halo dunia')]);
+  test(
+    'stop() surfaces a TranscribeSaveError when the export write fails',
+    () async {
+      final bridge = _FailingExportBridge();
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.offline,
+        'models/ggml-base.bin',
+      );
+      notifier.state = notifier.state.copyWith(sessionId: 'session-1');
+      notifier.setSegments([_segment('halo dunia')]);
 
-    await expectLater(notifier.stop(), throwsA(isA<TranscribeSaveError>()));
-    expect(bridge.exportCalled, isTrue);
-  });
+      await expectLater(notifier.stop(), throwsA(isA<TranscribeSaveError>()));
+      expect(bridge.exportCalled, isTrue);
+    },
+  );
 
-  test('stop() does not attempt to export when there are no segments', () async {
-    final bridge = _FailingExportBridge();
-    final notifier = SessionNotifier(bridge, SessionMode.offline, 'models/ggml-base.bin');
-    notifier.state = notifier.state.copyWith(sessionId: 'session-2');
-    notifier.setSegments(const []);
+  test(
+    'stop() does not attempt to export when there are no segments',
+    () async {
+      final bridge = _FailingExportBridge();
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.offline,
+        'models/ggml-base.bin',
+      );
+      notifier.state = notifier.state.copyWith(sessionId: 'session-2');
+      notifier.setSegments(const []);
 
-    await notifier.stop();
+      await notifier.stop();
 
-    expect(bridge.exportCalled, isFalse);
-  });
+      expect(bridge.exportCalled, isFalse);
+    },
+  );
 }

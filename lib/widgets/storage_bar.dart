@@ -64,10 +64,14 @@ class _StorageBarState extends State<StorageBar> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xs,
+      ),
       child: Semantics(
         label: widget.totalSessions > 0
             ? 'Penyimpanan: ${widget.totalSessions} sesi tersimpan'
@@ -75,7 +79,11 @@ class _StorageBarState extends State<StorageBar> {
         child: Row(
           children: [
             ExcludeSemantics(
-              child: Icon(AppIcons.storage, size: IconSizes.xs, color: colors.textTertiary),
+              child: Icon(
+                AppIcons.storage,
+                size: IconSizes.xs,
+                color: colors.textTertiary,
+              ),
             ),
             Spacing.hSm,
             FutureBuilder<int>(
@@ -89,25 +97,39 @@ class _StorageBarState extends State<StorageBar> {
                     snapshot.data! > 0) {
                   return Text(
                     '$sessionLabel · ${_formatBytes(snapshot.data!)}',
-                    style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                    style: TextStyle(
+                      color: colors.textTertiary,
+                      fontSize: FontSizes.caption,
+                    ),
                   );
                 }
                 return Text(
                   sessionLabel,
-                  style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption),
+                  style: TextStyle(
+                    color: colors.textTertiary,
+                    fontSize: FontSizes.caption,
+                  ),
                 );
               },
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.sm,
+                vertical: Spacing.xs,
+              ),
               decoration: BoxDecoration(
                 color: colors.chipBackground,
                 borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Text(
-                widget.totalSessions > 0 ? '📁 ${widget.totalSessions}' : '📂 Kosong',
-                style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.micro),
+                widget.totalSessions > 0
+                    ? '📁 ${widget.totalSessions}'
+                    : '📂 Kosong',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: FontSizes.micro,
+                ),
               ),
             ),
           ],

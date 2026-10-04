@@ -56,7 +56,9 @@ class _NotulenDefaultsSectionState
   /// file write per letter typed.
   Future<void> _save() async {
     final current = ref.read(settingsProvider).notulen;
-    await ref.read(settingsProvider.notifier).setNotulenDefaults(
+    await ref
+        .read(settingsProvider.notifier)
+        .setNotulenDefaults(
           current.copyWith(
             unitKerja: _unitKerja.text.trim(),
             tempat: _tempat.text.trim(),
@@ -80,7 +82,8 @@ class _NotulenDefaultsSectionState
     try {
       final head = await File(path).openRead(0, 8).first;
       const pngMagic = [137, 80, 78, 71, 13, 10, 26, 10];
-      final isPng = head.length >= 8 &&
+      final isPng =
+          head.length >= 8 &&
           List.generate(8, (i) => head[i]).toString() == pngMagic.toString();
       if (!isPng) {
         if (mounted) {
@@ -94,8 +97,11 @@ class _NotulenDefaultsSectionState
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Tidak bisa membaca berkas: $e',
-            type: ToastType.error);
+        AppToast.show(
+          context,
+          'Tidak bisa membaca berkas: $e',
+          type: ToastType.error,
+        );
       }
       return;
     }
@@ -109,7 +115,8 @@ class _NotulenDefaultsSectionState
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notulen = settings.notulen;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +195,7 @@ class _NotulenDefaultsSectionState
               label: 'Kop surat',
               subtitle: notulen.kopSuratPath.isEmpty
                   ? 'Belum dipilih. Tanpa gambar, kop ditulis sebagai teks '
-                      'dari nama instansi di atas.'
+                        'dari nama instansi di atas.'
                   : notulen.kopSuratPath,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -197,8 +204,7 @@ class _NotulenDefaultsSectionState
                     IconButton(
                       tooltip: 'Hapus kop surat',
                       constraints: TouchTarget.constraints,
-                      icon: const Icon(AppIcons.delete,
-                          size: IconSizes.md),
+                      icon: const Icon(AppIcons.delete, size: IconSizes.md),
                       onPressed: () => ref
                           .read(settingsProvider.notifier)
                           .setNotulenDefaults(
@@ -208,8 +214,7 @@ class _NotulenDefaultsSectionState
                   IconButton(
                     tooltip: 'Pilih gambar kop surat',
                     constraints: TouchTarget.constraints,
-                    icon: const Icon(AppIcons.folderOpen,
-                        size: IconSizes.md),
+                    icon: const Icon(AppIcons.folderOpen, size: IconSizes.md),
                     onPressed: _pickKopSurat,
                   ),
                 ],

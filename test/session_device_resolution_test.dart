@@ -41,64 +41,99 @@ rust_device.AudioDeviceInfo _device(String name, {bool isDefault = false}) {
 }
 
 void main() {
-  test('mic auto-selection prefers the OS default device, not just the first in the list', () async {
-    // BlackHole (or any other virtual/loopback input) enumerating before
-    // the real microphone used to make the app silently record from it
-    // instead — see session_model.dart _resolveDevices.
-    final bridge = _DeviceListBridge([
-      _device('BlackHole 2ch'),
-      _device('MacBook Pro Microphone', isDefault: true),
-    ]);
-    final notifier = SessionNotifier(bridge, SessionMode.offline, 'models/ggml-base.bin');
+  test(
+    'mic auto-selection prefers the OS default device, not just the first in the list',
+    () async {
+      // BlackHole (or any other virtual/loopback input) enumerating before
+      // the real microphone used to make the app silently record from it
+      // instead — see session_model.dart _resolveDevices.
+      final bridge = _DeviceListBridge([
+        _device('BlackHole 2ch'),
+        _device('MacBook Pro Microphone', isDefault: true),
+      ]);
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.offline,
+        'models/ggml-base.bin',
+      );
 
-    await notifier.start();
+      await notifier.start();
 
-    expect(bridge.capturedConfig?.micDeviceId, 'MacBook Pro Microphone');
-  });
+      expect(bridge.capturedConfig?.micDeviceId, 'MacBook Pro Microphone');
+    },
+  );
 
-  test('mic auto-selection falls back to the first device when none is marked default', () async {
-    final bridge = _DeviceListBridge([_device('Some Input A'), _device('Some Input B')]);
-    final notifier = SessionNotifier(bridge, SessionMode.offline, 'models/ggml-base.bin');
+  test(
+    'mic auto-selection falls back to the first device when none is marked default',
+    () async {
+      final bridge = _DeviceListBridge([
+        _device('Some Input A'),
+        _device('Some Input B'),
+      ]);
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.offline,
+        'models/ggml-base.bin',
+      );
 
-    await notifier.start();
+      await notifier.start();
 
-    expect(bridge.capturedConfig?.micDeviceId, 'Some Input A');
-  });
+      expect(bridge.capturedConfig?.micDeviceId, 'Some Input A');
+    },
+  );
 
-  test('no speaker device is guessed, so the engine resolves system audio itself', () async {
-    // The old heuristic picked the first "blackhole"/"loopback"-looking
-    // output and otherwise outputs.first. A concrete name here makes macOS
-    // skip ScreenCaptureKit and try to open a *playback* device as a
-    // capture source, and hands Linux a sink name that is not a monitor —
-    // which is how "Audio sistem" came back empty or as the microphone.
-    final bridge = _DeviceListBridge(
-      [_device('MacBook Pro Microphone', isDefault: true)],
-      outputs: [_device('MacBook Pro Speakers', isDefault: true)],
-    );
-    final notifier = SessionNotifier(bridge, SessionMode.webinar, 'models/ggml-base.bin');
+  test(
+    'no speaker device is guessed, so the engine resolves system audio itself',
+    () async {
+      // The old heuristic picked the first "blackhole"/"loopback"-looking
+      // output and otherwise outputs.first. A concrete name here makes macOS
+      // skip ScreenCaptureKit and try to open a *playback* device as a
+      // capture source, and hands Linux a sink name that is not a monitor —
+      // which is how "Audio sistem" came back empty or as the microphone.
+      final bridge = _DeviceListBridge(
+        [_device('MacBook Pro Microphone', isDefault: true)],
+        outputs: [_device('MacBook Pro Speakers', isDefault: true)],
+      );
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.webinar,
+        'models/ggml-base.bin',
+      );
 
-    await notifier.start();
+      await notifier.start();
 
-    expect(notifier.state.config.speakerEnabled, isTrue, reason: 'precondition');
-    expect(bridge.capturedConfig?.speakerDeviceId, isNull);
-  });
+      expect(
+        notifier.state.config.speakerEnabled,
+        isTrue,
+        reason: 'precondition',
+      );
+      expect(bridge.capturedConfig?.speakerDeviceId, isNull);
+    },
+  );
 
-  test('a speaker device the user did choose is passed through untouched', () async {
-    final bridge = _DeviceListBridge(
-      [_device('MacBook Pro Microphone', isDefault: true)],
-      outputs: [_device('MacBook Pro Speakers', isDefault: true)],
-    );
-    final notifier = SessionNotifier(bridge, SessionMode.webinar, 'models/ggml-base.bin');
-    // How a real choice arrives: the setup wizard writes it to settings.
-    notifier.syncDefaultSettings(
-      AppSettings.defaults().copyWith(
-        defaultMode: SessionMode.webinar,
-        speakerDeviceId: 'BlackHole 2ch',
-      ),
-    );
+  test(
+    'a speaker device the user did choose is passed through untouched',
+    () async {
+      final bridge = _DeviceListBridge(
+        [_device('MacBook Pro Microphone', isDefault: true)],
+        outputs: [_device('MacBook Pro Speakers', isDefault: true)],
+      );
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.webinar,
+        'models/ggml-base.bin',
+      );
+      // How a real choice arrives: the setup wizard writes it to settings.
+      notifier.syncDefaultSettings(
+        AppSettings.defaults().copyWith(
+          defaultMode: SessionMode.webinar,
+          speakerDeviceId: 'BlackHole 2ch',
+        ),
+      );
 
-    await notifier.start();
+      await notifier.start();
 
-    expect(bridge.capturedConfig?.speakerDeviceId, 'BlackHole 2ch');
-  });
+      expect(bridge.capturedConfig?.speakerDeviceId, 'BlackHole 2ch');
+    },
+  );
 }

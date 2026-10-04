@@ -139,9 +139,11 @@ class _InteractiveState extends State<Interactive> {
       duration: motion.fast,
       curve: AppEasing.standard,
       decoration: BoxDecoration(
-        borderRadius: widget.borderRadius.add(
-          BorderRadius.circular(Strokes.focusRingOffset),
-        ) as BorderRadius,
+        borderRadius:
+            widget.borderRadius.add(
+                  BorderRadius.circular(Strokes.focusRingOffset),
+                )
+                as BorderRadius,
         border: Border.all(
           color: _focused && widget.showFocusRing && _enabled
               ? colors.focusRing
@@ -162,7 +164,8 @@ class _InteractiveState extends State<Interactive> {
       },
       onKeyEvent: (node, event) {
         if (!_enabled) return KeyEventResult.ignored;
-        final isActivator = event.logicalKey == LogicalKeyboardKey.enter ||
+        final isActivator =
+            event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.space ||
             event.logicalKey == LogicalKeyboardKey.numpadEnter;
         if (!isActivator) return KeyEventResult.ignored;

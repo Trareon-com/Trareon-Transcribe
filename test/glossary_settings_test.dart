@@ -53,7 +53,8 @@ void main() {
       expect(
         config.postCorrection,
         isFalse,
-        reason: 'post-correction without terms would be a silent no-op, but '
+        reason:
+            'post-correction without terms would be a silent no-op, but '
             'reporting it as on is still a lie',
       );
     });
@@ -67,26 +68,32 @@ void main() {
   });
 
   group('SettingsNotifier glossary setters', () {
-    test('adding, removing and replacing terms persists through the bridge',
-        () async {
-      final bridge = NoopBridge();
-      final notifier = SettingsNotifier(bridge);
-      // Let the initial async _load() settle before acting.
-      await Future<void>.delayed(Duration.zero);
+    test(
+      'adding, removing and replacing terms persists through the bridge',
+      () async {
+        final bridge = NoopBridge();
+        final notifier = SettingsNotifier(bridge);
+        // Let the initial async _load() settle before acting.
+        await Future<void>.delayed(Duration.zero);
 
-      await notifier.addGlossaryTerm('  PPBJ ');
-      await notifier.addGlossaryTerm('ppbj');
-      expect(notifier.state.glossary.terms, ['PPBJ'],
-          reason: 'a duplicate must not take a second slot of the prompt '
-              'budget');
+        await notifier.addGlossaryTerm('  PPBJ ');
+        await notifier.addGlossaryTerm('ppbj');
+        expect(
+          notifier.state.glossary.terms,
+          ['PPBJ'],
+          reason:
+              'a duplicate must not take a second slot of the prompt '
+              'budget',
+        );
 
-      await notifier.addGlossaryTerm('Kemenkeu');
-      await notifier.removeGlossaryTerm('ppbj');
-      expect(notifier.state.glossary.terms, ['Kemenkeu']);
+        await notifier.addGlossaryTerm('Kemenkeu');
+        await notifier.removeGlossaryTerm('ppbj');
+        expect(notifier.state.glossary.terms, ['Kemenkeu']);
 
-      // Round-trips through the bridge, which is what persistence means here.
-      expect((await bridge.loadSettings()).glossary.terms, ['Kemenkeu']);
-    });
+        // Round-trips through the bridge, which is what persistence means here.
+        expect((await bridge.loadSettings()).glossary.terms, ['Kemenkeu']);
+      },
+    );
 
     test('toggling the switches leaves the term list alone', () async {
       final notifier = SettingsNotifier(NoopBridge());
@@ -119,11 +126,10 @@ void main() {
 
       expect(notifier.state.summaryTemplates.length, 1);
       expect(notifier.state.summaryTemplates.single.name, 'Dengan Risiko');
-      expect(
-        notifier.state.summaryTemplates.single.headings,
-        ['Pembahasan', 'Risiko'],
-        reason: 'renaming must not discard the headings',
-      );
+      expect(notifier.state.summaryTemplates.single.headings, [
+        'Pembahasan',
+        'Risiko',
+      ], reason: 'renaming must not discard the headings');
 
       await notifier.deleteSummaryTemplate('tpl-1');
       expect(notifier.state.summaryTemplates, isEmpty);
@@ -154,8 +160,11 @@ void main() {
       final notifier = SettingsNotifier(NoopBridge());
       await Future<void>.delayed(Duration.zero);
 
-      expect(notifier.state.autoRetranscribe, isNull,
-          reason: 'the default is "decide from the model that was used"');
+      expect(
+        notifier.state.autoRetranscribe,
+        isNull,
+        reason: 'the default is "decide from the model that was used"',
+      );
 
       await notifier.setAutoRetranscribe(true);
       expect(notifier.state.autoRetranscribe, isTrue);

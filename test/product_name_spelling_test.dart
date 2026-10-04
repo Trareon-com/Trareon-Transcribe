@@ -12,9 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the purpose of keeping it.
 void main() {
   /// Every misspelling of "Trareon" seen in this repository's history.
-  final misspellings = RegExp(
-    r'Traeon|Traereon|Trareron|traeon|traereon',
-  );
+  final misspellings = RegExp(r'Traeon|Traereon|Trareron|traeon|traereon');
 
   const scannedRoots = [
     'lib',
@@ -81,7 +79,9 @@ void main() {
   });
 
   test('the onboarding greeting spells the product correctly', () {
-    final source = File('lib/screens/onboarding_screen.dart').readAsStringSync();
+    final source = File(
+      'lib/screens/onboarding_screen.dart',
+    ).readAsStringSync();
     expect(source, contains('Selamat datang di Trareon Transcribe'));
   });
 }

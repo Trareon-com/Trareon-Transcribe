@@ -13,6 +13,8 @@ import '../utils/speaker_color.dart';
 import '../widgets/empty_state.dart';
 import 'speaker_avatar.dart';
 import '../theme/app_icons.dart';
+import 'app_toast.dart';
+import '../theme/app_typography.dart';
 
 /// Scrolling transcript.
 ///
@@ -28,6 +30,13 @@ import '../theme/app_icons.dart';
 ///   stops replaying the entry animation on every scroll (A.1-13);
 /// * the playing-row highlight arrives through a [ValueListenable] that
 ///   only fires when the *row* changes, not on every position tick (A.3-6).
+/// Width of the speaker column on every transcript row.
+///
+/// Fits "Pembicara 1" and "Pembicara 2" in full, plus the avatar plate and the
+/// rename pencil. It used to be 72, which truncated the default speaker name
+/// to "Pe…" on every row in the app.
+const double kSpeakerColumnWidth = 148;
+
 class TranscriptView extends StatefulWidget {
   /// Minimum gap between screen-reader announcements of new transcript rows.
   ///
@@ -182,15 +191,18 @@ class _TranscriptViewState extends State<TranscriptView> {
   void _scheduleAnnouncement() {
     final now = DateTime.now();
     final last = _lastAnnouncedAt;
-    final elapsed =
-        last == null ? TranscriptView.kAnnounceThrottle : now.difference(last);
+    final elapsed = last == null
+        ? TranscriptView.kAnnounceThrottle
+        : now.difference(last);
     if (elapsed >= TranscriptView.kAnnounceThrottle) {
       _announceNow();
       return;
     }
     _announceTimer?.cancel();
-    _announceTimer =
-        Timer(TranscriptView.kAnnounceThrottle - elapsed, _announceNow);
+    _announceTimer = Timer(
+      TranscriptView.kAnnounceThrottle - elapsed,
+      _announceNow,
+    );
   }
 
   void _announceNow() {
@@ -212,7 +224,11 @@ class _TranscriptViewState extends State<TranscriptView> {
     // An announcement rather than a `liveRegion` node: a node only
     // re-announces when it is rebuilt *and* visible, and this has to speak
     // for rows that are already scrolled out of view.
-    SemanticsService.sendAnnouncement(View.of(context), message, TextDirection.ltr);
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      message,
+      TextDirection.ltr,
+    );
   }
 
   @override
@@ -366,8 +382,8 @@ class _TranscriptViewState extends State<TranscriptView> {
         // First press lands on the playing row when there is one, which
         // is where the user is looking.
         ? (_activeIndex != null && displayed.contains(_activeIndex)
-            ? displayed.indexOf(_activeIndex!)
-            : 0)
+              ? displayed.indexOf(_activeIndex!)
+              : 0)
         : (position + delta).clamp(0, displayed.length - 1);
     setState(() => _selectedIndex = displayed[next]);
     _revealRow(displayed[next]);
@@ -446,44 +462,36 @@ class _TranscriptViewState extends State<TranscriptView> {
   }
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
-        const SingleActivator(LogicalKeyboardKey.arrowDown):
-            () => _moveSelection(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp):
-            () => _moveSelection(-1),
-        const SingleActivator(LogicalKeyboardKey.enter): () {
-          final index = _selectedIndex;
-          if (index != null) _startEditing(index);
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
-            () => _moveSelectedSegment(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
-            () => _moveSelectedSegment(-1),
-        const SingleActivator(LogicalKeyboardKey.arrowDown, meta: true):
-            () => _moveSelectedSegment(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true):
-            () => _moveSelectedSegment(-1),
-        const SingleActivator(LogicalKeyboardKey.keyM, control: true):
-            _mergeSelected,
-        const SingleActivator(LogicalKeyboardKey.keyM, meta: true):
-            _mergeSelected,
-      };
+    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+        _moveSelection(1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp): () => _moveSelection(-1),
+    const SingleActivator(LogicalKeyboardKey.enter): () {
+      final index = _selectedIndex;
+      if (index != null) _startEditing(index);
+    },
+    const SingleActivator(LogicalKeyboardKey.arrowDown, control: true): () =>
+        _moveSelectedSegment(1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () =>
+        _moveSelectedSegment(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, meta: true): () =>
+        _moveSelectedSegment(1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true): () =>
+        _moveSelectedSegment(-1),
+    const SingleActivator(LogicalKeyboardKey.keyM, control: true):
+        _mergeSelected,
+    const SingleActivator(LogicalKeyboardKey.keyM, meta: true): _mergeSelected,
+  };
 
   /// Shortcuts live while a row is being edited. Deliberately few: a text
   /// field eats most keys, and it should.
   Map<ShortcutActivator, VoidCallback> get _editingShortcuts => {
-        const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
-        const SingleActivator(LogicalKeyboardKey.enter): _commitEdit,
-        const SingleActivator(
-          LogicalKeyboardKey.keyS,
-          control: true,
-          shift: true,
-        ): _splitSelected,
-        const SingleActivator(
-          LogicalKeyboardKey.keyS,
-          meta: true,
-          shift: true,
-        ): _splitSelected,
-      };
+    const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
+    const SingleActivator(LogicalKeyboardKey.enter): _commitEdit,
+    const SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
+        _splitSelected,
+    const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
+        _splitSelected,
+  };
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
@@ -569,18 +577,17 @@ class _TranscriptViewState extends State<TranscriptView> {
           ? null
           : (newText) => widget.onEdit!(originalIndex, newText),
       onCopy: () {
-        Clipboard.setData(ClipboardData(
-          text:
-              '[${formatDuration(Duration(milliseconds: (seg.timestamp * 1000).round()))}] ${seg.text}',
-        ));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Segmen disalin',
-                style: TextStyle(fontSize: FontSizes.caption, color: colors.text)),
-            duration: const Duration(seconds: 1),
-            backgroundColor: colors.surface,
-            behavior: SnackBarBehavior.floating,
+        Clipboard.setData(
+          ClipboardData(
+            text:
+                '[${formatDuration(Duration(milliseconds: (seg.timestamp * 1000).round()))}] ${seg.text}',
           ),
+        );
+        AppToast.show(
+          context,
+          'Segmen disalin.',
+          type: ToastType.success,
+          duration: const Duration(seconds: 2),
         );
       },
       onRename: widget.onRenameSpeaker == null
@@ -592,28 +599,26 @@ class _TranscriptViewState extends State<TranscriptView> {
   void _copyAllToClipboard(BuildContext context) {
     if (widget.segments.isEmpty) return;
     final text = widget.segments
-        .map((s) =>
-            '[${s.speaker} · ${formatDuration(Duration(milliseconds: (s.timestamp * 1000).round()))}] ${s.text}')
+        .map(
+          (s) =>
+              '[${s.speaker} · ${formatDuration(Duration(milliseconds: (s.timestamp * 1000).round()))}] ${s.text}',
+        )
         .join('\n');
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transkrip disalin ke clipboard'),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.show(context, 'Transkrip disalin.', type: ToastType.success);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     if (widget.segments.isEmpty) {
       return const EmptyState(
         icon: AppIcons.mic,
         title: 'Belum ada transkrip',
-        subtitle: 'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)',
+        subtitle:
+            'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)',
       );
     }
 
@@ -631,167 +636,213 @@ class _TranscriptViewState extends State<TranscriptView> {
         // stealing focus from it as the user types would be worse than
         // asking for one click before the arrow keys work.
         child: Column(
-      children: [
-        // Search + Toolbar
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    style: TextStyle(color: colors.text, fontSize: FontSizes.body),
-                    decoration: InputDecoration(
-                      hintText: 'Cari...',
-                      hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
-                      prefixIcon: Icon(AppIcons.search, size: IconSizes.sm, color: colors.textTertiary),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(AppIcons.clear, size: IconSizes.xs, color: colors.textTertiary),
-                              onPressed: _clearSearch,
-                              tooltip: 'Bersihkan pencarian',
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: colors.chipBackground,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(Radii.md),
-                        borderSide: BorderSide.none,
+          children: [
+            // Search + Toolbar
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.md,
+                vertical: Spacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(
+                  bottom: BorderSide(color: colors.divider, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        style: TextStyle(
+                          color: colors.text,
+                          fontSize: FontSizes.body,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Cari…',
+                          hintStyle: TextStyle(
+                            color: colors.textTertiary,
+                            fontSize: FontSizes.body,
+                          ),
+                          prefixIcon: Icon(
+                            AppIcons.search,
+                            size: IconSizes.sm,
+                            color: colors.textTertiary,
+                          ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    AppIcons.clear,
+                                    size: IconSizes.xs,
+                                    color: colors.textTertiary,
+                                  ),
+                                  onPressed: _clearSearch,
+                                  tooltip: 'Bersihkan pencarian',
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: colors.chipBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(Radii.md),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          isDense: true,
+                        ),
                       ),
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
                     ),
                   ),
-                ),
-              ),
-              Spacing.hSm,
-              // A live region as well as a label: the count is the one piece
-              // of state on this screen that changes on its own, so a screen
-              // reader should re-read it rather than wait to be asked.
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  _searchQuery.isEmpty
-                      ? '${widget.segments.length} segmen'
-                      : '$itemCount dari ${widget.segments.length} segmen',
-                  style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
-                ),
-              ),
-              Spacing.hXs,
-              if (_isPlayerMode)
-                IconButton(
-                  tooltip: _followActive
-                      ? 'Ikuti pemutaran: aktif'
-                      : 'Ikuti pemutaran: mati',
-                  icon: Icon(
-                    _followActive ? AppIcons.locate : AppIcons.offline,
-                    size: IconSizes.md,
-                    color: _followActive ? colors.primary : colors.textTertiary,
+                  Spacing.hSm,
+                  // A live region as well as a label: the count is the one piece
+                  // of state on this screen that changes on its own, so a screen
+                  // reader should re-read it rather than wait to be asked.
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _searchQuery.isEmpty
+                          ? '${widget.segments.length} segmen'
+                          : '$itemCount dari ${widget.segments.length} segmen',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: FontSizes.caption,
+                      ),
+                    ),
                   ),
-                  onPressed: () {
-                    setState(() => _followActive = !_followActive);
-                    final active = _activeIndex;
-                    if (_followActive && active != null) _revealRow(active);
-                  },
-                )
-              else
-                IconButton(
-                  tooltip: _autoScroll ? 'Auto-scroll aktif' : 'Auto-scroll mati',
-                  icon: Icon(
-                    _autoScroll ? AppIcons.scrollToBottom : AppIcons.pause,
-                    size: IconSizes.md,
-                    color: _autoScroll ? colors.primary : colors.textTertiary,
+                  Spacing.hXs,
+                  if (_isPlayerMode)
+                    IconButton(
+                      tooltip: _followActive
+                          ? 'Ikuti pemutaran: aktif'
+                          : 'Ikuti pemutaran: mati',
+                      icon: Icon(
+                        _followActive ? AppIcons.locate : AppIcons.offline,
+                        size: IconSizes.md,
+                        color: _followActive
+                            ? colors.primary
+                            : colors.textTertiary,
+                      ),
+                      onPressed: () {
+                        setState(() => _followActive = !_followActive);
+                        final active = _activeIndex;
+                        if (_followActive && active != null) _revealRow(active);
+                      },
+                    )
+                  else
+                    IconButton(
+                      tooltip: _autoScroll
+                          ? 'Auto-scroll aktif'
+                          : 'Auto-scroll mati',
+                      icon: Icon(
+                        _autoScroll ? AppIcons.scrollToBottom : AppIcons.pause,
+                        size: IconSizes.md,
+                        color: _autoScroll
+                            ? colors.primary
+                            : colors.textTertiary,
+                      ),
+                      onPressed: () =>
+                          setState(() => _autoScroll = !_autoScroll),
+                    ),
+                  if (_lowConfidenceCount > 0 || _reviewOnly)
+                    IconButton(
+                      tooltip: _reviewOnly
+                          ? 'Tinjau: hanya segmen yang perlu diperiksa'
+                          : 'Tinjau ($_lowConfidenceCount segmen perlu diperiksa)',
+                      icon: Icon(
+                        _reviewOnly ? AppIcons.flagFilled : AppIcons.flag,
+                        size: IconSizes.md,
+                        color: _reviewOnly
+                            ? colors.warning
+                            : colors.textTertiary,
+                      ),
+                      onPressed: () => setState(() {
+                        _reviewOnly = !_reviewOnly;
+                        _rebuildMatches();
+                        // The cursor may now be on a hidden row.
+                        if (_selectedIndex != null &&
+                            !_displayed.contains(_selectedIndex)) {
+                          _selectedIndex = null;
+                          _editingIndex = null;
+                        }
+                      }),
+                    ),
+                  IconButton(
+                    tooltip: 'Salin semua',
+                    icon: Icon(
+                      AppIcons.copy,
+                      size: IconSizes.md,
+                      color: colors.textSecondary,
+                    ),
+                    onPressed: () => _copyAllToClipboard(context),
                   ),
-                  onPressed: () => setState(() => _autoScroll = !_autoScroll),
-                ),
-              if (_lowConfidenceCount > 0 || _reviewOnly)
-                IconButton(
-                  tooltip: _reviewOnly
-                      ? 'Tinjau: hanya segmen yang perlu diperiksa'
-                      : 'Tinjau ($_lowConfidenceCount segmen perlu diperiksa)',
-                  icon: Icon(
-                    _reviewOnly ? AppIcons.flagFilled : AppIcons.flag,
-                    size: IconSizes.md,
-                    color: _reviewOnly ? colors.warning : colors.textTertiary,
-                  ),
-                  onPressed: () => setState(() {
-                    _reviewOnly = !_reviewOnly;
-                    _rebuildMatches();
-                    // The cursor may now be on a hidden row.
-                    if (_selectedIndex != null &&
-                        !_displayed.contains(_selectedIndex)) {
-                      _selectedIndex = null;
-                      _editingIndex = null;
-                    }
-                  }),
-                ),
-              IconButton(
-                tooltip: 'Salin semua',
-                icon: Icon(AppIcons.copy, size: IconSizes.md, color: colors.textSecondary),
-                onPressed: () => _copyAllToClipboard(context),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
 
-        // Transcript list
-        Expanded(
-          child: itemCount == 0
-              ? const EmptyState(
-                  icon: AppIcons.searchOff,
-                  title: 'Tidak ada segmen cocok',
-                )
-              : NotificationListener<UserScrollNotification>(
-                  // A hand-scroll during playback means "stop dragging me
-                  // back to the playhead" — the same contract the live
-                  // tail-follow has always had.
-                  onNotification: (_) {
-                    if (_isPlayerMode && _followActive) {
-                      setState(() => _followActive = false);
-                    }
-                    return false;
-                  },
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    center: _forwardSliverKey,
-                    slivers: [
-                      // Rows above the anchor, laid out upwards. Empty
-                      // (childCount 0) whenever the anchor is 0.
-                      SliverPadding(
-                        padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, top: Spacing.sm),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) =>
-                                _buildRow(context, colors, anchor - 1 - index),
-                            childCount: anchor,
+            // Transcript list
+            Expanded(
+              child: itemCount == 0
+                  ? const EmptyState(
+                      icon: AppIcons.searchOff,
+                      title: 'Tidak ada segmen cocok',
+                    )
+                  : NotificationListener<UserScrollNotification>(
+                      // A hand-scroll during playback means "stop dragging me
+                      // back to the playhead" — the same contract the live
+                      // tail-follow has always had.
+                      onNotification: (_) {
+                        if (_isPlayerMode && _followActive) {
+                          setState(() => _followActive = false);
+                        }
+                        return false;
+                      },
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        center: _forwardSliverKey,
+                        slivers: [
+                          // Rows above the anchor, laid out upwards. Empty
+                          // (childCount 0) whenever the anchor is 0.
+                          SliverPadding(
+                            padding: const EdgeInsets.only(
+                              left: Spacing.md,
+                              right: Spacing.md,
+                              top: Spacing.sm,
+                            ),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => _buildRow(
+                                  context,
+                                  colors,
+                                  anchor - 1 - index,
+                                ),
+                                childCount: anchor,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      SliverPadding(
-                        key: _forwardSliverKey,
-                        padding: const EdgeInsets.only(left: Spacing.md, right: Spacing.md, bottom: Spacing.sm),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) =>
-                                _buildRow(context, colors, anchor + index),
-                            childCount: itemCount - anchor,
+                          SliverPadding(
+                            key: _forwardSliverKey,
+                            padding: const EdgeInsets.only(
+                              left: Spacing.md,
+                              right: Spacing.md,
+                              bottom: Spacing.sm,
+                            ),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) =>
+                                    _buildRow(context, colors, anchor + index),
+                                childCount: itemCount - anchor,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-        ),
-        if (_keyboardEditing && widget.onEdit != null && itemCount > 0)
-          _ShortcutHint(colors: colors, editing: _editingIndex != null),
-      ],
+                    ),
+            ),
+            if (_keyboardEditing && widget.onEdit != null && itemCount > 0)
+              _ShortcutHint(colors: colors, editing: _editingIndex != null),
+          ],
         ),
       ),
     );
@@ -826,7 +877,10 @@ class _ShortcutHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
@@ -835,7 +889,7 @@ class _ShortcutHint extends StatelessWidget {
         editing
             ? 'Enter simpan · Esc batal · Ctrl+Shift+S pisah di kursor'
             : '↑↓ pilih · Enter sunting · Ctrl+↑↓ pindahkan · '
-                'Ctrl+M gabung ke atas',
+                  'Ctrl+M gabung ke atas',
         style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
       ),
     );
@@ -844,7 +898,12 @@ class _ShortcutHint extends StatelessWidget {
 
 /// Highlight [query] in [text] using the given [style] for matches.
 /// Returns a list of TextSpans.
-List<TextSpan> _highlightText(String text, String query, TextStyle baseStyle, Color highlightColor) {
+List<TextSpan> _highlightText(
+  String text,
+  String query,
+  TextStyle baseStyle,
+  Color highlightColor,
+) {
   if (query.isEmpty) return [TextSpan(text: text, style: baseStyle)];
 
   final lower = text.toLowerCase();
@@ -860,13 +919,15 @@ List<TextSpan> _highlightText(String text, String query, TextStyle baseStyle, Co
     if (idx > start) {
       results.add(TextSpan(text: text.substring(start, idx), style: baseStyle));
     }
-    results.add(TextSpan(
-      text: text.substring(idx, idx + query.length),
-      style: baseStyle.copyWith(
-        backgroundColor: highlightColor.withValues(alpha: 0.4),
-        fontWeight: FontWeight.w600,
+    results.add(
+      TextSpan(
+        text: text.substring(idx, idx + query.length),
+        style: baseStyle.copyWith(
+          backgroundColor: highlightColor.withValues(alpha: 0.4),
+          fontWeight: FontWeight.w600,
+        ),
       ),
-    ));
+    );
     start = idx + query.length;
   }
   return results;
@@ -928,7 +989,8 @@ class TranscriptSegmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final activeBg = speakerColor.withValues(alpha: isActive ? 0.12 : 0.0);
     final showOutline = isActive || isSelected;
     final activeBorder = isActive
@@ -982,15 +1044,21 @@ class TranscriptSegmentTile extends StatelessWidget {
                   Container(
                     width: 3,
                     height: 16,
-                    margin: const EdgeInsets.only(top: Spacing.xs, right: Spacing.sm),
+                    margin: const EdgeInsets.only(
+                      top: Spacing.xs,
+                      right: Spacing.sm,
+                    ),
                     decoration: BoxDecoration(
                       color: speakerColor.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(Radii.xs),
                     ),
                   ),
-                  // Speaker label + time
+                  // Speaker label + time.
+                  //
+                  // 120 px, not 72: at 72 every row in the app read
+                  // "Pe…" because the default speaker name is "Pembicara 1".
                   SizedBox(
-                    width: 72,
+                    width: kSpeakerColumnWidth,
                     child: GestureDetector(
                       onTap: onRename != null
                           ? () => _openRenameDialog(context)
@@ -1000,35 +1068,39 @@ class TranscriptSegmentTile extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              SpeakerAvatar(name: displaySpeaker, color: speakerColor, size: IconSizes.lg),
+                              SpeakerAvatar(
+                                name: displaySpeaker,
+                                color: speakerColor,
+                                size: IconSizes.lg,
+                              ),
                               Spacing.hSm,
                               Flexible(
                                 child: Text(
                                   displaySpeaker,
-                                  style: TextStyle(
-                                    color: speakerColor,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: FontSizes.caption,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  style: AppText.captionStrong.c(speakerColor),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (onRename != null) ...[
                                 Spacing.hXs,
-                                Icon(AppIcons.edit, size: 10, color: speakerColor.withValues(alpha: 0.5)),
+                                Icon(
+                                  AppIcons.edit,
+                                  size: IconSizes.xs,
+                                  color: speakerColor.withValues(alpha: 0.6),
+                                ),
                               ],
                             ],
                           ),
                           Spacing.gapXs,
                           Text(
-                            formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round())),
-                            style: TextStyle(
-                              color: colors.textTertiary,
-                              fontSize: FontSizes.overline,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                            formatDuration(
+                              Duration(
+                                milliseconds: (segment.timestamp * 1000)
+                                    .round(),
+                              ),
                             ),
+                            style: AppText.monoMicro.c(colors.textTertiary),
                           ),
                         ],
                       ),
@@ -1045,11 +1117,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                             controller: editController,
                             focusNode: editFocusNode,
                             maxLines: null,
-                            style: TextStyle(
-                              color: colors.text,
-                              fontSize: FontSizes.bodyLarge,
-                              height: 1.45,
-                            ),
+                            style: AppText.reading.c(colors.text),
                             decoration: const InputDecoration(
                               isDense: true,
                               border: OutlineInputBorder(),
@@ -1057,17 +1125,17 @@ class TranscriptSegmentTile extends StatelessWidget {
                             ),
                           )
                         else
-                          RichText(
-                            text: TextSpan(
+                          // `Text.rich`, not `RichText`: RichText does not
+                          // merge DefaultTextStyle, so this text (the most
+                          // read text in the whole app) was rendering in the
+                          // platform fallback face instead of the bundled
+                          // Inter. The golden is what caught it.
+                          Text.rich(
+                            TextSpan(
                               children: _highlightText(
                                 segment.text,
                                 searchQuery,
-                                TextStyle(
-                                  color: colors.text,
-                                  fontSize: FontSizes.bodyLarge,
-                                  height: 1.45,
-                                  letterSpacing: 0.1,
-                                ),
+                                AppText.reading.c(colors.text),
                                 speakerColor,
                               ),
                             ),
@@ -1137,7 +1205,11 @@ class TranscriptSegmentTile extends StatelessWidget {
                         SizedBox.fromSize(
                           size: TouchTarget.minimumSize,
                           child: IconButton(
-                            icon: Icon(AppIcons.copy, size: IconSizes.sm, color: colors.textTertiary),
+                            icon: Icon(
+                              AppIcons.copy,
+                              size: IconSizes.sm,
+                              color: colors.textTertiary,
+                            ),
                             onPressed: onCopy,
                             padding: EdgeInsets.zero,
                             tooltip: 'Salin segmen',
@@ -1147,8 +1219,13 @@ class TranscriptSegmentTile extends StatelessWidget {
                         SizedBox.fromSize(
                           size: TouchTarget.minimumSize,
                           child: IconButton(
-                            icon: Icon(AppIcons.edit, size: IconSizes.sm, color: colors.textTertiary),
-                            onPressed: onStartInlineEdit ??
+                            icon: Icon(
+                              AppIcons.edit,
+                              size: IconSizes.sm,
+                              color: colors.textTertiary,
+                            ),
+                            onPressed:
+                                onStartInlineEdit ??
                                 () => _openEditDialog(context),
                             padding: EdgeInsets.zero,
                             tooltip: 'Edit',
@@ -1167,7 +1244,8 @@ class TranscriptSegmentTile extends StatelessWidget {
 
   void _openEditDialog(BuildContext context) {
     final controller = TextEditingController(text: segment.text);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1183,7 +1261,10 @@ class TranscriptSegmentTile extends StatelessWidget {
               ),
             ),
             Spacing.hSm,
-            Text('Edit Transkrip', style: TextStyle(color: colors.text, fontSize: FontSizes.title)),
+            Text(
+              'Edit Transkrip',
+              style: TextStyle(color: colors.text, fontSize: FontSizes.title),
+            ),
           ],
         ),
         content: TextField(
@@ -1191,13 +1272,22 @@ class TranscriptSegmentTile extends StatelessWidget {
           autofocus: true,
           maxLines: null,
           minLines: 3,
-          style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge, height: 1.4),
+          style: TextStyle(
+            color: colors.text,
+            fontSize: FontSizes.bodyLarge,
+            height: 1.4,
+          ),
           decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
             filled: true,
             fillColor: colors.chipBackground,
-            hintText: 'Ketik koreksi transkrip...',
-            hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
+            hintText: 'Ketik koreksi transkrip…',
+            hintStyle: TextStyle(
+              color: colors.textTertiary,
+              fontSize: FontSizes.body,
+            ),
           ),
         ),
         actions: [
@@ -1212,7 +1302,9 @@ class TranscriptSegmentTile extends StatelessWidget {
         ],
       ),
     ).then((newText) {
-      if (newText != null && newText.trim().isNotEmpty && newText != segment.text) {
+      if (newText != null &&
+          newText.trim().isNotEmpty &&
+          newText != segment.text) {
         onEdit?.call(newText);
       }
     });
@@ -1220,7 +1312,8 @@ class TranscriptSegmentTile extends StatelessWidget {
 
   void _openRenameDialog(BuildContext context) {
     final controller = TextEditingController(text: displaySpeaker);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1236,8 +1329,10 @@ class TranscriptSegmentTile extends StatelessWidget {
               ),
             ),
             Spacing.hSm,
-            Text('Ganti Nama Pembicara',
-                style: TextStyle(color: colors.text, fontSize: FontSizes.title)),
+            Text(
+              'Ganti Nama Pembicara',
+              style: TextStyle(color: colors.text, fontSize: FontSizes.title),
+            ),
           ],
         ),
         content: TextField(
@@ -1245,11 +1340,16 @@ class TranscriptSegmentTile extends StatelessWidget {
           autofocus: true,
           style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
           decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
             filled: true,
             fillColor: colors.chipBackground,
-            hintText: 'Nama baru...',
-            hintStyle: TextStyle(color: colors.textTertiary, fontSize: FontSizes.body),
+            hintText: 'Nama baru…',
+            hintStyle: TextStyle(
+              color: colors.textTertiary,
+              fontSize: FontSizes.body,
+            ),
           ),
         ),
         actions: [

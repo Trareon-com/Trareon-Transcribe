@@ -24,7 +24,8 @@ class EnhanceQueueView extends ConsumerWidget {
     final jobs = queue.visible;
     if (jobs.isEmpty) return const SizedBox.shrink();
 
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: Spacing.md,
@@ -41,8 +42,11 @@ class EnhanceQueueView extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(AppIcons.enhanceQueue,
-                  size: IconSizes.sm, color: colors.primary),
+              Icon(
+                AppIcons.enhanceQueue,
+                size: IconSizes.sm,
+                color: colors.primary,
+              ),
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Text(
@@ -65,8 +69,11 @@ class EnhanceQueueView extends ConsumerWidget {
                   child: IconButton(
                     visualDensity: VisualDensity.compact,
                     constraints: TouchTarget.constraints,
-                    icon: Icon(AppIcons.cancel,
-                        size: IconSizes.md, color: colors.textSecondary),
+                    icon: Icon(
+                      AppIcons.cancel,
+                      size: IconSizes.md,
+                      color: colors.textSecondary,
+                    ),
                     onPressed: notifier.cancelAll,
                   ),
                 ),
@@ -97,16 +104,23 @@ class EnhanceQueueView extends ConsumerWidget {
                       // fraction: a completion pass can run for an hour on
                       // a weak CPU, and a spinner that long reads as hung.
                       EnhanceJobStatus.running => CircularProgressIndicator(
-                          strokeWidth: 2,
-                          value: job.kind == EnhanceJobKind.complete &&
-                                  job.progress > 0
-                              ? job.progress.clamp(0.0, 1.0)
-                              : null,
-                        ),
-                      EnhanceJobStatus.failed => Icon(AppIcons.error,
-                          size: IconSizes.sm, color: colors.error),
-                      _ => Icon(AppIcons.clock,
-                          size: IconSizes.sm, color: colors.textTertiary),
+                        strokeWidth: 2,
+                        value:
+                            job.kind == EnhanceJobKind.complete &&
+                                job.progress > 0
+                            ? job.progress.clamp(0.0, 1.0)
+                            : null,
+                      ),
+                      EnhanceJobStatus.failed => Icon(
+                        AppIcons.error,
+                        size: IconSizes.sm,
+                        color: colors.error,
+                      ),
+                      _ => Icon(
+                        AppIcons.clock,
+                        size: IconSizes.sm,
+                        color: colors.textTertiary,
+                      ),
                     },
                   ),
                   const SizedBox(width: Spacing.sm),
@@ -129,13 +143,13 @@ class EnhanceQueueView extends ConsumerWidget {
                               job.error ?? 'Gagal. Transkrip lama dipakai.',
                             (
                               EnhanceJobKind.complete,
-                              EnhanceJobStatus.running
+                              EnhanceJobStatus.running,
                             ) =>
                               'Menyelesaikan ${sourceLabel(job.source)}… '
                                   '${(job.progress.clamp(0.0, 1.0) * 100).round()}%'
                                   '${job.etaSecs >= 5 ? ' — sisa ${formatEta(job.etaSecs)}' : ''}',
                             (EnhanceJobKind.complete, _) =>
-                              'Menunggu antrean — ada audio yang belum '
+                              'Menunggu antrean, ada audio yang belum '
                                   'ditranskripsi.',
                             (_, EnhanceJobStatus.running) =>
                               'Memakai model akurat… transkrip lama tetap '

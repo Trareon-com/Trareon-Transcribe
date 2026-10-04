@@ -41,7 +41,8 @@ class _FlakyExportBridge extends NoopBridge {
     return [
       rust_export.ExportedFile(
         filename: 'transcript.json',
-        path: '$outputDir${Platform.pathSeparator}sesi'
+        path:
+            '$outputDir${Platform.pathSeparator}sesi'
             '${Platform.pathSeparator}transcript.json',
         sizeBytes: BigInt.from(10),
       ),
@@ -59,7 +60,8 @@ class _FlakyExportBridge extends NoopBridge {
     return [
       rust_export.ExportedFile(
         filename: 'mic.wav',
-        path: '$outputDir${Platform.pathSeparator}sesi'
+        path:
+            '$outputDir${Platform.pathSeparator}sesi'
             '${Platform.pathSeparator}mic.wav',
         sizeBytes: BigInt.from(1024),
       ),
@@ -89,11 +91,8 @@ class _UnwritableFirstBridge extends _FlakyExportBridge {
   }
 }
 
-SessionNotifier notifierWith(RustBridge bridge) => SessionNotifier(
-  bridge,
-  SessionMode.online,
-  'models/tiny.bin',
-);
+SessionNotifier notifierWith(RustBridge bridge) =>
+    SessionNotifier(bridge, SessionMode.online, 'models/tiny.bin');
 
 TranscriptSegment segment(String text) => TranscriptSegment(
   source: 'mic',
@@ -146,7 +145,8 @@ void main() {
 
     expect(notifier.hasUnsavedTranscript, isTrue);
     expect(
-      notifier.state.segments, hasLength(1),
+      notifier.state.segments,
+      hasLength(1),
       reason: 'the transcript must stay in memory for the retry',
     );
 
@@ -155,8 +155,10 @@ void main() {
     expect(notifier.hasUnsavedTranscript, isFalse);
     expect(bridge.exportDirs, hasLength(1));
     expect(
-      bridge.audioDirs, hasLength(1),
-      reason: 'the audio was already placed by the failed attempt and must '
+      bridge.audioDirs,
+      hasLength(1),
+      reason:
+          'the audio was already placed by the failed attempt and must '
           'not be claimed twice',
     );
   });
@@ -173,25 +175,28 @@ void main() {
     expect(
       bridge.audioDirs,
       [resolveTilde(kDefaultLibraryPath)],
-      reason: 'the audio landed on the first attempt; only the transcript '
+      reason:
+          'the audio landed on the first attempt; only the transcript '
           'still needed a home',
     );
   });
 
   /// When the library path itself is the problem, the audio export fails
   /// too — so "Simpan ke folder lain" has to rescue both.
-  test('a retry elsewhere also places audio the first attempt could not',
-      () async {
-    final bridge = _UnwritableFirstBridge();
-    final notifier = notifierWith(bridge);
-    addTearDown(notifier.dispose);
+  test(
+    'a retry elsewhere also places audio the first attempt could not',
+    () async {
+      final bridge = _UnwritableFirstBridge();
+      final notifier = notifierWith(bridge);
+      addTearDown(notifier.dispose);
 
-    await stopWithSegments(notifier, expectFailure: true);
-    expect(bridge.audioDirs, hasLength(1), reason: 'attempted, and failed');
+      await stopWithSegments(notifier, expectFailure: true);
+      expect(bridge.audioDirs, hasLength(1), reason: 'attempted, and failed');
 
-    await notifier.retrySave(outputDir: '/tmp/lokasi-lain');
-    expect(bridge.audioDirs.last, '/tmp/lokasi-lain');
-  });
+      await notifier.retrySave(outputDir: '/tmp/lokasi-lain');
+      expect(bridge.audioDirs.last, '/tmp/lokasi-lain');
+    },
+  );
 
   test('a retry that fails again stays pending', () async {
     final bridge = _FlakyExportBridge(failuresRemaining: 2);
@@ -257,7 +262,8 @@ void main() {
     expect(
       bridge.exportDirs,
       hasLength(1),
-      reason: 'an empty transcript still gets written, so the session is '
+      reason:
+          'an empty transcript still gets written, so the session is '
           'visible in the library and can be re-transcribed later',
     );
   });
@@ -272,7 +278,8 @@ void main() {
     expect(
       bridge.audioDirs,
       hasLength(1),
-      reason: 'a failed transcript save must not also strand the audio in '
+      reason:
+          'a failed transcript save must not also strand the audio in '
           'the recovery directory',
     );
   });

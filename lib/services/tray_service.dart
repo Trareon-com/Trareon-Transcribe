@@ -40,7 +40,9 @@ class TrayService with TrayListener, WindowListener {
       await windowManager.setPreventClose(true);
       windowManager.addListener(this);
 
-      final iconPath = Platform.isWindows ? 'assets/tray_icon.ico' : 'assets/tray_icon.png';
+      final iconPath = Platform.isWindows
+          ? 'assets/tray_icon.ico'
+          : 'assets/tray_icon.png';
       await trayManager.setIcon(iconPath);
       await trayManager.setToolTip('Trareon Transcribe');
       await trayManager.setContextMenu(
@@ -130,7 +132,8 @@ class TrayService with TrayListener, WindowListener {
       final vp = primary.visiblePosition ?? const Offset(0, 0);
       final vs = primary.visibleSize ?? primary.size;
       final bounds = await windowManager.getBounds();
-      final intersects = bounds.left < vp.dx + vs.width &&
+      final intersects =
+          bounds.left < vp.dx + vs.width &&
           bounds.top < vp.dy + vs.height &&
           bounds.left + bounds.width > vp.dx &&
           bounds.top + bounds.height > vp.dy;

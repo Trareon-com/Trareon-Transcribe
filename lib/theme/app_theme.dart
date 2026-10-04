@@ -133,7 +133,10 @@ abstract final class AppTheme {
               : Colors.transparent,
         ),
         checkColor: WidgetStatePropertyAll(colors.onPrimary),
-        side: BorderSide(color: colors.borderInteractive, width: Strokes.focusRing),
+        side: BorderSide(
+          color: colors.borderInteractive,
+          width: Strokes.focusRing,
+        ),
         shape: const RoundedRectangleBorder(borderRadius: Radii.xsAll),
         overlayColor: WidgetStatePropertyAll(colors.hoverOverlay),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -163,11 +166,12 @@ abstract final class AppTheme {
         disabledBorder: _fieldBorder(colors.borderDisabled),
         focusedBorder: _fieldBorder(colors.primary, width: Strokes.focusRing),
         errorBorder: _fieldBorder(colors.error),
-        focusedErrorBorder: _fieldBorder(colors.error, width: Strokes.focusRing),
+        focusedErrorBorder: _fieldBorder(
+          colors.error,
+          width: Strokes.focusRing,
+        ),
       ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: _filledStyle(colors),
-      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: _filledStyle(colors)),
       filledButtonTheme: FilledButtonThemeData(style: _filledStyle(colors)),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(
@@ -196,9 +200,7 @@ abstract final class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: Spacing.lg),
           ),
-          minimumSize: const WidgetStatePropertyAll(
-            Size(0, ControlSizes.lg),
-          ),
+          minimumSize: const WidgetStatePropertyAll(Size(0, ControlSizes.lg)),
           shape: const WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: Radii.mdAll),
           ),
@@ -337,9 +339,7 @@ abstract final class AppTheme {
                 ? colors.surface
                 : Colors.transparent,
           ),
-          side: WidgetStatePropertyAll(
-            BorderSide(color: colors.hairline),
-          ),
+          side: WidgetStatePropertyAll(BorderSide(color: colors.hairline)),
           textStyle: const WidgetStatePropertyAll(AppText.label),
           minimumSize: const WidgetStatePropertyAll(Size(0, ControlSizes.lg)),
           padding: const WidgetStatePropertyAll(
@@ -434,9 +434,7 @@ abstract final class AppTheme {
         textColor: colors.text,
         collapsedTextColor: colors.text,
         shape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
-        collapsedShape: const RoundedRectangleBorder(
-          borderRadius: Radii.mdAll,
-        ),
+        collapsedShape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: colors.primary,

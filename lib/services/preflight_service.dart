@@ -39,24 +39,24 @@ String checkPurpose(String name) => kCheckPurposes[name] ?? '';
 enum PreflightSeverity { ok, warn, fail }
 
 PreflightSeverity severityOf(Check check) => switch (check.status) {
-      CheckStatus_Ok() => PreflightSeverity.ok,
-      CheckStatus_Warn() => PreflightSeverity.warn,
-      CheckStatus_Fail() => PreflightSeverity.fail,
-    };
+  CheckStatus_Ok() => PreflightSeverity.ok,
+  CheckStatus_Warn() => PreflightSeverity.warn,
+  CheckStatus_Fail() => PreflightSeverity.fail,
+};
 
 /// The check's own message, or an empty string when it passed.
 String messageOf(Check check) => switch (check.status) {
-      CheckStatus_Ok() => '',
-      CheckStatus_Warn(:final field0) => field0,
-      CheckStatus_Fail(:final field0) => field0,
-    };
+  CheckStatus_Ok() => '',
+  CheckStatus_Warn(:final field0) => field0,
+  CheckStatus_Fail(:final field0) => field0,
+};
 
 /// Marker shown next to each row: ✓ / ! / ✗.
 String markerOf(Check check) => switch (severityOf(check)) {
-      PreflightSeverity.ok => '✓',
-      PreflightSeverity.warn => '!',
-      PreflightSeverity.fail => '✗',
-    };
+  PreflightSeverity.ok => '✓',
+  PreflightSeverity.warn => '!',
+  PreflightSeverity.fail => '✗',
+};
 
 /// Outcome of a preflight run, including the case where the run itself
 /// failed — which is information, not a reason to crash.

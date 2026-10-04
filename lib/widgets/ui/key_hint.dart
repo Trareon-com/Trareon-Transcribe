@@ -50,8 +50,10 @@ class AppShortcut {
     key,
   ];
 
-  /// A flat label for a tooltip or a semantics string.
-  String get label => caps.join(usesCommandKey ? '' : ' ');
+  /// A flat label for a tooltip or a semantics string. macOS stacks the
+  /// symbols with no separator the way the system menu bar does; everywhere
+  /// else they are joined with a plus.
+  String get label => caps.join(usesCommandKey ? '' : '+');
 }
 
 /// Renders an [AppShortcut] as keycaps.
@@ -71,7 +73,8 @@ class KeyHint extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final cap in shortcut.caps) ...[
-            if (cap != shortcut.caps.first) const SizedBox(width: Spacing.xs / 2),
+            if (cap != shortcut.caps.first)
+              const SizedBox(width: Spacing.xs / 2),
             _Cap(cap, muted: muted),
           ],
         ],

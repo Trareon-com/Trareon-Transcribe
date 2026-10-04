@@ -35,11 +35,11 @@ const double kScaleBudget = 6.0;
 
 class _Stats {
   _Stats(this.label, List<int> micros)
-      : n = micros.length,
-        avg = micros.reduce((a, b) => a + b) / micros.length,
-        p95 = (([...micros]..sort())[
-            (micros.length * 0.95).floor().clamp(0, micros.length - 1)]),
-        max = ([...micros]..sort()).last;
+    : n = micros.length,
+      avg = micros.reduce((a, b) => a + b) / micros.length,
+      p95 = (([...micros]
+        ..sort())[(micros.length * 0.95).floor().clamp(0, micros.length - 1)]),
+      max = ([...micros]..sort()).last;
 
   final String label;
   final int n;
@@ -48,7 +48,8 @@ class _Stats {
   final int max;
 
   @override
-  String toString() => '$label: n=$n avg=${(avg / 1000).toStringAsFixed(2)}ms '
+  String toString() =>
+      '$label: n=$n avg=${(avg / 1000).toStringAsFixed(2)}ms '
       'p95=${(p95 / 1000).toStringAsFixed(2)}ms '
       'max=${(max / 1000).toStringAsFixed(2)}ms';
 
@@ -56,9 +57,9 @@ class _Stats {
 }
 
 Widget _host(Widget child) => MaterialApp(
-      theme: ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
-      home: Scaffold(body: child),
-    );
+  theme: ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
+  home: Scaffold(body: child),
+);
 
 void _sizeViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(1280, 800);
@@ -78,15 +79,19 @@ void main() {
     );
   });
 
-  testWidgets('5 000 segments materialise only the visible rows', (tester) async {
+  testWidgets('5 000 segments materialise only the visible rows', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
     final firstBuild = Stopwatch()..start();
     await tester.pumpWidget(_host(TranscriptView(segments: big)));
     await tester.pump();
     firstBuild.stop();
-    debugPrint('[perf] first build of ${big.length} segments: '
-        '${firstBuild.elapsedMilliseconds}ms');
+    debugPrint(
+      '[perf] first build of ${big.length} segments: '
+      '${firstBuild.elapsedMilliseconds}ms',
+    );
 
     expect(find.text('5000 segmen'), findsOneWidget);
     final built = tester.widgetList(find.byType(TranscriptSegmentTile)).length;
@@ -99,17 +104,24 @@ void main() {
     expect(firstBuild.elapsedMilliseconds, lessThan(4000));
   });
 
-  testWidgets('scroll frame cost does not grow with transcript length',
-      (tester) async {
+  testWidgets('scroll frame cost does not grow with transcript length', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
-    Future<_Stats> measure(String label, List<TranscriptSegment> segments) async {
-      await tester.pumpWidget(_host(TranscriptView(
-        key: ValueKey(label),
-        segments: segments,
-      )));
+    Future<_Stats> measure(
+      String label,
+      List<TranscriptSegment> segments,
+    ) async {
+      await tester.pumpWidget(
+        _host(TranscriptView(key: ValueKey(label), segments: segments)),
+      );
       await tester.pump();
-      await tester.fling(find.byType(CustomScrollView), const Offset(0, -900), 2000);
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -900),
+        2000,
+      );
       final frames = <int>[];
       for (var i = 0; i < 40; i++) {
         final sw = Stopwatch()..start();
@@ -125,28 +137,40 @@ void main() {
     final loaded = await measure('scroll @${big.length}', big);
     final scale = loaded.avg / control.avg;
     debugPrint('[perf] scroll scale factor: ${scale.toStringAsFixed(2)}×');
-    expect(scale, lessThan(kScaleBudget),
-        reason: 'scrolling a 3-hour transcript must cost the same per frame '
-            'as scrolling a 90-second one — $control vs $loaded');
+    expect(
+      scale,
+      lessThan(kScaleBudget),
+      reason:
+          'scrolling a 3-hour transcript must cost the same per frame '
+          'as scrolling a 90-second one — $control vs $loaded',
+    );
   });
 
-  testWidgets('a parent rebuild does not walk the whole transcript',
-      (tester) async {
+  testWidgets('a parent rebuild does not walk the whole transcript', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
     // Mirrors the live screen: the elapsed timer, the VU meter and each
     // arriving segment all rebuild the transcript's parent, ~5 times a
     // second, for hours (audit A.1-11).
-    Future<_Stats> measure(String label, List<TranscriptSegment> segments) async {
+    Future<_Stats> measure(
+      String label,
+      List<TranscriptSegment> segments,
+    ) async {
       var revision = 0;
       late StateSetter setOuter;
-      await tester.pumpWidget(_host(StatefulBuilder(
-        key: ValueKey(label),
-        builder: (context, setState) {
-          setOuter = setState;
-          return TranscriptView(segments: segments, revision: revision);
-        },
-      )));
+      await tester.pumpWidget(
+        _host(
+          StatefulBuilder(
+            key: ValueKey(label),
+            builder: (context, setState) {
+              setOuter = setState;
+              return TranscriptView(segments: segments, revision: revision);
+            },
+          ),
+        ),
+      );
       await tester.pump();
       final frames = <int>[];
       for (var i = 0; i < 40; i++) {
@@ -162,13 +186,15 @@ void main() {
     final control = await measure('rebuild @$kControlSegmentCount', small);
     final loaded = await measure('rebuild @${big.length}', big);
     final scale = loaded.avg / control.avg;
-    debugPrint('[perf] parent-rebuild scale factor: ${scale.toStringAsFixed(2)}×');
-    expect(scale, lessThan(kScaleBudget),
-        reason: '$control vs $loaded');
+    debugPrint(
+      '[perf] parent-rebuild scale factor: ${scale.toStringAsFixed(2)}×',
+    );
+    expect(scale, lessThan(kScaleBudget), reason: '$control vs $loaded');
   });
 
-  testWidgets('search over 5 000 segments is debounced and responsive',
-      (tester) async {
+  testWidgets('search over 5 000 segments is debounced and responsive', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
     await tester.pumpWidget(_host(TranscriptView(segments: big)));
@@ -191,24 +217,31 @@ void main() {
     await tester.pump(kTranscriptSearchDebounce);
     await tester.pumpAndSettle();
     filterSw.stop();
-    debugPrint('[perf] filter pass @${big.length}: '
-        '${filterSw.elapsedMilliseconds}ms');
+    debugPrint(
+      '[perf] filter pass @${big.length}: '
+      '${filterSw.elapsedMilliseconds}ms',
+    );
 
     expect(find.textContaining('dari 5000 segmen'), findsOneWidget);
     expect(filterSw.elapsedMilliseconds, lessThan(2000));
   });
 
-  testWidgets('position ticks that do not change the row are free',
-      (tester) async {
+  testWidgets('position ticks that do not change the row are free', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
     final active = ValueNotifier<int?>(null);
     addTearDown(active.dispose);
-    await tester.pumpWidget(_host(TranscriptView(
-      segments: big,
-      activeSegmentIndex: active,
-      onSeekToSegment: (_, _) {},
-    )));
+    await tester.pumpWidget(
+      _host(
+        TranscriptView(
+          segments: big,
+          activeSegmentIndex: active,
+          onSeekToSegment: (_, _) {},
+        ),
+      ),
+    );
     await tester.pump();
 
     active.value = 12;
@@ -223,22 +256,31 @@ void main() {
     }
     final stats = _Stats('unchanged position tick @${big.length}', ticks)
       ..report();
-    expect(stats.avg, lessThan(2000),
-        reason: 'a repeated identical value must not schedule a frame at '
-            'all — $stats');
+    expect(
+      stats.avg,
+      lessThan(2000),
+      reason:
+          'a repeated identical value must not schedule a frame at '
+          'all — $stats',
+    );
   });
 
-  testWidgets('seeking across the meeting reveals the playing row',
-      (tester) async {
+  testWidgets('seeking across the meeting reveals the playing row', (
+    tester,
+  ) async {
     _sizeViewport(tester);
 
     final active = ValueNotifier<int?>(null);
     addTearDown(active.dispose);
-    await tester.pumpWidget(_host(TranscriptView(
-      segments: big,
-      activeSegmentIndex: active,
-      onSeekToSegment: (_, _) {},
-    )));
+    await tester.pumpWidget(
+      _host(
+        TranscriptView(
+          segments: big,
+          activeSegmentIndex: active,
+          onSeekToSegment: (_, _) {},
+        ),
+      ),
+    );
     await tester.pump();
 
     // A manual seek to hour two. Jumping a `ListView.builder` there builds
@@ -248,15 +290,20 @@ void main() {
     active.value = 4200;
     await tester.pumpAndSettle();
     sw.stop();
-    debugPrint('[perf] reveal row 4200 of ${big.length}: '
-        '${sw.elapsedMilliseconds}ms');
+    debugPrint(
+      '[perf] reveal row 4200 of ${big.length}: '
+      '${sw.elapsedMilliseconds}ms',
+    );
 
     final activeTiles = tester
         .widgetList<TranscriptSegmentTile>(find.byType(TranscriptSegmentTile))
         .where((t) => t.isActive)
         .toList();
-    expect(activeTiles, hasLength(1),
-        reason: 'the active row must be scrolled into view');
+    expect(
+      activeTiles,
+      hasLength(1),
+      reason: 'the active row must be scrolled into view',
+    );
     expect(activeTiles.single.segment.text, big[4200].text);
     expect(sw.elapsedMilliseconds, lessThan(3000));
 
@@ -280,11 +327,15 @@ void main() {
     final active = ValueNotifier<int?>(null);
     addTearDown(active.dispose);
     final seeks = <double>[];
-    await tester.pumpWidget(_host(TranscriptView(
-      segments: big,
-      activeSegmentIndex: active,
-      onSeekToSegment: (index, segment) => seeks.add(segment.timestamp),
-    )));
+    await tester.pumpWidget(
+      _host(
+        TranscriptView(
+          segments: big,
+          activeSegmentIndex: active,
+          onSeekToSegment: (index, segment) => seeks.add(segment.timestamp),
+        ),
+      ),
+    );
     await tester.pump();
 
     await tester.tap(find.byType(TranscriptSegmentTile).at(2));

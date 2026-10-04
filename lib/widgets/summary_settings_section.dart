@@ -92,7 +92,8 @@ class _SummarySettingsSectionState
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final summary = ref.watch(settingsProvider.select((s) => s.summary));
 
     return Column(
@@ -103,7 +104,11 @@ class _SummarySettingsSectionState
         // it can't find a Material ancestor to paint its ink on.
         Row(
           children: [
-            Icon(AppIcons.enhance, size: IconSizes.md, color: colors.textSecondary),
+            Icon(
+              AppIcons.enhance,
+              size: IconSizes.md,
+              color: colors.textSecondary,
+            ),
             Spacing.hSm,
             Expanded(
               child: Column(
@@ -111,15 +116,21 @@ class _SummarySettingsSectionState
                 children: [
                   Text(
                     'Aktifkan Ringkasan AI',
-                    style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge),
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: FontSizes.bodyLarge,
+                    ),
                   ),
                   Spacing.gapXs,
                   Text(
                     summary.enabled
                         ? 'Transkrip dikirim ke endpoint di bawah hanya saat Anda '
                               'menekan "Buat Ringkasan". Tidak ada audio yang dikirim.'
-                        : 'Mati — aplikasi tetap 100% offline.',
-                    style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
+                        : 'Mati. Aplikasi tetap 100% offline.',
+                    style: TextStyle(
+                      color: colors.textTertiary,
+                      fontSize: FontSizes.micro,
+                    ),
                   ),
                 ],
               ),
@@ -141,7 +152,10 @@ class _SummarySettingsSectionState
               decoration: _decoration(),
               items: [
                 for (final p in SummaryProvider.values)
-                  DropdownMenuItem(value: p, child: Text(summaryProviderLabel(p))),
+                  DropdownMenuItem(
+                    value: p,
+                    child: Text(summaryProviderLabel(p)),
+                  ),
               ],
               onChanged: (p) {
                 if (p == null) return;
@@ -167,8 +181,9 @@ class _SummarySettingsSectionState
                     : 'https://api.openai.com/v1',
               ),
               onSubmitted: (v) => _update(summary.copyWith(baseUrl: v.trim())),
-              onTapOutside: (_) =>
-                  _update(summary.copyWith(baseUrl: _baseUrlController.text.trim())),
+              onTapOutside: (_) => _update(
+                summary.copyWith(baseUrl: _baseUrlController.text.trim()),
+              ),
             ),
           ),
           if (summary.provider == SummaryProvider.openAiCompatible)
@@ -181,8 +196,9 @@ class _SummarySettingsSectionState
                 obscureText: true,
                 decoration: _decoration(hint: 'Tempel kunci di sini'),
                 onSubmitted: (v) => _update(summary.copyWith(apiKey: v.trim())),
-                onTapOutside: (_) =>
-                    _update(summary.copyWith(apiKey: _apiKeyController.text.trim())),
+                onTapOutside: (_) => _update(
+                  summary.copyWith(apiKey: _apiKeyController.text.trim()),
+                ),
               ),
             ),
           _Field(
@@ -201,11 +217,14 @@ class _SummarySettingsSectionState
                           onSubmitted: (v) =>
                               _update(summary.copyWith(model: v.trim())),
                           onTapOutside: (_) => _update(
-                            summary.copyWith(model: _modelController.text.trim()),
+                            summary.copyWith(
+                              model: _modelController.text.trim(),
+                            ),
                           ),
                         )
                       : DropdownButtonFormField<String>(
-                          initialValue: _discoveredModels.contains(summary.model)
+                          initialValue:
+                              _discoveredModels.contains(summary.model)
                               ? summary.model
                               : _discoveredModels.first,
                           isDense: true,
@@ -242,7 +261,10 @@ class _SummarySettingsSectionState
               padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: Text(
                 _modelsError!,
-                style: TextStyle(color: colors.error, fontSize: FontSizes.micro),
+                style: TextStyle(
+                  color: colors.error,
+                  fontSize: FontSizes.micro,
+                ),
               ),
             ),
           _Field(
@@ -255,7 +277,10 @@ class _SummarySettingsSectionState
               decoration: _decoration(),
               items: [
                 for (final t in SummaryTemplate.values)
-                  DropdownMenuItem(value: t, child: Text(summaryTemplateLabel(t))),
+                  DropdownMenuItem(
+                    value: t,
+                    child: Text(summaryTemplateLabel(t)),
+                  ),
               ],
               onChanged: (t) {
                 if (t != null) _update(summary.copyWith(template: t));
@@ -313,7 +338,10 @@ class _SummarySettingsSectionState
     hintText: hint,
     isDense: true,
     border: const OutlineInputBorder(),
-    contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: Spacing.sm,
+      vertical: Spacing.sm,
+    ),
   );
 }
 
@@ -326,7 +354,8 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.sm),
       child: Column(
@@ -334,7 +363,10 @@ class _Field extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: FontSizes.caption,
+            ),
           ),
           Spacing.gapXs,
           child,
@@ -342,7 +374,10 @@ class _Field extends StatelessWidget {
             Spacing.gapXs,
             Text(
               helper!,
-              style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.micro),
+              style: TextStyle(
+                color: colors.textTertiary,
+                fontSize: FontSizes.micro,
+              ),
             ),
           ],
         ],

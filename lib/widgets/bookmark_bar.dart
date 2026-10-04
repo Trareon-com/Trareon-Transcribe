@@ -79,7 +79,8 @@ class BookmarkTicks extends StatelessWidget {
     if (bookmarks.isEmpty || maxSeconds <= 0) {
       return const SizedBox(height: 0);
     }
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return SizedBox(
       height: 14,
       child: LayoutBuilder(
@@ -89,21 +90,23 @@ class BookmarkTicks extends StatelessWidget {
             children: [
               for (final bookmark in bookmarks)
                 Positioned(
-                  left: ((bookmark.timestamp / maxSeconds).clamp(0.0, 1.0) *
-                              width -
-                          12)
-                      .clamp(0.0, width - 24),
+                  left:
+                      ((bookmark.timestamp / maxSeconds).clamp(0.0, 1.0) *
+                                  width -
+                              12)
+                          .clamp(0.0, width - 24),
                   top: 0,
                   child: Semantics(
                     button: true,
-                    label: 'Poin ditandai pada '
+                    label:
+                        'Poin ditandai pada '
                         '${formatTimestamp(bookmark.timestamp)}'
                         '${bookmark.note.trim().isEmpty ? '' : ', ${bookmark.note.trim()}'}',
                     child: Tooltip(
                       message: bookmark.note.trim().isEmpty
                           ? formatTimestamp(bookmark.timestamp)
                           : '${formatTimestamp(bookmark.timestamp)} · '
-                              '${bookmark.note.trim()}',
+                                '${bookmark.note.trim()}',
                       child: InkWell(
                         onTap: () => onJump(bookmark),
                         child: SizedBox(
@@ -150,7 +153,8 @@ class BookmarkJumpList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (bookmarks.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Wrap(
       spacing: Spacing.sm,
       runSpacing: Spacing.sm,
@@ -164,15 +168,19 @@ class BookmarkJumpList extends StatelessWidget {
             child: GestureDetector(
               onLongPress: () => onEditNote(bookmark),
               child: InputChip(
-                avatar: Icon(AppIcons.bookmarkFilled,
-                    size: IconSizes.sm, color: colors.primary),
+                avatar: Icon(
+                  AppIcons.bookmarkFilled,
+                  size: IconSizes.sm,
+                  color: colors.primary,
+                ),
                 label: Text(
                   bookmark.note.trim().isEmpty
                       ? formatTimestamp(bookmark.timestamp)
                       : '${formatTimestamp(bookmark.timestamp)} · '
-                          '${bookmark.note.trim()}',
+                            '${bookmark.note.trim()}',
                 ),
-                tooltip: 'Klik: lompat ke ${formatTimestamp(bookmark.timestamp)} · '
+                tooltip:
+                    'Klik: lompat ke ${formatTimestamp(bookmark.timestamp)} · '
                     'Tahan: ubah catatan',
                 onPressed: () => onJump(bookmark),
                 onDeleted: () => onRemove(bookmark),
@@ -210,7 +218,8 @@ class BookmarkBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     if (!live && bookmarks.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -227,8 +236,7 @@ class BookmarkBar extends StatelessWidget {
                 message: 'Tandai poin penting di posisi sekarang (Ctrl+B)',
                 child: OutlinedButton.icon(
                   onPressed: live ? onAdd : null,
-                  icon: const Icon(AppIcons.bookmarkAdd,
-                      size: IconSizes.md),
+                  icon: const Icon(AppIcons.bookmarkAdd, size: IconSizes.md),
                   label: const Text('Tandai'),
                 ),
               ),
@@ -275,7 +283,7 @@ class BookmarkBar extends StatelessWidget {
                       bookmark.note.trim().isEmpty
                           ? formatTimestamp(bookmark.timestamp)
                           : '${formatTimestamp(bookmark.timestamp)} · '
-                              '${bookmark.note.trim()}',
+                                '${bookmark.note.trim()}',
                     ),
                     tooltip: 'Klik untuk ubah catatan',
                     onPressed: () => onEditNote(bookmark),

@@ -5,7 +5,12 @@ class SpeakerAvatar extends StatelessWidget {
   final Color color;
   final double size;
 
-  const SpeakerAvatar({super.key, required this.name, required this.color, this.size = 28});
+  const SpeakerAvatar({
+    super.key,
+    required this.name,
+    required this.color,
+    this.size = 28,
+  });
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -34,7 +39,11 @@ class SpeakerAvatar extends StatelessWidget {
         child: Center(
           child: Text(
             _initials,
-            style: TextStyle(fontSize: size * 0.38, fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(
+              fontSize: size * 0.38,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ),
       ),

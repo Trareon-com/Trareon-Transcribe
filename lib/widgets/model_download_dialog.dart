@@ -41,12 +41,13 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ModelDownloadDialog> createState() => _ModelDownloadDialogState();
+  ConsumerState<_ModelDownloadDialog> createState() =>
+      _ModelDownloadDialogState();
 }
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  String _status = 'Mengunduh...';
+  String _status = 'Mengunduh…';
   double _progress = 0.0;
   Stream<double>? _progressStream;
   StreamSubscription<double>? _progressSubscription;
@@ -66,7 +67,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
-      _status = 'Mengunduh ${widget.displayName}...';
+      _status = 'Mengunduh ${widget.displayName}…';
     });
 
     try {
@@ -88,7 +89,8 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _progress = progress;
-              _status = 'Mengunduh ${widget.displayName}... ${(progress * 100).toInt()}%';
+              _status =
+                  'Mengunduh ${widget.displayName}… ${(progress * 100).toInt()}%';
             });
           }
         },
@@ -121,7 +123,8 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return AlertDialog(
       backgroundColor: colors.surface,
@@ -144,20 +147,25 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
               valueColor: AlwaysStoppedAnimation(colors.primary),
             ),
             Spacing.gapSm,
-            Text(_status, style: TextStyle(color: colors.textTertiary, fontSize: FontSizes.caption)),
+            Text(
+              _status,
+              style: TextStyle(
+                color: colors.textTertiary,
+                fontSize: FontSizes.caption,
+              ),
+            ),
           ],
         ],
       ),
       actions: [
         TextButton(
-          onPressed: _downloading ? null : () => Navigator.of(context).pop(false),
+          onPressed: _downloading
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
         ),
         if (!_downloading)
-          FilledButton(
-            onPressed: _startDownload,
-            child: const Text('Unduh'),
-          ),
+          FilledButton(onPressed: _startDownload, child: const Text('Unduh')),
       ],
     );
   }

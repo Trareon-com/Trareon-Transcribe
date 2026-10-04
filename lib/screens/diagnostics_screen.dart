@@ -77,11 +77,19 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
           );
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(context, 'Log diagnostik tersimpan: $written', type: ToastType.success);
+      AppToast.show(
+        context,
+        'Log diagnostik tersimpan: $written',
+        type: ToastType.success,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(context, 'Gagal menyimpan log diagnostik: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        'Gagal menyimpan log diagnostik: $e',
+        type: ToastType.error,
+      );
     }
   }
 
@@ -99,7 +107,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final result = _result;
 
     return Scaffold(
@@ -124,7 +133,10 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
           Text(
             'Pemeriksaan ini berjalan sepenuhnya di komputer Anda dan tidak '
             'mengirim apa pun ke internet.',
-            style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.body),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: FontSizes.body,
+            ),
           ),
           Spacing.gapLg,
           if (_running) const LinearProgressIndicator(minHeight: 2),
@@ -156,7 +168,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     PreflightSeverity.fail => colors.error,
                   },
                   title: checkTitle(check.name),
-                  message: messageOf(check).isEmpty ? checkPurpose(check.name) : messageOf(check),
+                  message: messageOf(check).isEmpty
+                      ? checkPurpose(check.name)
+                      : messageOf(check),
                   remediation: check.remediation,
                 ),
             Spacing.gapMd,
@@ -167,7 +181,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   ? 'Aplikasi bisa dipakai, tapi ada hal yang sebaiknya '
                         'diperiksa.'
                   : 'Semua siap. Aplikasi bisa merekam.',
-              style: TextStyle(color: colors.text, fontSize: FontSizes.body, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: colors.text,
+                fontSize: FontSizes.body,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           // Last: exporting the log is what you do *after* reading the
@@ -201,7 +219,8 @@ class _DiagnosticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.sm),
       child: Container(
@@ -227,7 +246,11 @@ class _DiagnosticCard extends StatelessWidget {
                 excludeSemantics: true,
                 child: Text(
                   marker,
-                  style: TextStyle(color: color, fontSize: FontSizes.title, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: FontSizes.title,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -237,11 +260,21 @@ class _DiagnosticCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(color: colors.text, fontSize: FontSizes.bodyLarge, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (message.isNotEmpty) ...[
                     Spacing.gapXs,
-                    Text(message, style: TextStyle(color: colors.textSecondary, fontSize: FontSizes.caption)),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: FontSizes.caption,
+                      ),
+                    ),
                   ],
                   if (remediation != null && remediation!.isNotEmpty) ...[
                     Spacing.gapSm,
@@ -253,7 +286,11 @@ class _DiagnosticCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             remediation!,
-                            style: TextStyle(color: colors.text, fontSize: FontSizes.caption, height: 1.35),
+                            style: TextStyle(
+                              color: colors.text,
+                              fontSize: FontSizes.caption,
+                              height: 1.35,
+                            ),
                           ),
                         ),
                       ],
@@ -293,7 +330,8 @@ class _DiagnosticsExportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
@@ -304,7 +342,11 @@ class _DiagnosticsExportCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(AppIcons.bugReport, size: IconSizes.lg, color: colors.textSecondary),
+          Icon(
+            AppIcons.bugReport,
+            size: IconSizes.lg,
+            color: colors.textSecondary,
+          ),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(

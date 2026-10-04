@@ -29,8 +29,9 @@ Future<Directory> writeSessionDir(
   String? audioName,
 }) async {
   final dir = Directory('${root.path}/$dirName')..createSync(recursive: true);
-  File('${dir.path}/$transcriptName')
-      .writeAsStringSync(encodeTranscriptJson(segments));
+  File(
+    '${dir.path}/$transcriptName',
+  ).writeAsStringSync(encodeTranscriptJson(segments));
   if (meta != null) await writeSessionMeta(dir.path, meta);
   if (audioName != null) File('${dir.path}/$audioName').writeAsStringSync('');
   return dir;
@@ -106,22 +107,28 @@ void main() {
   group('readSessionMeta / writeSessionMeta', () {
     test('round-trips through disk', () async {
       final dir = '${root.path}/session';
-      await writeSessionMeta(dir, const SessionMeta(title: 'Rapat', summary: 'X'));
+      await writeSessionMeta(
+        dir,
+        const SessionMeta(title: 'Rapat', summary: 'X'),
+      );
       final read = await readSessionMeta(dir);
       expect(read.title, 'Rapat');
       expect(read.summary, 'X');
     });
 
-    test('a missing or corrupt sidecar yields empty, never an exception', () async {
-      expect(await readSessionMeta('${root.path}/nope'), SessionMeta.empty);
+    test(
+      'a missing or corrupt sidecar yields empty, never an exception',
+      () async {
+        expect(await readSessionMeta('${root.path}/nope'), SessionMeta.empty);
 
-      final dir = Directory('${root.path}/broken')..createSync();
-      File('${dir.path}/$kMetaFilename').writeAsStringSync('{not json');
-      expect((await readSessionMeta(dir.path)).hasSummary, isFalse);
+        final dir = Directory('${root.path}/broken')..createSync();
+        File('${dir.path}/$kMetaFilename').writeAsStringSync('{not json');
+        expect((await readSessionMeta(dir.path)).hasSummary, isFalse);
 
-      File('${dir.path}/$kMetaFilename').writeAsStringSync('[1,2,3]');
-      expect(await readSessionMeta(dir.path), SessionMeta.empty);
-    });
+        File('${dir.path}/$kMetaFilename').writeAsStringSync('[1,2,3]');
+        expect(await readSessionMeta(dir.path), SessionMeta.empty);
+      },
+    );
   });
 
   group('transcript JSON', () {

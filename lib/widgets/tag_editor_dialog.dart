@@ -71,12 +71,12 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     // Tags elsewhere in the library that this session does not have, so
     // the user reuses a spelling instead of inventing one.
     final suggestions = normaliseTags(widget.known)
-        .where((tag) =>
-            !_tags.any((t) => t.toLowerCase() == tag.toLowerCase()))
+        .where((tag) => !_tags.any((t) => t.toLowerCase() == tag.toLowerCase()))
         .toList();
 
     return AlertDialog(
@@ -129,9 +129,15 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
                 children: [
                   for (final tag in _tags)
                     InputChip(
-                      label: Text(tag, style: const TextStyle(fontSize: FontSizes.caption)),
+                      label: Text(
+                        tag,
+                        style: const TextStyle(fontSize: FontSizes.caption),
+                      ),
                       onDeleted: () => _remove(tag),
-                      deleteIcon: const Icon(AppIcons.close, size: IconSizes.xs),
+                      deleteIcon: const Icon(
+                        AppIcons.close,
+                        size: IconSizes.xs,
+                      ),
                     ),
                 ],
               ),
@@ -151,7 +157,10 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
                 children: [
                   for (final tag in suggestions)
                     ActionChip(
-                      label: Text(tag, style: const TextStyle(fontSize: FontSizes.caption)),
+                      label: Text(
+                        tag,
+                        style: const TextStyle(fontSize: FontSizes.caption),
+                      ),
                       visualDensity: VisualDensity.compact,
                       onPressed: () => _add(tag),
                     ),

@@ -73,8 +73,12 @@ jobs:
         run: flutter pub get
       - name: flutter analyze
         run: flutter analyze
+      # Goldens are excluded: text rasterisation differs between the host
+      # that generated them and this runner, so they are a local design gate
+      # (see dart_test.yaml). Everything else, including the design and copy
+      # lints, runs here.
       - name: flutter test
-        run: flutter test --no-pub
+        run: flutter test --no-pub --exclude-tags golden
 
   rust-build:
     name: Rust build (${{ matrix.os }})

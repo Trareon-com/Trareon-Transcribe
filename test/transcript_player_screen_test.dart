@@ -12,8 +12,8 @@ import 'package:transcribe/theme/app_icons.dart';
 /// Segment text in [TranscriptView] is rendered via [RichText] inside
 /// [_SegmentTile], so we need a custom predicate to locate it.
 Finder findRichText(String text) => find.byWidgetPredicate(
-      (widget) => widget is RichText && widget.text.toPlainText() == text,
-    );
+  (widget) => widget is RichText && widget.text.toPlainText() == text,
+);
 
 void main() {
   const segments = [
@@ -29,7 +29,9 @@ void main() {
     ),
   ];
 
-  testWidgets('renders title, transcript, and speed control', (WidgetTester tester) async {
+  testWidgets('renders title, transcript, and speed control', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: TranscriptPlayerScreen(
@@ -151,7 +153,9 @@ void main() {
     expect(updatedSegments!.single.text, 'Halo semua, selamat pagi');
   });
 
-  testWidgets('transcript view live search filters matching segments', (WidgetTester tester) async {
+  testWidgets('transcript view live search filters matching segments', (
+    WidgetTester tester,
+  ) async {
     const multiSegments = [
       TranscriptSegment(
         source: 'mic',

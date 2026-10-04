@@ -15,7 +15,8 @@ const String kAppVersion = '1.0.0';
 /// Where "Lihat Rilis" sends the user. Opened with `url_launcher` on an
 /// explicit tap only; recorded in the Privacy Report like every other
 /// outbound request.
-const String kReleasesUrl = 'https://github.com/Trareon-com/Transcribe/releases';
+const String kReleasesUrl =
+    'https://github.com/Trareon-com/Transcribe/releases';
 
 /// Plain-text manifest carrying the latest released version. Fetched only
 /// when the user presses "Cek Pembaruan".

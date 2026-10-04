@@ -30,9 +30,9 @@ class RejectedFile {
   String get filename => p.basename(path);
 
   String get message => switch (reason) {
-        RejectionReason.unsupportedFormat => 'format tidak didukung',
-        RejectionReason.tooLarge => 'lebih besar dari batas 2 GB',
-      };
+    RejectionReason.unsupportedFormat => 'format tidak didukung',
+    RejectionReason.tooLarge => 'lebih besar dari batas 2 GB',
+  };
 }
 
 class BatchFileEntry {
@@ -128,11 +128,9 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
         rejected.add(RejectedFile(path, RejectionReason.tooLarge));
         continue;
       }
-      accepted.add(BatchFileEntry(
-        path: path,
-        filename: p.basename(path),
-        sizeBytes: size,
-      ));
+      accepted.add(
+        BatchFileEntry(path: path, filename: p.basename(path), sizeBytes: size),
+      );
     }
 
     if (accepted.isNotEmpty) {
@@ -161,7 +159,8 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
             status: status,
             error: error,
             clearError: error == null && status != BatchFileStatus.error,
-            progress: progress ??
+            progress:
+                progress ??
                 (status == BatchFileStatus.done ? 1.0 : entry.progress),
           )
         else
@@ -175,7 +174,10 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     if ((entry.progress - progress).abs() < 0.005) return;
     state = [
       for (final e in state)
-        if (e.path == path) e.copyWith(progress: progress.clamp(0.0, 1.0)) else e,
+        if (e.path == path)
+          e.copyWith(progress: progress.clamp(0.0, 1.0))
+        else
+          e,
     ];
   }
 
@@ -352,8 +354,9 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
     RustBridge bridge,
     List<String> Function() paths,
   ) {
-    return Stream<void>.periodic(const Duration(milliseconds: 400))
-        .listen((_) async {
+    return Stream<void>.periodic(const Duration(milliseconds: 400)).listen((
+      _,
+    ) async {
       final snapshot = await bridge.batchProgress();
       if (snapshot == null) return;
       final current = paths();
@@ -363,8 +366,11 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
       final entry = entryFor(path);
       if (entry == null || entry.isFinished) return;
       if (entry.status != BatchFileStatus.transcribing) {
-        updateStatus(path, BatchFileStatus.transcribing,
-            progress: snapshot.progress);
+        updateStatus(
+          path,
+          BatchFileStatus.transcribing,
+          progress: snapshot.progress,
+        );
       } else {
         updateProgress(path, snapshot.progress);
       }
@@ -477,5 +483,5 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
 
 final batchUploadProvider =
     StateNotifierProvider<BatchUploadNotifier, List<BatchFileEntry>>((ref) {
-  return BatchUploadNotifier();
-});
+      return BatchUploadNotifier();
+    });

@@ -95,8 +95,9 @@ class SummaryUiState {
       provenance: provenance == _keep
           ? this.provenance
           : provenance as SummaryProvenance?,
-      progress:
-          progress == _keep ? this.progress : progress as MapReduceProgress?,
+      progress: progress == _keep
+          ? this.progress
+          : progress as MapReduceProgress?,
     );
   }
 }
@@ -126,7 +127,8 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
                ? SummaryStatus.ready
                : SummaryStatus.empty,
            text: initialMeta.summary,
-           template: initialMeta.summaryTemplate ?? SummaryTemplate.notulenRapat,
+           template:
+               initialMeta.summaryTemplate ?? SummaryTemplate.notulenRapat,
            customTemplateId: initialMeta.summaryCustomTemplateId,
            actionItems: initialMeta.actionItems,
          ),
@@ -185,7 +187,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
   /// stays the same across re-exports.
   String _freshActionId() {
     final used = state.actionItems.map((i) => i.id).toSet();
-    for (var n = state.actionItems.length + 1;; n++) {
+    for (var n = state.actionItems.length + 1; ; n++) {
       final candidate = 'T$n';
       if (!used.contains(candidate)) return candidate;
     }
@@ -291,7 +293,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     if (segments.isEmpty) {
       state = state.copyWith(
         status: SummaryStatus.failed,
-        error: 'Transkrip kosong — tidak ada yang bisa diringkas.',
+        error: 'Transkrip kosong, tidak ada yang bisa diringkas.',
       );
       return;
     }
