@@ -902,18 +902,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           isRecording: isActive,
                         ),
                       ),
+                // The drag strip and the caption buttons live at the root, in
+                // WindowChromeScaffold, so that every route has them. Repeating
+                // them here drew a second row of buttons under the first.
                 body: Column(
                   children: [
-                    // macOS runs the sidebar under the traffic lights and
-                    // Windows has no caption bar of its own, so both need a
-                    // strip at the top that drags the window. Linux keeps its
-                    // GTK decorations and this collapses to nothing.
-                    Row(
-                      children: [
-                        const Expanded(child: WindowTopInset()),
-                        const WindowsCaptionButtons(),
-                      ],
-                    ),
                     Expanded(
                       child: Row(
                         children: [
