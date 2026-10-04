@@ -15,6 +15,10 @@ name = "gen_fixtures"
 path = "src/bin/gen_fixtures.rs"
 
 [[bin]]
+name = "wer_bench"
+path = "src/bin/wer_bench.rs"
+
+[[bin]]
 name = "trareon-transcribe"
 path = "src/bin/transcribe.rs"
 
@@ -79,6 +83,8 @@ glob = "0.3.4"
 sysinfo = "0.39.6"
 flutter_rust_bridge = "=2.13.0"
 whisper-rs = "0.16"
+printpdf = { version = "0.12.8", default-features = false }
+nnnoiseless = { version = "0.5.2", default-features = false }
 
 [features]
 default = ["silero-onnx"]

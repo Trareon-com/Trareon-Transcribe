@@ -33,7 +33,7 @@ pub fn transcribe_file(
     language: Option<&str>,
     glossary: &GlossaryConfig,
 ) -> TranscribeResult<TranscribeFileResult> {
-    transcribe_file_reporting(engine, path, language, glossary, |_| {})
+    transcribe_file_reporting(engine, path, language, glossary, 0, |_| {})
 }
 
 /// [`transcribe_file`], reporting how far through the file it is.
@@ -41,11 +41,16 @@ pub fn transcribe_file(
 /// `on_progress` receives a fraction in `0.0..=1.0` after each 30-second
 /// chunk. A one-hour import is ~120 chunks, so this is a real progress
 /// bar rather than a spinner that only moves between files.
+/// `speaker_hint` is how many people the user says are in the recording,
+/// or `0` for "work it out". The acoustic clustering here over-splits a
+/// long recording of one voice, and an importer who knows the answer can
+/// stop it inventing participants (F10).
 pub fn transcribe_file_reporting(
     engine: &WhisperEngine,
     path: &Path,
     language: Option<&str>,
     glossary: &GlossaryConfig,
+    speaker_hint: u32,
     mut on_progress: impl FnMut(f32),
 ) -> TranscribeResult<TranscribeFileResult> {
     let audio = decode_audio_file(path)?;
@@ -106,7 +111,7 @@ pub fn transcribe_file_reporting(
     // (`pipeline::LivePipeline`); imported files used to come back with the
     // raw source string as the speaker, so a multi-person recording exported
     // as one undifferentiated wall of text.
-    let mut diarizer = Diarizer::new();
+    let mut diarizer = Diarizer::with_max_speakers(speaker_hint as usize);
     label_segments(&mut diarizer, &audio.samples, &mut all_segments);
 
     if glossary.post_correction {
@@ -258,6 +263,7 @@ pub fn transcribe_files_batch(
     files: &[std::path::PathBuf],
     language: Option<&str>,
     glossary: &GlossaryConfig,
+    speaker_hint: u32,
     mut on_progress: impl FnMut(BatchFileProgress),
 ) {
     let total_files = files.len();
@@ -288,9 +294,16 @@ pub fn transcribe_files_batch(
             error: None,
         });
 
-        match transcribe_file_reporting(engine, path, language, glossary, |fraction| {
-            publish(BatchFileStatus::Transcribing, fraction);
-        }) {
+        match transcribe_file_reporting(
+            engine,
+            path,
+            language,
+            glossary,
+            speaker_hint,
+            |fraction| {
+                publish(BatchFileStatus::Transcribing, fraction);
+            },
+        ) {
             Ok(result) => {
                 publish(BatchFileStatus::Done, 1.0);
                 on_progress(BatchFileProgress {

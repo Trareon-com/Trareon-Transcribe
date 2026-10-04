@@ -24,7 +24,7 @@ pub struct Args {
     #[arg(long)]
     pub model: String,
 
-    /// Comma-separated export formats: md,txt,json,srt,vtt,html,docx
+    /// Comma-separated export formats: md,txt,json,srt,vtt,html,docx,csv,pdf
     #[arg(long, default_value = "md,txt,json")]
     pub format: String,
 
@@ -63,6 +63,8 @@ pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
             "vtt" => Some(ExportFormat::Vtt),
             "html" => Some(ExportFormat::Html),
             "docx" => Some(ExportFormat::Docx),
+            "csv" => Some(ExportFormat::Csv),
+            "pdf" => Some(ExportFormat::Pdf),
             _ => None,
         })
         .collect()
@@ -128,6 +130,8 @@ pub fn run(args: Args) -> i32 {
         &files,
         args.language.as_deref(),
         &glossary,
+        // The CLI has no way to ask, so it lets the clustering decide.
+        0,
         |progress| match progress.status {
             BatchFileStatus::Done => {
                 println!(

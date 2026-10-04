@@ -12,6 +12,7 @@ use crate::error::TranscribeError;
 /// because it is a *document*, not a transcript dump: it has a form, two
 /// layout variants and its own golden tests.
 pub mod notulen;
+pub mod pdf;
 
 /// A marker the notulis dropped during the meeting (F9).
 ///
@@ -59,6 +60,11 @@ pub enum ExportFormat {
     Vtt,
     Html,
     Docx,
+    /// Transcript as a spreadsheet, one row per final segment (F19).
+    Csv,
+    /// Paginated document with the font embedded, so it reads the same on
+    /// a machine that has never seen this app (F19).
+    Pdf,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -267,6 +273,14 @@ pub fn export_segments_full(
                     format!("{safe_title}.docx"),
                     to_docx_bytes(&segments, &title, &summary, &bookmarks)?,
                 ),
+                ExportFormat::Csv => (
+                    format!("{safe_title}.csv"),
+                    pdf::to_csv(&segments).into_bytes(),
+                ),
+                ExportFormat::Pdf => (
+                    format!("{safe_title}.pdf"),
+                    pdf::to_pdf_bytes(&segments, &title, &summary, &bookmarks)?,
+                ),
             };
 
             let path: PathBuf = session_dir.join(&filename);
@@ -374,7 +388,7 @@ pub fn write_wav(samples: &[f32], sample_rate: u32, path: &Path) -> Result<(), T
 }
 
 /// `"[mm:ss] note"` per bookmark, or an empty vector.
-fn bookmark_lines(bookmarks: &[Bookmark]) -> Vec<String> {
+pub(crate) fn bookmark_lines(bookmarks: &[Bookmark]) -> Vec<String> {
     notulen::poin_penting_from_bookmarks(bookmarks)
 }
 
@@ -633,9 +647,11 @@ mod tests {
             ExportFormat::Vtt,
             ExportFormat::Html,
             ExportFormat::Docx,
+            ExportFormat::Csv,
+            ExportFormat::Pdf,
         ];
         let files = export_segments(&segments, &formats, &dir, "Rapat Q3").unwrap();
-        assert_eq!(files.len(), 7);
+        assert_eq!(files.len(), formats.len());
         for f in &files {
             assert!(Path::new(&f.path).exists());
             assert!(f.size_bytes > 0);

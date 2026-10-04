@@ -516,6 +516,10 @@ class AppSettings {
   /// because the app updated.
   final PdpSettings pdp;
 
+  /// Run RNNoise over the audio before transcription (F17). Off by
+  /// default; see rust_core/src/denoise.rs for the trade-off.
+  final bool noiseReduction;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -539,6 +543,7 @@ class AppSettings {
     this.notulen = kDefaultNotulenDefaults,
     this.autoRetranscribe,
     this.pdp = kDefaultPdpSettings,
+    this.noiseReduction = false,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -575,6 +580,7 @@ class AppSettings {
     NotulenDefaults? notulen,
     Object? autoRetranscribe = _sentinel,
     PdpSettings? pdp,
+    bool? noiseReduction,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -607,6 +613,7 @@ class AppSettings {
           ? this.autoRetranscribe
           : autoRetranscribe as bool?,
       pdp: pdp ?? this.pdp,
+      noiseReduction: noiseReduction ?? this.noiseReduction,
     );
   }
 }

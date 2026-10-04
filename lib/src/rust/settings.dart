@@ -70,6 +70,13 @@ class AppSettings {
   /// happening because the app updated.
   final PdpSettings pdp;
 
+  /// Run RNNoise over the audio before ASR (F17).
+  ///
+  /// Off by default: it is a learned suppressor, so whether it helps is
+  /// a property of the room, and on already-clean speech it can cost a
+  /// consonant. See `crate::denoise` for the trade-off in full.
+  final bool noiseReduction;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -91,6 +98,7 @@ class AppSettings {
     required this.notulen,
     this.autoRetranscribe,
     required this.pdp,
+    required this.noiseReduction,
   });
 
   @override
@@ -114,7 +122,8 @@ class AppSettings {
       summaryTemplates.hashCode ^
       notulen.hashCode ^
       autoRetranscribe.hashCode ^
-      pdp.hashCode;
+      pdp.hashCode ^
+      noiseReduction.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -140,7 +149,8 @@ class AppSettings {
           summaryTemplates == other.summaryTemplates &&
           notulen == other.notulen &&
           autoRetranscribe == other.autoRetranscribe &&
-          pdp == other.pdp;
+          pdp == other.pdp &&
+          noiseReduction == other.noiseReduction;
 }
 
 /// A summary template the user wrote or duplicated (F8).

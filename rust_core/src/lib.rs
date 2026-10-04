@@ -8,6 +8,7 @@ pub mod archive;
 #[cfg(test)]
 pub mod bench_fixture;
 pub mod benchmark;
+pub mod capabilities;
 pub mod confidence;
 pub mod doctor;
 pub mod error;
@@ -21,6 +22,7 @@ pub mod completion;
 pub mod coverage;
 pub mod decode;
 pub mod dedupe;
+pub mod denoise;
 pub mod diarization;
 /// Free-space checks for the library volume.
 pub mod disk;
@@ -54,3 +56,4 @@ pub mod stt;
 pub mod summary;
 pub mod vad;
 pub mod watchdog;
+pub mod wer;

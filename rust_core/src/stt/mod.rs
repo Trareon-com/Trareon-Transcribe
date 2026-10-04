@@ -166,8 +166,15 @@ impl WhisperEngine {
             ));
         }
 
-        // Apply noise reduction preprocessing
-        let processed = crate::preprocess::preprocess(samples);
+        // Apply noise reduction preprocessing. RNNoise first when the
+        // user asked for it (F17): the suppressor wants the signal as
+        // captured, and running it after the normalise would have it
+        // estimate noise from a level the normalise chose.
+        let processed = if crate::denoise::is_enabled() {
+            crate::preprocess::preprocess(&crate::denoise::denoise_16k(samples))
+        } else {
+            crate::preprocess::preprocess(samples)
+        };
 
         let ctx = self
             .context

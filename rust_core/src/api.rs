@@ -511,6 +511,8 @@ pub fn progressive_transcribe_file(
 /// per file. Returns one outcome per input file, in input order, carrying
 /// either the transcript or the error — so a single bad file no longer
 /// disappears from the results without explanation.
+/// `speaker_hint` is how many people are in the recordings, or `0` for
+/// "work it out" (F10).
 pub fn transcribe_files_batch(
     model_path: String,
     files: Vec<String>,
@@ -518,6 +520,7 @@ pub fn transcribe_files_batch(
     gpu_enabled: bool,
     gpu_device: i32,
     glossary: crate::glossary::GlossaryConfig,
+    speaker_hint: u32,
 ) -> Result<Vec<crate::stt::file::BatchFileOutcome>, TranscribeError> {
     let engine = crate::stt::WhisperEngine::load_with_gpu(
         &PathBuf::from(&model_path),
@@ -532,6 +535,7 @@ pub fn transcribe_files_batch(
         &file_paths,
         language.as_deref(),
         &glossary,
+        speaker_hint,
         |progress| {
             // Decoding is an interim status; only terminal states produce an
             // outcome, otherwise every file would be reported twice.
@@ -1116,11 +1120,25 @@ pub fn acknowledge_consent(title: String, note: String) {
 
 // --- Settings -----------------------------------------------------
 
+/// Every capability, where it runs, and whether it is on right now (F14).
+///
+/// Generated from `crate::capabilities`, which `crate::privacy`'s tests
+/// check against the source — so this table cannot quietly disagree with
+/// what the code does.
+pub fn describe_capabilities(settings: AppSettings) -> Vec<crate::capabilities::Capability> {
+    crate::capabilities::capabilities(&settings)
+}
+
 pub fn load_settings() -> AppSettings {
-    crate::settings::load_settings()
+    let settings = crate::settings::load_settings();
+    // The ASR path reads this from a process global rather than being
+    // handed settings it has no other use for (F17).
+    crate::denoise::set_enabled(settings.noise_reduction);
+    settings
 }
 
 pub fn save_settings(settings: AppSettings) -> Result<(), TranscribeError> {
+    crate::denoise::set_enabled(settings.noise_reduction);
     crate::settings::save_settings(&settings)
 }
 

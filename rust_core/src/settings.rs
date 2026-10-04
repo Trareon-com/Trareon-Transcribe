@@ -85,6 +85,13 @@ pub struct AppSettings {
     /// happening because the app updated.
     #[serde(default)]
     pub pdp: crate::pdp::PdpSettings,
+    /// Run RNNoise over the audio before ASR (F17).
+    ///
+    /// Off by default: it is a learned suppressor, so whether it helps is
+    /// a property of the room, and on already-clean speech it can cost a
+    /// consonant. See `crate::denoise` for the trade-off in full.
+    #[serde(default)]
+    pub noise_reduction: bool,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -245,6 +252,7 @@ impl Default for AppSettings {
             notulen: NotulenDefaults::default(),
             auto_retranscribe: None,
             pdp: crate::pdp::PdpSettings::default(),
+            noise_reduction: false,
         }
     }
 }

@@ -7,6 +7,7 @@ import 'actions.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'capabilities.dart';
 import 'completion.dart';
 import 'coverage.dart';
 import 'disk.dart';
@@ -269,6 +270,8 @@ Future<ProgressiveFileResult> progressiveTranscribeFile({
 /// per file. Returns one outcome per input file, in input order, carrying
 /// either the transcript or the error — so a single bad file no longer
 /// disappears from the results without explanation.
+/// `speaker_hint` is how many people are in the recordings, or `0` for
+/// "work it out" (F10).
 Future<List<BatchFileOutcome>> transcribeFilesBatch({
   required String modelPath,
   required List<String> files,
@@ -276,6 +279,7 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
   required bool gpuEnabled,
   required int gpuDevice,
   required GlossaryConfig glossary,
+  required int speakerHint,
 }) => RustLib.instance.api.crateApiTranscribeFilesBatch(
   modelPath: modelPath,
   files: files,
@@ -283,6 +287,7 @@ Future<List<BatchFileOutcome>> transcribeFilesBatch({
   gpuEnabled: gpuEnabled,
   gpuDevice: gpuDevice,
   glossary: glossary,
+  speakerHint: speakerHint,
 );
 
 /// Which file [`transcribe_files_batch`] is currently on. Poll this while the
@@ -720,6 +725,15 @@ Future<void> acknowledgeConsent({
   required String title,
   required String note,
 }) => RustLib.instance.api.crateApiAcknowledgeConsent(title: title, note: note);
+
+/// Every capability, where it runs, and whether it is on right now (F14).
+///
+/// Generated from `crate::capabilities`, which `crate::privacy`'s tests
+/// check against the source — so this table cannot quietly disagree with
+/// what the code does.
+Future<List<Capability>> describeCapabilities({
+  required AppSettings settings,
+}) => RustLib.instance.api.crateApiDescribeCapabilities(settings: settings);
 
 Future<AppSettings> loadSettings() =>
     RustLib.instance.api.crateApiLoadSettings();

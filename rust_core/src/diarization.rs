@@ -24,6 +24,17 @@ pub struct SpeakerCluster {
 pub struct Diarizer {
     mic_clusters: Vec<SpeakerCluster>,
     spk_clusters: Vec<SpeakerCluster>,
+    /// Upper bound on clusters per channel, when the user told us how
+    /// many people are in the recording (F10).
+    ///
+    /// The acoustic features here are crude — pitch proxy, energy, ZCR —
+    /// so one person recorded across a long meeting reliably splits into
+    /// three or four "speakers". A notulis importing a file usually
+    /// knows the real number, and that one piece of information is worth
+    /// more than any amount of threshold tuning: once the budget is
+    /// spent, a new voice joins its nearest existing cluster instead of
+    /// inventing "Pembicara 7".
+    max_speakers: Option<usize>,
 }
 
 impl Default for Diarizer {
@@ -37,6 +48,18 @@ impl Diarizer {
         Self {
             mic_clusters: Vec::new(),
             spk_clusters: Vec::new(),
+            max_speakers: None,
+        }
+    }
+
+    /// A diarizer that will never report more than `max` speakers per
+    /// channel. `0` means "no hint" rather than "no speakers", because a
+    /// zero arriving from a UI spinner must not silence the transcript.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn with_max_speakers(max: usize) -> Self {
+        Self {
+            max_speakers: (max > 0).then_some(max),
+            ..Self::new()
         }
     }
 
@@ -67,6 +90,29 @@ impl Diarizer {
             if dist < threshold && best_match.is_none_or(|(_, min_dist)| dist < min_dist) {
                 best_match = Some((idx, dist));
             }
+        }
+
+        // Budget spent: fold this window into whichever cluster is
+        // closest, even past the threshold. Without this the hint would
+        // only ever be advisory.
+        if best_match.is_none()
+            && self
+                .max_speakers
+                .is_some_and(|max| clusters.len() >= max.max(1))
+        {
+            best_match = clusters
+                .iter()
+                .enumerate()
+                .map(|(idx, cluster)| {
+                    let p_diff = cluster.centroid_pitch - pitch;
+                    let e_diff = cluster.centroid_energy - energy;
+                    let z_diff = cluster.centroid_zcr - zcr;
+                    (
+                        idx,
+                        (p_diff * p_diff + e_diff * e_diff + z_diff * z_diff).sqrt(),
+                    )
+                })
+                .min_by(|a, b| a.1.total_cmp(&b.1));
         }
 
         if let Some((idx, _)) = best_match {

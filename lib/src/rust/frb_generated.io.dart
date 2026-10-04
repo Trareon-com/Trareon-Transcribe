@@ -8,6 +8,7 @@ import 'api.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'capabilities.dart';
 import 'completion.dart';
 import 'coverage.dart';
 import 'dart:async';
@@ -147,6 +148,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  Capability dco_decode_capability(dynamic raw);
+
+  @protected
   CaptureHealth dco_decode_capture_health(dynamic raw);
 
   @protected
@@ -235,6 +239,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Bookmark> dco_decode_list_bookmark(dynamic raw);
+
+  @protected
+  List<Capability> dco_decode_list_capability(dynamic raw);
 
   @protected
   List<ChannelCapture> dco_decode_list_channel_capture(dynamic raw);
@@ -390,6 +397,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RetentionPolicy dco_decode_retention_policy(dynamic raw);
+
+  @protected
+  RunsAt dco_decode_runs_at(dynamic raw);
 
   @protected
   Segment dco_decode_segment(dynamic raw);
@@ -589,6 +599,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  Capability sse_decode_capability(SseDeserializer deserializer);
+
+  @protected
   CaptureHealth sse_decode_capture_health(SseDeserializer deserializer);
 
   @protected
@@ -687,6 +700,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Bookmark> sse_decode_list_bookmark(SseDeserializer deserializer);
+
+  @protected
+  List<Capability> sse_decode_list_capability(SseDeserializer deserializer);
 
   @protected
   List<ChannelCapture> sse_decode_list_channel_capture(
@@ -872,6 +888,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RetentionPolicy sse_decode_retention_policy(SseDeserializer deserializer);
+
+  @protected
+  RunsAt sse_decode_runs_at(SseDeserializer deserializer);
 
   @protected
   Segment sse_decode_segment(SseDeserializer deserializer);
@@ -1103,6 +1122,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_capability(Capability self, SseSerializer serializer);
+
+  @protected
   void sse_encode_capture_health(CaptureHealth self, SseSerializer serializer);
 
   @protected
@@ -1239,6 +1261,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_bookmark(List<Bookmark> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_capability(
+    List<Capability> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_channel_capture(
@@ -1482,6 +1510,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     RetentionPolicy self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_runs_at(RunsAt self, SseSerializer serializer);
 
   @protected
   void sse_encode_segment(Segment self, SseSerializer serializer);

@@ -103,6 +103,7 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => [];
 
   @override

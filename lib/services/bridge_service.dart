@@ -103,6 +103,7 @@ abstract class RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   });
 
   /// Writes [segments] to `outputDir/<sanitized title>/` in the requested
@@ -687,6 +688,7 @@ class RustBridgeMock implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) async => []; // Mock: returns empty results
 
   @override
@@ -1239,6 +1241,7 @@ class RustEngineBridge implements RustBridge {
     bool gpuEnabled = false,
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    int speakerHint = 0,
   }) =>
       rust_api.transcribeFilesBatch(
         modelPath: modelPath,
@@ -1247,6 +1250,7 @@ class RustEngineBridge implements RustBridge {
         gpuEnabled: gpuEnabled,
         gpuDevice: gpuDevice,
         glossary: glossary,
+        speakerHint: speakerHint,
       );
 
   @override
@@ -1647,6 +1651,7 @@ class RustEngineBridge implements RustBridge {
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
+      noiseReduction: settings.noiseReduction,
     );
   }
 
@@ -1673,6 +1678,7 @@ class RustEngineBridge implements RustBridge {
       notulen: settings.notulen,
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
+      noiseReduction: settings.noiseReduction,
     );
   }
 }
