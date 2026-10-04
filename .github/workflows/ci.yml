@@ -6,22 +6,24 @@ on:
   push:
     branches: [main]
 
-env:
-  NODE_OPTIONS: --experimental-vm-modules
-
+# No `env: NODE_OPTIONS: --experimental-vm-modules` here: nothing in this
+# repo runs Node (it is Rust + Flutter), and a workflow-level NODE_OPTIONS is
+# inherited by the *actions themselves*, which now run on Node 24 as ESM.
+#
+# `packages: write` is likewise gone — no job publishes a package, and the
+# token every action sees should not be able to.
 permissions:
   contents: read
-  packages: write
 
 jobs:
   rust:
     name: Rust (fmt, clippy, test, audit, deny)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: rust_core
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install native audio dependencies
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y pkg-config libasound2-dev
 
@@ -31,7 +33,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -59,9 +61,9 @@ jobs:
 
   flutter:
     name: Flutter (analyze, test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
         with:
@@ -81,7 +83,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             shell: bash
           - os: macos-latest
             shell: bash
@@ -92,7 +94,7 @@ jobs:
         working-directory: rust_core
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install native audio dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y pkg-config libasound2-dev
@@ -101,7 +103,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -115,7 +117,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: linux
             shell: bash
           - os: macos-latest
@@ -128,7 +130,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Linux desktop dependencies
         if: matrix.target == 'linux'
         run: |
@@ -144,7 +146,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -177,12 +179,12 @@ jobs:
     runs-on: macos-latest
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -209,7 +211,7 @@ jobs:
         run: ./scripts/package_macos.sh
 
       - name: Upload dmg as CI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcribe-macos-dmg-unsigned-adhoc
           path: dist/*.dmg
@@ -220,12 +222,12 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -255,7 +257,7 @@ jobs:
         shell: pwsh
 
       - name: Upload zip as CI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transcribe-windows-zip-unsigned
           path: dist/*.zip
@@ -263,10 +265,10 @@ jobs:
 
   benchmark:
     name: Performance benchmark
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install native audio dependencies
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y pkg-config libasound2-dev

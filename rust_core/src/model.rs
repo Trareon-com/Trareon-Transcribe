@@ -213,6 +213,33 @@ pub fn verify_checksum(path: &Path, expected_sha256: &str) -> Result<(), Transcr
     }
 }
 
+/// Removes a download that failed [`verify_checksum`], so the next attempt
+/// starts from zero.
+///
+/// [`download_single_url`] resumes from `metadata(dest_path).len()`, so a
+/// corrupt or truncated file left in place is permanently poisoned: the
+/// Range request appends to the bad bytes, the hash never matches, and
+/// `is_model_downloaded` meanwhile reports the model as installed. There is
+/// no UI anywhere that can clear that state.
+///
+/// Failing to remove it is only logged: the checksum error the caller is
+/// about to return is the one worth showing the user.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn discard_corrupt_download(dest_path: &Path) {
+    match std::fs::remove_file(dest_path) {
+        Ok(()) => tracing::warn!(
+            path = %dest_path.display(),
+            "removed model download that failed its checksum"
+        ),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => tracing::error!(
+            path = %dest_path.display(),
+            error = %e,
+            "could not remove a corrupt model download; the next resume will be poisoned"
+        ),
+    }
+}
+
 /// Append-resumable download via HTTP Range requests. Caller is
 /// responsible for calling [`verify_checksum`] once `total_bytes` is
 /// reached — this function only moves bytes and reports progress.
@@ -514,6 +541,38 @@ mod tests {
         );
         assert!(result.is_err());
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// A download that fails its checksum must not survive: `is_model_downloaded`
+    /// would call it installed, and `download_single_url` resumes from the
+    /// file's length, appending onto the bad bytes forever.
+    #[test]
+    fn a_failed_checksum_download_is_deleted_so_resume_cannot_be_poisoned() {
+        let dir = std::env::temp_dir().join(format!("transcribe_poison_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ggml-tiny.bin");
+        std::fs::write(&path, b"truncated garbage").unwrap();
+
+        // Precondition: this is exactly the state that looked "installed".
+        assert!(is_model_downloaded(&dir, "tiny"));
+        assert!(verify_checksum(&path, &"ab".repeat(32)).is_err());
+
+        discard_corrupt_download(&path);
+
+        assert!(
+            !path.exists(),
+            "the corrupt file must be gone so the next download starts from zero"
+        );
+        assert!(
+            !is_model_downloaded(&dir, "tiny"),
+            "and the model must no longer report as installed"
+        );
+
+        // Idempotent: a second call (e.g. a retry that already cleaned up)
+        // must not panic or report anything.
+        discard_corrupt_download(&path);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

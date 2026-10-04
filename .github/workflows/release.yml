@@ -11,9 +11,9 @@ permissions:
 jobs:
   source-release:
     name: Build and publish source release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create source archive
         run: |
@@ -23,7 +23,7 @@ jobs:
         run: sha256sum "transcribe-${GITHUB_REF_NAME}.tar.gz" > "transcribe-${GITHUB_REF_NAME}.tar.gz.sha256"
 
       - name: Upload source archive
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             transcribe-${{ github.ref_name }}.tar.gz
@@ -33,12 +33,12 @@ jobs:
     name: Build macOS DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -53,15 +53,15 @@ jobs:
           bash scripts/package_macos.sh "${GITHUB_REF_NAME#v}"
 
       - name: Upload DMG
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
 
   build-linux:
     name: Build Linux tar.gz
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Linux desktop dependencies
         run: |
           sudo apt-get update
@@ -75,7 +75,7 @@ jobs:
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -91,7 +91,7 @@ jobs:
           bash scripts/package_linux.sh "${GITHUB_REF_NAME#v}"
 
       - name: Upload Linux archive
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
 
@@ -99,12 +99,12 @@ jobs:
     name: Build Windows ZIP
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: rust_core
 
@@ -120,6 +120,6 @@ jobs:
           powershell -ExecutionPolicy Bypass -File scripts/package_windows.ps1 -Version "${GITHUB_REF_NAME#v}"
 
       - name: Upload ZIP
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
