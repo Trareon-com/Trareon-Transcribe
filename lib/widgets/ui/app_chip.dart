@@ -4,15 +4,29 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_tokens.dart';
 import '../../theme/app_typography.dart';
+import 'app_button.dart';
 import 'interactive.dart';
 
 /// Static metadata. Not interactive, not a filter.
+///
+/// A chip the user entered can be removed again: pass [onDeleted] and the
+/// chip grows a trailing dismiss affordance. The affordance is its own
+/// focusable control with its own name, because a chip whose only removal
+/// path is a mouse target is unreachable from the keyboard.
 class AppChip extends StatelessWidget {
-  const AppChip({super.key, required this.label, this.icon, this.mono = false});
+  const AppChip({
+    super.key,
+    required this.label,
+    this.icon,
+    this.mono = false,
+    this.onDeleted,
+    this.deleteTooltip,
+  });
 
   final String label;
   final IconData? icon;
@@ -20,12 +34,22 @@ class AppChip extends StatelessWidget {
   /// For a timestamp or an ID.
   final bool mono;
 
+  /// Removes the chip. Null leaves the chip static.
+  final VoidCallback? onDeleted;
+
+  /// Names the dismiss control. Required by [AppIconButton] whenever
+  /// [onDeleted] is set, so it falls back to a generic Indonesian label.
+  final String? deleteTooltip;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Container(
       height: ControlSizes.sm - Spacing.xs,
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      padding: EdgeInsets.only(
+        left: Spacing.sm,
+        right: onDeleted == null ? Spacing.sm : Spacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.surfaceSunken,
         borderRadius: Radii.smAll,
@@ -44,6 +68,15 @@ class AppChip extends StatelessWidget {
               colors.textSecondary,
             ),
           ),
+          if (onDeleted != null) ...[
+            const SizedBox(width: Spacing.xs),
+            AppIconButton(
+              icon: AppIcons.close,
+              tooltip: deleteTooltip ?? 'Hapus $label',
+              size: IconSizes.xs,
+              onPressed: onDeleted,
+            ),
+          ],
         ],
       ),
     );

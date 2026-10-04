@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/onboarding_screen.dart';
+import 'package:transcribe/services/session_store.dart';
+import 'package:transcribe/widgets/notulen_dialog.dart';
+import 'package:transcribe/widgets/ui/app_button.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/widgets/model_download_card.dart'
     show DownloadStatus;
@@ -157,6 +160,45 @@ void main() {
         );
       });
 
+      testWidgets('notulen preview', (tester) async {
+        // The sixth signature screen: what the user reads and corrects before
+        // the DOCX is written. Rendered from a saved form so the golden does
+        // not depend on the engine's summary parser.
+        await shoot(
+          tester,
+          'notulen-$suffix',
+          themed(
+            Builder(
+              builder: (context) => Center(
+                child: AppButton.primary(
+                  label: 'Buat Notulen',
+                  onPressed: () => showNotulenDialog(
+                    context,
+                    session: const SessionSummary(
+                      id: 'golden',
+                      title: 'Rapat Koordinasi Triwulan',
+                      date: '2026-10-01',
+                      segmentsCount: 6,
+                      durationSeconds: 2460,
+                    ),
+                    recordedAt: DateTime(2026, 10, 1, 9, 5),
+                    summary: '',
+                    bookmarks: const [],
+                    saved: _notulen,
+                  ),
+                ),
+              ),
+            ),
+            mode,
+          ),
+          drive: (tester) async {
+            await tester.tap(find.text('Buat Notulen'));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+          },
+        );
+      });
+
       testWidgets('onboarding', (tester) async {
         await shoot(
           tester,
@@ -190,6 +232,35 @@ void main() {
     });
   }
 }
+
+/// A notulen the user has already corrected: the state the preview exists to
+/// show. Real Indonesian office copy, no placeholder names.
+const _notulen = NotulenFormData(
+  instansi: 'Dinas Komunikasi dan Informatika',
+  unitKerja: 'Bidang Aplikasi Informatika',
+  nomor: 'ND-12/AG.3/2026',
+  judul: 'Rapat Koordinasi Triwulan',
+  hari: 'Kamis',
+  tanggal: '1 Oktober 2026',
+  waktu: '09.05 - 11.30 WIB',
+  tempat: 'Ruang Rapat Lantai 3',
+  pimpinan: 'Kepala Bidang Aplikasi Informatika',
+  notulis: 'Staf Sekretariat',
+  peserta: ['Bidang Aplikasi Informatika', 'Bagian Perencanaan'],
+  agenda: ['Pagu indikatif dan penyerapan anggaran', 'Jadwal penyerapan'],
+  pembahasan:
+      'Penyerapan sampai akhir September berada di angka enam puluh '
+      'delapan persen. Sisanya terkonsentrasi di belanja modal yang '
+      'kontraknya baru selesai bulan lalu.',
+  keputusan: ['Menyusun jadwal penyerapan mingguan sampai akhir tahun'],
+  tindakLanjut: [
+    NotulenTask(
+      tugas: 'Menyiapkan draf jadwal penyerapan',
+      penanggungJawab: 'Bagian Perencanaan',
+      tenggat: '9 Oktober 2026',
+    ),
+  ],
+);
 
 /// A short, real-shaped transcript. Indonesian meeting speech with two
 /// speakers, so the speaker colours, the mono timestamps and the reading

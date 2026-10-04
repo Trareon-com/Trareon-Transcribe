@@ -11,10 +11,16 @@ import '../state/settings_model.dart';
 import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 import '../utils/format_time.dart';
 import 'summary_template_editor.dart';
 import '../theme/app_icons.dart';
 import 'app_toast.dart';
+import 'ui/app_button.dart';
+import 'ui/app_feedback.dart';
+import 'ui/app_field.dart';
+import 'ui/app_surface.dart';
+import 'ui/interactive.dart';
 
 /// Editable AI summary for one session.
 ///
@@ -159,9 +165,13 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
+          Interactive(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.zero,
+            semanticLabel: 'Ringkasan AI',
+            toggled: _expanded,
+            builder: (context, interaction) => Container(
+              color: interactionTint(context, interaction),
               padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.lg,
                 vertical: Spacing.sm,
@@ -176,11 +186,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                   Spacing.hSm,
                   Text(
                     'Ringkasan AI',
-                    style: TextStyle(
-                      color: colors.text,
-                      fontSize: FontSizes.bodyLarge,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppText.subheading.c(colors.text),
                   ),
                   if (state.status == SummaryStatus.ready) ...[
                     Spacing.hSm,
@@ -194,19 +200,12 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                     Spacing.hSm,
                     Text(
                       'belum disimpan',
-                      style: TextStyle(
-                        color: colors.textTertiary,
-                        fontSize: FontSizes.micro,
-                      ),
+                      style: AppText.micro.c(colors.textTertiary),
                     ),
                   ],
                   const Spacer(),
                   if (busy)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                    const AppProgressRing(size: IconSizes.md)
                   else
                     Icon(
                       _expanded ? AppIcons.expandLess : AppIcons.expandMore,
@@ -249,6 +248,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                             initialValue:
                                 state.customTemplateId ?? state.template.name,
                             isDense: true,
+                            style: AppText.body.c(colors.text),
                             decoration: InputDecoration(
                               labelText: 'Template',
                               helperText: state.customTemplateId != null
@@ -291,29 +291,24 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                   },
                           ),
                         ),
-                        const SizedBox(width: Spacing.sm),
-                        IconButton(
+                        Spacing.hSm,
+                        AppIconButton(
                           tooltip: 'Kelola template ringkasan',
-                          constraints: TouchTarget.constraints,
-                          icon: const Icon(AppIcons.tune, size: IconSizes.md),
+                          icon: AppIcons.tune,
                           onPressed: busy
                               ? null
                               : () => showSummaryTemplateManager(context),
                         ),
-                        const SizedBox(width: Spacing.sm),
-                        FilledButton.icon(
+                        Spacing.hSm,
+                        AppButton.primary(
                           onPressed: busy ? null : _generate,
-                          icon: Icon(
-                            state.status == SummaryStatus.ready
-                                ? AppIcons.refresh
-                                : AppIcons.enhance,
-                            size: IconSizes.sm,
-                          ),
-                          label: Text(
-                            state.status == SummaryStatus.ready
-                                ? 'Buat Ulang'
-                                : 'Buat Ringkasan',
-                          ),
+                          loading: busy,
+                          icon: state.status == SummaryStatus.ready
+                              ? AppIcons.refresh
+                              : AppIcons.enhance,
+                          label: state.status == SummaryStatus.ready
+                              ? 'Buat Ulang'
+                              : 'Buat Ringkasan',
                         ),
                       ],
                     ),
@@ -335,23 +330,16 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         onSeekToTimestamp: widget.onSeekToTimestamp,
                       )
                     else
-                      TextField(
+                      AppTextField(
                         controller: _controller,
                         maxLines: 12,
                         minLines: 5,
-                        readOnly: busy,
+                        enabled: !busy,
+                        reserveHelperSpace: false,
                         onChanged: ref.read(_provider.notifier).edit,
-                        style: const TextStyle(
-                          fontSize: FontSizes.body,
-                          height: 1.45,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText:
-                              'Ringkasan akan muncul di sini. Anda bisa menyuntingnya '
-                              'sebelum menyimpan.',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.all(Spacing.md),
-                        ),
+                        placeholder:
+                            'Ringkasan akan muncul di sini. Anda bisa '
+                            'menyuntingnya sebelum menyimpan.',
                       ),
                     if (state.droppedCitations > 0) ...[
                       Spacing.gapSm,
@@ -373,16 +361,13 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (_canRender(state))
-                          TextButton.icon(
+                          AppButton.ghost(
                             onPressed: () =>
                                 setState(() => _editing = !_editing),
-                            icon: Icon(
-                              _editing ? AppIcons.show : AppIcons.edit,
-                              size: IconSizes.sm,
-                            ),
-                            label: Text(_editing ? 'Lihat rujukan' : 'Sunting'),
+                            icon: _editing ? AppIcons.show : AppIcons.edit,
+                            label: _editing ? 'Lihat rujukan' : 'Sunting',
                           ),
-                        TextButton.icon(
+                        AppButton.ghost(
                           onPressed: state.text.trim().isEmpty
                               ? null
                               : () async {
@@ -396,14 +381,14 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                     type: ToastType.success,
                                   );
                                 },
-                          icon: const Icon(AppIcons.copy, size: IconSizes.sm),
-                          label: const Text('Salin'),
+                          icon: AppIcons.copy,
+                          label: 'Salin',
                         ),
                         Spacing.hSm,
-                        FilledButton.tonalIcon(
+                        AppButton(
                           onPressed: state.dirty && !busy ? _save : null,
-                          icon: const Icon(AppIcons.save, size: IconSizes.sm),
-                          label: const Text('Simpan'),
+                          icon: AppIcons.save,
+                          label: 'Simpan',
                         ),
                       ],
                     ),
@@ -443,16 +428,7 @@ class _Notice extends StatelessWidget {
       children: [
         Icon(icon, size: IconSizes.sm, color: color),
         Spacing.hSm,
-        Expanded(
-          child: Text(
-            message,
-            style: TextStyle(
-              color: color,
-              fontSize: FontSizes.caption,
-              height: 1.35,
-            ),
-          ),
-        ),
+        Expanded(child: Text(message, style: AppText.caption.c(color))),
       ],
     );
   }
@@ -476,13 +452,10 @@ class _CitedSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppSurface(
       width: double.infinity,
       padding: const EdgeInsets.all(Spacing.md),
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.divider),
-        borderRadius: Radii.smAll,
-      ),
+      radius: Radii.mdAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -496,14 +469,9 @@ class _CitedSummary extends StatelessWidget {
                 children: [
                   Text(
                     line.text,
-                    style: TextStyle(
-                      fontSize: line.isHeading ? 14 : 13,
-                      height: 1.45,
-                      fontWeight: line.isHeading
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: colors.text,
-                    ),
+                    style: line.isHeading
+                        ? AppText.bodyStrong.c(colors.text)
+                        : AppText.reading.c(colors.text),
                   ),
                   if (line.citations.isNotEmpty && onSeekToTimestamp != null)
                     Padding(
@@ -544,25 +512,22 @@ class _CitationChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = formatTimestamp(citation.timestamp);
-    return Semantics(
-      button: true,
-      label: 'Putar segmen ${citation.segmentId} pada $label',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.smAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.sm,
-            vertical: Spacing.xs,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: FontSizes.micro,
-              color: colors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+    return Interactive(
+      onPressed: onTap,
+      borderRadius: Radii.smAll,
+      semanticLabel: 'Putar segmen ${citation.segmentId} pada $label',
+      builder: (context, interaction) => Container(
+        decoration: BoxDecoration(
+          color: interaction.active ? colors.primarySubtle : Colors.transparent,
+          borderRadius: Radii.smAll,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: Spacing.xs,
+        ),
+        child: Text(
+          label,
+          style: AppText.monoMicro.cw(colors.primary, FontWeight.w600),
         ),
       ),
     );
@@ -582,19 +547,12 @@ class _MapReduceProgress extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          progress.label,
-          style: TextStyle(
-            fontSize: FontSizes.caption,
-            color: colors.textSecondary,
-          ),
-        ),
+        Text(progress.label, style: AppText.caption.c(colors.textSecondary)),
         Spacing.gapXs,
-        LinearProgressIndicator(
+        AppLinearProgress(
           // An unknown total must not render as a full bar.
           value: total > 0 ? (progress.done / total).clamp(0.0, 1.0) : null,
-          minHeight: 3,
-          backgroundColor: colors.surface,
+          semanticLabel: progress.label,
         ),
       ],
     );

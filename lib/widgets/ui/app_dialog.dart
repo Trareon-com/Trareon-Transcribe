@@ -107,13 +107,17 @@ class AppDialog extends StatelessWidget {
                 child: child,
               ),
             ),
-            if (actions.isNotEmpty)
+            if (actions.isNotEmpty) ...[
+              // A long form scrolls under this bar, and content sliced by an
+              // invisible edge reads as a rendering bug. The hairline makes
+              // the action bar a surface of its own, so the cut is deliberate.
+              AppHairline(color: colors.hairline),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Spacing.xl,
+                  Spacing.lg,
                   Spacing.xl,
-                  Spacing.xl,
-                  Spacing.xl,
+                  Spacing.lg,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -124,8 +128,8 @@ class AppDialog extends StatelessWidget {
                     ],
                   ],
                 ),
-              )
-            else
+              ),
+            ] else
               Spacing.gapXl,
           ],
         ),
