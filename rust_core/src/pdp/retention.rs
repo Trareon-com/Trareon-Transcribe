@@ -488,12 +488,9 @@ mod tests {
 
     #[test]
     fn applying_a_plan_deletes_only_what_it_listed() {
-        // The audit log's redirect is one process-wide slot; see
-        // `audit::LOG_DIR_LOCK`.
-        let _guard = match super::super::audit::LOG_DIR_LOCK.lock() {
-            Ok(g) => g,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        // `apply` audits every deletion, so the log needs somewhere of
+        // its own to go; see `audit::TestLogDir`.
+        let _audit = super::super::audit::TestLogDir::new();
         let dir = std::env::temp_dir().join(format!("trareon_ret_{}", uuid::Uuid::new_v4()));
         let keep = dir.join("20261001-Baru");
         let drop_audio = dir.join("20260101-Lama");
@@ -503,7 +500,6 @@ mod tests {
         std::fs::write(drop_audio.join("mic.wav"), [0u8]).unwrap();
         std::fs::write(drop_audio.join("Lama.json"), "[]").unwrap();
 
-        super::super::audit::set_log_dir(Some(dir.clone()));
         let plan = RetentionPlan {
             audio_to_delete: vec![RetentionItem {
                 path: drop_audio.join("mic.wav").to_string_lossy().to_string(),
@@ -515,7 +511,6 @@ mod tests {
             audio_bytes_freed: 1,
         };
         let outcome = apply(&plan).unwrap();
-        super::super::audit::set_log_dir(None);
 
         assert_eq!(outcome.deleted.len(), 1);
         assert!(outcome.failed.is_empty());
@@ -533,6 +528,8 @@ mod tests {
 
     #[test]
     fn deleting_something_already_gone_is_not_a_failure() {
+        // `apply` audits the sweep even when it removed nothing.
+        let _audit = super::super::audit::TestLogDir::new();
         let plan = RetentionPlan {
             audio_to_delete: vec![RetentionItem {
                 path: "/nonexistent/mic.wav".into(),
