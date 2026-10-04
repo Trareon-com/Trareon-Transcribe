@@ -1631,144 +1631,440 @@ tanpa galat. `pkill -9 -x transcribe` setelahnya.
 
 # Sprint 4 report — branch `sprint/04-differentiators`
 
-> ITEM 0 (P0) + fitur diferensiator. 11 commits dari `origin/main`, 27.008 baris netto.
+> ITEM 0 (P0) + fitur diferensiator F6, F7, F10, F12, F13, F14, F15, F17,
+> F18, F19, F20. 17 commit di atas `origin/main`; 115 berkas, +28.731 /
+> −1.212 baris.
+
+Semua angka di bawah ini diukur di mesin ini (Kali Linux, CPU lemah, tanpa
+GPU) pada commit `d27be9a`, bukan disalin dari rencana.
 
 ---
 
-## ITEM 0 — "Every second recorded ends up in the transcript" ✅
+## Gate verifikasi — hasil sebenarnya
 
-**Masalah**: jalur live drop repetisi kalimat karena VAD/echo-dedupe; jalur file
-mengeluarkan baris hallusinasi "[MENGENI]" di stretch sunyi.
-
-**Fix**:
-1. `rust_core/src/stt/file.rs` + `pipeline.rs` — jalur post-stop otomatis
-   menjalanikan *completion pass* untuk sisi audio yang belum tercakup.
-2. `rust_core/src/vad.rs` — filter token hallusinatoris Whisper.
-3. Echo-dedupe window dibatasi: duplikasi hanya drop bila timestamps berdekatan
-   (±10 s); repetisi sah beberapa menit kemudian tidak lagi terduplikasi.
-4. Jalur stop tidak discard backlog — audio yang belum ditranskrip diproses
-   di background setelah Stop.
-
-**Berkas**: `rust_core/src/stt/file.rs`, `rust_core/src/stt/pipeline.rs`,
-`rust_core/src/vad.rs`, `rust_core/src/journal.rs`, `lib/state/session_model.dart`
+| Langkah | Hasil |
+|---|---|
+| `cargo fmt --check` | bersih |
+| `cargo clippy --all-targets -- -D warnings` | bersih (0 peringatan) |
+| `cargo test --lib` | **605 lulus, 0 gagal** |
+| `flutter analyze` | **No issues found!** (termasuk level info) |
+| `flutter test` | **548 lulus, 0 gagal** |
+| `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
 
 ---
 
-## F6 — Action items terstruktur ✅
+## ITEM 0 (P0) — "Setiap detik yang terekam masuk ke transkrip" ✅
 
-Parser JSON LLM → `ActionItem` (tugas, PJ, tenggat, status). Checklist editable
-di panel pemain. Ekspor `.ics` (VTODO) dan CSV.
+### Yang salah sebelumnya
 
-- Berkas: `rust_core/src/actions.rs`, `lib/widgets/action_items_panel.dart`,
-  `test/action_items_test.dart`
+Bukti dari sesi nyata di mesin ini
+(`20261004-Sesi 2026-10-04 10_12/`): `speaker.wav` 359,7 detik, RMS per 30
+detik menunjukkan ucapan hanya di 0–30 s dan 150–180 s. Transkrip live
+hanya memuat kemunculan **pertama** (2 segmen, t = 1–8 s). Jalur berkas
+mengeluarkan baris halusinasi `[MENGENI]` untuk tiap bentang sunyi.
 
----
+### Perbaikan
 
-## F7 — Provenance ringkasan ✅
+1. **Coverage + completion pass** (`rust_core/src/coverage.rs`,
+   `completion.rs`): saat Stop, mesin membandingkan ucapan terdeteksi
+   dengan apa yang sudah tertranskrip; selisihnya dikerjakan ulang dari
+   WAV yang tersimpan, per sumber, di latar belakang.
+2. **VAD lebih dulu di jalur berkas** (`stt/file.rs`): keheningan tidak
+   pernah diberikan ke Whisper, jadi model tidak punya kesempatan
+   mengarang kalimat untuknya.
+3. **Filter halusinasi** (`hallucination.rs`): token dalam kurung dan
+   kalimat-kredit subtitle yang sudah dikenal dibuang.
+4. **Tidak ada lagi backlog yang dibuang**: antrean completion disimpan di
+   sidecar (`pending_completion`), jadi keluar aplikasi lalu membukanya
+   lagi melanjutkan, bukan kehilangan.
+5. **Coverage = track paling tidak lengkap** (`74eb3b4`), supaya track mic
+   yang senyap tidak menutupi track speaker yang masih kurang lima menit.
 
-LLM mencantumkan `segment_id` per poin ringkasan. Frontend render chip
-yang bisa diklik → pemain melompat ke segmen + timestamp.
+### Verifikasi nyata 1 — rekaman 4 menit di build rilis
 
-- Berkas: `rust_core/src/provenance.rs`, `lib/widgets/summary_panel.dart`
+Build rilis dijalankan di display `:0`, mode **Rapat Online**, mikrofon
+**dimatikan** dan "Suara sistem" diarahkan ke `trareon_silent` (lihat
+catatan OFFICE AUDIO RULES di bawah). `rapat_id.mp3` (14,8 s) diputar 13×
+berturut-turut ke sink senyap — 192 detik ucapan di dalam rekaman 284
+detik.
 
----
+Yang terlihat:
 
-## F10 — Kelola pembicara ✅
+* Model terpilih **Akurat** (large-v3-turbo-q5). Pratinjau live tetap
+  mengalir (15 segmen), tetapi jelas tertinggal: pada 03:50 waktu rekam,
+  baris terakhir masih t = 01:26.
+* Dialog setelah Stop berbunyi, apa adanya:
+  > **Sesi selesai — ada masalah.** Durasi 4 menit · 16 segmen transkrip.
+  > Audio sistem: 4 menit terekam, 42% senyap.
+  > **Transkrip langsung audio sistem tertinggal 187 detik dari rekaman.
+  > Sisanya diselesaikan otomatis setelah sesi berhenti.**
+* Sidecar mencatat ketidaklengkapan itu di disk:
+  `"pending_completion": [".../speaker.wav"]`,
+  `"coverage_fraction": 0.2007`.
+* Sidebar menampilkan kartu **"Menyelesaikan transkrip — Menyelesaikan
+  audio sistem… 43% — sisa 32 menit"** (persentase per sumber + ETA),
+  dengan tombol batal.
+* Setelah pass selesai: `pending_completion` kosong,
+  **`coverage_fraction` 0,2007 → 0,9957**, transkrip **15 → 38 segmen**,
+  rentang 34,7 s → 229,7 s.
 
-Rename sekali → berubah di seluruh transkrip. Merge dua pembicara.
-Dialog `speaker_manager_dialog.dart` + service `speaker_aliases.dart`.
+Dua bentang tanpa segmen sama sekali — 0–34,7 s (sebelum pemutaran
+dimulai) dan 229,7–284 s (setelah pemutaran berhenti) — keduanya memang
+senyap. Tidak ada satu pun baris yang dikarang untuk keheningan.
 
-- Berkas: `lib/widgets/speaker_manager_dialog.dart`, `lib/services/speaker_aliases.dart`,
-  `test/speakers_test.dart`
+Kualitas juga naik seperti yang dimaksud: pratinjau live menulis
+*"membahas angeran kuartan empat"*, sedangkan pass penyelesaian dengan
+model akurat menulis *"Hari ini kita membahas anggaran kuartal 4."*
 
----
+`/tmp/trareon_smoke.log` hanya berisi dua baris, keduanya bukan error:
+pemberitahuan backend Impeller dan peringatan deprecation
+`libayatana-appindicator`.
 
-## F12 — Tanya arsip rapat ✅
+### Verifikasi nyata 2 — sesi 6 menit yang jadi bukti awal
 
-SQLite FTS5 dari seluruh segmen + ringkasan (inkremental). Ollama lokal
-menjawab pertanyaan dengan citation ke sesi+timestamp.
+Salinan `speaker.wav` sesi 10:12 (359,7 s) dijalankan lewat jalur berkas
+(`transcribe_cli`, ggml-base, `--language id`):
 
-- Berkas: `rust_core/src/archive.rs`, `lib/screens/archive_chat_screen.dart`,
-  `rust_core/tests/archive_chat_live.rs`
+```
+segments: 6
+  [   1.4 s] Selamat pagi semuanya, hari ini kita membahas anggaran kuartal empat.
+  [   7.1 s] Budi bertanggung jawab menyiapkan laporan keuangan paling lambat hari jungat.
+  [  12.5 s] Rapat berikutnya di jadualkan minggu depan.
+  [ 152.4 s] Selamat pagi semuanya, hari ini kita membahas anggaran kuartal empat.
+  [ 158.2 s] Budi bertanggung jawab menyiapkan laporan kewangan paling lambat hari jungat.
+  [ 163.6 s] Rapat berikutnya dijadualkan minggu depan.
+
+baris halusinasi berkurung: 0
+ucapan tertranskrip: 29,5 s dari berkas 359,7 s (keheningan: tidak ada keluaran)
+```
+
+* **Kedua** kemunculan ucapan ada (sebelumnya hanya yang pertama), tepat
+  di 0–30 s dan 150–180 s sesuai profil RMS.
+* **Nol** baris `[MENGENI]` (sebelumnya 12 dari 15 baris).
+
+### Cacat yang ditemukan oleh smoke test ini
+
+Setelah pass selesai, baris sesi di sidebar masih menulis *"1 menit · 15
+segmen"* untuk sesi yang sudah menjadi 4 menit / 38 segmen. Indeks
+perpustakaan menyimpan jumlah segmen berdasarkan ukuran+mtime transkrip
+dan tidak ada yang memberitahunya bahwa transkrip sudah ditulis ulang.
+Diperbaiki di `d27be9a` (callback sekali per sesi + tes yang memakunya).
 
 ---
 
 ## F13 — Mode Kepatuhan UU PDP ✅
 
-- Retention policy: auto-hapus sesi older than N hari
-- Redaction di ekspor: NIK, telepon, email, NPWP, rekening bank
-- Audit log lokal (append-only)
-- Consent notice pra-rekaman
+`rust_core/src/pdp/` + `lib/widgets/pdp_settings_section.dart`.
 
-- Berkas: `rust_core/src/privacy.rs`, `lib/widgets/pdp_settings_section.dart`
+* **Penyamaran saat ekspor**: NIK (16 digit), telepon (+62/08…), surel,
+  NPWP, rekening bank, dan nama yang didaftarkan pengguna. Pratinjau
+  menyorot temuan sebelum ekspor; transkrip tersimpan tidak diubah.
+* **Retensi**: hapus otomatis sesi lebih tua dari N hari, audio dan/atau
+  transkrip terpisah, dengan pratinjau + konfirmasi + entri log.
+* **Log audit append-only** (sesi dibuat / diekspor / ringkasan dikirim /
+  dihapus), bisa dilihat dan diekspor.
+* **Pemberitahuan persetujuan** yang bisa disalin ke chat rapat;
+  pengakuannya dicatat di log audit.
+* Semua mati secara bawaan — tiap bagiannya menyembunyikan atau menghapus
+  sesuatu, jadi tidak boleh mulai terjadi hanya karena aplikasi diperbarui.
+
+Enkripsi at-rest **tidak dikerjakan** (stretch); trade-off-nya dicatat di
+"Celah yang diketahui".
+
+---
+
+## F6 — Tindak lanjut terstruktur ✅
+
+Mesin: `rust_core/src/actions.rs` (parser JSON + fallback ke daftar
+berpoin), `.ics` RFC 5545 (satu `VTODO` per tugas, plus `VEVENT` untuk
+tenggat yang bisa diresolusi), dan CSV.
+
+UI: `lib/widgets/action_items_panel.dart` — daftar centang empat kolom
+(tugas, PJ, tenggat, status) yang bisa disunting, disimpan di sidecar
+sehingga status "selesai" bertahan setelah ditutup, diekspor sebagai
+`.ics` dan `.csv` di sebelah sesi, dan dipakai mengisi "Tindak Lanjut" di
+notulen — mengalahkan hasil parse ulang prosa ringkasan, karena baris yang
+sudah ditinjau pengguna itulah yang ditandatangani. Tugas berstatus
+*dibatalkan* dan baris kosong tidak pernah masuk kalender.
+
+Ditemukan sambil menguji: dropdown status meluber 108 px keluar barisnya
+di jendela minimum 800×600 — justru menyembunyikan kontrol dengan label
+terpanjang. Barisnya sekarang dua baris.
+
+---
+
+## F7 — Provenans ringkasan ✅
+
+`rust_core/src/provenance.rs`: tiap `[#n]` diresolusi ke stempel waktu
+segmen; id di luar transkrip dibuang **dan dihitung**, lalu diperiksa
+sekali lagi — kutipan yang nyaris tidak berbagi kosakata dengan klaimnya
+ikut dibuang.
+
+Di layar, tiap baris ringkasan tampil dengan stempel waktu yang bisa
+diklik untuk melompatkan pemutar. Jumlah kutipan yang ditolak ditampilkan,
+bukan disembunyikan: ringkasan dengan banyak rujukan tidak sah berasal
+dari model yang sedang menebak, dan itu perlu diketahui sebelum notulen
+ditandatangani.
+
+---
+
+## F15 — Ringkasan rapat panjang ✅
+
+`rust_core/src/mapreduce.rs`: potong per jendela waktu 10 menit (dengan
+batas karakter keras per jendela), ringkas tiap jendela, lalu ringkas
+ringkasannya. `generate()` sekarang selalu lewat jalur ini — ia jatuh
+kembali ke satu permintaan tunggal begitu transkrip muat, jadi ia superset
+dari jalur lama, bukan mode kedua yang harus dipilih pengguna. Sebelumnya
+rapat tiga jam diringkas dari bagian tengah yang dipotong diam-diam.
+
+Progres per jendela ditarik ke panel ("Bagian 3 dari 10 — 20:00–30:00").
+
+---
+
+## F12 — Tanya arsip rapat ✅
+
+Indeks SQLite FTS5 lokal atas seluruh sesi (`rust_core/src/archive.rs`),
+diperbarui inkremental (hanya sesi yang transkripnya berubah dibaca
+ulang), peringkat BM25.
+
+Dua tombol, karena keduanya benar-benar berbeda:
+
+* **Cari** — murni lokal, tidak butuh endpoint, tidak mengirim apa pun.
+* **Jawab** — mengirim kutipan yang sudah ditemukan ke endpoint ringkasan
+  yang pengguna atur, dan dicatat di Laporan Privasi sebagai jenis
+  panggilan keluar tersendiri (bukan digabung ke "Ringkasan AI": yang
+  keluar adalah potongan dari beberapa rapat, bukan satu transkrip).
+
+Tiap kutipan membawa menitnya, bukan cuma rapatnya: pemutar sekarang punya
+`initialSeekSeconds` dan nilai itu ikut jadi bagian dari key-nya, supaya
+kutipan kedua ke sesi yang sudah terbuka tetap melompat.
+
+Kriteria keluar: tes integrasi Rust menjawab pertanyaan atas 3 sesi
+sintetis dengan kutipan yang benar (digerbangi env var, memakai Ollama
+lokal bila ada).
+
+---
+
+## F10 — Pembicara ✅
+
+* **Ganti nama sekali → berlaku se-sesi**: sudah ada sebelumnya.
+* **Gabungkan dua pembicara** (baru): pengelompokan akustik memecah satu
+  orang di rapat panjang menjadi `Peserta 2` dan `Peserta 4`; tanpa
+  penggabungan, satu-satunya perbaikan adalah menamai keduanya sama dan
+  hidup dengan transkrip yang mengaku dua orang mengucapkan kalimat yang
+  sama. Mengganti nama ke nama yang sudah ada **adalah** penggabungan.
+* **Diingat untuk rapat berikutnya** (baru): disimpan dengan kunci label
+  **mesin** (`Peserta 2`), bukan nama yang diketik — kalau dikunci ke nama
+  ketikan, tidak akan pernah cocok lagi. Selalu ditawarkan, tidak pernah
+  diterapkan diam-diam. Mengingat per-suara akan lebih baik, dan ciri
+  akustik di sini jauh dari cukup stabil untuk itu; alasannya ditulis di
+  `lib/services/speaker_aliases.dart`.
+* **Petunjuk jumlah pembicara saat impor** (baru): begitu kuota klaster
+  habis, jendela baru bergabung ke klaster terdekat alih-alih mengarang
+  "Pembicara 7". Diteruskan ke jalur impor satu-lintasan maupun dua-lintasan.
 
 ---
 
 ## F14 — "Apa Jalan di Mana" ✅
 
-Tabel setiap kemampuan, tempat berjalan, status sekarang. Source-of-truth
-dari privacy gate.
+`rust_core/src/capabilities.rs` adalah tabel kemampuan **sebagai data**,
+dan `rust_core/src/privacy.rs` memeriksanya terhadap sumber: baris yang
+mengaku "Lokal" tetapi modulnya memuat primitif jaringan **menggagalkan
+build**, begitu pula baris yang mengaku memakai jaringan dari modul yang
+bukan `model.rs` atau `summary.rs`.
 
-- Berkas: `rust_core/src/capabilities.rs`, `lib/screens/capabilities_screen.dart`
-
----
-
-## F15 — Long-meeting summarisation ✅
-
-Map-reduce: transkrip > context budget → partial summaries → final summary.
-Unit test untuk chunking.
-
-- Berkas: `rust_core/src/mapreduce.rs`, `lib/state/summary_model.dart`
+Jadi tabel yang dibaca pengguna dan gerbang yang menggagalkan CI adalah
+daftar yang sama. Layarnya duduk di sebelah Laporan Privasi karena
+keduanya menjawab dua paruh satu pertanyaan: yang itu "apa yang pernah
+dikirim", yang ini "apa yang bisa dikirim, dan apa yang aktif". Tiap baris
+menyebut modul Rust-nya supaya klaimnya bisa diperiksa.
 
 ---
 
-## F17 — RNNoise noise reduction ✅
+## F17 — Pengurangan derau (RNNoise) ✅ — dan hasilnya jujur: tidak membantu di sini
 
-nnnoiseless (Rust murni) menekan derau ruangan. Toggle di Settings Audio.
+`rust_core/src/denoise.rs` memakai `nnnoiseless` (port RNNoise murni Rust,
+tanpa dependensi C, tanpa unduhan). RNNoise terdefinisi di 48 kHz
+sedangkan semua jalur dekode menargetkan 16 kHz, jadi: naik ×3, denoise,
+turun ÷3; skalanya juga diubah ke rentang 16-bit yang model itu harapkan.
+Frame pertama (yang dokumentasinya sendiri sebut berisi artefak fade-in)
+diganti kembali dengan aslinya.
 
-- Berkas: `rust_core/src/denoise.rs`, `lib/screens/settings_screen.dart`
+**Pengukuran** — `rapat_id.mp3` (14,8 s) dicampur derau pink sampai SNR
+≈ 7,2 dB, lalu ditranskrip dengan ggml-base lewat `transcribe_cli`
+(`--denoise` ditambahkan di sprint ini supaya pertanyaan ini bisa dijawab
+dari berkas):
+
+| Masukan | Transkrip |
+|---|---|
+| Bersih (acuan) | *Selamat pagi semuanya, hari ini kita membahas anggaran kuartal empat. / Budi bertanggung jawab menyiapkan laporan keuangan paling lambat hari jungat. / Prapat berikutnya dijadualkan hingga depan.* |
+| Berderau, tanpa RNNoise | *Selamat pagi semuanya, hari ini kita membahas anggaran **kuarta** empat. / Budi bertanggung jawab menyiapkan laporan **kewangan** paling lambat hari **jungan**. / Rapat berikutnya dijadualkan **nih budapan**.* |
+| Berderau, **dengan** RNNoise | *Selamat pagi semuanya. / Hari ini kita membahas **hanggaran kuarta** empat. / Budi bertanggung jawab **mengiapkan** laporan **kewangan** paling lambat **kari junga**. / Rapat berikutnya dijadualkan **nginggu** depan.* |
+
+Diukur terhadap keluaran audio bersih: **24,0% → 32,0%** deviasi kata.
+Pada klip ini RNNoise **memperburuk** hasil. Itu persis alasan setelannya
+mati secara bawaan dan dideskripsikan di UI sebagai pertukaran, bukan
+peningkatan.
+
+Biaya waktu: pada klip 14,8 s, total waktu dengan dan tanpa denoise tidak
+terpisahkan dari variasi antar-jalankan di mesin ini (tanpa: 14,7–18,2 s;
+dengan: 15,7–23,3 s). Klaim "+15%" di draf laporan sebelumnya tidak
+didukung pengukuran dan sudah dihapus.
+
+---
+
+## F18 — Harness WER ✅
+
+`rust_core/src/wer.rs` + `rust_core/src/bin/wer_bench.rs` +
+`scripts/fetch_wer_corpus.sh` + `docs/WER-BENCH.md`.
+
+Levenshtein atas kata (WER) dan karakter (CER) dengan substitusi/hapus/
+sisip dihitung terpisah; galat **dikumpulkan se-korpus**, bukan rata-rata
+laju per klip (merata-ratakan laju membuat klip empat kata seberat klip
+empat menit — begitulah harness melaporkan model yang lebih buruk sebagai
+pemenang). Acuan kosong menghasilkan 1,0, bukan tak hingga. Klip yang
+gagal didekode dihitung rugi total, bukan dilewati.
+
+Korpus: FLEURS `id_id` (CC-BY 4.0) diunduh streaming oleh skrip; **tidak
+ada audio yang di-commit**.
+
+**Hasil di mesin ini — 12 klip FLEURS id_id, bukan angka publikasi:**
+
+| Model | WER | CER | RTF | Klip |
+|---|---|---|---|---|
+| ggml-base | 31,9% | 10,1% | 0,32× | 12 |
+| ggml-tiny | 49,5% | 18,8% | 0,54× | 12 |
+
+RTF di bawah 1,0 untuk keduanya: CPU ini memang tidak bisa mengikuti rapat
+secara live dengan model mana pun — konsisten dengan ITEM 0 yang
+mengandalkan pass setelah Stop.
+
+Peringatan yang juga ditulis di `docs/WER-BENCH.md`: FLEURS adalah ucapan
+**baca** jarak dekat satu pembicara. Model yang bagus di sini belum
+terbukti bagus untuk rapat empat orang lewat mikrofon laptop. Angka 12
+klip ini adalah uji asap, bukan WER model.
 
 ---
 
-## F18 — WER benchmark harness ✅
+## F19 — Ekspor PDF + CSV ✅
 
-`wer_bench.rs` menghitung WER/CER. Skrip downloader corpus CC-licensed Indonesia.
+* **PDF** dengan font **tertanam** (DejaVu Sans, lisensi Bitstream Vera,
+  ikut di-vendor bersama berkas hak ciptanya). Pembungkusan baris diukur
+  dengan lebar maju font itu sendiri, bukan ditebak dari jumlah karakter;
+  halaman A4 dipaginasi.
+* **CSV** per segmen dengan pengutipan RFC 4180 — transkrip adalah teks
+  bebas yang rutin memuat koma dan tanda kutip.
 
-- Berkas: `rust_core/src/wer.rs`, `rust_core/src/bin/wer_bench.rs`,
-  `scripts/fetch_wer_corpus.sh`
+**Bug yang ditemukan oleh verifikasi nyata**: `Op::SetTextCursor` di
+`printpdf` ternyata menghasilkan `Td`, yang memposisikan **relatif**
+terhadap awal baris berjalan. Diberi koordinat halaman absolut, tiap baris
+menumpuk offset baris sebelumnya, sehingga semua yang setelah judul
+mendarat di luar halaman — `pdftotext` atas ekspor sungguhan hanya
+mengembalikan judulnya, padahal berkasnya tetap punya header, trailer, dan
+program font tertanam yang valid; persis yang diperiksa tes lama.
+Diperbaiki memakai `TextMatrix::Translate` (`Tm`, mengganti matriks), dan
+tes barunya menserialisasi ulang dengan `optimize: false` supaya bisa
+membaca operator dan menegaskan ada satu `Tm` per baris dan nol `Td`.
+
+Sesudah perbaikan, atas ekspor sungguhan:
+
+```
+$ pdffonts clean.pdf
+name                              type           encoding    emb sub uni
+HEIGIDGCBAAHFGBHAEFHCBHGAJHCJDHF  CID TrueType   Identity-H  yes no  yes
+
+$ pdftotext clean.pdf -
+clean
+Transkrip
+[00:00] Pembicara 1: Selamat pagi semuanya, hari ini kita membahas anggaran kuartal empat.
+[00:06] Pembicara 1: Budi bertanggung jawab menyiapkan laporan keuangan paling lambat hari jungat.
+[00:11] Pembicara 1: Prapat berikutnya dijadualkan hingga depan.
+```
+
+`emb yes` — font benar-benar tertanam, bukan hanya disebut namanya.
 
 ---
 
-## F19 — PDF + CSV export ✅
+## F20 — Folder/tag, filter Tinjau, penyuntingan lewat papan ketik ✅
 
-PDF dengan embedded font (DejaVu Sans OFL). CSV transkrip per segmen.
+Mengoreksi satu jam transkrip adalah empat operasi yang sama ratusan kali.
+Transkrip di pemutar sekarang punya kursor papan ketik (↑↓, digambar
+berbeda dari baris yang sedang diputar — meninjau dan mendengarkan adalah
+dua kegiatan berbeda), **Enter** menyunting di tempat, **Esc** membatalkan,
+**Ctrl+↑↓** memindahkan baris ke giliran pembicara yang benar, **Ctrl+M**
+menyambung kalimat yang dipotong VAD, **Ctrl+Shift+S** memisah kalimat yang
+didekode menyatu. Contekan keenam tombol itu ada di layar.
 
-- Berkas: `rust_core/src/export/pdf.rs`, `lib/widgets/export_dialog.dart`
+Ketiga mutasi menjaga garis waktu tetap konsisten: pemindahan membiarkan
+stempel waktu bersama audionya, penggabungan mengambil awal yang lebih
+dini dan jumlah durasi serta mempertahankan tanda ketidakyakinan bila
+salah satu paruhnya punya, pemisahan membagi durasi sebanding teksnya.
+Memisah di salah satu ujung ditolak, bukan menghasilkan segmen kosong.
+
+Di layar yang punya tombol-tombol itu, dialog sunting modal dihapus — dua
+cara menyunting satu baris adalah satu cara kelebihan. Tampilan rekaman
+live, yang tidak bisa melakukan suntingan struktural, tetap memakainya.
+
+**Tinjau** menyaring daftar ke segmen yang ditandai mesin sebagai ragu, dan
+tombolnya hanya muncul bila memang ada yang ditandai. (Terlihat bekerja di
+smoke test: tiap baris pratinjau live bertanda *"Kepercayaan rendah"*.)
+
+**Tag**, bukan folder: satu rapat rutin sekaligus "Anggaran" dan
+"Mingguan", dan memindahkan direktori akan memutus tiap path tersimpan —
+audio, hasil ekspor, indeks arsip. Tag tinggal di sidecar, menyaring di
+bilah sisi secara irisan, dan ditawarkan sebagai chip supaya satu tag tidak
+menjadi tiga ejaan.
 
 ---
 
-## F20 — Folder/tag, keyboard editing ⚠️ PARTIAL
+## Yang tidak dikerjakan
 
-Sidebar folder/tag skeleton ada; UI belum final. Keyboard-first editing
-belum dimulai.
-
----
-
-## Gate verifikasi (pending CI)
-
-| Step | Status |
-|------|--------|
-| Rust fmt + clippy | TBD |
-| cargo test --lib | TBD |
-| flutter analyze | TBD |
-| flutter test | TBD |
-| flutter build linux --release | TBD |
-
----
+* **F11** (catatan pribadi saat rapat digabung AI) — stretch, tidak
+  dimulai.
+* **F16** (deteksi otomatis rapat Zoom/Meet/Teams) — stretch, tidak
+  dimulai.
+* **Enkripsi at-rest** (stretch F13). Trade-off-nya: kunci harus tinggal di
+  suatu tempat, dan pada aplikasi desktop tanpa keychain itu berarti di
+  berkas setelan — yang melindungi dari pencurian disk tetapi bukan dari
+  siapa pun yang bisa menjalankan aplikasi. Mode PDP yang ada sekarang
+  (penyamaran, retensi, log audit) memberi manfaat nyata tanpa klaim
+  keamanan yang tidak bisa ditepati. Sebaiknya dikerjakan bersama integrasi
+  keychain per-platform.
 
 ## Celah yang diketahui
 
-- F20 folder/tag UI belum final
-- Archive chat live test perlu Ollama lokal
-- RNNoise +15% waktu pemrosesan di CPU lemah
-- WER corpus: GigaSpeech 2 perlu token/manual step
+* **Angka WER adalah uji asap**, 12 klip ucapan baca. Belum ada korpus
+  rapat berlabel; itulah angka yang sebenarnya menggambarkan beban kerja
+  aplikasi ini.
+* **RNNoise memperburuk** klip uji di sini (24% → 32%). Mati secara
+  bawaan; perlu diuji pada rekaman ruangan sungguhan sebelum
+  direkomendasikan.
+* **Tes langsung arsip chat** (F12) butuh Ollama lokal; digerbangi env var
+  dan tidak jalan di CI.
+* **Diarisasi tetap kasar** — pitch/energi/ZCR. Petunjuk jumlah pembicara
+  dan penggabungan manual meredam gejalanya, bukan menyembuhkan sebabnya.
+* **Nama pembicara diingat per-label, bukan per-suara**, jadi hanya
+  berguna untuk rapat berulang dengan urutan pembicara yang mirip.
+* **PDF memakai satu bobot font** (regular). Tebal/miring akan
+  melipatgandakan ~740 kB yang sudah ikut di binary.
+* **Uji audio Windows (WASAPI)** tidak dijalankan — lihat di bawah.
+
+## PERLU IZIN OWNER: uji audio Windows
+
+Uji tangkap langsung di `win2060` (mikrofon/loopback WASAPI) **tidak
+dijalankan** sesuai OFFICE AUDIO RULES. Yang perlu dijadwalkan bila owner
+mengizinkan: rekam Rapat Online di Windows, pastikan pass penyelesaian
+setelah Stop berjalan sama seperti di Linux.
+
+## Catatan OFFICE AUDIO RULES
+
+Seluruh smoke test berjalan tanpa suara yang terdengar dan tanpa membuka
+mikrofon ruangan:
+
+* `pactl get-default-sink` diperiksa = `trareon_silent` sebelum tiap
+  pemutaran; pemutaran hanya lewat `paplay -d trareon_silent`.
+* **Catatan untuk sprint berikutnya**: aplikasi secara bawaan memilih
+  perangkat ALSA sungguhan (`alsa_input.pci-…`) di kedua pemilih. Dalam uji
+  ini mikrofon **dimatikan manual** dan "Suara sistem" dialihkan ke
+  `trareon_silent` sebelum menekan Rekam. Di mesin kantor, bawaan itu
+  berarti satu klik Rekam akan membuka mikrofon ruangan.
