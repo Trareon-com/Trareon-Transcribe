@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/global_hotkey_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
+import '../services/tray_service.dart';
 import '../state/audio_stream_model.dart';
+import '../state/enhance_queue_model.dart';
 import '../state/audio_watchdog_model.dart';
 import '../state/library_model.dart';
 import '../state/models.dart';
@@ -84,6 +86,90 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       () => ref.read(sessionProvider).lifecycle,
     );
     _loadRecoveries();
+    TrayService.instance.confirmQuit = _confirmQuitWithPendingWork;
+  }
+
+  /// Guards [_resumeUnfinishedTranscripts] so it runs once per launch, on
+  /// the first completed library load rather than on a timer.
+  bool _resumedUnfinished = false;
+
+  /// Gate on the tray's "Keluar" while background work is outstanding.
+  ///
+  /// Quitting with a completion pass in flight does not lose the work —
+  /// the sidecar records which tracks are still untranscribed and
+  /// [_resumeUnfinishedTranscripts] picks them up next launch — but it
+  /// does mean the transcript stays incomplete until then, which is worth
+  /// one dialog.
+  Future<bool> _confirmQuitWithPendingWork() async {
+    if (!mounted) return true;
+    final queue = ref.read(enhanceQueueProvider);
+    final recording =
+        ref.read(sessionProvider).lifecycle == SessionLifecycle.recording;
+    if (!queue.hasPendingWork && !recording) return true;
+    final outstanding = queue.jobs
+        .where((j) =>
+            j.kind == EnhanceJobKind.complete &&
+            (j.status == EnhanceJobStatus.queued ||
+                j.status == EnhanceJobStatus.running))
+        .length;
+    final reasons = [
+      if (recording) 'Rekaman masih berjalan.',
+      if (outstanding > 0)
+        '$outstanding rekaman masih diselesaikan transkripnya — '
+            'pekerjaan ini dilanjutkan otomatis saat aplikasi dibuka lagi.',
+      if (outstanding == 0 && queue.hasPendingWork)
+        'Masih ada transkrip yang sedang diperhalus.',
+    ];
+    if (!mounted) return true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar sekarang?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [for (final reason in reasons) Text('• $reason')],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Tetap di aplikasi'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  /// Re-queues the completion work the sidecars say is outstanding.
+  ///
+  /// The queue lives in memory; which tracks are still untranscribed lives
+  /// on disk next to the session. Without this, quitting while the
+  /// post-stop pass was running would leave those minutes of the meeting
+  /// permanently out of the transcript, with the sidecar still claiming
+  /// they were coming.
+  Future<void> _resumeUnfinishedTranscripts() async {
+    if (_resumedUnfinished || !mounted) return;
+    _resumedUnfinished = true;
+    final entries = ref.read(libraryListProvider).entries;
+    if (entries.isEmpty) return;
+    try {
+      final resumed = await ref
+          .read(enhanceQueueProvider.notifier)
+          .resumePending([
+            for (final entry in entries)
+              (dirPath: entry.dirPath, title: entry.title),
+          ]);
+      if (resumed > 0) {
+        debugPrint('resumed $resumed unfinished transcript pass(es)');
+      }
+    } catch (e) {
+      debugPrint('resume of unfinished transcripts failed: $e');
+    }
   }
 
   @override
@@ -597,6 +683,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final isPaused = lifecycle == SessionLifecycle.paused;
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
+
+    // The first completed library load is the earliest moment the sidecars
+    // are known, and the latest one at which an unfinished transcript
+    // should still be waiting. Keyed off the load rather than a timer so
+    // nothing is left pending in a widget test.
+    ref.listen<LibraryListState>(libraryListProvider, (previous, next) {
+      if (!next.loading && next.entries.isNotEmpty) {
+        unawaited(_resumeUnfinishedTranscripts());
+      }
+    });
 
     // Keep the title controller in sync with auto-detected session title
     // (set by the Rust bridge on session start via detectFrontmostWindowTitle).

@@ -16,6 +16,16 @@ class TrayService with TrayListener, WindowListener {
 
   bool _initialized = false;
 
+  /// Asked before the tray's "Keluar" actually quits. Returning false
+  /// aborts the quit.
+  ///
+  /// Set by the main screen, which is the only thing with both a
+  /// `BuildContext` and knowledge of what is still running. The app can
+  /// have a background transcript-completion pass in flight (ITEM 0) that
+  /// takes an hour on a weak CPU; quitting through it is allowed, but it
+  /// has to be a decision rather than an accident.
+  Future<bool> Function()? confirmQuit;
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -65,6 +75,13 @@ class TrayService with TrayListener, WindowListener {
       case 'show':
         _showWindow();
       case 'quit':
+        final confirm = confirmQuit;
+        if (confirm != null) {
+          // The dialog lives in the window, so it has to be visible for
+          // the user to answer it.
+          await _showWindow();
+          if (!await confirm()) return;
+        }
         await windowManager.setPreventClose(false);
         await windowManager.close();
     }

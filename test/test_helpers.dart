@@ -12,6 +12,8 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
+import 'package:transcribe/src/rust/completion.dart' as rust_completion;
+import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/export/notulen.dart' as rust_notulen;
@@ -58,6 +60,41 @@ mixin SummaryBridgeStubs {
   );
 
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
+
+  // ── Transcript completion (ITEM 0) ─────────────────────────────────
+  //
+  // Inert and "already complete": a test double must never leave the UI
+  // in "Menyelesaikan transkrip…" with nothing able to finish it.
+
+  Future<double> audioDurationSecs(String path) async => 0;
+
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) async => kCompleteCoverage;
+
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) async => rust_completion.CompletionOutcome(
+    segments: existing.map(toRustSegment).toList(),
+    added: 0,
+    rejected: 0,
+    coverage: kCompleteCoverage,
+    speechSecs: 0,
+    speechCoveredSecs: 0,
+    audioSecs: 0,
+  );
+
+  Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
+      const [];
 
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,

@@ -29,6 +29,7 @@ Future<bool> showEksporDialog(
   String defaultFormat = 'markdown',
   String summary = '',
   List<Bookmark> bookmarks = const [],
+  bool incomplete = false,
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
@@ -60,6 +61,30 @@ Future<bool> showEksporDialog(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Exporting mid-completion is allowed — waiting an hour
+                  // for a file you need now is not a kindness — but the
+                  // user has to know the document is not the whole meeting.
+                  if (incomplete)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning_amber_outlined,
+                              size: 15, color: colors.warning),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Transkrip sesi ini belum lengkap — masih ada '
+                              'audio yang sedang ditranskripsi. Hasil ekspor '
+                              'sekarang akan kehilangan bagian itu.',
+                              style: TextStyle(
+                                  color: colors.warning, fontSize: 11, height: 1.35),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Text(
                     'Pilih format ekspor:',
                     style: TextStyle(color: colors.textSecondary, fontSize: 13),

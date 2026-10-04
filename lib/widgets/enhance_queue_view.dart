@@ -45,7 +45,12 @@ class EnhanceQueueView extends ConsumerWidget {
               const SizedBox(width: Spacing.sm),
               Expanded(
                 child: Text(
-                  'Memperhalus transkrip',
+                  // Completion is a repair, enhancement is a polish. The
+                  // heading has to say which, because only one of them
+                  // means the transcript is currently incomplete.
+                  jobs.any((j) => j.kind == EnhanceJobKind.complete)
+                      ? 'Menyelesaikan transkrip'
+                      : 'Memperhalus transkrip',
                   style: TextStyle(
                     fontSize: FontSizes.caption,
                     fontWeight: FontWeight.w600,
@@ -87,8 +92,16 @@ class EnhanceQueueView extends ConsumerWidget {
                     width: IconSizes.sm,
                     height: IconSizes.sm,
                     child: switch (job.status) {
-                      EnhanceJobStatus.running =>
-                        const CircularProgressIndicator(strokeWidth: 2),
+                      // A determinate ring once the engine reports a
+                      // fraction: a completion pass can run for an hour on
+                      // a weak CPU, and a spinner that long reads as hung.
+                      EnhanceJobStatus.running => CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: job.kind == EnhanceJobKind.complete &&
+                                  job.progress > 0
+                              ? job.progress.clamp(0.0, 1.0)
+                              : null,
+                        ),
                       EnhanceJobStatus.failed => Icon(Icons.error_outline,
                           size: IconSizes.sm, color: colors.error),
                       _ => Icon(Icons.schedule,
@@ -110,12 +123,22 @@ class EnhanceQueueView extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          switch (job.status) {
-                            EnhanceJobStatus.running =>
+                          switch ((job.kind, job.status)) {
+                            (_, EnhanceJobStatus.failed) =>
+                              job.error ?? 'Gagal. Transkrip lama dipakai.',
+                            (
+                              EnhanceJobKind.complete,
+                              EnhanceJobStatus.running
+                            ) =>
+                              'Menyelesaikan ${sourceLabel(job.source)}… '
+                                  '${(job.progress.clamp(0.0, 1.0) * 100).round()}%'
+                                  '${job.etaSecs >= 5 ? ' — sisa ${formatEta(job.etaSecs)}' : ''}',
+                            (EnhanceJobKind.complete, _) =>
+                              'Menunggu antrean — ada audio yang belum '
+                                  'ditranskripsi.',
+                            (_, EnhanceJobStatus.running) =>
                               'Memakai model akurat… transkrip lama tetap '
                                   'aman sampai selesai.',
-                            EnhanceJobStatus.failed =>
-                              job.error ?? 'Gagal. Transkrip lama dipakai.',
                             _ => 'Menunggu antrean.',
                           },
                           style: TextStyle(

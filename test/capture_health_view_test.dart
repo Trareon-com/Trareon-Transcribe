@@ -13,6 +13,7 @@ rust_session.ChannelCapture channel({
   double percentSilent = 33,
   double silentForSecs = 0,
   bool writingToDisk = true,
+  double lagSecs = 0,
 }) {
   return rust_session.ChannelCapture(
     source: source,
@@ -23,6 +24,7 @@ rust_session.ChannelCapture channel({
     percentSilent: percentSilent,
     silentForSecs: silentForSecs,
     writingToDisk: writingToDisk,
+    lagSecs: lagSecs,
   );
 }
 

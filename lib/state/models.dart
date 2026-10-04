@@ -251,6 +251,16 @@ class SessionConfig {
   /// for this meeting. Empty is a no-op.
   final GlossaryConfig glossary;
 
+  /// Fastest model installed, for the *live preview only* when [modelPath]
+  /// turns out to be slower than real time on this device.
+  ///
+  /// It does not downgrade what the user ends up with: the post-stop
+  /// completion pass re-runs the saved audio with [modelPath]. What it
+  /// prevents is the live worker falling further behind every minute until
+  /// Stop, which on a weak CPU produced a 6-minute recording with 8 seconds
+  /// of transcript. Null disables the substitution.
+  final String? fallbackModelPath;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -269,6 +279,7 @@ class SessionConfig {
       globalTerms: [],
       postCorrection: false,
     ),
+    this.fallbackModelPath,
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -294,6 +305,7 @@ class SessionConfig {
     int? gpuDevice,
     bool? audioToDisk,
     GlossaryConfig? glossary,
+    Object? fallbackModelPath = _sentinel,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -311,8 +323,30 @@ class SessionConfig {
       gpuDevice: gpuDevice ?? this.gpuDevice,
       audioToDisk: audioToDisk ?? this.audioToDisk,
       glossary: glossary ?? this.glossary,
+      fallbackModelPath: fallbackModelPath == _sentinel
+          ? this.fallbackModelPath
+          : fallbackModelPath as String?,
     );
   }
+}
+
+/// The fastest model installed on this machine, for the live preview to
+/// fall back to. Ordered fastest first; `null` when none of them is
+/// installed or the only one installed is [exclude] itself.
+///
+/// `tiny` is not in [kKnownModelIds] — it is not offered in Settings — but
+/// it is bundled in the repo and left behind by older releases, and for a
+/// live preview on a two-core machine it is exactly the right answer.
+String? fastestInstalledModelPath({
+  required String exclude,
+  String? libraryPath,
+}) {
+  for (final id in const ['tiny', 'base']) {
+    if (!isModelAvailable(id, libraryPath: libraryPath)) continue;
+    final path = modelPathForId(id, libraryPath: libraryPath);
+    if (path != exclude) return path;
+  }
+  return null;
 }
 
 class TranscriptSegment {

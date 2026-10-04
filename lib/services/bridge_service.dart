@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
+import '../src/rust/completion.dart' as rust_completion;
+import '../src/rust/coverage.dart' as rust_coverage;
 import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/export.dart' as rust_export;
 import '../src/rust/export/notulen.dart' as rust_notulen;
@@ -159,6 +161,40 @@ abstract class RustBridge {
   /// once every file is done, so this is the only way to show real progress.
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress();
 
+  // ── Transcript completion (ITEM 0) ─────────────────────────────────
+  //
+  // The live worker can fall behind the meeting on a slow device, and Stop
+  // cannot wait for it. What it never reached is transcribed afterwards
+  // from the saved WAV. Entirely local.
+
+  /// Length of an audio file in seconds, from its header where possible.
+  Future<double> audioDurationSecs(String path);
+
+  /// What [segments] account for across `audioPath`, and what they miss.
+  /// No inference; this runs on every session save.
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  });
+
+  /// Transcribes the stretches of [audioPath] that [existing] does not
+  /// cover and returns the merged transcript. Long-running; poll
+  /// [completionProgress] while it is in flight.
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  });
+
+  /// Per-source progress of every completion pass currently running.
+  Future<List<rust_completion.CompletionProgress>> completionProgress();
+
   /// **The only networked call in the app.** Sends the rendered transcript
   /// text (never audio, never paths) to the user-configured endpoint and
   /// returns Markdown. Runs only on an explicit user action.
@@ -244,6 +280,18 @@ const rust_glossary.GlossaryConfig kEmptyGlossary = rust_glossary.GlossaryConfig
   sessionTerms: [],
   globalTerms: [],
   postCorrection: false,
+);
+
+/// "Nothing is missing." Used by every bridge that does no real coverage
+/// check, so a stand-in can never leave the UI stuck at "Menyelesaikan
+/// transkrip…" with nothing able to finish it.
+const rust_coverage.CoverageReport kCompleteCoverage =
+    rust_coverage.CoverageReport(
+  coveredSecs: 0,
+  totalSecs: 0,
+  fraction: 1,
+  gaps: [],
+  missingSecs: 0,
 );
 
 /// Shared conversion so every bridge method sends the same Segment shape.
@@ -608,6 +656,42 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async => null;
+
+  @override
+  Future<double> audioDurationSecs(String path) async => 0;
+
+  /// Mock sessions are always complete: a stand-in bridge must never put the
+  /// UI into "Menyelesaikan transkrip…" with nothing able to finish it.
+  @override
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) async => kCompleteCoverage;
+
+  @override
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) async => rust_completion.CompletionOutcome(
+    segments: existing.map(toRustSegment).toList(),
+    added: 0,
+    rejected: 0,
+    coverage: kCompleteCoverage,
+    speechSecs: 0,
+    speechCoveredSecs: 0,
+    audioSecs: 0,
+  );
+
+  @override
+  Future<List<rust_completion.CompletionProgress>> completionProgress() async =>
+      const [];
 
   /// The mock never performs I/O of any kind — a test that reaches the
   /// summary path must fail loudly rather than silently hit a real endpoint.
@@ -1118,6 +1202,46 @@ class RustEngineBridge implements RustBridge {
       rust_api.getBatchProgress();
 
   @override
+  Future<double> audioDurationSecs(String path) =>
+      rust_api.audioDurationSecs(path: path);
+
+  @override
+  Future<rust_coverage.CoverageReport> transcriptCoverage({
+    required List<TranscriptSegment> segments,
+    required String audioPath,
+  }) => rust_api.transcriptCoverageForAudio(
+    segments: segments.map(toRustSegment).toList(),
+    audioPath: audioPath,
+  );
+
+  @override
+  Future<rust_completion.CompletionOutcome> completeSessionTranscript({
+    required String modelPath,
+    required String audioPath,
+    required String jobKey,
+    required List<TranscriptSegment> existing,
+    String? language,
+    bool gpuEnabled = false,
+    int gpuDevice = 0,
+    rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
+    bool vadEnabled = true,
+  }) => rust_api.completeSessionTranscript(
+    modelPath: modelPath,
+    audioPath: audioPath,
+    jobKey: jobKey,
+    existing: existing.map(toRustSegment).toList(),
+    language: language,
+    gpuEnabled: gpuEnabled,
+    gpuDevice: gpuDevice,
+    glossary: glossary,
+    vadEnabled: vadEnabled,
+  );
+
+  @override
+  Future<List<rust_completion.CompletionProgress>> completionProgress() =>
+      rust_api.readCompletionProgress();
+
+  @override
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
@@ -1171,6 +1295,7 @@ class RustEngineBridge implements RustBridge {
       gpuDevice: config.gpuDevice,
       audioToDisk: config.audioToDisk,
       glossary: config.glossary,
+      fallbackModelPath: config.fallbackModelPath,
     );
   }
 

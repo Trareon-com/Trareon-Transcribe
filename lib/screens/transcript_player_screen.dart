@@ -11,11 +11,13 @@ import '../services/session_store.dart';
 import '../utils/atomic_file.dart';
 import '../utils/model_labels.dart';
 import '../utils/segment_lookup.dart';
+import '../state/enhance_queue_model.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/bookmark_bar.dart';
+import '../widgets/completion_banner.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
@@ -569,11 +571,48 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
             _seekBy(kJlSeekSeconds),
       };
 
+  /// Pulls the transcript back off disk after a background pass rewrote it.
+  ///
+  /// The completion pass (ITEM 0) writes directly to the session's JSON, so
+  /// a player left open while it runs would otherwise keep showing the
+  /// 8-second transcript the live pass produced, with no way to see the
+  /// recovered text short of closing and reopening the session. Edits in
+  /// flight are not clobbered: `_persistSegments` runs on a 400 ms debounce
+  /// and the reload only happens when a pass finishes.
+  Future<void> _reloadFromDisk() async {
+    final dirPath = _sessionDirPath;
+    if (dirPath == null) return;
+    try {
+      final file = transcriptFileIn(Directory(dirPath));
+      if (file == null) return;
+      final segments = parseTranscriptJson(await file.readAsString());
+      if (!mounted || segments.isEmpty) return;
+      setState(() {
+        _segments
+          ..clear()
+          ..addAll(segments);
+        _revision++;
+      });
+    } catch (e) {
+      debugPrint('transcript reload failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final maxSeconds = _maxSeconds;
     final hasAudio = widget.audioPath != null;
+
+    final dirPath = _sessionDirPath;
+    if (dirPath != null) {
+      ref.listen<EnhanceQueueState>(enhanceQueueProvider, (previous, next) {
+        final wasRunning = previous?.isCompletingSession(dirPath) ?? false;
+        if (wasRunning && !next.isCompletingSession(dirPath)) {
+          unawaited(_reloadFromDisk());
+        }
+      });
+    }
 
     return CallbackShortcuts(
       bindings: _shortcuts,
@@ -642,6 +681,8 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                     ),
                   ),
                 ),
+              if (_sessionDirPath != null)
+                CompletionBanner(sessionDirPath: _sessionDirPath!),
               if (_sessionDirPath != null)
                 SummaryPanel(
                   sessionDirPath: _sessionDirPath!,
@@ -952,6 +993,8 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       defaultFormat: settings.defaultExportFormat,
       summary: _summary,
       bookmarks: _bookmarks,
+      incomplete: _sessionDirPath != null &&
+          ref.read(enhanceQueueProvider).isCompletingSession(_sessionDirPath!),
     );
   }
 }

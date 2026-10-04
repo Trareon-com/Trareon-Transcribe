@@ -79,6 +79,22 @@ class SessionMeta {
   /// this session, so it is never queued twice.
   final bool autoRetranscribeDone;
 
+  /// Captured tracks whose audio the transcript does not yet account for.
+  ///
+  /// Written at save time from the engine's coverage check and cleared one
+  /// entry at a time as the completion pass finishes each. It is what makes
+  /// "resume on next launch" work: the queue itself is in memory, but the
+  /// fact that a session is unfinished is on disk, next to the session.
+  ///
+  /// A session with a non-empty list is **not finished** and must never be
+  /// presented as such.
+  final List<String> pendingCompletion;
+
+  /// Fraction of the recording's *speech* the transcript covers, as last
+  /// measured. Null for a session saved before this existed — unknown, not
+  /// incomplete.
+  final double? coverageFraction;
+
   const SessionMeta({
     this.title,
     this.summary = '',
@@ -90,11 +106,16 @@ class SessionMeta {
     this.bookmarks = const [],
     this.notulen,
     this.autoRetranscribeDone = false,
+    this.pendingCompletion = const [],
+    this.coverageFraction,
   });
 
   static const SessionMeta empty = SessionMeta();
 
   bool get hasSummary => summary.trim().isNotEmpty;
+
+  /// Whether audio recorded in this session is still untranscribed.
+  bool get isIncomplete => pendingCompletion.isNotEmpty;
 
   SessionMeta copyWith({
     String? title,
@@ -107,6 +128,8 @@ class SessionMeta {
     List<Bookmark>? bookmarks,
     NotulenFormData? notulen,
     bool? autoRetranscribeDone,
+    List<String>? pendingCompletion,
+    double? coverageFraction,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -120,6 +143,8 @@ class SessionMeta {
       bookmarks: bookmarks ?? this.bookmarks,
       notulen: notulen ?? this.notulen,
       autoRetranscribeDone: autoRetranscribeDone ?? this.autoRetranscribeDone,
+      pendingCompletion: pendingCompletion ?? this.pendingCompletion,
+      coverageFraction: coverageFraction ?? this.coverageFraction,
     );
   }
 
@@ -141,6 +166,8 @@ class SessionMeta {
       ],
     if (notulen != null) 'notulen': notulen!.toJson(),
     if (autoRetranscribeDone) 'auto_retranscribe_done': true,
+    if (pendingCompletion.isNotEmpty) 'pending_completion': pendingCompletion,
+    if (coverageFraction != null) 'coverage_fraction': coverageFraction,
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -169,6 +196,10 @@ class SessionMeta {
           ? NotulenFormData.fromJson(json['notulen'] as Map<String, dynamic>)
           : null,
       autoRetranscribeDone: json['auto_retranscribe_done'] == true,
+      pendingCompletion: json['pending_completion'] is List
+          ? (json['pending_completion'] as List).whereType<String>().toList()
+          : const [],
+      coverageFraction: (json['coverage_fraction'] as num?)?.toDouble(),
     );
   }
 }
