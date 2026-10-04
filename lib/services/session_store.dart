@@ -21,6 +21,7 @@ import 'dart:typed_data';
 
 import '../state/models.dart';
 import '../utils/atomic_file.dart';
+import 'library_index.dart' show normaliseTags;
 
 const String kMetaFilename = 'trareon-session.json';
 
@@ -96,6 +97,13 @@ class SessionMeta {
   /// incomplete.
   final double? coverageFraction;
 
+  /// Folders/tags the session is filed under (F20).
+  ///
+  /// Tags, not directories: a meeting is routinely both "Anggaran" and
+  /// "Mingguan", and a folder on disk can only be in one place. Keeping
+  /// them in the sidecar also means renaming a tag never moves a file.
+  final List<String> tags;
+
   /// "Tindak Lanjut" rows (F6), as the user last left them.
   ///
   /// Stored rather than re-parsed from [summary] on every open: the
@@ -118,6 +126,7 @@ class SessionMeta {
     this.pendingCompletion = const [],
     this.coverageFraction,
     this.actionItems = const [],
+    this.tags = const [],
   });
 
   static const SessionMeta empty = SessionMeta();
@@ -141,6 +150,7 @@ class SessionMeta {
     List<String>? pendingCompletion,
     double? coverageFraction,
     List<ActionItem>? actionItems,
+    List<String>? tags,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -157,6 +167,7 @@ class SessionMeta {
       pendingCompletion: pendingCompletion ?? this.pendingCompletion,
       coverageFraction: coverageFraction ?? this.coverageFraction,
       actionItems: actionItems ?? this.actionItems,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -182,6 +193,7 @@ class SessionMeta {
     if (coverageFraction != null) 'coverage_fraction': coverageFraction,
     if (actionItems.isNotEmpty)
       'action_items': [for (final item in actionItems) _actionItemToJson(item)],
+    if (tags.isNotEmpty) 'tags': tags,
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -215,6 +227,7 @@ class SessionMeta {
           : const [],
       coverageFraction: (json['coverage_fraction'] as num?)?.toDouble(),
       actionItems: _actionItemsFromJson(json['action_items']),
+      tags: normaliseTags(json['tags']),
     );
   }
 }

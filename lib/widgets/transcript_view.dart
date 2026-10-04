@@ -63,6 +63,25 @@ class TranscriptView extends StatefulWidget {
   /// Called when user renames a speaker (oldName, newName).
   final void Function(String oldName, String newName)? onRenameSpeaker;
 
+  // ── Keyboard-first editing (F20) ────────────────────────────────────
+  //
+  // A notulis correcting a transcript does the same four things for an
+  // hour: fix a word, move a line that landed in the wrong speaker's
+  // turn, join a sentence the VAD cut in half, split one the decoder ran
+  // together. Doing any of them through a dialog and a mouse is the
+  // difference between an hour and three. Null disables the shortcut
+  // rather than leaving a key that does nothing.
+
+  /// Move the segment at [index] by [delta] places (Ctrl+↑/↓).
+  final void Function(int index, int delta)? onMoveSegment;
+
+  /// Join the segment at [index] onto the one before it (Ctrl+M).
+  final void Function(int index)? onMergeWithPrevious;
+
+  /// Split the segment at [index] at [cursorOffset] characters
+  /// (Ctrl+Shift+S, while editing).
+  final void Function(int index, int cursorOffset)? onSplitSegment;
+
   const TranscriptView({
     super.key,
     required this.segments,
@@ -72,6 +91,9 @@ class TranscriptView extends StatefulWidget {
     this.onSeekToSegment,
     this.speakerLabels = const {},
     this.onRenameSpeaker,
+    this.onMoveSegment,
+    this.onMergeWithPrevious,
+    this.onSplitSegment,
   });
 
   @override
@@ -86,6 +108,22 @@ const Duration kTranscriptSearchDebounce = Duration(milliseconds: 250);
 class _TranscriptViewState extends State<TranscriptView> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+
+  /// Row the keyboard is on, as an index into [TranscriptView.segments].
+  ///
+  /// Separate from the playing row: reviewing a transcript and listening
+  /// to it are different activities, and tying the cursor to the playhead
+  /// would drag it away mid-correction.
+  int? _selectedIndex;
+
+  /// Row being edited inline, or null. At most one at a time.
+  int? _editingIndex;
+  final TextEditingController _editController = TextEditingController();
+  final FocusNode _editFocus = FocusNode(debugLabel: 'transcript-edit');
+  final FocusNode _listFocus = FocusNode(debugLabel: 'transcript-list');
+
+  /// "Tinjau": show only the segments the engine was unsure about (F20).
+  bool _reviewOnly = false;
   Timer? _searchDebounce;
   String _searchQuery = '';
 
@@ -305,8 +343,146 @@ class _TranscriptViewState extends State<TranscriptView> {
     widget.activeSegmentIndex?.removeListener(_onActiveIndexChanged);
     _scrollController.dispose();
     _searchController.dispose();
+    _editController.dispose();
+    _editFocus.dispose();
+    _listFocus.dispose();
     super.dispose();
   }
+
+  // ── Keyboard-first editing (F20) ──────────────────────────────────────
+
+  /// Positions currently displayed, as segment indices.
+  List<int> get _displayed =>
+      _matches ?? [for (var i = 0; i < widget.segments.length; i++) i];
+
+  /// Moves the cursor by [delta] display rows.
+  void _moveSelection(int delta) {
+    final displayed = _displayed;
+    if (displayed.isEmpty) return;
+    final current = _selectedIndex;
+    final position = current == null ? -1 : displayed.indexOf(current);
+    final next = position < 0
+        // First press lands on the playing row when there is one, which
+        // is where the user is looking.
+        ? (_activeIndex != null && displayed.contains(_activeIndex)
+            ? displayed.indexOf(_activeIndex!)
+            : 0)
+        : (position + delta).clamp(0, displayed.length - 1);
+    setState(() => _selectedIndex = displayed[next]);
+    _revealRow(displayed[next]);
+  }
+
+  void _startEditing(int index) {
+    if (widget.onEdit == null) return;
+    _editController.text = widget.segments[index].text;
+    _editController.selection = TextSelection.collapsed(
+      offset: _editController.text.length,
+    );
+    setState(() {
+      _selectedIndex = index;
+      _editingIndex = index;
+    });
+    _revealRow(index);
+    // After the frame, so the field exists to take focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editingIndex == index) _editFocus.requestFocus();
+    });
+  }
+
+  void _commitEdit() {
+    final index = _editingIndex;
+    if (index == null) return;
+    final text = _editController.text;
+    setState(() => _editingIndex = null);
+    _listFocus.requestFocus();
+    // Committed even when unchanged is wasteful; committed when changed
+    // is the whole point.
+    if (index < widget.segments.length && text != widget.segments[index].text) {
+      widget.onEdit?.call(index, text);
+    }
+  }
+
+  void _cancelEdit() {
+    setState(() => _editingIndex = null);
+    _listFocus.requestFocus();
+  }
+
+  void _moveSelectedSegment(int delta) {
+    final index = _selectedIndex;
+    if (index == null || widget.onMoveSegment == null) return;
+    final target = index + delta;
+    if (target < 0 || target >= widget.segments.length) return;
+    widget.onMoveSegment!(index, delta);
+    setState(() => _selectedIndex = target);
+  }
+
+  void _mergeSelected() {
+    final index = _selectedIndex;
+    if (index == null || index == 0 || widget.onMergeWithPrevious == null) {
+      return;
+    }
+    widget.onMergeWithPrevious!(index);
+    // The merged row *is* the previous one now.
+    setState(() => _selectedIndex = index - 1);
+  }
+
+  void _splitSelected() {
+    final index = _editingIndex;
+    if (index == null || widget.onSplitSegment == null) return;
+    final offset = _editController.selection.baseOffset;
+    final text = _editController.text;
+    // A split at either end would produce an empty segment, which is
+    // worse than refusing.
+    if (offset <= 0 || offset >= text.length) return;
+    // The edit has to land first, or the split would run against the
+    // text as it was before the user corrected it.
+    if (text != widget.segments[index].text) {
+      widget.onEdit?.call(index, text);
+    }
+    setState(() => _editingIndex = null);
+    widget.onSplitSegment!(index, offset);
+    _listFocus.requestFocus();
+  }
+
+  Map<ShortcutActivator, VoidCallback> get _shortcuts => {
+        const SingleActivator(LogicalKeyboardKey.arrowDown):
+            () => _moveSelection(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp):
+            () => _moveSelection(-1),
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          final index = _selectedIndex;
+          if (index != null) _startEditing(index);
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
+            () => _moveSelectedSegment(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
+            () => _moveSelectedSegment(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowDown, meta: true):
+            () => _moveSelectedSegment(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true):
+            () => _moveSelectedSegment(-1),
+        const SingleActivator(LogicalKeyboardKey.keyM, control: true):
+            _mergeSelected,
+        const SingleActivator(LogicalKeyboardKey.keyM, meta: true):
+            _mergeSelected,
+      };
+
+  /// Shortcuts live while a row is being edited. Deliberately few: a text
+  /// field eats most keys, and it should.
+  Map<ShortcutActivator, VoidCallback> get _editingShortcuts => {
+        const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
+        const SingleActivator(LogicalKeyboardKey.enter): _commitEdit,
+        const SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: true,
+          shift: true,
+        ): _splitSelected,
+        const SingleActivator(
+          LogicalKeyboardKey.keyS,
+          meta: true,
+          shift: true,
+        ): _splitSelected,
+      };
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
@@ -334,7 +510,7 @@ class _TranscriptViewState extends State<TranscriptView> {
     // is a *position*, not a segment index — has to go back to the top.
     _anchorIndex = 0;
     final query = _searchQuery;
-    if (query.isEmpty) {
+    if (query.isEmpty && !_reviewOnly) {
       _matches = null;
       return;
     }
@@ -342,7 +518,11 @@ class _TranscriptViewState extends State<TranscriptView> {
     final matches = <int>[];
     for (var i = 0; i < segments.length; i++) {
       final segment = segments[i];
-      if (segment.text.toLowerCase().contains(query) ||
+      // "Tinjau" narrows to what the engine flagged; the search box then
+      // narrows further, rather than the two fighting each other.
+      if (_reviewOnly && !segment.lowConfidence) continue;
+      if (query.isEmpty ||
+          segment.text.toLowerCase().contains(query) ||
           segment.speaker.toLowerCase().contains(query)) {
         matches.add(i);
       }
@@ -357,12 +537,29 @@ class _TranscriptViewState extends State<TranscriptView> {
     final seg = widget.segments[originalIndex];
     final isActive = originalIndex == _activeIndex;
     final displaySpeaker = widget.speakerLabels[seg.speaker] ?? seg.speaker;
+    final isSelected = originalIndex == _selectedIndex;
+    final isEditing = originalIndex == _editingIndex;
     return TranscriptSegmentTile(
       key: isActive ? _activeRowKey : ValueKey(originalIndex),
       segment: seg,
       displaySpeaker: displaySpeaker,
       speakerColor: speakerColor(seg.speaker, colors),
       isActive: isActive,
+      isSelected: isSelected,
+      editController: isEditing ? _editController : null,
+      editFocusNode: isEditing ? _editFocus : null,
+      onSelect: () {
+        if (_selectedIndex != originalIndex) {
+          setState(() => _selectedIndex = originalIndex);
+        }
+        _listFocus.requestFocus();
+      },
+      // Keyboard editing is available exactly when the host screen can
+      // apply the structural edits; the live view cannot, and keeps the
+      // dialog.
+      onStartInlineEdit: _keyboardEditing && widget.onEdit != null
+          ? () => _startEditing(originalIndex)
+          : null,
       searchQuery: _searchQuery,
       onSeek: widget.onSeekToSegment == null
           ? null
@@ -423,7 +620,16 @@ class _TranscriptViewState extends State<TranscriptView> {
     final itemCount = matches?.length ?? widget.segments.length;
     final anchor = _anchorIndex.clamp(0, itemCount);
 
-    return Column(
+    return CallbackShortcuts(
+      bindings: !_keyboardEditing
+          ? const {}
+          : (_editingIndex != null ? _editingShortcuts : _shortcuts),
+      child: Focus(
+        focusNode: _listFocus,
+        // Not `autofocus`: this widget also hosts a search box, and
+        // stealing focus from it as the user types would be worse than
+        // asking for one click before the arrow keys work.
+        child: Column(
       children: [
         // Search + Toolbar
         Container(
@@ -504,6 +710,27 @@ class _TranscriptViewState extends State<TranscriptView> {
                   ),
                   onPressed: () => setState(() => _autoScroll = !_autoScroll),
                 ),
+              if (_lowConfidenceCount > 0 || _reviewOnly)
+                IconButton(
+                  tooltip: _reviewOnly
+                      ? 'Tinjau: hanya segmen yang perlu diperiksa'
+                      : 'Tinjau ($_lowConfidenceCount segmen perlu diperiksa)',
+                  icon: Icon(
+                    _reviewOnly ? Icons.flag : Icons.flag_outlined,
+                    size: 18,
+                    color: _reviewOnly ? colors.warning : colors.textTertiary,
+                  ),
+                  onPressed: () => setState(() {
+                    _reviewOnly = !_reviewOnly;
+                    _rebuildMatches();
+                    // The cursor may now be on a hidden row.
+                    if (_selectedIndex != null &&
+                        !_displayed.contains(_selectedIndex)) {
+                      _selectedIndex = null;
+                      _editingIndex = null;
+                    }
+                  }),
+                ),
               IconButton(
                 tooltip: 'Salin semua',
                 icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
@@ -561,7 +788,55 @@ class _TranscriptViewState extends State<TranscriptView> {
                   ),
                 ),
         ),
+        if (_keyboardEditing && widget.onEdit != null && itemCount > 0)
+          _ShortcutHint(colors: colors, editing: _editingIndex != null),
       ],
+        ),
+      ),
+    );
+  }
+
+  /// Whether this list offers keyboard editing (F20).
+  ///
+  /// Keyed off the structural callbacks rather than a flag: a screen that
+  /// cannot move or split a segment has no business pretending the keys
+  /// work.
+  bool get _keyboardEditing =>
+      widget.onMoveSegment != null ||
+      widget.onMergeWithPrevious != null ||
+      widget.onSplitSegment != null;
+
+  /// How many segments the engine flagged as uncertain.
+  int get _lowConfidenceCount =>
+      widget.segments.where((s) => s.lowConfidence).length;
+}
+
+/// The one-line crib for the editing keys.
+///
+/// On screen rather than in a help dialog: a shortcut nobody knows about
+/// is a shortcut nobody uses, and this is the screen where they matter.
+class _ShortcutHint extends StatelessWidget {
+  const _ShortcutHint({required this.colors, required this.editing});
+
+  final AppColorSet colors;
+  final bool editing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
+      ),
+      child: Text(
+        editing
+            ? 'Enter simpan · Esc batal · Ctrl+Shift+S pisah di kursor'
+            : '↑↓ pilih · Enter sunting · Ctrl+↑↓ pindahkan · '
+                'Ctrl+M gabung ke atas',
+        style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
+      ),
     );
   }
 }
@@ -609,6 +884,27 @@ class TranscriptSegmentTile extends StatelessWidget {
   final VoidCallback? onSeek;
   final ValueChanged<String>? onRename;
 
+  /// Row the keyboard cursor is on (F20). Drawn differently from
+  /// [isActive]: one is "where you are", the other "what is playing",
+  /// and they are routinely different rows.
+  final bool isSelected;
+
+  /// Non-null while this row is being edited inline; the controller and
+  /// focus node belong to the list, so only one row can be editing.
+  final TextEditingController? editController;
+  final FocusNode? editFocusNode;
+
+  /// Puts the keyboard cursor here without starting an edit.
+  final VoidCallback? onSelect;
+
+  /// Starts the inline editor on this row.
+  ///
+  /// When non-null it replaces the modal edit dialog: a screen that has
+  /// keyboard editing should not also pop a dialog on every click, and
+  /// two ways to edit one row is one too many. The live-recording view
+  /// passes null and keeps the dialog.
+  final VoidCallback? onStartInlineEdit;
+
   const TranscriptSegmentTile({
     super.key,
     required this.segment,
@@ -620,13 +916,23 @@ class TranscriptSegmentTile extends StatelessWidget {
     this.onCopy,
     this.onSeek,
     this.onRename,
+    this.isSelected = false,
+    this.editController,
+    this.editFocusNode,
+    this.onSelect,
+    this.onStartInlineEdit,
   });
+
+  bool get _isEditing => editController != null;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final activeBg = speakerColor.withValues(alpha: isActive ? 0.12 : 0.0);
-    final activeBorder = isActive ? speakerColor : Colors.transparent;
+    final showOutline = isActive || isSelected;
+    final activeBorder = isActive
+        ? speakerColor
+        : (isSelected ? colors.primary : Colors.transparent);
     // No entry animation: `ListView.builder` recycles elements, so the
     // fade-and-slide replayed on every scroll and on every search keystroke
     // (audit A.1-13), and at 5 000 rows it kept a frame permanently
@@ -642,12 +948,24 @@ class TranscriptSegmentTile extends StatelessWidget {
             color: activeBg,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: activeBorder.withValues(alpha: isActive ? 0.5 : 0.0),
-              width: isActive ? 1.5 : 0,
+              color: activeBorder.withValues(alpha: showOutline ? 0.5 : 0.0),
+              width: showOutline ? 1.5 : 0,
             ),
           ),
           child: InkWell(
-            onTap: onSeek ?? (onEdit != null ? () => _openEditDialog(context) : null),
+            onTap: () {
+              // A click puts the keyboard cursor here as well as doing
+              // whatever the click already did, so the arrow keys carry
+              // on from where the user pointed.
+              onSelect?.call();
+              if (onSeek != null) {
+                onSeek!();
+              } else if (onStartInlineEdit == null && onEdit != null) {
+                // No keyboard editing here (the live view): the dialog is
+                // still the only way to fix a line.
+                _openEditDialog(context);
+              }
+            },
             borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.only(
@@ -721,21 +1039,38 @@ class TranscriptSegmentTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        RichText(
-                          text: TextSpan(
-                            children: _highlightText(
-                              segment.text,
-                              searchQuery,
-                              TextStyle(
-                                color: colors.text,
-                                fontSize: 14,
-                                height: 1.45,
-                                letterSpacing: 0.1,
+                        if (_isEditing)
+                          TextField(
+                            controller: editController,
+                            focusNode: editFocusNode,
+                            maxLines: null,
+                            style: TextStyle(
+                              color: colors.text,
+                              fontSize: 14,
+                              height: 1.45,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.all(8),
+                            ),
+                          )
+                        else
+                          RichText(
+                            text: TextSpan(
+                              children: _highlightText(
+                                segment.text,
+                                searchQuery,
+                                TextStyle(
+                                  color: colors.text,
+                                  fontSize: 14,
+                                  height: 1.45,
+                                  letterSpacing: 0.1,
+                                ),
+                                speakerColor,
                               ),
-                              speakerColor,
                             ),
                           ),
-                        ),
                         if (segment.isPartial) ...[
                           const SizedBox(height: 4),
                           Row(
@@ -812,7 +1147,8 @@ class TranscriptSegmentTile extends StatelessWidget {
                           size: TouchTarget.minimumSize,
                           child: IconButton(
                             icon: Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
-                            onPressed: () => _openEditDialog(context),
+                            onPressed: onStartInlineEdit ??
+                                () => _openEditDialog(context),
                             padding: EdgeInsets.zero,
                             tooltip: 'Edit',
                           ),

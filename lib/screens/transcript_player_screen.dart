@@ -12,6 +12,7 @@ import '../utils/atomic_file.dart';
 import '../utils/model_labels.dart';
 import '../utils/segment_lookup.dart';
 import '../state/enhance_queue_model.dart';
+import '../state/library_model.dart';
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
@@ -26,6 +27,7 @@ import '../widgets/export_dialog.dart';
 import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
 import '../widgets/speaker_manager_dialog.dart';
+import '../widgets/tag_editor_dialog.dart';
 import '../widgets/summary_panel.dart';
 import '../widgets/transcript_view.dart';
 
@@ -144,6 +146,9 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   /// present an empty form.
   NotulenFormData? _notulenForm;
 
+  /// Folders/tags this session is filed under (F20).
+  late List<String> _tags;
+
   @override
   void initState() {
     super.initState();
@@ -160,6 +165,7 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
     _summary = widget.meta.summary;
     _bookmarks = List.of(widget.meta.bookmarks);
     _notulenForm = widget.meta.notulen;
+    _tags = List.of(widget.meta.tags);
     _refreshBackupAvailability();
     _initPlayer();
   }
@@ -177,7 +183,11 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
       final existing = await readSessionMeta(dirPath);
       await writeSessionMeta(
         dirPath,
-        existing.copyWith(bookmarks: _bookmarks, notulen: _notulenForm),
+        existing.copyWith(
+          bookmarks: _bookmarks,
+          notulen: _notulenForm,
+          tags: _tags,
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -345,6 +355,133 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
   void _editSegment(int index, String newText) {
     setState(() {
       _segments[index] = _segments[index].copyWith(text: newText);
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
+  /// Adds or removes a tag, then persists and refreshes the library so
+  /// the sidebar's filter row picks it up (F20).
+  Future<void> _editTags() async {
+    final existing = <String>{};
+    for (final entry in ref.read(libraryListProvider).entries) {
+      existing.addAll(entry.tags);
+    }
+    final updated = await showTagEditor(
+      context,
+      current: _tags,
+      known: existing.toList(),
+    );
+    if (updated == null || !mounted) return;
+    setState(() => _tags = updated);
+    await _persistMeta();
+    if (!mounted) return;
+    unawaited(ref.read(libraryListProvider.notifier).refresh());
+  }
+
+  /// Moves a segment by [delta] places in the list (F20, Ctrl+↑/↓).
+  ///
+  /// Only the order changes: the timestamps stay with their audio,
+  /// because a line moved into another speaker's turn was still said
+  /// when it was said, and rewriting its timestamp would break the seek
+  /// that makes the transcript checkable.
+  void _moveSegment(int index, int delta) {
+    final target = index + delta;
+    if (index < 0 || index >= _segments.length) return;
+    if (target < 0 || target >= _segments.length) return;
+    setState(() {
+      final next = List.of(_segments);
+      final moved = next.removeAt(index);
+      next.insert(target, moved);
+      _segments = next;
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
+  /// Joins a segment onto the one before it (F20, Ctrl+M).
+  ///
+  /// The VAD cuts a sentence in half whenever the speaker breathes, and
+  /// this is the repair. The merged row keeps the *earlier* start and the
+  /// sum of the durations, so the timeline stays continuous.
+  void _mergeWithPrevious(int index) {
+    if (index <= 0 || index >= _segments.length) return;
+    setState(() {
+      final previous = _segments[index - 1];
+      final current = _segments[index];
+      final joined = previous.copyWith(
+        text: '${previous.text.trimRight()} ${current.text.trimLeft()}'.trim(),
+      );
+      final next = List.of(_segments);
+      next[index - 1] = TranscriptSegment(
+        source: joined.source,
+        speaker: joined.speaker,
+        text: joined.text,
+        timestamp: previous.timestamp,
+        duration: (current.timestamp + current.duration) - previous.timestamp,
+        language: joined.language,
+        confidence: previous.confidence < current.confidence
+            ? previous.confidence
+            : current.confidence,
+        isPartial: false,
+        // Uncertainty survives a merge: if either half was flagged, the
+        // joined line still needs a human to look at it.
+        lowConfidence: previous.lowConfidence || current.lowConfidence,
+        avgLogProb: previous.avgLogProb,
+      );
+      next.removeAt(index);
+      _segments = next;
+    });
+    _onSegmentsMutated();
+    _schedulePersist();
+  }
+
+  /// Splits a segment at [cursorOffset] characters (F20, Ctrl+Shift+S).
+  ///
+  /// The duration is divided in proportion to the text, which is a guess
+  /// — but a guess that puts the second half's timestamp inside the right
+  /// few seconds, which is all a seek needs.
+  void _splitSegment(int index, int cursorOffset) {
+    if (index < 0 || index >= _segments.length) return;
+    final segment = _segments[index];
+    final text = segment.text;
+    if (cursorOffset <= 0 || cursorOffset >= text.length) return;
+    final head = text.substring(0, cursorOffset).trimRight();
+    final tail = text.substring(cursorOffset).trimLeft();
+    if (head.isEmpty || tail.isEmpty) return;
+
+    final fraction = cursorOffset / text.length;
+    final headDuration = segment.duration * fraction;
+    setState(() {
+      final next = List.of(_segments);
+      next[index] = TranscriptSegment(
+        source: segment.source,
+        speaker: segment.speaker,
+        text: head,
+        timestamp: segment.timestamp,
+        duration: headDuration,
+        language: segment.language,
+        confidence: segment.confidence,
+        isPartial: false,
+        lowConfidence: segment.lowConfidence,
+        avgLogProb: segment.avgLogProb,
+      );
+      next.insert(
+        index + 1,
+        TranscriptSegment(
+          source: segment.source,
+          speaker: segment.speaker,
+          text: tail,
+          timestamp: segment.timestamp + headDuration,
+          duration: segment.duration - headDuration,
+          language: segment.language,
+          confidence: segment.confidence,
+          isPartial: false,
+          lowConfidence: segment.lowConfidence,
+          avgLogProb: segment.avgLogProb,
+        ),
+      );
+      _segments = next;
     });
     _onSegmentsMutated();
     _schedulePersist();
@@ -812,6 +949,9 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                   revision: _revision,
                   onEdit: _editSegment,
                   onRenameSpeaker: _renameSpeaker,
+                  onMoveSegment: _moveSegment,
+                  onMergeWithPrevious: _mergeWithPrevious,
+                  onSplitSegment: _splitSegment,
                   activeSegmentIndex: _activeIndex,
                   onSeekToSegment: hasAudio ? _seekToSegment : null,
                 ),
@@ -1021,6 +1161,28 @@ class _TranscriptPlayerScreenState extends ConsumerState<TranscriptPlayerScreen>
                             ),
                           ),
                         ],
+                        if (_sessionDirPath != null)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.label_outline, size: 16),
+                            label: Text(
+                              _tags.isEmpty ? 'Tag' : 'Tag (${_tags.length})',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            onPressed: _editTags,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(
+                                color: colors.primary.withValues(alpha: 0.3),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         if (_segments.isNotEmpty)
                           OutlinedButton.icon(
                             icon: const Icon(Icons.people_outline, size: 16),
