@@ -1,3 +1,6 @@
+/// Structured action items (tugas / PJ / tenggat / status) with .ics
+/// and CSV export.
+pub mod actions;
 pub mod api;
 /// Synthetic 5 000-segment / 3-hour meeting used by the performance tests.
 #[cfg(test)]
@@ -29,6 +32,9 @@ pub mod hallucination;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
 pub mod journal;
+/// Long-meeting summarisation: time windows → partial notes → one
+/// document.
+pub mod mapreduce;
 pub mod memory;
 pub mod model;
 /// Mode Kepatuhan UU PDP: redaction, retention, audit log, consent.
@@ -37,6 +43,8 @@ pub mod pipeline;
 pub mod preprocess;
 pub mod privacy;
 pub mod progressive;
+/// Summary citations back into the transcript.
+pub mod provenance;
 pub mod session;
 pub mod settings;
 pub mod singleton;

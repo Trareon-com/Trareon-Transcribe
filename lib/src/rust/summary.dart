@@ -26,6 +26,14 @@ class SummaryConfig {
   final String language;
   final BigInt timeoutSecs;
 
+  /// Ask the model to cite the transcript segment behind each point
+  /// (F7). Off by default: it costs prompt budget and a weak model
+  /// spends it inventing numbers.
+  final bool withCitations;
+
+  /// Ask for the structured "Tindak Lanjut" JSON block (F6).
+  final bool withActionItems;
+
   const SummaryConfig({
     required this.provider,
     required this.baseUrl,
@@ -35,6 +43,8 @@ class SummaryConfig {
     required this.customPrompt,
     required this.language,
     required this.timeoutSecs,
+    required this.withCitations,
+    required this.withActionItems,
   });
 
   @override
@@ -46,7 +56,9 @@ class SummaryConfig {
       template.hashCode ^
       customPrompt.hashCode ^
       language.hashCode ^
-      timeoutSecs.hashCode;
+      timeoutSecs.hashCode ^
+      withCitations.hashCode ^
+      withActionItems.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -60,7 +72,9 @@ class SummaryConfig {
           template == other.template &&
           customPrompt == other.customPrompt &&
           language == other.language &&
-          timeoutSecs == other.timeoutSecs;
+          timeoutSecs == other.timeoutSecs &&
+          withCitations == other.withCitations &&
+          withActionItems == other.withActionItems;
 }
 
 enum SummaryProvider { ollama, openAiCompatible }

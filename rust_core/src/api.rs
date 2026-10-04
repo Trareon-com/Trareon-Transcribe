@@ -694,6 +694,91 @@ pub async fn generate_summary(
     crate::summary::generate_summary(config, transcript, marks).await
 }
 
+/// Summarises a meeting of any length, splitting it into time windows
+/// and reducing when it does not fit one request (F15).
+///
+/// `progress` is polled from Dart via [`read_summary_progress`]; a
+/// three-hour meeting is around eighteen round trips and the user has to
+/// see which one is running.
+pub async fn generate_summary_long(
+    segments: Vec<Segment>,
+    config: crate::summary::SummaryConfig,
+    bookmarks: Vec<Bookmark>,
+) -> Result<String, TranscribeError> {
+    let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
+    crate::summary::reset_progress();
+    let result = crate::summary::generate_summary_long(
+        config,
+        segments,
+        marks,
+        crate::summary::publish_progress,
+    )
+    .await;
+    crate::summary::reset_progress();
+    result
+}
+
+/// How far a map-reduce summary has got, or `None` when none is running.
+pub fn read_summary_progress() -> Option<crate::mapreduce::MapReduceProgress> {
+    crate::summary::read_progress()
+}
+
+// --- Action items (F6) ------------------------------------------------------
+
+/// Pulls the tugas / PJ / tenggat / status rows out of a summary,
+/// however the model formatted them. Pure and local.
+pub fn parse_action_items(summary: String) -> Vec<crate::actions::ActionItem> {
+    crate::actions::parse_action_items(&summary)
+}
+
+/// Removes the raw JSON block from a summary once it has been parsed, so
+/// the rendered summary does not show the machine-readable copy under
+/// the checklist.
+pub fn strip_action_items_block(summary: String) -> String {
+    crate::actions::strip_json_block(&summary)
+}
+
+/// RFC 5545 calendar for a checklist: one `VTODO` per task, plus a
+/// `VEVENT` for each task whose deadline resolves to a date.
+/// `today` is `YYYY-MM-DD`, used to resolve "Jumat" and "besok".
+pub fn action_items_to_ics(
+    items: Vec<crate::actions::ActionItem>,
+    calendar_name: String,
+    today: String,
+) -> String {
+    crate::actions::to_ics(&items, &calendar_name, &today)
+}
+
+pub fn action_items_to_csv(items: Vec<crate::actions::ActionItem>) -> String {
+    crate::actions::to_csv(&items)
+}
+
+/// Indonesian label for a status, for the checklist's dropdown.
+pub fn action_status_label(status: crate::actions::ActionStatus) -> String {
+    status.label().to_string()
+}
+
+// --- Summary provenance (F7) ------------------------------------------------
+
+/// Splits a summary into lines and resolves each `[#n]` marker to a
+/// transcript timestamp, dropping ids the transcript does not have.
+pub fn parse_summary_provenance(
+    summary: String,
+    segments: Vec<Segment>,
+) -> crate::provenance::SummaryProvenance {
+    crate::provenance::parse_summary(&summary, &segments)
+}
+
+/// [`parse_summary_provenance`] plus the stricter check: a citation whose
+/// segment shares almost no vocabulary with the claim is dropped too.
+pub fn parse_summary_provenance_verified(
+    summary: String,
+    segments: Vec<Segment>,
+) -> crate::provenance::SummaryProvenance {
+    let parsed = crate::provenance::parse_summary(&summary, &segments);
+    crate::provenance::verify_citations(parsed, &segments, crate::provenance::MIN_CITATION_OVERLAP)
+}
+
 /// The section headings a built-in template asks the model for — the starting
 /// point when the user duplicates it into a template of their own (F8).
 pub fn summary_template_headings(template: crate::summary::SummaryTemplate) -> Vec<String> {

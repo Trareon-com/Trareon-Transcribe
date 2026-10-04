@@ -264,6 +264,13 @@ class SummarySettings {
   final SummaryTemplate template;
   final String customPrompt;
 
+  /// Ask the model to cite the transcript segment behind each point,
+  /// and render those as links that jump the player there (F7).
+  final bool withCitations;
+
+  /// Ask for the structured tugas / PJ / tenggat checklist (F6).
+  final bool withActionItems;
+
   const SummarySettings({
     required this.enabled,
     required this.provider,
@@ -272,6 +279,8 @@ class SummarySettings {
     required this.model,
     required this.template,
     required this.customPrompt,
+    required this.withCitations,
+    required this.withActionItems,
   });
 
   @override
@@ -282,7 +291,9 @@ class SummarySettings {
       apiKey.hashCode ^
       model.hashCode ^
       template.hashCode ^
-      customPrompt.hashCode;
+      customPrompt.hashCode ^
+      withCitations.hashCode ^
+      withActionItems.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -295,7 +306,9 @@ class SummarySettings {
           apiKey == other.apiKey &&
           model == other.model &&
           template == other.template &&
-          customPrompt == other.customPrompt;
+          customPrompt == other.customPrompt &&
+          withCitations == other.withCitations &&
+          withActionItems == other.withActionItems;
 }
 
 /// Appearance preference. `System` follows the OS setting; it is a UI

@@ -187,6 +187,8 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
           customPrompt: instruction,
           language: config.language,
           timeoutSecs: config.timeoutSecs,
+          withCitations: config.withCitations,
+          withActionItems: config.withActionItems,
         );
       } catch (e) {
         if (!mounted) return;

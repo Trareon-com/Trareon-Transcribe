@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import 'actions.dart';
 import 'audio.dart';
 import 'audio/device.dart';
 import 'completion.dart';
@@ -14,12 +15,14 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'mapreduce.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
 import 'pdp/redaction.dart';
 import 'pdp/retention.dart';
+import 'provenance.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
@@ -389,6 +392,77 @@ Future<String> generateSummary({
   segments: segments,
   config: config,
   bookmarks: bookmarks,
+);
+
+/// Summarises a meeting of any length, splitting it into time windows
+/// and reducing when it does not fit one request (F15).
+///
+/// `progress` is polled from Dart via [`read_summary_progress`]; a
+/// three-hour meeting is around eighteen round trips and the user has to
+/// see which one is running.
+Future<String> generateSummaryLong({
+  required List<Segment> segments,
+  required SummaryConfig config,
+  required List<Bookmark> bookmarks,
+}) => RustLib.instance.api.crateApiGenerateSummaryLong(
+  segments: segments,
+  config: config,
+  bookmarks: bookmarks,
+);
+
+/// How far a map-reduce summary has got, or `None` when none is running.
+Future<MapReduceProgress?> readSummaryProgress() =>
+    RustLib.instance.api.crateApiReadSummaryProgress();
+
+/// Pulls the tugas / PJ / tenggat / status rows out of a summary,
+/// however the model formatted them. Pure and local.
+Future<List<ActionItem>> parseActionItems({required String summary}) =>
+    RustLib.instance.api.crateApiParseActionItems(summary: summary);
+
+/// Removes the raw JSON block from a summary once it has been parsed, so
+/// the rendered summary does not show the machine-readable copy under
+/// the checklist.
+Future<String> stripActionItemsBlock({required String summary}) =>
+    RustLib.instance.api.crateApiStripActionItemsBlock(summary: summary);
+
+/// RFC 5545 calendar for a checklist: one `VTODO` per task, plus a
+/// `VEVENT` for each task whose deadline resolves to a date.
+/// `today` is `YYYY-MM-DD`, used to resolve "Jumat" and "besok".
+Future<String> actionItemsToIcs({
+  required List<ActionItem> items,
+  required String calendarName,
+  required String today,
+}) => RustLib.instance.api.crateApiActionItemsToIcs(
+  items: items,
+  calendarName: calendarName,
+  today: today,
+);
+
+Future<String> actionItemsToCsv({required List<ActionItem> items}) =>
+    RustLib.instance.api.crateApiActionItemsToCsv(items: items);
+
+/// Indonesian label for a status, for the checklist's dropdown.
+Future<String> actionStatusLabel({required ActionStatus status}) =>
+    RustLib.instance.api.crateApiActionStatusLabel(status: status);
+
+/// Splits a summary into lines and resolves each `[#n]` marker to a
+/// transcript timestamp, dropping ids the transcript does not have.
+Future<SummaryProvenance> parseSummaryProvenance({
+  required String summary,
+  required List<Segment> segments,
+}) => RustLib.instance.api.crateApiParseSummaryProvenance(
+  summary: summary,
+  segments: segments,
+);
+
+/// [`parse_summary_provenance`] plus the stricter check: a citation whose
+/// segment shares almost no vocabulary with the claim is dropped too.
+Future<SummaryProvenance> parseSummaryProvenanceVerified({
+  required String summary,
+  required List<Segment> segments,
+}) => RustLib.instance.api.crateApiParseSummaryProvenanceVerified(
+  summary: summary,
+  segments: segments,
 );
 
 /// The section headings a built-in template asks the model for — the starting

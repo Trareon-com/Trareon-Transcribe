@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'actions.dart';
 import 'api.dart';
 import 'audio.dart';
 import 'audio/device.dart';
@@ -20,12 +21,14 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'mapreduce.dart';
 import 'model.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
 import 'pdp/redaction.dart';
 import 'pdp/retention.dart';
+import 'provenance.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'stt/file.dart';
@@ -44,6 +47,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  ActionItem dco_decode_action_item(dynamic raw);
+
+  @protected
+  ActionStatus dco_decode_action_status(dynamic raw);
 
   @protected
   AppSettings dco_decode_app_settings(dynamic raw);
@@ -85,6 +94,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   GlossaryConfig dco_decode_box_autoadd_glossary_config(dynamic raw);
+
+  @protected
+  MapReduceProgress dco_decode_box_autoadd_map_reduce_progress(dynamic raw);
 
   @protected
   NotulenForm dco_decode_box_autoadd_notulen_form(dynamic raw);
@@ -142,6 +154,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus dco_decode_check_status(dynamic raw);
 
   @protected
+  Citation dco_decode_citation(dynamic raw);
+
+  @protected
   CompletionOutcome dco_decode_completion_outcome(dynamic raw);
 
   @protected
@@ -193,6 +208,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<ActionItem> dco_decode_list_action_item(dynamic raw);
+
+  @protected
   List<AudioDeviceInfo> dco_decode_list_audio_device_info(dynamic raw);
 
   @protected
@@ -209,6 +227,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Check> dco_decode_list_check(dynamic raw);
+
+  @protected
+  List<Citation> dco_decode_list_citation(dynamic raw);
 
   @protected
   List<CompletionProgress> dco_decode_list_completion_progress(dynamic raw);
@@ -255,10 +276,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SessionEvent> dco_decode_list_session_event(dynamic raw);
 
   @protected
+  List<SummaryLine> dco_decode_list_summary_line(dynamic raw);
+
+  @protected
   List<TimeRange> dco_decode_list_time_range(dynamic raw);
 
   @protected
   List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
+
+  @protected
+  MapReduceProgress dco_decode_map_reduce_progress(dynamic raw);
 
   @protected
   ModelInfo dco_decode_model_info(dynamic raw);
@@ -291,6 +318,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  MapReduceProgress? dco_decode_opt_box_autoadd_map_reduce_progress(
+    dynamic raw,
+  );
 
   @protected
   (BigInt, BigInt)? dco_decode_opt_box_autoadd_record_u_64_u_64(dynamic raw);
@@ -370,6 +402,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SummaryConfig dco_decode_summary_config(dynamic raw);
 
   @protected
+  SummaryLine dco_decode_summary_line(dynamic raw);
+
+  @protected
+  SummaryProvenance dco_decode_summary_provenance(dynamic raw);
+
+  @protected
   SummaryProvider dco_decode_summary_provider(dynamic raw);
 
   @protected
@@ -420,6 +458,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ActionItem sse_decode_action_item(SseDeserializer deserializer);
+
+  @protected
+  ActionStatus sse_decode_action_status(SseDeserializer deserializer);
+
+  @protected
   AppSettings sse_decode_app_settings(SseDeserializer deserializer);
 
   @protected
@@ -461,6 +505,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   GlossaryConfig sse_decode_box_autoadd_glossary_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MapReduceProgress sse_decode_box_autoadd_map_reduce_progress(
     SseDeserializer deserializer,
   );
 
@@ -532,6 +581,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckStatus sse_decode_check_status(SseDeserializer deserializer);
 
   @protected
+  Citation sse_decode_citation(SseDeserializer deserializer);
+
+  @protected
   CompletionOutcome sse_decode_completion_outcome(SseDeserializer deserializer);
 
   @protected
@@ -589,6 +641,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<ActionItem> sse_decode_list_action_item(SseDeserializer deserializer);
+
+  @protected
   List<AudioDeviceInfo> sse_decode_list_audio_device_info(
     SseDeserializer deserializer,
   );
@@ -611,6 +666,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Check> sse_decode_list_check(SseDeserializer deserializer);
+
+  @protected
+  List<Citation> sse_decode_list_citation(SseDeserializer deserializer);
 
   @protected
   List<CompletionProgress> sse_decode_list_completion_progress(
@@ -671,10 +729,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SummaryLine> sse_decode_list_summary_line(SseDeserializer deserializer);
+
+  @protected
   List<TimeRange> sse_decode_list_time_range(SseDeserializer deserializer);
 
   @protected
   List<TindakLanjut> sse_decode_list_tindak_lanjut(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MapReduceProgress sse_decode_map_reduce_progress(
     SseDeserializer deserializer,
   );
 
@@ -711,6 +777,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  MapReduceProgress? sse_decode_opt_box_autoadd_map_reduce_progress(
+    SseDeserializer deserializer,
+  );
 
   @protected
   (BigInt, BigInt)? sse_decode_opt_box_autoadd_record_u_64_u_64(
@@ -800,6 +871,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SummaryConfig sse_decode_summary_config(SseDeserializer deserializer);
 
   @protected
+  SummaryLine sse_decode_summary_line(SseDeserializer deserializer);
+
+  @protected
+  SummaryProvenance sse_decode_summary_provenance(SseDeserializer deserializer);
+
+  @protected
   SummaryProvider sse_decode_summary_provider(SseDeserializer deserializer);
 
   @protected
@@ -851,6 +928,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_action_item(ActionItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_action_status(ActionStatus self, SseSerializer serializer);
 
   @protected
   void sse_encode_app_settings(AppSettings self, SseSerializer serializer);
@@ -909,6 +992,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_glossary_config(
     GlossaryConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_map_reduce_progress(
+    MapReduceProgress self,
     SseSerializer serializer,
   );
 
@@ -997,6 +1086,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_check_status(CheckStatus self, SseSerializer serializer);
 
   @protected
+  void sse_encode_citation(Citation self, SseSerializer serializer);
+
+  @protected
   void sse_encode_completion_outcome(
     CompletionOutcome self,
     SseSerializer serializer,
@@ -1075,6 +1167,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_action_item(
+    List<ActionItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_audio_device_info(
     List<AudioDeviceInfo> self,
     SseSerializer serializer,
@@ -1103,6 +1201,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_check(List<Check> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_citation(List<Citation> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_completion_progress(
@@ -1183,6 +1284,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_summary_line(
+    List<SummaryLine> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_time_range(
     List<TimeRange> self,
     SseSerializer serializer,
@@ -1191,6 +1298,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_tindak_lanjut(
     List<TindakLanjut> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_map_reduce_progress(
+    MapReduceProgress self,
     SseSerializer serializer,
   );
 
@@ -1235,6 +1348,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_map_reduce_progress(
+    MapReduceProgress? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_record_u_64_u_64(
@@ -1343,6 +1462,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_summary_config(SummaryConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_summary_line(SummaryLine self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_summary_provenance(
+    SummaryProvenance self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_summary_provider(

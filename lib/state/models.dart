@@ -43,6 +43,8 @@ const SummarySettings kDefaultSummarySettings = SummarySettings(
   model: '',
   template: SummaryTemplate.notulenRapat,
   customPrompt: '',
+  withCitations: false,
+  withActionItems: false,
 );
 
 /// A fresh install's kamus istilah: on, but empty, so it is a no-op until the
@@ -769,6 +771,8 @@ extension SummarySettingsCopy on SummarySettings {
     String? model,
     SummaryTemplate? template,
     String? customPrompt,
+    bool? withCitations,
+    bool? withActionItems,
   }) {
     return SummarySettings(
       enabled: enabled ?? this.enabled,
@@ -778,6 +782,8 @@ extension SummarySettingsCopy on SummarySettings {
       model: model ?? this.model,
       template: template ?? this.template,
       customPrompt: customPrompt ?? this.customPrompt,
+      withCitations: withCitations ?? this.withCitations,
+      withActionItems: withActionItems ?? this.withActionItems,
     );
   }
 
@@ -798,6 +804,8 @@ extension SummarySettingsCopy on SummarySettings {
       customPrompt: customPrompt,
       language: language ?? 'id',
       timeoutSecs: BigInt.from(180),
+      withCitations: withCitations,
+      withActionItems: withActionItems,
     );
   }
 }
