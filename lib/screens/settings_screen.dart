@@ -237,8 +237,12 @@ class _CategoryRail extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 onTap: () => onSelected(category),
                 child: Padding(
+                  // 10 rather than 12: the tenth category (Kepatuhan PDP)
+                  // pushed the rail past the 600 px minimum window, and a
+                  // settings pane you have to scroll a rail to reach is
+                  // one people do not find.
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 12),
+                      horizontal: 12, vertical: 10),
                   child: Row(
                     children: [
                       Icon(
