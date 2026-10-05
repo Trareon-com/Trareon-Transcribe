@@ -125,6 +125,22 @@ def build_model(config: TrainConfig) -> tuple[Any, Any]:
         model = prepare_model_for_kbit_training(
             model, use_gradient_checkpointing=config.gradient_checkpointing
         )
+    elif config.gradient_checkpointing:
+        # LoRA freezes the base weights, so under gradient checkpointing
+        # the recomputed block has no input that requires grad and
+        # backward finds no path at all:
+        #
+        #   RuntimeError: element 0 of tensors does not require grad and
+        #   does not have a grad_fn
+        #
+        # Making the embedding output require grad restores the path.
+        # The k-bit branch above does not need this because
+        # `prepare_model_for_kbit_training` already does it — which is
+        # why this failed for the fp16 `base`/`small` configs while the
+        # 4-bit turbo config worked.
+        model.gradient_checkpointing_enable()
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
 
     target_modules = _resolve_targets(model, config)
     adapter = LoraConfig(

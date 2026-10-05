@@ -8,7 +8,8 @@
 #   2. Gradient checkpointing (activations are the largest term, and
 #      Whisper always encodes a padded 30 s window so they do not
 #      shrink with shorter clips).
-#   3. Batch size 1, with accumulation to reach a useful effective batch.
+#   3. A small batch, with accumulation to reach a useful effective
+#      batch. (Measured: this config peaks at 2.05 GiB at batch 4.)
 #
 # The adapter covers the decoder plus the top 4 encoder layers: the
 # encoder computes acoustic features that transfer across languages,
@@ -30,8 +31,13 @@ eval_sets:
 fp16: true
 load_in_4bit: true
 gradient_checkpointing: true
-per_device_batch_size: 1
-gradient_accumulation_steps: 16  # effective batch 16
+# Measured on the real RTX 2060 (2026-10-05) with this exact config:
+# batch 1 -> 0.92 GiB peak, 2 -> 1.56, 4 -> 2.05, 8 -> 2.87, all inside
+# 6 GiB. Batch 4 is chosen rather than 8 to leave room for the Windows
+# desktop compositor, which shares the card, and for labels longer than
+# the dry run's synthetic 96 tokens.
+per_device_batch_size: 4
+gradient_accumulation_steps: 4   # effective batch 16
 
 max_clip_secs: 25.0
 min_anchor_rate: 0.7
