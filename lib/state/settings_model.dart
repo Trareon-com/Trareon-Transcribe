@@ -249,6 +249,21 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setGlossary(GlossarySettings glossary) =>
       _apply(state.copyWith(glossary: glossary), label: 'Kamus istilah');
 
+  /// "Pemisahan pembicara akurat" (sherpa-onnx neural diarization).
+  Future<void> setNeuralDiarization(bool enabled) => _apply(
+    state.copyWith(neuralDiarization: enabled),
+    label: 'Pemisahan pembicara akurat',
+  );
+
+  /// Re-sends the current settings to the engine without changing them.
+  ///
+  /// The engine resolves the Silero VAD and diarization model paths when
+  /// settings are saved (`api::apply_engine_settings`), so a file that was
+  /// downloaded *after* the last save is invisible until something saves
+  /// again. Called by the download flow so a freshly installed model takes
+  /// effect on the next pass rather than the next launch.
+  Future<void> reapply() => _apply(state, label: 'Model mesin');
+
   /// Mode Kepatuhan UU PDP (F13).
   Future<void> setPdp(PdpSettings pdp) =>
       _apply(state.copyWith(pdp: pdp), label: 'Mode Kepatuhan PDP');

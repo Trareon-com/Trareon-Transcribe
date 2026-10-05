@@ -59,6 +59,20 @@ jobs:
       - name: Verify Rust library compiles
         run: cargo check --lib
 
+      # Linux only. `sherpa-onnx-sys` downloads a prebuilt native library
+      # from GitHub Releases at build time (23 MB here, 123 MB on
+      # Windows), so this job is the one place the optional diarization
+      # backend is compiled — see docs/NEURAL-DIARIZATION.md for the
+      # macOS/Windows status. Build, not test: the models it needs are a
+      # 34 MB user-opt-in download, and the test skips itself without them.
+      - name: Verify optional neural diarization compiles
+        run: cargo check --lib --features neural-diarization
+
+      # The ONNX Silero path is no longer in the default feature set.
+      # Keep it compiling so it does not rot.
+      - name: Verify the legacy ONNX VAD still compiles
+        run: cargo check --lib --features silero-onnx
+
   flutter:
     name: Flutter (analyze, test)
     runs-on: ubuntu-24.04

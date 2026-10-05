@@ -1,3 +1,18 @@
+//! Trareon Transcribe engine.
+
+// Both `ort` and `sherpa-onnx-sys` statically link their own copy of ONNX
+// Runtime. Enabling both produces several hundred duplicate-symbol errors
+// from the linker, hundreds of lines after the point where anyone stops
+// reading. Say it once, at the top, in words.
+#[cfg(all(feature = "silero-onnx", feature = "neural-diarization"))]
+compile_error!(
+    "features `silero-onnx` and `neural-diarization` cannot be enabled \
+     together: `ort` and `sherpa-onnx-sys` each statically link their own \
+     ONNX Runtime, and the two sets of symbols collide at link time. Use \
+     whisper.cpp's built-in Silero VAD (vad::whisper_silero, no feature \
+     required) alongside `neural-diarization`."
+);
+
 /// Structured action items (tugas / PJ / tenggat / status) with .ics
 /// and CSV export.
 pub mod actions;

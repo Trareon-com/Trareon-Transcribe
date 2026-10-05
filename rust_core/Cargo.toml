@@ -93,11 +93,22 @@ printpdf = { version = "0.12.8", default-features = false }
 nnnoiseless = { version = "0.5.2", default-features = false }
 # Offline speaker diarization. Optional — see the `neural-diarization`
 # feature below for why it is not a default dependency.
-sherpa-onnx = { version = "1.13.8", optional = true }
+sherpa-onnx = { version = "1.13.8", optional = true, default-features = false, features = ["shared"] }
 
 [features]
-default = ["silero-onnx"]
-silero-onnx = ["dep:ort"]  # Enable Silero VAD via ONNX Runtime
+# Deliberately empty. `silero-onnx` used to be here; Sprint 4b replaced the
+# `ort`-backed Silero VAD with whisper.cpp's own (see
+# src/vad/whisper_silero.rs), which needs no second ONNX runtime and has a
+# model the app can actually download. Leaving `ort` in the default set
+# cost every build a ~100 MB prebuilt download for a code path that, in
+# practice, no install ever reached: nothing shipped
+# `models/silero_vad.onnx`, so every `SileroDetector` fell back to the RMS
+# energy detector.
+default = []
+# Silero VAD via the `ort` ONNX Runtime. Still here for anyone who has an
+# ONNX Silero model on disk, but it is no longer the gate the app relies
+# on. Cannot be combined with `neural-diarization` — see below.
+silero-onnx = ["dep:ort"]
 pyannote = []  # Enable pyannote.audio Python integration for neural diarization
 gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via Vulkan (NVIDIA/AMD/Intel)
 # "Pemisahan pembicara akurat": sherpa-onnx offline diarization
@@ -109,6 +120,11 @@ gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via V
 # availability in the path of `cargo test` for every contributor. Linux CI
 # builds it; macOS and Windows status is tracked in
 # docs/NEURAL-DIARIZATION.md.
+#
+# MUTUALLY EXCLUSIVE with `silero-onnx`: both crates statically link their
+# own copy of ONNX Runtime, and enabling both makes the linker reject the
+# binary with several hundred duplicate-symbol errors. `src/lib.rs` turns
+# that into one readable `compile_error!`.
 neural-diarization = ["dep:sherpa-onnx"]
 
 # OpenMP hanya untuk Linux — macOS GitHub Actions runner tidak punya libomp

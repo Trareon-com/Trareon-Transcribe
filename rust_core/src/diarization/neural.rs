@@ -190,11 +190,13 @@ pub fn assign_from_turns(turns: &[SpeakerTurn], segments: &mut [Segment]) -> usi
 
 #[cfg(feature = "neural-diarization")]
 fn run(samples: &[f32], models: &DiarizationModels) -> TranscribeResult<Vec<SpeakerTurn>> {
-    use sherpa_onnx::offline_speaker_diarization::{
+    // Flat re-exports at the crate root; the modules themselves are
+    // private (`sherpa_onnx::lib.rs` is `mod x; pub use x::*;`).
+    use sherpa_onnx::{
         FastClusteringConfig, OfflineSpeakerDiarization, OfflineSpeakerDiarizationConfig,
         OfflineSpeakerSegmentationModelConfig, OfflineSpeakerSegmentationPyannoteModelConfig,
+        SpeakerEmbeddingExtractorConfig,
     };
-    use sherpa_onnx::speaker_embedding::SpeakerEmbeddingExtractorConfig;
 
     use crate::error::TranscribeError;
     use crate::vad::SegmentationConfig;
@@ -245,8 +247,10 @@ fn run(samples: &[f32], models: &DiarizationModels) -> TranscribeResult<Vec<Spea
     let result = diarizer
         .process(samples)
         .ok_or_else(|| TranscribeError::Transcription("sherpa-onnx diarization failed".into()))?;
-    let mut turns: Vec<SpeakerTurn> = result
-        .segments()
+    // Already in time order, which is what `assign_from_turns` needs to
+    // renumber the clusters by first appearance.
+    let turns: Vec<SpeakerTurn> = result
+        .sort_by_start_time()
         .into_iter()
         .map(|segment| SpeakerTurn {
             start: segment.start as f64,
@@ -254,7 +258,6 @@ fn run(samples: &[f32], models: &DiarizationModels) -> TranscribeResult<Vec<Spea
             cluster: segment.speaker.max(0) as u32,
         })
         .collect();
-    turns.sort_by(|a, b| a.start.total_cmp(&b.start));
     tracing::info!(turns = turns.len(), "neural diarization completed");
     Ok(turns)
 }
