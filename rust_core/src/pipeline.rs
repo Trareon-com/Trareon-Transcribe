@@ -40,7 +40,7 @@ use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
 use crate::progressive::ProgressiveEngine;
-use crate::stt::WhisperEngine;
+use crate::stt::{DecodeOptions, WhisperEngine};
 use crate::vad::{DualVad, VadConfig, FRAME_SAMPLES_10MS};
 
 pub struct LivePipeline<'a> {
@@ -853,12 +853,13 @@ impl<'a> LivePipeline<'a> {
                 / 16_000.0;
             let prompt =
                 crate::glossary::build_initial_prompt(&self.glossary, &self.last_transcript_tail);
-            let segments = self.engine.transcribe_chunk(
+            let segments = self.engine.transcribe_chunk_with(
                 &chunk,
                 &self.source,
                 chunk_start,
                 self.language.as_deref(),
                 Some(&prompt.text),
+                DecodeOptions::live(),
             )?;
             for mut segment in segments {
                 segment.speaker = self.diarizer.identify_speaker(&self.source, &chunk);
@@ -964,6 +965,7 @@ impl<'a> LivePipelineHpt<'a> {
                 chunk_start,
                 language,
                 initial_prompt,
+                DecodeOptions::live(),
             )?;
             let mut refined_segs = self.engine.transcribe_refine(
                 &chunk,
@@ -971,6 +973,7 @@ impl<'a> LivePipelineHpt<'a> {
                 chunk_start,
                 language,
                 initial_prompt,
+                DecodeOptions::live(),
             )?;
             for segment in quick_segs.iter_mut() {
                 segment.speaker = self.diarizer.identify_speaker(&self.source, &chunk);

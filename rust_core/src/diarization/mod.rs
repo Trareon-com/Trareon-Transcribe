@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "pyannote")]
 use std::process::Command;
 
+/// Opt-in sherpa-onnx diarization ("Pemisahan pembicara akurat").
+pub mod neural;
+
 #[derive(Debug, Clone)]
 pub struct SpeakerCluster {
     pub id: String,
@@ -327,6 +330,15 @@ pub fn label_segments(
             .get(start.min(samples.len())..end.min(samples.len()))
             .unwrap_or(&[]);
         segment.speaker = diarizer.identify_speaker(&segment.source, window);
+    }
+    // When the user asked for accurate speaker separation and the models
+    // are installed, the neural pass overwrites these labels. It runs
+    // *after* rather than instead so a sherpa failure leaves a transcript
+    // with speakers in it rather than none — see `neural::relabel_segments`.
+    match neural::relabel_segments(samples, segments) {
+        Ok(0) => {}
+        Ok(speakers) => tracing::info!(speakers, "neural diarization relabelled the transcript"),
+        Err(e) => tracing::warn!(%e, "neural diarization pass errored"),
     }
 }
 

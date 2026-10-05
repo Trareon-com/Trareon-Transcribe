@@ -85,12 +85,25 @@ flutter_rust_bridge = "=2.13.0"
 whisper-rs = "0.16"
 printpdf = { version = "0.12.8", default-features = false }
 nnnoiseless = { version = "0.5.2", default-features = false }
+# Offline speaker diarization. Optional — see the `neural-diarization`
+# feature below for why it is not a default dependency.
+sherpa-onnx = { version = "1.13.8", optional = true }
 
 [features]
 default = ["silero-onnx"]
 silero-onnx = ["dep:ort"]  # Enable Silero VAD via ONNX Runtime
 pyannote = []  # Enable pyannote.audio Python integration for neural diarization
 gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via Vulkan (NVIDIA/AMD/Intel)
+# "Pemisahan pembicara akurat": sherpa-onnx offline diarization
+# (pyannote segmentation 3.0 + 3D-Speaker CAM++).
+#
+# Off by default on purpose. `sherpa-onnx-sys`'s build script downloads a
+# prebuilt static library from GitHub Releases *at build time* — 23 MB for
+# linux-x64, 123 MB for win-x64 — so making it mandatory would put GitHub
+# availability in the path of `cargo test` for every contributor. Linux CI
+# builds it; macOS and Windows status is tracked in
+# docs/NEURAL-DIARIZATION.md.
+neural-diarization = ["dep:sherpa-onnx"]
 
 # OpenMP hanya untuk Linux — macOS GitHub Actions runner tidak punya libomp
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies.whisper-rs]

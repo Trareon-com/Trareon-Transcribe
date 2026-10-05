@@ -44,8 +44,8 @@ use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
-use crate::stt::WhisperEngine;
-use crate::vad::{DualVad, SegmentationConfig, VadConfig};
+use crate::stt::{DecodeOptions, WhisperEngine};
+use crate::vad::SegmentationConfig;
 
 /// Inference chunk length. Matches `stt::file` so peak memory during the
 /// completion pass is the same as during an import.
@@ -158,12 +158,13 @@ pub fn complete_transcript(
             let chunk_end = (chunk_start + CHUNK_SECS).min(region.end);
             let samples = slice_secs(&audio.samples, chunk_start, chunk_end);
             if !samples.is_empty() {
-                fresh.extend(engine.transcribe_chunk(
+                fresh.extend(engine.transcribe_chunk_with(
                     samples,
                     &request.source,
                     chunk_start,
                     request.language.as_deref(),
                     initial_prompt,
+                    DecodeOptions::offline(),
                 )?);
             }
             done_secs += chunk_end - chunk_start;
@@ -231,13 +232,14 @@ fn speech_regions(
     if !vad_enabled {
         return Ok(vec![TimeRange::new(0.0, audio_secs)]);
     }
-    let mut vad = DualVad::new(VadConfig::default())?;
-    Ok(
-        crate::vad::speech_regions(&mut vad, samples, SegmentationConfig::default())?
-            .into_iter()
-            .map(|(start, end)| TimeRange::new(start, end))
-            .collect(),
-    )
+    Ok(crate::vad::detect_speech_regions(
+        samples,
+        SegmentationConfig::default(),
+        crate::stt::file::VAD_THREADS,
+    )?
+    .into_iter()
+    .map(|(start, end)| TimeRange::new(start, end))
+    .collect())
 }
 
 /// Speech not yet accounted for by `covered`, in chunks big enough to be

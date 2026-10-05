@@ -14,10 +14,15 @@ use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
-use crate::stt::WhisperEngine;
+use crate::stt::{DecodeOptions, WhisperEngine};
 
 /// Chunk duration for large-file transcription: 30 seconds of audio at 16 kHz.
 const CHUNK_DURATION_SECS: f64 = 30.0;
+
+/// Threads for the VAD pass. Four, not `available_parallelism()`: the VAD
+/// is ~1 ms per 30 ms of audio, so it finishes long before the ASR model
+/// that is about to want every core.
+pub(crate) const VAD_THREADS: i32 = 4;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscribeFileResult {
@@ -84,12 +89,13 @@ pub fn transcribe_file_reporting(
             let chunk_end = (chunk_start + CHUNK_DURATION_SECS).min(*region_end);
             let chunk = slice_secs(&audio.samples, chunk_start, chunk_end);
             if !chunk.is_empty() {
-                all_segments.extend(engine.transcribe_chunk(
+                all_segments.extend(engine.transcribe_chunk_with(
                     chunk,
                     "file",
                     chunk_start,
                     language,
                     initial_prompt,
+                    DecodeOptions::offline(),
                 )?);
             }
             done_work += chunk_end - chunk_start;
@@ -136,9 +142,11 @@ pub fn transcribe_file_reporting(
 /// "transcribe everything" (today's behaviour, hallucinations included),
 /// never to "transcribe nothing", which would silently lose a recording.
 fn speech_regions_or_whole_file(samples: &[f32], duration_secs: f64) -> Vec<(f64, f64)> {
-    let regions = crate::vad::DualVad::new(crate::vad::VadConfig::default()).and_then(|mut vad| {
-        crate::vad::speech_regions(&mut vad, samples, crate::vad::SegmentationConfig::default())
-    });
+    let regions = crate::vad::detect_speech_regions(
+        samples,
+        crate::vad::SegmentationConfig::default(),
+        VAD_THREADS,
+    );
     match regions {
         Ok(regions) => regions,
         Err(e) => {

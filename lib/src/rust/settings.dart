@@ -77,6 +77,18 @@ class AppSettings {
   /// consonant. See `crate::denoise` for the trade-off in full.
   final bool noiseReduction;
 
+  /// "Pemisahan pembicara akurat": run sherpa-onnx neural diarization
+  /// (pyannote segmentation + CAM++ embeddings) on the post-stop, import
+  /// and re-transcribe paths instead of the lightweight acoustic
+  /// clustering.
+  ///
+  /// Off by default for three reasons: it needs ~34 MB of models the
+  /// user has to agree to download, it costs roughly 0.1× realtime on
+  /// top of the ASR pass, and the lightweight clustering is adequate for
+  /// the two-source live case (mic = "Saya", loopback = everyone else)
+  /// that most sessions are.
+  final bool neuralDiarization;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -99,6 +111,7 @@ class AppSettings {
     this.autoRetranscribe,
     required this.pdp,
     required this.noiseReduction,
+    required this.neuralDiarization,
   });
 
   @override
@@ -123,7 +136,8 @@ class AppSettings {
       notulen.hashCode ^
       autoRetranscribe.hashCode ^
       pdp.hashCode ^
-      noiseReduction.hashCode;
+      noiseReduction.hashCode ^
+      neuralDiarization.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -150,7 +164,8 @@ class AppSettings {
           notulen == other.notulen &&
           autoRetranscribe == other.autoRetranscribe &&
           pdp == other.pdp &&
-          noiseReduction == other.noiseReduction;
+          noiseReduction == other.noiseReduction &&
+          neuralDiarization == other.neuralDiarization;
 }
 
 /// A summary template the user wrote or duplicated (F8).

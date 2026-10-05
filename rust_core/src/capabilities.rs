@@ -122,6 +122,21 @@ pub fn capabilities(settings: &AppSettings) -> Vec<Capability> {
             },
         ),
         local(
+            "vad_silero",
+            "Gerbang suara neural (Silero)",
+            "Model Silero bawaan whisper.cpp memutuskan bagian mana yang \
+             berisi suara manusia. Jauh lebih teliti daripada detektor \
+             energi, dan inilah pertahanan utama terhadap kalimat karangan \
+             di bagian sunyi.",
+            "vad/whisper_silero.rs",
+            settings.vad_enabled && crate::vad::whisper_silero::is_available(),
+            if !settings.vad_enabled {
+                "VAD dimatikan di Pengaturan."
+            } else {
+                "Model Silero belum diunduh — memakai detektor WebRTC + energi."
+            },
+        ),
+        local(
             "denoise",
             "Pengurangan derau (RNNoise)",
             "Menekan kipas, AC, dan derau ruangan sebelum transkripsi.",
@@ -138,9 +153,25 @@ pub fn capabilities(settings: &AppSettings) -> Vec<Capability> {
             "Pemisahan pembicara",
             "Menebak siapa berbicara dari ciri akustik, lalu memberi label \
              Saya / Peserta N.",
-            "diarization.rs",
+            "diarization/mod.rs",
             true,
             "",
+        ),
+        local(
+            "diarization_neural",
+            "Pemisahan pembicara akurat (sherpa-onnx)",
+            "Segmentasi pyannote + sidik suara CAM++, semuanya ONNX di CPU \
+             komputer ini. Dipakai pada impor berkas, transkrip ulang, dan \
+             penyelesaian setelah Stop.",
+            "diarization/neural.rs",
+            crate::diarization::neural::is_active(),
+            if !crate::diarization::neural::compiled_in() {
+                "Tidak tersedia di build ini."
+            } else if !settings.neural_diarization {
+                "Dimatikan di Pengaturan → Audio."
+            } else {
+                "Model pemisahan pembicara belum diunduh."
+            },
         ),
         local(
             "glossary",
@@ -221,12 +252,13 @@ pub fn capabilities(settings: &AppSettings) -> Vec<Capability> {
         },
         Capability {
             id: "model_download".to_string(),
-            name: "Unduh model Whisper".to_string(),
-            detail: "Hanya saat Anda menekan tombol unduh. Berkas model \
-                     diverifikasi dengan SHA256."
+            name: "Unduh model (Whisper, Silero VAD, pemisahan pembicara)".to_string(),
+            detail: "Hanya saat Anda menekan tombol unduh. Setiap berkas \
+                     diverifikasi dengan SHA256 yang sudah dipatok di dalam \
+                     aplikasi, bukan yang dikirim server."
                 .to_string(),
             runs_at: RunsAt::Internet,
-            where_label: "huggingface.co".to_string(),
+            where_label: "huggingface.co, github.com".to_string(),
             enabled: true,
             disabled_reason: String::new(),
             module: "model.rs".to_string(),
@@ -329,6 +361,7 @@ mod tests {
         let settings = AppSettings {
             noise_reduction: true,
             vad_enabled: false,
+            neural_diarization: false,
             ..AppSettings::default()
         };
         let rows = capabilities(&settings);

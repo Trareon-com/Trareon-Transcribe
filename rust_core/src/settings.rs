@@ -92,6 +92,18 @@ pub struct AppSettings {
     /// consonant. See `crate::denoise` for the trade-off in full.
     #[serde(default)]
     pub noise_reduction: bool,
+    /// "Pemisahan pembicara akurat": run sherpa-onnx neural diarization
+    /// (pyannote segmentation + CAM++ embeddings) on the post-stop, import
+    /// and re-transcribe paths instead of the lightweight acoustic
+    /// clustering.
+    ///
+    /// Off by default for three reasons: it needs ~34 MB of models the
+    /// user has to agree to download, it costs roughly 0.1× realtime on
+    /// top of the ASR pass, and the lightweight clustering is adequate for
+    /// the two-source live case (mic = "Saya", loopback = everyone else)
+    /// that most sessions are.
+    #[serde(default)]
+    pub neural_diarization: bool,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -253,6 +265,7 @@ impl Default for AppSettings {
             auto_retranscribe: None,
             pdp: crate::pdp::PdpSettings::default(),
             noise_reduction: false,
+            neural_diarization: false,
         }
     }
 }

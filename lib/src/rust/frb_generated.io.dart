@@ -67,6 +67,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ArchiveStats dco_decode_archive_stats(dynamic raw);
 
   @protected
+  AssetKind dco_decode_asset_kind(dynamic raw);
+
+  @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
 
   @protected
@@ -315,6 +318,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ModelInfo dco_decode_model_info(dynamic raw);
 
   @protected
+  NeuralDiarizationStatus dco_decode_neural_diarization_status(dynamic raw);
+
+  @protected
   NoticeLevel dco_decode_notice_level(dynamic raw);
 
   @protected
@@ -504,6 +510,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArchiveStats sse_decode_archive_stats(SseDeserializer deserializer);
+
+  @protected
+  AssetKind sse_decode_asset_kind(SseDeserializer deserializer);
 
   @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
@@ -804,6 +813,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ModelInfo sse_decode_model_info(SseDeserializer deserializer);
 
   @protected
+  NeuralDiarizationStatus sse_decode_neural_diarization_status(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   NoticeLevel sse_decode_notice_level(SseDeserializer deserializer);
 
   @protected
@@ -1008,6 +1022,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_archive_stats(ArchiveStats self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_asset_kind(AssetKind self, SseSerializer serializer);
 
   @protected
   void sse_encode_audio_device_info(
@@ -1404,6 +1421,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_neural_diarization_status(
+    NeuralDiarizationStatus self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer);

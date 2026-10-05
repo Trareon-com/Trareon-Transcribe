@@ -20,82 +20,221 @@ pub struct ModelInfo {
     pub size_bytes: u64,
     pub min_ram_gb: u32,
     pub is_bundled: bool,
+    /// What this asset is *for*. The model picker only ever offers
+    /// [`AssetKind::Transcription`]; the VAD and diarization assets are
+    /// downloaded because a feature was switched on, not chosen from a
+    /// list.
+    pub kind: AssetKind,
 }
 
-/// Pinned catalog. URLs point at the ggerganov/whisper.cpp HF mirror.
+/// The three kinds of thing the model manager downloads.
+///
+/// Before Sprint 4b the catalog held only Whisper models, so "model" and
+/// "downloadable asset" were the same word. The Silero VAD gate and the
+/// optional neural diarization both need files on disk with the same
+/// resume + checksum + Privacy Report treatment, and nothing else about
+/// them resembles a transcription model: they are not selectable, they
+/// have no RAM floor worth showing, and listing them in the Settings
+/// dropdown would offer the user a 28 MB speaker-embedding network as a
+/// choice of transcriber.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum AssetKind {
+    /// A Whisper GGML model.
+    Transcription,
+    /// whisper.cpp's Silero voice-activity model.
+    Vad,
+    /// A sherpa-onnx speaker-diarization model.
+    Diarization,
+}
+
+/// One pinned entry of the catalog.
+#[derive(Debug, Clone, Copy)]
+pub struct CatalogEntry {
+    pub id: &'static str,
+    pub filename: &'static str,
+    pub min_ram_gb: u32,
+    pub is_bundled: bool,
+    pub sha256: &'static str,
+    /// Full download URL. Not a template: Sprint 4b added assets that do
+    /// not live in the whisper.cpp repository, and deriving the URL from
+    /// the filename silently sent those requests to the wrong host.
+    pub url: &'static str,
+    pub kind: AssetKind,
+}
+
+/// Base URL of the whisper.cpp GGML mirror, for the entries that use it.
+const WHISPER_CPP: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
+
+/// Pinned catalog.
+///
 /// `sha256` empty means "not yet pinned" — `verify_checksum` hard-fails
 /// on an empty expected hash rather than silently trusting the download
-/// (STRIDE §86.1), so an empty entry here blocks that model's download
+/// (STRIDE §86.1), so an empty entry here blocks that asset's download
 /// until someone fills in the real hash, by design.
 ///
-/// `tiny`'s hash below was captured directly from a manual download of
-/// https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
-/// (`shasum -a 256`) during a live end-to-end smoke test; the rest are
-/// still unpinned pending the same verification.
-pub const KNOWN_MODELS: &[(&str, &str, u32, bool, &str)] = &[
-    (
-        "tiny",
-        "ggml-tiny.bin",
-        1,
-        true,
-        "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
-    ),
-    (
-        "base",
-        "ggml-base.bin",
-        1,
-        true,
-        "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
-    ),
-    (
-        "small",
-        "ggml-small.bin",
-        2,
-        false,
-        "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
-    ),
-    (
-        "medium",
-        "ggml-medium.bin",
-        4,
-        false,
-        "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
-    ),
-    (
-        "large-v3-turbo",
-        "ggml-large-v3-turbo.bin",
-        6,
-        false,
-        "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
-    ),
-    (
-        "large-v3-turbo-q5",
-        "ggml-large-v3-turbo-q5_0.bin",
-        4,
-        true,
-        "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
-    ),
+/// Every hash below was captured from a real download of the URL beside it
+/// (`sha256sum`), not copied from a listing.
+pub const KNOWN_MODELS: &[CatalogEntry] = &[
+    CatalogEntry {
+        id: "tiny",
+        filename: "ggml-tiny.bin",
+        min_ram_gb: 1,
+        is_bundled: true,
+        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-tiny.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "base",
+        filename: "ggml-base.bin",
+        min_ram_gb: 1,
+        is_bundled: true,
+        sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-base.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "small",
+        filename: "ggml-small.bin",
+        min_ram_gb: 2,
+        is_bundled: false,
+        sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-small.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "medium",
+        filename: "ggml-medium.bin",
+        min_ram_gb: 4,
+        is_bundled: false,
+        sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-medium.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "large-v3-turbo",
+        filename: "ggml-large-v3-turbo.bin",
+        min_ram_gb: 6,
+        is_bundled: false,
+        sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-large-v3-turbo.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "large-v3-turbo-q5",
+        filename: "ggml-large-v3-turbo-q5_0.bin",
+        min_ram_gb: 4,
+        is_bundled: true,
+        sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+        url: concat!(
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/",
+            "ggml-large-v3-turbo-q5_0.bin"
+        ),
+        kind: AssetKind::Transcription,
+    },
+    // --- Voice activity detection -------------------------------------
+    //
+    // 865 KB. This is the primary hallucination defence (see
+    // `vad::whisper_silero`), so it is small on purpose: it has to be
+    // cheap enough that every install downloads it.
+    CatalogEntry {
+        id: "silero-vad",
+        filename: "ggml-silero-v5.1.2.bin",
+        min_ram_gb: 1,
+        is_bundled: false,
+        sha256: "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf",
+        url: "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin",
+        kind: AssetKind::Vad,
+    },
+    // --- Neural speaker diarization (opt-in) --------------------------
+    //
+    // pyannote segmentation 3.0 + 3D-Speaker CAM++ embeddings, the pair
+    // sherpa-onnx's own diarization example uses. ~34 MB together.
+    CatalogEntry {
+        id: "diarization-segmentation",
+        filename: "sherpa-onnx-pyannote-segmentation-3-0.onnx",
+        min_ram_gb: 1,
+        is_bundled: false,
+        sha256: "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
+        url: concat!(
+            "https://huggingface.co/csukuangfj/",
+            "sherpa-onnx-pyannote-segmentation-3-0/resolve/main/model.onnx"
+        ),
+        kind: AssetKind::Diarization,
+    },
+    CatalogEntry {
+        id: "diarization-embedding",
+        filename: "3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx",
+        min_ram_gb: 1,
+        is_bundled: false,
+        sha256: "f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11",
+        url: concat!(
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/",
+            "speaker-recongition-models/",
+            "3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx"
+        ),
+        kind: AssetKind::Diarization,
+    },
 ];
 
+/// The catalog entry for `id`, whatever kind it is.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn catalog_entry(id: &str) -> Option<&'static CatalogEntry> {
+    KNOWN_MODELS.iter().find(|entry| entry.id == id)
+}
+
+impl CatalogEntry {
+    fn to_info(self, models_dir: &Path) -> ModelInfo {
+        let path = models_dir.join(self.filename);
+        let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        ModelInfo {
+            id: self.id.to_string(),
+            name: format!("{} ({})", self.id, self.filename),
+            url: self.url.to_string(),
+            sha256: self.sha256.to_string(),
+            size_bytes,
+            min_ram_gb: self.min_ram_gb,
+            is_bundled: self.is_bundled,
+            kind: self.kind,
+        }
+    }
+}
+
+/// The transcription models, which are the only ones a user picks between.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn list_available_models(models_dir: &Path) -> Vec<ModelInfo> {
     KNOWN_MODELS
         .iter()
-        .map(|(id, filename, min_ram_gb, is_bundled, sha256)| {
-            let path = models_dir.join(filename);
-            let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-            ModelInfo {
-                id: id.to_string(),
-                name: format!("{id} ({filename})"),
-                url: format!(
-                    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{filename}"
-                ),
-                sha256: sha256.to_string(),
-                size_bytes,
-                min_ram_gb: *min_ram_gb,
-                is_bundled: *is_bundled,
-            }
-        })
+        .filter(|entry| entry.kind == AssetKind::Transcription)
+        .map(|entry| entry.to_info(models_dir))
+        .collect()
+}
+
+/// The non-transcription assets: the VAD gate and the diarization pair.
+///
+/// Surfaced separately so the Privacy Report can list every file the app
+/// is willing to fetch, including the ones no dropdown shows.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn list_auxiliary_assets(models_dir: &Path) -> Vec<ModelInfo> {
+    KNOWN_MODELS
+        .iter()
+        .filter(|entry| entry.kind != AssetKind::Transcription)
+        .map(|entry| entry.to_info(models_dir))
         .collect()
 }
 
@@ -147,10 +286,7 @@ pub fn model_search_dirs(library_dir: &Path) -> Vec<PathBuf> {
 /// `None` when the model really is not installed anywhere.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn find_model_file(library_dir: &Path, model_id: &str) -> Option<PathBuf> {
-    let filename = KNOWN_MODELS
-        .iter()
-        .find(|(id, ..)| *id == model_id)
-        .map(|(_, filename, ..)| *filename)?;
+    let filename = catalog_entry(model_id)?.filename;
     model_search_dirs(library_dir)
         .into_iter()
         .map(|dir| dir.join(filename))
@@ -159,32 +295,16 @@ pub fn find_model_file(library_dir: &Path, model_id: &str) -> Option<PathBuf> {
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn resolve_model_path(models_dir: &Path, model_id: &str) -> Result<PathBuf, TranscribeError> {
-    KNOWN_MODELS
-        .iter()
-        .find(|(id, ..)| *id == model_id)
-        .map(|(_, filename, ..)| models_dir.join(filename))
+    catalog_entry(model_id)
+        .map(|entry| models_dir.join(entry.filename))
         .ok_or_else(|| TranscribeError::Model(format!("unknown model id: {model_id}")))
 }
 
 #[flutter_rust_bridge::frb(ignore)]
 pub fn resolve_model_info(models_dir: &Path, model_id: &str) -> Result<ModelInfo, TranscribeError> {
-    let (id, filename, min_ram_gb, is_bundled, sha256) = KNOWN_MODELS
-        .iter()
-        .find(|(id, ..)| *id == model_id)
-        .copied()
-        .ok_or_else(|| TranscribeError::Model(format!("unknown model id: {model_id}")))?;
-
-    let path = models_dir.join(filename);
-    let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    Ok(ModelInfo {
-        id: id.to_string(),
-        name: format!("{id} ({filename})"),
-        url: format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{filename}"),
-        sha256: sha256.to_string(),
-        size_bytes,
-        min_ram_gb,
-        is_bundled,
-    })
+    catalog_entry(model_id)
+        .map(|entry| entry.to_info(models_dir))
+        .ok_or_else(|| TranscribeError::Model(format!("unknown model id: {model_id}")))
 }
 
 /// Verify a downloaded file's SHA256 against an expected hex digest.
@@ -286,11 +406,20 @@ pub async fn download_with_resume(
         .and_then(|f| f.to_str())
         .unwrap_or("model.bin");
 
-    let urls = vec![
-        url.to_string(),
-        format!("https://huggingface.co/ggerganov/whisper.cpp/raw/main/{filename}"),
-        format!("https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/{filename}"),
-    ];
+    // The mirror fallbacks only exist for the whisper.cpp GGML repository.
+    // Appending them unconditionally sent every Silero-VAD and
+    // sherpa-onnx download to a path that cannot hold it, so a transient
+    // failure on the real URL turned into two guaranteed 404s and an error
+    // message naming the wrong host.
+    let mut urls = vec![url.to_string()];
+    if url.starts_with(WHISPER_CPP) {
+        urls.push(format!(
+            "https://huggingface.co/ggerganov/whisper.cpp/raw/main/{filename}"
+        ));
+        urls.push(format!(
+            "https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/{filename}"
+        ));
+    }
 
     let mut last_error = None;
     for target_url in &urls {

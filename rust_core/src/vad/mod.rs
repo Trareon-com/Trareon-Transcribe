@@ -16,6 +16,9 @@ mod silero;
 #[cfg(feature = "silero-onnx")]
 pub use silero::SileroVad;
 
+/// whisper.cpp's own Silero VAD — the primary gate since Sprint 4b.
+pub mod whisper_silero;
+
 /// Frame size WebRTC VAD accepts at 16kHz (10ms, 20ms, or 30ms frames).
 pub const FRAME_SAMPLES_10MS: usize = 160;
 
@@ -223,16 +226,55 @@ pub struct SegmentationConfig {
     /// Added either side of each region, so a word whose onset the detector
     /// clipped is still inside the audio handed to Whisper.
     pub pad_secs: f64,
+    /// Speech probability at or above which a frame is speech. Only the
+    /// neural detectors have a probability to compare — the RMS energy
+    /// fallback uses [`VadConfig::confirmation_threshold`] instead.
+    pub threshold: f32,
 }
 
 impl Default for SegmentationConfig {
     fn default() -> Self {
         Self {
-            tail_silence_secs: 0.6,
+            // 500 ms, not the 600 ms this used to carry: Research Round 2
+            // §2.2.2 measures 500 ms as the point where a sentence stops
+            // fragmenting without silence leaking into the chunk, and
+            // whisper.cpp's own VAD is tuned around the same figure.
+            tail_silence_secs: 0.5,
             min_speech_secs: 0.25,
             pad_secs: 0.3,
+            threshold: 0.5,
         }
     }
+}
+
+/// The speech spans of `samples`, using whisper.cpp's Silero VAD when its
+/// model is installed and the WebRTC+energy detector when it is not.
+///
+/// Every caller that needs "which parts of this recording hold speech"
+/// goes through here, so the live gate, the file import, the post-stop
+/// completion pass and the coverage audit cannot end up disagreeing about
+/// where the speech is.
+///
+/// Returns `Err` only when *both* detectors are unavailable. A caller that
+/// must not lose a recording (see `stt::file`) treats that as "transcribe
+/// everything" rather than "transcribe nothing".
+pub fn detect_speech_regions(
+    samples: &[f32],
+    config: SegmentationConfig,
+    threads: i32,
+) -> TranscribeResult<Vec<(f64, f64)>> {
+    match whisper_silero::SileroGate::from_settings(threads) {
+        Some(Ok(mut gate)) => match gate.speech_regions(samples, config) {
+            Ok(regions) => return Ok(regions),
+            Err(e) => tracing::warn!(%e, "Silero VAD failed; falling back to WebRTC+energy"),
+        },
+        Some(Err(e)) => {
+            tracing::warn!(%e, "Silero VAD model unusable; falling back to WebRTC+energy")
+        }
+        None => {}
+    }
+    let mut vad = DualVad::new(VadConfig::default())?;
+    speech_regions(&mut vad, samples, config)
 }
 
 /// The stretches of `samples` (16 kHz mono f32) that hold speech.
