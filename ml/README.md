@@ -54,7 +54,7 @@ prefix for brevity.
 | `eval/` | normalisation, WER/CER, the benchmark harness |
 | `train/` | LoRA fine-tuning, VRAM dry run, merge + GGML export |
 | `record_kit/` | consent form, session script, ingest for own recordings |
-| `tests/` | 247 tests, hermetic (no network, no GPU, no models) |
+| `tests/` | 255 hermetic tests (no network, no GPU, no models) + 7 opt-in live ones |
 | `DATA_CARD.md` | every source's licence, legal basis, and PII handling |
 | `MODEL_CARD_TEMPLATE.md` | what a released model has to state |
 | `BENCHMARK.md` | the measured results table |
@@ -141,4 +141,6 @@ uv run ruff check . && uv run ruff format --check .
 CI runs the hermetic set plus lint (`.github/workflows/ml.yml`). Tests
 needing the network, a GPU, or more than ten seconds are marked and
 excluded by default — a test that silently stops testing because
-`mkri.id` changed is worse than no test.
+`mkri.id` changed is worse than no test. The `network` set exists to
+notice **when the access situation changes**: run it with `-s` and its
+output is the access-status report.
