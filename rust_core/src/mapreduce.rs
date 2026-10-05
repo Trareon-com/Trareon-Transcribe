@@ -42,6 +42,16 @@ pub struct TranscriptChunk {
     pub end_secs: f64,
     /// Rendered `[mm:ss] Speaker: text` lines.
     pub text: String,
+    /// 0-based index of this window's first usable segment in the whole
+    /// transcript, and how many it holds.
+    ///
+    /// Carried explicitly rather than recovered by counting `text`'s
+    /// lines: a segment whose text contains a newline would shift every
+    /// index after it, and the notulen path numbers each window's
+    /// segments against the *whole* transcript so that a citation in a
+    /// window's notes still resolves after the reduce step.
+    pub first_index: u32,
+    pub count: u32,
 }
 
 impl TranscriptChunk {
@@ -95,8 +105,10 @@ pub fn chunk_by_time(
     let mut current = String::new();
     let mut start = usable[0].timestamp;
     let mut end = start;
+    let mut first_index = 0u32;
+    let mut count = 0u32;
 
-    for segment in usable {
+    for (position, segment) in usable.into_iter().enumerate() {
         let line = render(segment);
         let would_span = segment.timestamp + segment.duration - start;
         let would_exceed_time = !current.is_empty() && would_span > window_secs;
@@ -108,13 +120,18 @@ pub fn chunk_by_time(
                 start_secs: start,
                 end_secs: end,
                 text: std::mem::take(&mut current),
+                first_index,
+                count,
             });
             start = segment.timestamp;
+            first_index = position as u32;
+            count = 0;
         }
         if !current.is_empty() {
             current.push('\n');
         }
         current.push_str(&line);
+        count += 1;
         end = segment.timestamp + segment.duration.max(0.0);
     }
     if !current.is_empty() {
@@ -124,6 +141,8 @@ pub fn chunk_by_time(
             start_secs: start,
             end_secs: end,
             text: current,
+            first_index,
+            count,
         });
     }
     let total = chunks.len() as u32;

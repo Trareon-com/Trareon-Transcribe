@@ -248,9 +248,189 @@ impl NotulenTemplate {
     }
 }
 
+/// Fills a [`NotulenForm`] from the model's JSON, keeping whatever the
+/// user already typed.
+///
+/// `base` is the form as the user left it — instansi, nomor, hari,
+/// notulis and the rest. Only the body sections the model produced are
+/// overwritten, because regenerating a notulen must not wipe the
+/// identity block the notulis filled in by hand.
+///
+/// `pembahasan` is rendered as Markdown rather than kept structured: the
+/// DOCX renderer already parses Markdown for the body (headings,
+/// bullets, tables), the user edits it as text in the export form, and a
+/// second structured path would mean two renderers to keep in step.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn to_form(
+    notulen: &schema::NotulenJson,
+    template: NotulenTemplate,
+    base: &crate::export::notulen::NotulenForm,
+) -> crate::export::notulen::NotulenForm {
+    use crate::export::notulen::{NotulenForm, RisalahEntry, TindakLanjut};
+
+    let mut pembahasan = String::new();
+    for item in &notulen.pembahasan {
+        if !item.topik.trim().is_empty() {
+            pembahasan.push_str(&format!("## {}\n", item.topik.trim()));
+        }
+        if !item.uraian.trim().is_empty() {
+            pembahasan.push_str(item.uraian.trim());
+            pembahasan.push('\n');
+        }
+        pembahasan.push('\n');
+    }
+
+    NotulenForm {
+        template,
+        ringkasan: notulen.ringkasan.trim().to_string(),
+        peserta: if notulen.peserta.is_empty() {
+            base.peserta.clone()
+        } else {
+            notulen.peserta.clone()
+        },
+        agenda: if notulen.agenda.is_empty() {
+            base.agenda.clone()
+        } else {
+            notulen.agenda.clone()
+        },
+        pihak: if notulen.pihak.is_empty() {
+            base.pihak.clone()
+        } else {
+            notulen.pihak.clone()
+        },
+        pembahasan: pembahasan.trim().to_string(),
+        jalannya_rapat: notulen
+            .jalannya_rapat
+            .iter()
+            .map(|item| RisalahEntry {
+                pembicara: item.pembicara.trim().to_string(),
+                pokok: item.pokok.trim().to_string(),
+            })
+            .collect(),
+        keputusan: notulen
+            .keputusan
+            .iter()
+            .map(|item| item.isi.trim().to_string())
+            .filter(|isi| !isi.is_empty())
+            .collect(),
+        tindak_lanjut: notulen
+            .tindak_lanjut
+            .iter()
+            .map(|item| TindakLanjut {
+                tugas: item.tugas.trim().to_string(),
+                penanggung_jawab: item.penanggung_jawab.trim().to_string(),
+                tenggat: item.tenggat.trim().to_string(),
+            })
+            .collect(),
+        // Everything the audio cannot supply survives untouched.
+        instansi: base.instansi.clone(),
+        unit_kerja: base.unit_kerja.clone(),
+        nomor: base.nomor.clone(),
+        judul: base.judul.clone(),
+        hari: base.hari.clone(),
+        tanggal: base.tanggal.clone(),
+        waktu: base.waktu.clone(),
+        tempat: base.tempat.clone(),
+        pimpinan: base.pimpinan.clone(),
+        notulis: base.notulis.clone(),
+        poin_penting: base.poin_penting.clone(),
+        kop_surat_path: base.kop_surat_path.clone(),
+        lampirkan_transkrip: base.lampirkan_transkrip,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn to_form_keeps_the_identity_block_the_notulis_typed() {
+        let base = crate::export::notulen::NotulenForm {
+            instansi: "KEMENTERIAN X".into(),
+            nomor: "112/SJ.5/UM.03.01/01/2026".into(),
+            hari: "Senin".into(),
+            notulis: "Budi".into(),
+            judul: "Rapat Koordinasi".into(),
+            lampirkan_transkrip: true,
+            ..Default::default()
+        };
+        let notulen = schema::parse(
+            r#"{"ringkasan": "Rapat singkat.",
+                "peserta": ["Siti"],
+                "pembahasan": [{"topik": "Pagu", "uraian": "Pagu naik."}],
+                "keputusan": [{"isi": "Pagu disetujui."}],
+                "tindak_lanjut": [{"tugas": "Susun draf", "pj": "Budi", "tenggat": "Jumat"}]}"#,
+        )
+        .unwrap()
+        .notulen;
+
+        let form = to_form(&notulen, NotulenTemplate::Dinas, &base);
+        // Model output fills the body…
+        assert_eq!(form.ringkasan, "Rapat singkat.");
+        assert_eq!(form.peserta, vec!["Siti"]);
+        assert_eq!(form.pembahasan, "## Pagu\nPagu naik.");
+        assert_eq!(form.keputusan, vec!["Pagu disetujui."]);
+        assert_eq!(form.tindak_lanjut[0].penanggung_jawab, "Budi");
+        // …and nothing the model cannot know is touched.
+        assert_eq!(form.instansi, "KEMENTERIAN X");
+        assert_eq!(form.nomor, "112/SJ.5/UM.03.01/01/2026");
+        assert_eq!(form.hari, "Senin");
+        assert_eq!(form.notulis, "Budi");
+        assert_eq!(form.judul, "Rapat Koordinasi");
+        assert!(form.lampirkan_transkrip);
+    }
+
+    #[test]
+    fn to_form_keeps_a_hand_typed_participant_list_when_the_model_found_none() {
+        let base = crate::export::notulen::NotulenForm {
+            peserta: vec!["Siti".into(), "Budi".into()],
+            agenda: vec!["Pembukaan".into()],
+            ..Default::default()
+        };
+        let notulen = schema::parse(r#"{"keputusan": [{"isi": "Selesai."}]}"#)
+            .unwrap()
+            .notulen;
+        let form = to_form(&notulen, NotulenTemplate::Dinas, &base);
+        assert_eq!(form.peserta, vec!["Siti", "Budi"]);
+        assert_eq!(form.agenda, vec!["Pembukaan"]);
+    }
+
+    #[test]
+    fn to_form_carries_the_risalah_record_and_the_parties() {
+        let notulen = schema::parse(
+            r#"{"jalannya_rapat": [{"pembicara": "Ketua", "pokok": "membuka rapat"}],
+                "pihak": ["Sumarno", "Herlina"],
+                "keputusan": [{"isi": "Sepakat."}]}"#,
+        )
+        .unwrap()
+        .notulen;
+        let form = to_form(
+            &notulen,
+            NotulenTemplate::Risalah,
+            &crate::export::notulen::NotulenForm::default(),
+        );
+        assert_eq!(form.jalannya_rapat.len(), 1);
+        assert_eq!(form.jalannya_rapat[0].pembicara, "Ketua");
+        assert_eq!(form.pihak, vec!["Sumarno", "Herlina"]);
+        assert_eq!(form.template, NotulenTemplate::Risalah);
+    }
+
+    #[test]
+    fn to_form_renders_an_untitled_topic_as_plain_prose() {
+        let notulen = schema::parse(
+            r#"{"pembahasan": [{"uraian": "Satu."}, {"uraian": "Dua."}],
+                "keputusan": [{"isi": "Selesai."}]}"#,
+        )
+        .unwrap()
+        .notulen;
+        let form = to_form(
+            &notulen,
+            NotulenTemplate::Ringkas,
+            &crate::export::notulen::NotulenForm::default(),
+        );
+        assert_eq!(form.pembahasan, "Satu.\n\nDua.");
+        assert!(!form.pembahasan.contains("##"), "no empty headings");
+    }
 
     #[test]
     fn every_template_requires_the_three_core_sections_or_explains_itself() {
@@ -332,5 +512,72 @@ mod tests {
     #[test]
     fn the_default_template_is_the_full_dinas_form() {
         assert_eq!(NotulenTemplate::default(), NotulenTemplate::Dinas);
+    }
+
+    /// `(path, contents)` of the fixture Dart's copy of the table is
+    /// checked against.
+    fn template_fixture() -> (std::path::PathBuf, String) {
+        let root = std::path::PathBuf::from(
+            std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into()),
+        );
+        let mut rows = Vec::new();
+        for template in NotulenTemplate::all() {
+            rows.push(serde_json::json!({
+                "id": template.id(),
+                "label": template.label(),
+                "description": template.description(),
+                "document_title": template.document_title(),
+                "jenis_naskah": template.jenis_naskah(),
+                "formal": template.is_formal(),
+                "required_sections": template
+                    .required_sections()
+                    .iter()
+                    .map(|section| section.heading)
+                    .collect::<Vec<_>>(),
+            }));
+        }
+        let text = format!(
+            "{}\n",
+            serde_json::to_string_pretty(&serde_json::Value::Array(rows)).unwrap()
+        );
+        (root.join("../test/fixtures/notulen_templates.json"), text)
+    }
+
+    /// The Dart picker shows labels and descriptions this enum owns.
+    ///
+    /// They are duplicated in `lib/state/notulen_templates.dart` because
+    /// the picker is built inside `build()` and a bridge round trip there
+    /// would make the dialog open empty. The duplication is only safe if
+    /// it is checked, so both sides compare against this one file.
+    #[test]
+    fn the_template_table_dart_copies_is_current() {
+        let (path, expected) = template_fixture();
+        let actual = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+            panic!(
+                "{} is missing ({e}); regenerate with \
+                 TRAREON_DUMP_PROMPTS=1 cargo test --lib notulen::tests",
+                path.display()
+            )
+        });
+        assert_eq!(
+            actual.trim_end(),
+            expected.trim_end(),
+            "{} drifted; regenerate with TRAREON_DUMP_PROMPTS=1 cargo test \
+             --lib notulen::tests, then update lib/state/notulen_templates.dart",
+            path.display()
+        );
+    }
+
+    /// Writes the fixture when `TRAREON_DUMP_PROMPTS` is set.
+    #[test]
+    fn dump_notulen_templates() {
+        if std::env::var("TRAREON_DUMP_PROMPTS").is_err() {
+            return;
+        }
+        let (path, text) = template_fixture();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, text).unwrap();
     }
 }

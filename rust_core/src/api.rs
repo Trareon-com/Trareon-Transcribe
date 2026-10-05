@@ -318,6 +318,320 @@ pub fn format_bookmarks(bookmarks: Vec<Bookmark>) -> Vec<String> {
     crate::export::notulen::poin_penting_from_bookmarks(&bookmarks)
 }
 
+// --- Mesin notulen (Sprint 7) ----------------------------------------------
+
+/// One template, as the export form's picker shows it.
+pub struct NotulenTemplateInfo {
+    pub template: crate::notulen::NotulenTemplate,
+    /// Stable id, used in settings and the benchmark.
+    pub id: String,
+    pub label: String,
+    pub description: String,
+    /// What the document calls itself, e.g. "NOTULA RAPAT".
+    pub judul_dokumen: String,
+    /// Jenis naskah dinas for the archive sidecar.
+    pub jenis_naskah: String,
+    /// Headings this template requires, in document order.
+    pub bagian_wajib: Vec<String>,
+    /// Whether it carries a kop surat, a nomor and a signature block.
+    pub resmi: bool,
+}
+
+/// Every notulen template, in the order the picker shows them.
+pub fn notulen_templates() -> Vec<NotulenTemplateInfo> {
+    crate::notulen::NotulenTemplate::all()
+        .iter()
+        .map(|template| NotulenTemplateInfo {
+            template: *template,
+            id: template.id().to_string(),
+            label: template.label().to_string(),
+            description: template.description().to_string(),
+            judul_dokumen: template.document_title().to_string(),
+            jenis_naskah: template.jenis_naskah().to_string(),
+            bagian_wajib: template
+                .required_sections()
+                .iter()
+                .map(|section| section.heading.to_string())
+                .collect(),
+            resmi: template.is_formal(),
+        })
+        .collect()
+}
+
+/// A generated notulen plus every check that was run on it.
+pub struct NotulenHasil {
+    /// Prefilled form, ready for the export screen to show and edit.
+    pub form: NotulenForm,
+    /// What the JSON parser had to forgive, in Indonesian. A long list is
+    /// a signal that the chosen model is a poor fit.
+    pub perbaikan: Vec<String>,
+    pub struktur: crate::notulen::schema::StructureReport,
+    pub fakta: crate::notulen::factcheck::LaporanFakta,
+    pub ragam: Vec<crate::notulen::register::RegisterFinding>,
+    /// `true` when the meeting was long enough to need map-reduce.
+    pub map_reduce: bool,
+    /// The model's answer verbatim. Shown in Diagnostik, never in the
+    /// document — a notulen the parser mangled is only debuggable if the
+    /// original survived.
+    pub mentah: String,
+}
+
+/// Generates a notulen from `segments` and checks it.
+///
+/// The only networked call in the notulen path, and it runs once per
+/// explicit press of "Buat Notulen". `base` is the form as the user left
+/// it, so regenerating does not wipe the identity block they typed.
+///
+/// Progress is published for [`read_summary_progress`] to poll, the same
+/// way the map-reduce summary does: a thirty-minute meeting is several
+/// round trips and the user has to see which.
+pub async fn generate_notulen(
+    config: crate::summary::SummaryConfig,
+    template: crate::notulen::NotulenTemplate,
+    segments: Vec<Segment>,
+    bookmarks: Vec<Bookmark>,
+    base: NotulenForm,
+) -> Result<NotulenHasil, TranscribeError> {
+    let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
+    crate::summary::reset_progress();
+    let outcome = crate::summary::generate_notulen(
+        config,
+        template,
+        segments.clone(),
+        marks,
+        crate::summary::publish_progress,
+    )
+    .await;
+    crate::summary::reset_progress();
+    let response = outcome?;
+
+    let notulen = &response.parsed.notulen;
+    let form = crate::notulen::to_form(notulen, template, &base);
+    let ragam = crate::notulen::register::check(&notulen_text(&form));
+    Ok(NotulenHasil {
+        struktur: crate::notulen::schema::check_structure(notulen, template),
+        fakta: crate::notulen::factcheck::periksa(notulen, &segments),
+        ragam,
+        perbaikan: response.parsed.perbaikan,
+        map_reduce: response.map_reduce,
+        mentah: response.mentah,
+        form,
+    })
+}
+
+/// The document's prose, for the register checker and the preview.
+///
+/// Headings and labels are excluded: they are the app's words, not the
+/// model's, and flagging "Tindak Lanjut" for register would be noise.
+fn notulen_text(form: &NotulenForm) -> String {
+    let mut out = String::new();
+    let mut line = |text: &str| {
+        if !text.trim().is_empty() {
+            out.push_str(text.trim());
+            out.push('\n');
+        }
+    };
+    line(&form.ringkasan);
+    for item in &form.peserta {
+        line(item);
+    }
+    for item in &form.agenda {
+        line(item);
+    }
+    for item in &form.pihak {
+        line(item);
+    }
+    for entry in &form.jalannya_rapat {
+        line(&format!("{} {}", entry.pembicara, entry.pokok));
+    }
+    line(&form.pembahasan);
+    for item in &form.keputusan {
+        line(item);
+    }
+    for row in &form.tindak_lanjut {
+        line(&format!(
+            "{} {} {}",
+            row.tugas, row.penanggung_jawab, row.tenggat
+        ));
+    }
+    out
+}
+
+/// Re-runs every check on a form the user has edited.
+///
+/// Citations do not survive editing — once a human rewrites a keputusan
+/// the model's `segmen` no longer describes it — so the fact check here
+/// runs without them, checking each statement against the whole
+/// transcript and its entities. That is weaker than the generated
+/// report and is the honest amount of checking available.
+pub fn periksa_notulen(
+    form: NotulenForm,
+    template: crate::notulen::NotulenTemplate,
+    segments: Vec<Segment>,
+) -> NotulenHasil {
+    let notulen = crate::notulen::schema::from_form(&form);
+    let ragam = crate::notulen::register::check(&notulen_text(&form));
+    NotulenHasil {
+        struktur: crate::notulen::schema::check_structure(&notulen, template),
+        fakta: crate::notulen::factcheck::periksa(&notulen, &segments),
+        ragam,
+        perbaikan: Vec::new(),
+        map_reduce: false,
+        mentah: String::new(),
+        form,
+    }
+}
+
+/// Applies the register fixes that have exactly one correct answer.
+///
+/// Spelling and the clock format only. A colloquial clause is left alone,
+/// because rewriting a sentence is a judgement call and a notulen is a
+/// record of what was said.
+pub fn rapikan_ragam(text: String) -> String {
+    crate::notulen::register::normalise(&text)
+}
+
+// --- Ekspor siap SRIKANDI --------------------------------------------------
+
+/// Prefills the archive metadata from the notulen form.
+pub fn srikandi_metadata_default(form: NotulenForm) -> crate::srikandi::SrikandiMetadata {
+    crate::srikandi::defaults_from_form(&form)
+}
+
+/// Checks the archive metadata before export.
+pub fn srikandi_validate(
+    metadata: crate::srikandi::SrikandiMetadata,
+) -> Vec<crate::srikandi::TemuanMetadata> {
+    crate::srikandi::validate(&metadata)
+}
+
+/// Whether the metadata is complete enough to register.
+pub fn srikandi_siap_unggah(metadata: crate::srikandi::SrikandiMetadata) -> bool {
+    crate::srikandi::siap_unggah(&metadata)
+}
+
+/// Writes the notulen and its archive sidecar into the session folder.
+///
+/// Four files: the DOCX (the signing copy), a PDF for circulation, and
+/// the metadata as JSON and CSV. The upload to SRIKANDI itself is manual
+/// — there is no API — and `docs/SRIKANDI-EXPORT.md` is the procedure.
+pub fn export_notulen_srikandi(
+    form: NotulenForm,
+    metadata: crate::srikandi::SrikandiMetadata,
+    segments: Vec<Segment>,
+    output_dir: String,
+    title: String,
+) -> Result<Vec<ExportedFile>, TranscribeError> {
+    let session_dir = crate::export::session_dir_for(&PathBuf::from(output_dir), &title);
+    std::fs::create_dir_all(&session_dir).map_err(TranscribeError::from)?;
+    let stem = format!(
+        "{} - {}",
+        form.template.jenis_naskah(),
+        crate::export::sanitize_filename(&title)
+    );
+
+    let docx_name = format!("{stem}.docx");
+    let mut written: Vec<ExportedFile> = Vec::new();
+    for (filename, bytes) in [
+        (
+            docx_name.clone(),
+            crate::export::notulen::to_docx_bytes(&form, &segments)?,
+        ),
+        (
+            format!("{stem}.pdf"),
+            crate::export::pdf::notulen_to_pdf_bytes(&form, &segments)?,
+        ),
+        (
+            format!("{stem} - metadata.json"),
+            crate::srikandi::to_json(&metadata, &docx_name).into_bytes(),
+        ),
+        (
+            format!("{stem} - metadata.csv"),
+            crate::srikandi::to_csv(&metadata, &docx_name).into_bytes(),
+        ),
+    ] {
+        let path = session_dir.join(&filename);
+        crate::export::atomic_write(&path, &bytes)?;
+        let size_bytes = std::fs::metadata(&path)
+            .map_err(TranscribeError::from)?
+            .len();
+        written.push(ExportedFile {
+            filename,
+            path: path.to_string_lossy().to_string(),
+            size_bytes,
+        });
+    }
+    Ok(written)
+}
+
+// --- Penyiapan model notulen (first run) -----------------------------------
+
+/// Checks whether an Ollama runtime answers at `base_url`.
+///
+/// Never fails: "not installed" is the expected answer on first run.
+pub async fn llm_detect(base_url: String) -> crate::summary::OllamaStatus {
+    crate::summary::detect_ollama(base_url).await
+}
+
+/// RAM and thread count of this machine, for the recommendation.
+pub fn llm_hardware() -> crate::llm_setup::HardwareProfile {
+    crate::llm_setup::HardwareProfile::probe()
+}
+
+/// The model this machine should run, and why.
+pub fn llm_recommend(
+    hardware: crate::llm_setup::HardwareProfile,
+) -> crate::llm_setup::Recommendation {
+    crate::llm_setup::recommend(&hardware)
+}
+
+/// Every model the setup step offers.
+pub fn llm_catalogue() -> Vec<crate::llm_setup::ModelOption> {
+    crate::llm_setup::catalogue()
+}
+
+/// How to install Ollama on `os` (`"macos"`, `"windows"`, `"linux"`).
+pub fn llm_install_guide(os: String) -> crate::llm_setup::InstallGuide {
+    crate::llm_setup::install_guide(&os)
+}
+
+/// The operating system this build is running on, for [`llm_install_guide`].
+pub fn current_os() -> String {
+    std::env::consts::OS.to_string()
+}
+
+/// Where a running model download has got to, or `None`.
+///
+/// A single global slot, like the map-reduce progress: only one pull runs
+/// at a time because the button disables itself, and polling is how Dart
+/// sees inside one long-lived FRB future.
+static PULL_PROGRESS: std::sync::Mutex<Option<crate::llm_setup::PullProgress>> =
+    std::sync::Mutex::new(None);
+
+pub fn read_llm_pull_progress() -> Option<crate::llm_setup::PullProgress> {
+    PULL_PROGRESS.lock().ok()?.clone()
+}
+
+/// Downloads `model` into the Ollama at `base_url`.
+///
+/// Records one audit entry on success, so the Privacy Report shows that
+/// the app fetched something over the network and from where.
+pub async fn llm_pull_model(base_url: String, model: String) -> Result<(), TranscribeError> {
+    if let Ok(mut slot) = PULL_PROGRESS.lock() {
+        *slot = None;
+    }
+    let result = crate::summary::pull_model(base_url, model, |progress| {
+        if let Ok(mut slot) = PULL_PROGRESS.lock() {
+            *slot = Some(progress);
+        }
+    })
+    .await;
+    if let Ok(mut slot) = PULL_PROGRESS.lock() {
+        *slot = None;
+    }
+    result
+}
+
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
 /// recording as WAV files into the same session folder `export_session`
 /// uses (blueprint §7.1: per-track mic.wav + speaker.wav). Call once, after

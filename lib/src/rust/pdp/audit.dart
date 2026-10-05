@@ -18,6 +18,9 @@ enum AuditAction {
   redactionApplied,
   retentionApplied,
   auditExported,
+
+  /// A notulen model was downloaded to the summary endpoint.
+  modelPulled,
 }
 
 /// One line of the log.

@@ -599,6 +599,67 @@ fn preview(text: &str) -> String {
     }
 }
 
+/// Reads a [`NotulenJson`] back out of a form the user has edited.
+///
+/// Citations are deliberately dropped. Once a human rewrites a keputusan
+/// the model's `segmen` no longer describes it, and carrying the old
+/// numbers forward would mean the fact check vouching for an edited
+/// sentence on the strength of a citation the model made for a different
+/// one. Re-checking an edited form is therefore weaker than checking a
+/// generated one — which is the honest amount of checking available.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn from_form(form: &crate::export::notulen::NotulenForm) -> NotulenJson {
+    NotulenJson {
+        ringkasan: form.ringkasan.trim().to_string(),
+        peserta: form.peserta.clone(),
+        agenda: form.agenda.clone(),
+        pihak: form.pihak.clone(),
+        jalannya_rapat: form
+            .jalannya_rapat
+            .iter()
+            .map(|entry| Intervensi {
+                pembicara: entry.pembicara.clone(),
+                pokok: entry.pokok.clone(),
+                segmen: Vec::new(),
+            })
+            .collect(),
+        // The body is Markdown by the time it reaches the form, so each
+        // non-heading paragraph becomes one topic. The structure check
+        // only asks whether the section is filled.
+        pembahasan: form
+            .pembahasan
+            .split("\n\n")
+            .map(str::trim)
+            .filter(|block| !block.is_empty())
+            .map(|block| Pembahasan {
+                topik: String::new(),
+                uraian: block.to_string(),
+                segmen: Vec::new(),
+            })
+            .collect(),
+        keputusan: form
+            .keputusan
+            .iter()
+            .filter(|isi| !isi.trim().is_empty())
+            .map(|isi| Keputusan {
+                isi: isi.trim().to_string(),
+                segmen: Vec::new(),
+            })
+            .collect(),
+        tindak_lanjut: form
+            .tindak_lanjut
+            .iter()
+            .filter(|row| !row.tugas.trim().is_empty())
+            .map(|row| TindakLanjut {
+                tugas: row.tugas.trim().to_string(),
+                penanggung_jawab: row.penanggung_jawab.trim().to_string(),
+                tenggat: row.tenggat.trim().to_string(),
+                segmen: Vec::new(),
+            })
+            .collect(),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Structure compliance
 // ---------------------------------------------------------------------------

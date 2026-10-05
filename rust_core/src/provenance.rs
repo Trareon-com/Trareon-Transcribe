@@ -77,11 +77,23 @@ pub fn provenance_instruction() -> String {
 /// and `[0]` reads like an error to a language model as much as to a
 /// person.
 pub fn numbered_transcript(segments: &[Segment]) -> String {
+    numbered_transcript_from(segments, 0)
+}
+
+/// [`numbered_transcript`] for one window of a long meeting, numbered
+/// against the whole transcript.
+///
+/// `offset` is the index of `segments[0]` in the full transcript, so a
+/// window's notes cite ids that still resolve after the map-reduce
+/// reduce step has thrown the windows away. Numbering each window from
+/// 1 would make every citation past the first window point at the wrong
+/// moment — which looks like proof and is not.
+pub fn numbered_transcript_from(segments: &[Segment], offset: usize) -> String {
     let mut out = String::new();
     for (index, segment) in segments.iter().enumerate() {
         out.push_str(&format!(
             "[{}] {} ({}): {}\n",
-            index + 1,
+            offset + index + 1,
             format_timestamp(segment.timestamp),
             segment.speaker,
             segment.text.trim()

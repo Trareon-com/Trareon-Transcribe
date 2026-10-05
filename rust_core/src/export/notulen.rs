@@ -97,6 +97,10 @@ pub struct NotulenForm {
     pub notulis: String,
     pub peserta: Vec<String>,
     pub agenda: Vec<String>,
+    /// Two or three sentences of context, printed above Pembahasan.
+    /// Empty = the section is omitted entirely.
+    #[serde(default)]
+    pub ringkasan: String,
     /// Discussion body, Markdown (normally the AI summary's "Pembahasan").
     pub pembahasan: String,
     /// Risalah Rapat only: the ordered record of interventions. Ignored
@@ -772,6 +776,12 @@ fn build_notula(mut docx: Docx, form: &NotulenForm) -> Docx {
         docx = docx.add_paragraph(Paragraph::new());
     }
 
+    if !form.ringkasan.trim().is_empty() {
+        docx = docx.add_paragraph(heading("Ringkasan"));
+        docx = docx.add_paragraph(body(form.ringkasan.trim()));
+        docx = docx.add_paragraph(Paragraph::new());
+    }
+
     docx = docx.add_paragraph(heading("Pembahasan"));
     docx = if form.pembahasan.trim().is_empty() {
         docx.add_paragraph(body("Tidak ada."))
@@ -1001,6 +1011,7 @@ mod tests {
             notulis: "Budi Santoso".into(),
             peserta: vec!["Dr. Siti Aminah".into(), "Budi Santoso".into()],
             agenda: vec!["Evaluasi pagu indikatif".into(), "Jadwal Musrenbang".into()],
+            ringkasan: "Rapat membahas pagu indikatif 2027.".into(),
             pembahasan: "## Pagu\n- Pagu naik 4%\n\nDetail dibahas bersama PPBJ.".into(),
             keputusan: vec!["Pagu disetujui".into(), "Rapat lanjutan 15 Oktober".into()],
             tindak_lanjut: vec![TindakLanjut {

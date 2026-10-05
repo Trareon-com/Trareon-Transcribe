@@ -142,6 +142,18 @@ mod tests {
             "coverage.rs",
             "completion.rs",
             "hallucination.rs",
+            // The setup step's thresholds, catalogue, install text and
+            // pull-progress parser. The socket it describes belongs to
+            // `summary.rs`; if an HTTP call ever moves in here, this
+            // fails.
+            "llm_setup.rs",
+            "notulen/mod.rs",
+            "notulen/schema.rs",
+            "notulen/factcheck.rs",
+            "notulen/register.rs",
+            "notulen/prompt.rs",
+            "notulen/angka.rs",
+            "srikandi.rs",
         ];
         let forbidden = [
             "reqwest",
@@ -150,11 +162,21 @@ mod tests {
             "tokio::net",
             "download_with_resume",
         ];
+        // `llow_setup.rs` is exempt from the *URL-literal* half of the
+        // scan only, and `the_setup_module_names_urls_only_as_instructions`
+        // below is what makes that exemption safe. It is the one
+        // local-only module that legitimately holds URLs: it tells the
+        // user where to download Ollama, which is display text and not a
+        // request. The request primitives are still forbidden here.
+        const URL_EXEMPT: &[&str] = &["llm_setup.rs"];
         for relative in local_only {
             let path = base.join(relative);
             let content = std::fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("{relative} must exist for this scan: {e}"));
             for pattern in &forbidden {
+                if URL_EXEMPT.contains(&relative) && pattern.starts_with("http") {
+                    continue;
+                }
                 assert!(
                     !content.contains(pattern),
                     "{relative} contains '{pattern}' — it is documented as a \
@@ -162,6 +184,50 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The setup module may name a URL, and only this kind of URL.
+    ///
+    /// It exists to tell a user who has never heard of Ollama where to
+    /// get it, so forbidding the string outright would mean the
+    /// instructions live somewhere worse. What must stay true is that
+    /// every URL in it points at Ollama's own download page — a URL
+    /// pointing anywhere else would be either a hardcoded endpoint or an
+    /// instruction to install something the app did not vet.
+    #[test]
+    fn the_setup_module_names_urls_only_as_instructions() {
+        let content = std::fs::read_to_string(manifest_dir().join("src/llm_setup.rs"))
+            .expect("llm_setup.rs must exist");
+        for pattern in ["reqwest", "tokio::net", "TcpStream", "download_with_resume"] {
+            assert!(
+                !content.contains(pattern),
+                "llm_setup.rs contains '{pattern}' — the socket belongs to summary.rs"
+            );
+        }
+
+        let mut urls = 0usize;
+        let mut rest = content.as_str();
+        while let Some(at) = rest.find("http") {
+            rest = &rest[at..];
+            let url: String = rest
+                .chars()
+                .take_while(|c| !c.is_whitespace() && *c != '"' && *c != '`')
+                .collect();
+            // Ollama's download page, or a loopback address quoted in
+            // prose. Both are safe for the reason this gate exists:
+            // neither can carry a transcript off the machine, and the
+            // loopback default itself is owned by `summary.rs`.
+            assert!(
+                url.starts_with("https://ollama.com")
+                    || url.starts_with("http://localhost")
+                    || url.starts_with("http://127.0.0.1"),
+                "llm_setup.rs names {url:?}, which is neither Ollama's download \
+                 page nor a loopback address"
+            );
+            urls += 1;
+            rest = &rest[url.len()..];
+        }
+        assert!(urls >= 2, "the install guidance lost its download links");
     }
 
     /// Enumerates every module performing HTTP, so adding a third one is a

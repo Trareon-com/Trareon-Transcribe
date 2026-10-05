@@ -21,7 +21,19 @@ import '../src/rust/summary.dart'
 export '../src/rust/actions.dart' show ActionItem, ActionStatus;
 export '../src/rust/export.dart' show Bookmark;
 export '../src/rust/export/notulen.dart'
-    show NotulenDraft, NotulenForm, NotulenVariant, TindakLanjut;
+    show NotulenDraft, NotulenForm, RisalahEntry, TindakLanjut;
+export '../src/rust/llm_setup.dart'
+    show HardwareProfile, InstallGuide, LlmTier, ModelOption, PullProgress,
+        Recommendation;
+export '../src/rust/notulen.dart' show NotulenTemplate;
+export '../src/rust/notulen/factcheck.dart'
+    show FaktaMasalah, LaporanFakta, TemuanFakta;
+export '../src/rust/notulen/register.dart'
+    show RegisterFinding, RegisterRule;
+export '../src/rust/notulen/schema.dart' show StructureReport;
+export '../src/rust/srikandi.dart'
+    show KlasifikasiKeamanan, Sifat, SrikandiMetadata, TemuanMetadata,
+        TingkatPerkembangan, Tingkat;
 export '../src/rust/glossary.dart' show GlossaryConfig, ReplacementRule;
 export '../src/rust/mapreduce.dart' show MapReduceProgress;
 export '../src/rust/pdp.dart' show PdpSettings;

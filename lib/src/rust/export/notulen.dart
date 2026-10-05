@@ -80,6 +80,10 @@ class NotulenForm {
   final List<String> peserta;
   final List<String> agenda;
 
+  /// Two or three sentences of context, printed above Pembahasan.
+  /// Empty = the section is omitted entirely.
+  final String ringkasan;
+
   /// Discussion body, Markdown (normally the AI summary's "Pembahasan").
   final String pembahasan;
 
@@ -118,6 +122,7 @@ class NotulenForm {
     required this.notulis,
     required this.peserta,
     required this.agenda,
+    required this.ringkasan,
     required this.pembahasan,
     required this.jalannyaRapat,
     required this.pihak,
@@ -143,6 +148,7 @@ class NotulenForm {
       notulis.hashCode ^
       peserta.hashCode ^
       agenda.hashCode ^
+      ringkasan.hashCode ^
       pembahasan.hashCode ^
       jalannyaRapat.hashCode ^
       pihak.hashCode ^
@@ -170,6 +176,7 @@ class NotulenForm {
           notulis == other.notulis &&
           peserta == other.peserta &&
           agenda == other.agenda &&
+          ringkasan == other.ringkasan &&
           pembahasan == other.pembahasan &&
           jalannyaRapat == other.jalannyaRapat &&
           pihak == other.pihak &&

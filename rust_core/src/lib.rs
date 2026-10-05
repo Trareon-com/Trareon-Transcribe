@@ -48,9 +48,13 @@ pub mod flight_recorder;
 pub mod glossary;
 /// Rejects the captions Whisper invents over silence.
 pub mod hallucination;
+pub mod journal;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
-pub mod journal;
+/// First-run setup for the local notulen model: hardware-aware
+/// recommendation, per-OS install guidance, pull-progress parsing. Pure;
+/// the two networked halves live in `summary`.
+pub mod llm_setup;
 /// Long-meeting summarisation: time windows → partial notes → one
 /// document.
 pub mod mapreduce;

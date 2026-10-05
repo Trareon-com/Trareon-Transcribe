@@ -5,6 +5,7 @@ import 'package:transcribe/services/session_store.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_icons.dart';
 import 'package:transcribe/widgets/notulen_dialog.dart';
+import 'package:transcribe/widgets/settings_controls.dart';
 import 'package:transcribe/widgets/ui/app_button.dart';
 import 'package:transcribe/widgets/ui/app_chip.dart';
 import 'package:transcribe/widgets/ui/app_controls.dart';
@@ -79,14 +80,14 @@ void main() {
 
     expect(find.byType(AppDialog), findsOneWidget);
     expect(find.byType(AppTextField), findsWidgets);
-    expect(find.byType(AppSegmented<NotulenVariant>), findsOneWidget);
+    expect(find.byType(CompactDropdown<NotulenTemplate>), findsOneWidget);
     expect(find.byType(AppCheckbox), findsOneWidget);
 
     // The Material widgets the restyle replaced must not come back: they
     // carry their own type scale and their own focus treatment.
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.byType(TextFormField), findsNothing);
-    expect(find.byType(SegmentedButton<NotulenVariant>), findsNothing);
+    expect(find.byType(SegmentedButton<NotulenTemplate>), findsNothing);
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.byType(InputChip), findsNothing);
   });
@@ -120,18 +121,63 @@ void main() {
     expect(find.text('1. Jadwal penyerapan'), findsOneWidget);
   });
 
-  testWidgets('switching the variant hides the kop surat fields', (
+  testWidgets('switching to the ringkas template hides the kop surat fields', (
     tester,
   ) async {
     await open(tester);
 
     expect(find.text('Nomor Notulen'), findsOneWidget);
 
-    await tester.tap(find.text('Notulen Ringkas'));
+    await tester.tap(find.byType(CompactDropdown<NotulenTemplate>));
+    await tester.pumpAndSettle();
+    // The closed button also renders its own label, so the menu entry is
+    // the last match.
+    await tester.tap(find.text('Notulen Ringkas').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Nomor Notulen'), findsNothing);
     expect(find.text('Instansi (kop surat)'), findsNothing);
+  });
+
+  testWidgets('a berita acara asks for the parties and keeps the kop', (
+    tester,
+  ) async {
+    await open(tester);
+
+    await tester.tap(find.byType(CompactDropdown<NotulenTemplate>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Berita Acara').last);
+    await tester.pumpAndSettle();
+
+    // A berita acara is a formal naskah, so the nomor stays…
+    expect(find.text('Nomor Notulen'), findsOneWidget);
+    // …and it is the one template that needs para pihak. `skipOffstage`
+    // because the section sits below the fold of the test viewport.
+    // `AppGroupLabel` upper-cases, and `skipOffstage` because the
+    // section sits below the fold of the test viewport.
+    expect(find.text('PARA PIHAK', skipOffstage: false), findsOneWidget);
+    // Peserta is replaced, not added to: a name in both lists would be
+    // printed twice.
+    expect(find.text('PESERTA', skipOffstage: false), findsNothing);
+    expect(find.text('Tambah pihak', skipOffstage: false), findsOneWidget);
+  });
+
+  testWidgets('the picker explains the selected template', (tester) async {
+    await open(tester);
+
+    // The engine's own description, so the picker cannot promise a layout
+    // the renderer does not produce.
+    expect(
+      find.textContaining('Notula lengkap sesuai Tata Naskah Dinas'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byType(CompactDropdown<NotulenTemplate>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Berita Acara').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Naskah pembuktian'), findsOneWidget);
   });
 
   testWidgets('a tindak lanjut cell keeps its caret while typing', (
