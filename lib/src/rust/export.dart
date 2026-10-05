@@ -88,6 +88,13 @@ class Segment {
   final bool isPartial;
   final bool lowConfidence;
 
+  /// Per-word spans from whisper's token timestamps, aggregated by
+  /// [`crate::stt::words`]. Empty when the segment was produced without
+  /// word timestamps (every transcript written before Sprint 4b, and the
+  /// live preview's uncommitted tail), which is why it is
+  /// `#[serde(default)]`: an old `transcript.json` must still load.
+  final List<WordTimestamp> words;
+
   const Segment({
     required this.source,
     required this.speaker,
@@ -99,6 +106,7 @@ class Segment {
     required this.avgLogProb,
     required this.isPartial,
     required this.lowConfidence,
+    required this.words,
   });
 
   @override
@@ -112,7 +120,8 @@ class Segment {
       confidence.hashCode ^
       avgLogProb.hashCode ^
       isPartial.hashCode ^
-      lowConfidence.hashCode;
+      lowConfidence.hashCode ^
+      words.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -128,5 +137,40 @@ class Segment {
           confidence == other.confidence &&
           avgLogProb == other.avgLogProb &&
           isPartial == other.isPartial &&
-          lowConfidence == other.lowConfidence;
+          lowConfidence == other.lowConfidence &&
+          words == other.words;
+}
+
+/// One word of a segment, with the span the player highlights and the
+/// probability the "Tinjau" filter underlines on.
+class WordTimestamp {
+  final String word;
+  final double start;
+  final double end;
+
+  /// Mean of the probabilities whisper gave this word's tokens, in
+  /// `0.0..=1.0`. `0.0` means "not measured" (an interpolated word), not
+  /// "certainly wrong" — see [`crate::stt::words::interpolate_words`].
+  final double prob;
+
+  const WordTimestamp({
+    required this.word,
+    required this.start,
+    required this.end,
+    required this.prob,
+  });
+
+  @override
+  int get hashCode =>
+      word.hashCode ^ start.hashCode ^ end.hashCode ^ prob.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WordTimestamp &&
+          runtimeType == other.runtimeType &&
+          word == other.word &&
+          start == other.start &&
+          end == other.end &&
+          prob == other.prob;
 }

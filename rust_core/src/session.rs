@@ -2094,6 +2094,7 @@ mod tests {
                 confidence: 0.9,
                 is_partial: false,
                 low_confidence: false,
+                words: Vec::new(),
                 avg_log_prob: -0.2,
             }));
             s.pending_events.push(SessionEvent::Vu {
@@ -2195,6 +2196,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }
     }
 

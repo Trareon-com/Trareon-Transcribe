@@ -61,6 +61,7 @@ fn seg(text: &str, timestamp: f64, speaker: &str) -> Segment {
         avg_log_prob: -0.3,
         is_partial: false,
         low_confidence: false,
+        words: Vec::new(),
     }
 }
 

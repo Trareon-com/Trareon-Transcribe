@@ -4606,6 +4606,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<WordTimestamp> dco_decode_list_word_timestamp(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_word_timestamp).toList();
+  }
+
+  @protected
   MapReduceProgress dco_decode_map_reduce_progress(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -4948,8 +4954,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Segment dco_decode_segment(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 11)
+      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
     return Segment(
       source: dco_decode_String(arr[0]),
       speaker: dco_decode_String(arr[1]),
@@ -4961,6 +4967,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       avgLogProb: dco_decode_f_32(arr[7]),
       isPartial: dco_decode_bool(arr[8]),
       lowConfidence: dco_decode_bool(arr[9]),
+      words: dco_decode_list_word_timestamp(arr[10]),
     );
   }
 
@@ -5249,6 +5256,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt dco_decode_usize(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeU64(raw);
+  }
+
+  @protected
+  WordTimestamp dco_decode_word_timestamp(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return WordTimestamp(
+      word: dco_decode_String(arr[0]),
+      start: dco_decode_f_64(arr[1]),
+      end: dco_decode_f_64(arr[2]),
+      prob: dco_decode_f_32(arr[3]),
+    );
   }
 
   @protected
@@ -6277,6 +6298,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<WordTimestamp> sse_decode_list_word_timestamp(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <WordTimestamp>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_word_timestamp(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   MapReduceProgress sse_decode_map_reduce_progress(
     SseDeserializer deserializer,
   ) {
@@ -6714,6 +6749,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_avgLogProb = sse_decode_f_32(deserializer);
     var var_isPartial = sse_decode_bool(deserializer);
     var var_lowConfidence = sse_decode_bool(deserializer);
+    var var_words = sse_decode_list_word_timestamp(deserializer);
     return Segment(
       source: var_source,
       speaker: var_speaker,
@@ -6725,6 +6761,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       avgLogProb: var_avgLogProb,
       isPartial: var_isPartial,
       lowConfidence: var_lowConfidence,
+      words: var_words,
     );
   }
 
@@ -7067,6 +7104,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getBigUint64();
+  }
+
+  @protected
+  WordTimestamp sse_decode_word_timestamp(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_word = sse_decode_String(deserializer);
+    var var_start = sse_decode_f_64(deserializer);
+    var var_end = sse_decode_f_64(deserializer);
+    var var_prob = sse_decode_f_32(deserializer);
+    return WordTimestamp(
+      word: var_word,
+      start: var_start,
+      end: var_end,
+      prob: var_prob,
+    );
   }
 
   @protected
@@ -7930,6 +7982,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_word_timestamp(
+    List<WordTimestamp> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_word_timestamp(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_map_reduce_progress(
     MapReduceProgress self,
     SseSerializer serializer,
@@ -8274,6 +8338,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.avgLogProb, serializer);
     sse_encode_bool(self.isPartial, serializer);
     sse_encode_bool(self.lowConfidence, serializer);
+    sse_encode_list_word_timestamp(self.words, serializer);
   }
 
   @protected
@@ -8534,5 +8599,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putBigUint64(self);
+  }
+
+  @protected
+  void sse_encode_word_timestamp(WordTimestamp self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.word, serializer);
+    sse_encode_f_64(self.start, serializer);
+    sse_encode_f_64(self.end, serializer);
+    sse_encode_f_32(self.prob, serializer);
   }
 }

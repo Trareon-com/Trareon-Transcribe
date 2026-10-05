@@ -733,6 +733,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }];
         correct_segments(&mut segments, &terms(&["Kemenkeu"]));
         assert_eq!(segments[0].text, "anggaran Kemenkeu disetujui");

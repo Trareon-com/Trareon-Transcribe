@@ -4586,6 +4586,18 @@ impl SseDecode for Vec<crate::export::notulen::TindakLanjut> {
     }
 }
 
+impl SseDecode for Vec<crate::export::WordTimestamp> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::export::WordTimestamp>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for crate::mapreduce::MapReduceProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5063,6 +5075,7 @@ impl SseDecode for crate::export::Segment {
         let mut var_avgLogProb = <f32>::sse_decode(deserializer);
         let mut var_isPartial = <bool>::sse_decode(deserializer);
         let mut var_lowConfidence = <bool>::sse_decode(deserializer);
+        let mut var_words = <Vec<crate::export::WordTimestamp>>::sse_decode(deserializer);
         return crate::export::Segment {
             source: var_source,
             speaker: var_speaker,
@@ -5074,6 +5087,7 @@ impl SseDecode for crate::export::Segment {
             avg_log_prob: var_avgLogProb,
             is_partial: var_isPartial,
             low_confidence: var_lowConfidence,
+            words: var_words,
         };
     }
 }
@@ -5474,6 +5488,22 @@ impl SseDecode for usize {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u64::<NativeEndian>().unwrap() as _
+    }
+}
+
+impl SseDecode for crate::export::WordTimestamp {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_word = <String>::sse_decode(deserializer);
+        let mut var_start = <f64>::sse_decode(deserializer);
+        let mut var_end = <f64>::sse_decode(deserializer);
+        let mut var_prob = <f32>::sse_decode(deserializer);
+        return crate::export::WordTimestamp {
+            word: var_word,
+            start: var_start,
+            end: var_end,
+            prob: var_prob,
+        };
     }
 }
 
@@ -6794,6 +6824,7 @@ impl flutter_rust_bridge::IntoDart for crate::export::Segment {
             self.avg_log_prob.into_into_dart().into_dart(),
             self.is_partial.into_into_dart().into_dart(),
             self.low_confidence.into_into_dart().into_dart(),
+            self.words.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -7226,6 +7257,26 @@ impl flutter_rust_bridge::IntoIntoDart<crate::stt::file::TranscribeFileResult>
     for crate::stt::file::TranscribeFileResult
 {
     fn into_into_dart(self) -> crate::stt::file::TranscribeFileResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::export::WordTimestamp {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.word.into_into_dart().into_dart(),
+            self.start.into_into_dart().into_dart(),
+            self.end.into_into_dart().into_dart(),
+            self.prob.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::export::WordTimestamp {}
+impl flutter_rust_bridge::IntoIntoDart<crate::export::WordTimestamp>
+    for crate::export::WordTimestamp
+{
+    fn into_into_dart(self) -> crate::export::WordTimestamp {
         self
     }
 }
@@ -7986,6 +8037,16 @@ impl SseEncode for Vec<crate::export::notulen::TindakLanjut> {
     }
 }
 
+impl SseEncode for Vec<crate::export::WordTimestamp> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::export::WordTimestamp>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::mapreduce::MapReduceProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8348,6 +8409,7 @@ impl SseEncode for crate::export::Segment {
         <f32>::sse_encode(self.avg_log_prob, serializer);
         <bool>::sse_encode(self.is_partial, serializer);
         <bool>::sse_encode(self.low_confidence, serializer);
+        <Vec<crate::export::WordTimestamp>>::sse_encode(self.words, serializer);
     }
 }
 
@@ -8671,6 +8733,16 @@ impl SseEncode for usize {
             .cursor
             .write_u64::<NativeEndian>(self as _)
             .unwrap();
+    }
+}
+
+impl SseEncode for crate::export::WordTimestamp {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.word, serializer);
+        <f64>::sse_encode(self.start, serializer);
+        <f64>::sse_encode(self.end, serializer);
+        <f32>::sse_encode(self.prob, serializer);
     }
 }
 

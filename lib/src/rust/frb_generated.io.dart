@@ -306,6 +306,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
 
   @protected
+  List<WordTimestamp> dco_decode_list_word_timestamp(dynamic raw);
+
+  @protected
   MapReduceProgress dco_decode_map_reduce_progress(dynamic raw);
 
   @protected
@@ -472,6 +475,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  WordTimestamp dco_decode_word_timestamp(dynamic raw);
 
   @protected
   Map<String, String> sse_decode_Map_String_String_None(
@@ -785,6 +791,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<WordTimestamp> sse_decode_list_word_timestamp(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MapReduceProgress sse_decode_map_reduce_progress(
     SseDeserializer deserializer,
   );
@@ -967,6 +978,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WordTimestamp sse_decode_word_timestamp(SseDeserializer deserializer);
 
   @protected
   void sse_encode_Map_String_String_None(
@@ -1377,6 +1391,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_word_timestamp(
+    List<WordTimestamp> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_map_reduce_progress(
     MapReduceProgress self,
     SseSerializer serializer,
@@ -1606,6 +1626,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_word_timestamp(WordTimestamp self, SseSerializer serializer);
 }
 
 // Section: wire_class
