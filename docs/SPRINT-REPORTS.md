@@ -2948,10 +2948,10 @@ jaringan opsional**. Rincian per berkas:
 ### Berkas yang tidak masuk git
 
 Diperiksa: tidak ada audio, model, PDF, atau `data/`/`out/` yang terlacak.
-Hanya sumber: 15 berkas `train/`, 11 `tests/`, 10 `eval/`, 9 `align/`,
-7 `collect/`, 6 `record_kit/`, 5 `common/`, plus `pyproject.toml`,
-`uv.lock`, `README.md`, `DATA_CARD.md`, `MODEL_CARD_TEMPLATE.md`,
-`BENCHMARK.md`, `.gitignore`.
+Hanya sumber — 70 berkas seluruhnya: 15 di `train/`, 12 `tests/`,
+9 `eval/`, 9 `align/`, 7 `collect/`, 6 `record_kit/`, 5 `common/`, plus
+`pyproject.toml`, `uv.lock`, `README.md`, `DATA_CARD.md`,
+`MODEL_CARD_TEMPLATE.md`, `BENCHMARK.md`, dan `.gitignore`.
 
 ## Verifikasi Windows (win2060, RTX 2060 6 GB)
 
