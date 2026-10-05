@@ -61,7 +61,13 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> _load() async {
     await DartPrefs.instance.load();
+    // The notifier can be disposed while these two awaits are in flight (a
+    // test that tears down quickly, a hot restart): writing `state` after
+    // dispose throws "Bad state: Tried to use SettingsNotifier after
+    // `dispose` was called" and takes an unrelated test down with it.
+    if (!mounted) return;
     final loaded = await _bridge.loadSettings();
+    if (!mounted) return;
     if (_userActed) return;
     _userActed = true;
     final withDartPrefs = AppSettings(
@@ -120,6 +126,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     if (!await q5File.exists()) return;
     try {
       final score = await RustEngineBridge().benchmarkRtf(q5Path);
+      if (!mounted) return;
       if (score > 0) setRtfScore(score);
     } catch (_) {}
   }
@@ -160,8 +167,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     try {
       if (savePrefs != null) await savePrefs();
       if (saveToBridge) await _bridge.saveSettings(next);
+      if (!mounted) return;
       _report(null);
     } catch (e) {
+      // Same race as _load: the write can land after dispose, and rolling
+      // back into a disposed notifier must not crash the caller.
+      if (!mounted) return;
       state = previous;
       _report(
         SettingsSaveFailure(

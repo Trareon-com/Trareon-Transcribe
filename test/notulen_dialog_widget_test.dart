@@ -159,7 +159,14 @@ void main() {
     // Peserta is replaced, not added to: a name in both lists would be
     // printed twice.
     expect(find.text('PESERTA', skipOffstage: false), findsNothing);
-    expect(find.text('Tambah pihak', skipOffstage: false), findsOneWidget);
+    // The add control is an icon button: its label lives in the tooltip and
+    // the semantics node ("never nameless"), not in a Text widget.
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(find.bySemanticsLabel('Tambah pihak'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('the picker explains the selected template', (tester) async {
