@@ -80,8 +80,20 @@ void main() {
     );
   });
 
+  /// The parent is an existing *file*, so creating the target's directory
+  /// cannot succeed on any platform.
+  ///
+  /// Deliberately not an unwritable absolute path like
+  /// `/nonexistent-root-xyz/`: on Windows that is not a root at all, it is
+  /// a relative path on the current drive, and `writeBytesAtomic` creates
+  /// missing parents — so the test passed a real write, asserted nothing,
+  /// and left a stray directory at `C:\`.
   test('propagates failures rather than swallowing them', () async {
-    final target = File('/nonexistent-root-xyz/transcript.json');
+    final blocker = fileIn('not-a-directory');
+    await blocker.writeAsString('x');
+    final target = File(
+      '${blocker.path}${Platform.pathSeparator}transcript.json',
+    );
     await expectLater(
       writeStringAtomic(target, 'isi'),
       throwsA(isA<FileSystemException>()),

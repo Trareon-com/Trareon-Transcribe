@@ -101,9 +101,20 @@ void main() {
     expect(restored!.map((s) => s.text), ['kedua']);
   });
 
+  /// The session "directory" is an existing file, so the backup cannot be
+  /// written on any platform.
+  ///
+  /// Deliberately not an unwritable absolute path like
+  /// `/nonexistent-root-xyz/`: on Windows that is a relative path on the
+  /// current drive and the atomic writer creates missing parents, so the
+  /// backup succeeded and the test asserted nothing.
   test('a backup failure is raised, not swallowed', () async {
+    final blocker = File(
+      '${dir.path}${Platform.pathSeparator}not-a-directory',
+    );
+    await blocker.writeAsString('x');
     await expectLater(
-      backupTranscript('/nonexistent-root-xyz/session', segments(['x'])),
+      backupTranscript(blocker.path, segments(['x'])),
       throwsA(isA<FileSystemException>()),
     );
   });
