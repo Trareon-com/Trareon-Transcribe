@@ -41,8 +41,8 @@ use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
 use crate::progressive::ProgressiveEngine;
 use crate::streaming::{
-    join_words, HypoWord, HypothesisBuffer, LineBuilder, StreamingBuffer, MAX_WINDOW_SECS,
-    MIN_CHUNK_SECS, PRE_ROLL_SECS, UTTERANCE_END_SECS,
+    join_words, policy_for_rtf, HypoWord, HypothesisBuffer, LineBuilder, StreamPolicy,
+    StreamingBuffer, PRE_ROLL_SECS, UTTERANCE_END_SECS,
 };
 use crate::stt::{DecodeOptions, WhisperEngine};
 use crate::vad::{DualVad, VadConfig, FRAME_SAMPLES_10MS};
@@ -68,7 +68,9 @@ pub struct LivePipeline<'a> {
     /// `glossary.prioritised_terms()`, computed once per session rather than
     /// per chunk — post-correction runs on every segment.
     glossary_terms: Vec<String>,
-    /// The commit policy.
+    /// How the window is decoded and when a word becomes final.
+    policy: StreamPolicy,
+    /// The commit policy's state.
     agreement: HypothesisBuffer,
     /// Committed words waiting to become a transcript line.
     lines: LineBuilder,
@@ -214,12 +216,12 @@ impl LiveWorker {
             .clone()
             .filter(|path| path != &config.quick_model_path);
         let Some(fallback) = fallback else {
-            let engine = WhisperEngine::load_with_gpu(
+            let (engine, policy) = load_with_policy(
                 &config.quick_model_path,
                 config.gpu_enabled,
                 config.gpu_device,
             )?;
-            return Self::spawn_with_engine(engine, config, samples_rx, events_tx);
+            return Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx);
         };
 
         let key = BenchmarkKey {
@@ -246,8 +248,13 @@ impl LiveWorker {
                 };
                 tracing::info!(rtf, ?route, "single-model live keep-up check");
                 remember_route(&key, route);
+                remember_rtf(&key, rtf);
                 if route == HptRoute::DirectRefine {
-                    return Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                    // The engine that was just measured is the one that
+                    // will run, so its rtf is exactly the figure the
+                    // commit policy needs.
+                    let policy = policy_for_rtf(rtf);
+                    return Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx)
                         .map(|worker| worker.with_route(route));
                 }
                 drop(engine);
@@ -283,8 +290,8 @@ impl LiveWorker {
         } else {
             config.quick_model_path.as_path()
         };
-        let engine = WhisperEngine::load_with_gpu(model, config.gpu_enabled, config.gpu_device)?;
-        Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+        let (engine, policy) = load_with_policy(model, config.gpu_enabled, config.gpu_device)?;
+        Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx)
             .map(|worker| worker.with_route(route))
     }
 
@@ -294,6 +301,7 @@ impl LiveWorker {
     /// 548 MB refine model.
     fn spawn_with_engine(
         engine: WhisperEngine,
+        policy: StreamPolicy,
         config: LiveWorkerConfig,
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
@@ -315,13 +323,14 @@ impl LiveWorker {
         let processed = Arc::new(AtomicU64::new(0));
         let processed_thread = Arc::clone(&processed);
         let thread = std::thread::spawn(move || {
-            let mut pipeline = match LivePipeline::new(
+            let mut pipeline = match LivePipeline::with_policy(
                 &engine,
                 source.clone(),
                 language,
                 VadConfig::default(),
                 vad_enabled,
                 glossary,
+                policy,
             ) {
                 Ok(pipeline) => pipeline,
                 Err(error) => {
@@ -608,10 +617,12 @@ impl LiveWorker {
                 let route = route_for_rtf(rtf);
                 tracing::info!(rtf, ?route, mode = ?config.hpt_mode, "adaptive hpt benchmark");
                 remember_route(&key, route);
+                remember_rtf(&key, rtf);
                 if route == HptRoute::DirectRefine {
                     // Only this route can reuse the benchmark's engine; the
                     // others need a different model set.
-                    return Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                    let policy = policy_for_rtf(rtf);
+                    return Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx)
                         .map(|worker| worker.with_route(route));
                 }
                 drop(engine);
@@ -640,21 +651,18 @@ impl LiveWorker {
     ) -> Result<Self, TranscribeError> {
         let worker = match route {
             HptRoute::DirectRefine => {
-                let engine = WhisperEngine::load_with_gpu(
-                    refine_model_path,
-                    config.gpu_enabled,
-                    config.gpu_device,
-                )?;
-                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                let (engine, policy) =
+                    load_with_policy(refine_model_path, config.gpu_enabled, config.gpu_device)?;
+                Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx)
             }
             HptRoute::DualPass => Self::spawn_hpt(config, samples_rx, events_tx),
             HptRoute::QuickOnly => {
-                let engine = WhisperEngine::load_with_gpu(
+                let (engine, policy) = load_with_policy(
                     &config.quick_model_path,
                     config.gpu_enabled,
                     config.gpu_device,
                 )?;
-                Self::spawn_with_engine(engine, config, samples_rx, events_tx)
+                Self::spawn_with_engine(engine, policy, config, samples_rx, events_tx)
             }
         };
         worker.map(|worker| worker.with_route(route))
@@ -714,6 +722,81 @@ fn recall_route(key: &BenchmarkKey) -> Option<HptRoute> {
 fn remember_route(key: &BenchmarkKey, route: HptRoute) {
     if let Ok(mut routes) = routes().lock() {
         routes.insert(key.clone(), route);
+    }
+}
+
+/// Measured realtime factor per model+GPU configuration.
+///
+/// Separate from the route cache because the two answer different
+/// questions at different thresholds: whether the refine model belongs in
+/// a live pipeline at all (`HPT_LIVE_FLOOR`, 1.0), and whether the device
+/// can afford LocalAgreement-2's second decode
+/// ([`crate::streaming::LA2_RTF_FLOOR`], 2.0). A model can be cached in one
+/// and not the other — the route is measured for the model the *user*
+/// chose, the commit policy for the model that actually ends up running.
+fn measured_rtfs() -> &'static Mutex<HashMap<BenchmarkKey, f64>> {
+    static RTFS: OnceLock<Mutex<HashMap<BenchmarkKey, f64>>> = OnceLock::new();
+    RTFS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn recall_rtf(key: &BenchmarkKey) -> Option<f64> {
+    measured_rtfs().lock().ok()?.get(key).copied()
+}
+
+fn remember_rtf(key: &BenchmarkKey, rtf: f64) {
+    if let Ok(mut rtfs) = measured_rtfs().lock() {
+        rtfs.insert(key.clone(), rtf);
+    }
+}
+
+fn benchmark_key(model: &Path, gpu_enabled: bool, gpu_device: i32) -> BenchmarkKey {
+    BenchmarkKey {
+        model: model.to_string_lossy().into_owned(),
+        gpu_enabled,
+        gpu_device,
+    }
+}
+
+/// Loads `model` and resolves the live commit policy for it.
+///
+/// The device is measured once per process per model (the result is
+/// cached), with the deadline derived from the only threshold that matters
+/// here — `LA2_RTF_FLOOR` — so the check costs at most ~3.5 s on a device
+/// that is going to fail it anyway.
+///
+/// On the slow path the engine goes with the detached benchmark thread and
+/// has to be loaded again. That is the cheap case by construction: only a
+/// model this device cannot run at 2× realtime reaches it, and the model
+/// the live path settles on for such a device is the smallest installed
+/// one.
+fn load_with_policy(
+    model: &Path,
+    gpu_enabled: bool,
+    gpu_device: i32,
+) -> TranscribeResult<(WhisperEngine, StreamPolicy)> {
+    let key = benchmark_key(model, gpu_enabled, gpu_device);
+    let engine = WhisperEngine::load_with_gpu(model, gpu_enabled, gpu_device)?;
+    if let Some(rtf) = recall_rtf(&key) {
+        return Ok((engine, policy_for_rtf(rtf)));
+    }
+    let deadline = crate::benchmark::benchmark_deadline(crate::streaming::LA2_RTF_FLOOR);
+    match crate::benchmark::benchmark_rtf_bounded(engine, deadline) {
+        crate::benchmark::BenchmarkOutcome::Measured { rtf, engine } => {
+            remember_rtf(&key, rtf);
+            let policy = policy_for_rtf(rtf);
+            tracing::info!(rtf, ?policy, "live commit policy");
+            Ok((engine, policy))
+        }
+        crate::benchmark::BenchmarkOutcome::TooSlow => {
+            // Past the deadline, `rtf < LA2_RTF_FLOOR` is already known.
+            remember_rtf(&key, 0.0);
+            tracing::info!(
+                "live model is below 2x realtime; committing on sight rather \
+                 than on agreement"
+            );
+            let engine = WhisperEngine::load_with_gpu(model, gpu_enabled, gpu_device)?;
+            Ok((engine, StreamPolicy::fixed_chunk()))
+        }
     }
 }
 
@@ -859,6 +942,33 @@ impl<'a> LivePipeline<'a> {
         vad_enabled: bool,
         glossary: GlossaryConfig,
     ) -> TranscribeResult<Self> {
+        Self::with_policy(
+            engine,
+            source,
+            language,
+            vad_config,
+            vad_enabled,
+            glossary,
+            StreamPolicy::default(),
+        )
+    }
+
+    /// [`Self::new`] with an explicit commit policy.
+    ///
+    /// The worker picks it from the cached realtime-factor benchmark: a
+    /// device that cannot afford LocalAgreement-2's second decode gets
+    /// fixed chunking instead of a latency regression. See
+    /// [`crate::streaming::policy_for_rtf`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_policy(
+        engine: &'a WhisperEngine,
+        source: impl Into<String>,
+        language: Option<String>,
+        vad_config: VadConfig,
+        vad_enabled: bool,
+        glossary: GlossaryConfig,
+        policy: StreamPolicy,
+    ) -> TranscribeResult<Self> {
         let glossary_terms = if glossary.post_correction {
             glossary.prioritised_terms()
         } else {
@@ -866,6 +976,7 @@ impl<'a> LivePipeline<'a> {
         };
         Ok(Self {
             engine,
+            policy,
             window: StreamingBuffer::new(crate::decode::TARGET_SAMPLE_RATE),
             vad: DualVad::new(vad_config)?,
             vad_enabled,
@@ -892,7 +1003,7 @@ impl<'a> LivePipeline<'a> {
 
     /// Ingest one or more 16 kHz mono f32 samples.
     ///
-    /// The window is decoded when [`MIN_CHUNK_SECS`] of new audio has
+    /// The window is decoded when the policy's `min_chunk_secs` of new audio has
     /// arrived, or when the speaker has stopped — and only ever if the
     /// window holds speech at all, which is what keeps Whisper from being
     /// asked what the silence said.
@@ -927,7 +1038,7 @@ impl<'a> LivePipeline<'a> {
             return Ok(self.finish_utterance());
         }
 
-        if now - self.last_decode_secs < MIN_CHUNK_SECS && !utterance_ended {
+        if now - self.last_decode_secs < self.policy.min_chunk_secs && !utterance_ended {
             return Ok(LiveOutcome::default());
         }
         self.last_decode_secs = now;
@@ -936,12 +1047,14 @@ impl<'a> LivePipeline<'a> {
         let commit = self.agreement.insert(hypothesis);
         let tentative = Some(join_words(&commit.tentative));
         let mut words = commit.committed;
-        if utterance_ended {
+        // Fixed chunking has no second opinion to wait for: the chunk is
+        // all the audio there will ever be for these words.
+        if utterance_ended || !self.policy.require_agreement {
             words.extend(self.agreement.flush());
         }
 
         let mut lines = self.lines.push(words);
-        if utterance_ended {
+        if utterance_ended || !self.policy.require_agreement {
             lines.extend(self.lines.take());
         }
         let segments = self.segments_from_lines(lines);
@@ -952,7 +1065,7 @@ impl<'a> LivePipeline<'a> {
 
         Ok(LiveOutcome {
             segments,
-            tentative: if utterance_ended {
+            tentative: if utterance_ended || !self.policy.require_agreement {
                 Some(String::new())
             } else {
                 tentative
@@ -1083,10 +1196,32 @@ impl<'a> LivePipeline<'a> {
     }
 
     fn trim_window(&mut self, utterance_ended: bool, now: f64) {
-        if let Some((from, to)) = self
-            .window
-            .trim_window(self.agreement.committed_through(), MAX_WINDOW_SECS)
-        {
+        // Cut back to the last committed *sentence* end on every decode.
+        //
+        // Not an optimisation that can be left for later: re-decoding a
+        // window that grows for the length of the meeting is quadratic in
+        // the audio, and measured on this project's weak-CPU target
+        // (`live_bench`) that made LocalAgreement-2 take 139 s of CPU for
+        // 15 s of audio against the old chunking's 86 s — slower *and*
+        // higher-latency, which would have been a regression dressed up as
+        // a feature. A sentence boundary is also where Whisper needs the
+        // least left context, so this costs nothing in accuracy. Same
+        // policy as `ufal/whisper_streaming`'s
+        // `chunk_completed_sentence`.
+        if let Some(sentence_end) = self.agreement.last_sentence_end() {
+            self.window.trim_to(sentence_end - self.policy.keep_secs);
+        }
+        if !self.policy.require_agreement {
+            // Nothing is ever pending under fixed chunking, so the
+            // sentence-end trim above rarely fires — the commit point is
+            // what bounds the window.
+            self.window
+                .trim_to(self.agreement.committed_through() - self.policy.keep_secs);
+        }
+        if let Some((from, to)) = self.window.trim_window(
+            self.agreement.committed_through(),
+            self.policy.max_window_secs,
+        ) {
             tracing::warn!(
                 source = %self.source,
                 from,

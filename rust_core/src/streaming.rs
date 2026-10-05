@@ -81,6 +81,105 @@ pub const UTTERANCE_END_SECS: f64 = 0.8;
 /// Half a second of pre-roll is enough for Whisper to hear the attack.
 pub const PRE_ROLL_SECS: f64 = 0.5;
 
+/// Realtime factor below which LocalAgreement-2 costs more than it buys.
+///
+/// The policy decodes every second of audio at least twice — that is what
+/// "two consecutive hypotheses must agree" means — so a device needs about
+/// 2× realtime headroom on the live model before the second decode is free.
+/// Below that it is not a quality improvement, it is a latency regression:
+/// measured with `live_bench` on this project's weak-CPU target (2 cores,
+/// `ggml-tiny` at RTF ≈ 0.43), LocalAgreement-2 took 65 s of CPU for 15 s
+/// of audio against fixed chunking's 34 s, and median commit latency went
+/// from 21 s to 51 s. Both are unusable there; one is twice as unusable.
+///
+/// So the policy is chosen from the same cached benchmark the HPT route
+/// already uses, and a device that cannot afford agreement gets the fixed
+/// chunking that at least keeps up better — with the post-stop completion
+/// pass (`crate::completion`) producing the accurate transcript either way.
+pub const LA2_RTF_FLOOR: f64 = 2.0;
+
+/// How the live window is decoded and when a word becomes final.
+///
+/// Two configurations of one code path, rather than two pipelines: fixed
+/// chunking is LocalAgreement with the agreement requirement switched off
+/// and the window trimmed to the end of every hypothesis.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StreamPolicy {
+    /// New audio needed before the window is decoded again.
+    pub min_chunk_secs: f64,
+    /// Longest window handed to one decode.
+    pub max_window_secs: f64,
+    /// Require a second agreeing hypothesis before a word is final.
+    ///
+    /// `false` is the pre-Sprint-4b behaviour: every word of every chunk
+    /// is published immediately and may be contradicted by the post-stop
+    /// pass. It is kept only for devices that cannot afford the second
+    /// decode.
+    pub require_agreement: bool,
+    /// Audio kept behind the commit point for left context.
+    ///
+    /// Without it, consecutive decodes are back-to-back chunks and a word
+    /// straddling the boundary is heard by neither — measured on
+    /// `rapat_id.mp3`, non-overlapping 5-second chunks committed 17 of the
+    /// clip's 28 words against 26 for an overlapping policy. LocalAgreement
+    /// does not need it: it trims at committed *sentence* ends, where there
+    /// is a pause rather than a word.
+    pub keep_secs: f64,
+}
+
+impl StreamPolicy {
+    /// LocalAgreement-2 proper. The default, and what a device with any
+    /// headroom should run.
+    pub const fn local_agreement() -> Self {
+        Self {
+            min_chunk_secs: MIN_CHUNK_SECS,
+            max_window_secs: MAX_WINDOW_SECS,
+            require_agreement: true,
+            keep_secs: 0.0,
+        }
+    }
+
+    /// Five-second windows on a four-second stride, every word final on
+    /// sight: the pre-Sprint-4b policy exactly, down to the one second of
+    /// overlap the old `RingBuffer` carried.
+    ///
+    /// Deliberately identical rather than merely similar. This is what a
+    /// device below [`LA2_RTF_FLOOR`] falls back to, and a fallback that
+    /// quietly changed the behaviour such a device already had would be a
+    /// regression shipped under the name of an improvement. What those
+    /// devices *do* gain from this sprint is everything that is not the
+    /// commit policy: the Silero VAD gate, the decoder-side hallucination
+    /// thresholds, and word timestamps.
+    pub const fn fixed_chunk() -> Self {
+        Self {
+            min_chunk_secs: 4.0,
+            max_window_secs: 5.0,
+            require_agreement: false,
+            keep_secs: 1.0,
+        }
+    }
+}
+
+impl Default for StreamPolicy {
+    fn default() -> Self {
+        Self::local_agreement()
+    }
+}
+
+/// Picks the commit policy for a measured realtime factor.
+///
+/// `rtf` is seconds of audio transcribed per second of wall clock by the
+/// *live* model. A non-finite value means "not measured", which is treated
+/// as "assume it is fine": the correct policy is the default, and the lag
+/// indicator tells the user if it is not working out.
+pub fn policy_for_rtf(rtf: f64) -> StreamPolicy {
+    if !rtf.is_finite() || rtf >= LA2_RTF_FLOOR {
+        StreamPolicy::local_agreement()
+    } else {
+        StreamPolicy::fixed_chunk()
+    }
+}
+
 /// One word of a hypothesis, at absolute recording time.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HypoWord {
@@ -143,6 +242,16 @@ pub struct HypothesisBuffer {
     /// total — it is what the live-coverage figure in the sprint report is
     /// computed from.
     committed_count: usize,
+    /// End time of the last committed word that closed a sentence.
+    ///
+    /// The point the audio window can be cut back to *without costing
+    /// accuracy*: everything before it is final, and a sentence boundary
+    /// is where Whisper needs the least left context. Trimming here is
+    /// what keeps the window from growing for the length of the meeting —
+    /// re-decoding a window that grows without bound is quadratic, and
+    /// measured on this project's weak-CPU target it made
+    /// LocalAgreement-2 slower than the fixed chunking it replaced.
+    last_sentence_end: Option<f64>,
 }
 
 /// What one hypothesis produced.
@@ -180,6 +289,9 @@ impl HypothesisBuffer {
                 break;
             }
             self.committed_through = fresh[index].end;
+            if ends_sentence(&fresh[index].text) {
+                self.last_sentence_end = Some(fresh[index].end);
+            }
             committed.push(fresh[index].clone());
             index += 1;
         }
@@ -201,6 +313,9 @@ impl HypothesisBuffer {
         let tail = std::mem::take(&mut self.previous);
         if let Some(last) = tail.last() {
             self.committed_through = last.end;
+            // An utterance end is a sentence end whether or not the
+            // decoder put a full stop on it: the speaker stopped.
+            self.last_sentence_end = Some(last.end);
         }
         self.committed_count += tail.len();
         tail
@@ -220,6 +335,11 @@ impl HypothesisBuffer {
     /// Whether anything is waiting on a second opinion.
     pub fn has_tentative(&self) -> bool {
         !self.previous.is_empty()
+    }
+
+    /// End time of the last committed word that closed a sentence, if any.
+    pub fn last_sentence_end(&self) -> Option<f64> {
+        self.last_sentence_end
     }
 }
 
@@ -721,6 +841,58 @@ mod tests {
         };
         let round_tripped: WordTimestamp = HypoWord::from(original.clone()).into();
         assert_eq!(round_tripped, original);
+    }
+
+    #[test]
+    fn a_device_with_headroom_gets_local_agreement() {
+        assert_eq!(
+            policy_for_rtf(LA2_RTF_FLOOR),
+            StreamPolicy::local_agreement()
+        );
+        assert_eq!(policy_for_rtf(12.0), StreamPolicy::local_agreement());
+        // Not measured: assume it is fine rather than degrading every
+        // device that never ran the benchmark.
+        assert_eq!(policy_for_rtf(f64::NAN), StreamPolicy::local_agreement());
+    }
+
+    #[test]
+    fn a_device_without_headroom_falls_back_to_fixed_chunks() {
+        // The measured figure on this project's weak-CPU target.
+        assert_eq!(policy_for_rtf(0.43), StreamPolicy::fixed_chunk());
+        assert_eq!(
+            policy_for_rtf(LA2_RTF_FLOOR - 0.001),
+            StreamPolicy::fixed_chunk()
+        );
+        assert_eq!(policy_for_rtf(0.0), StreamPolicy::fixed_chunk());
+    }
+
+    #[test]
+    fn fixed_chunking_reproduces_the_pre_sprint_policy() {
+        // The old `RingBuffer`: 5-second chunks retaining 1 second of
+        // overlap, i.e. a 4-second stride. A fallback that changed these
+        // would be a regression for exactly the devices it exists to
+        // protect.
+        let fixed = StreamPolicy::fixed_chunk();
+        assert!(!fixed.require_agreement);
+        assert_eq!(fixed.max_window_secs, 5.0);
+        assert_eq!(fixed.keep_secs, 1.0);
+        assert_eq!(
+            fixed.max_window_secs - fixed.keep_secs,
+            fixed.min_chunk_secs
+        );
+        // And it must not re-decode enough to approach LocalAgreement's
+        // cost, or there would be no point falling back to it.
+        assert!(fixed.max_window_secs < fixed.min_chunk_secs * 1.5);
+    }
+
+    #[test]
+    fn local_agreement_can_hold_several_decode_steps() {
+        let la2 = StreamPolicy::local_agreement();
+        assert!(la2.require_agreement);
+        assert!(la2.max_window_secs > la2.min_chunk_secs * AGREEMENT as f64);
+        // It trims at committed sentence ends, where there is a pause, so
+        // it needs no overlap of its own.
+        assert_eq!(la2.keep_secs, 0.0);
     }
 
     #[test]

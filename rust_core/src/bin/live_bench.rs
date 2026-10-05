@@ -21,14 +21,16 @@
 //! * **Live coverage** — committed audio seconds as a fraction of the
 //!   seconds the VAD says hold speech. "% of speech committed live".
 //!
-//! # Why it does not sleep
+//! # Why it paces in real time
 //!
-//! Feeding the pipeline in real time would make a 15-second clip take 15
-//! seconds and measure the sleep, not the engine. Instead the buffers are
-//! delivered as fast as the pipeline accepts them and the arrival time of
-//! each buffer is taken to be its audio time — so on a machine that keeps
-//! up the figures match a real session, and on one that does not, the
-//! latency is the honest "how far behind did it fall".
+//! Buffers are delivered no earlier than the wall-clock moment they would
+//! have arrived in a real session (`started + audio_offset`), and latency
+//! is measured against that same clock. Feeding as fast as the pipeline
+//! accepts and calling the *audio* offset the arrival time — the first
+//! version of this harness — reports zero latency for any policy whose
+//! segments end exactly where its chunk ends, which is every fixed-chunk
+//! policy. It made the old 5-second chunking look instantaneous on a
+//! machine where it was in fact 70 seconds behind by the end of the clip.
 //!
 //! Nothing here touches the network and nothing opens an audio device.
 
@@ -39,6 +41,7 @@ use clap::Parser;
 use rust_core::decode::{decode_audio_file, TARGET_SAMPLE_RATE};
 use rust_core::glossary::GlossaryConfig;
 use rust_core::pipeline::LivePipeline;
+use rust_core::streaming::StreamPolicy;
 use rust_core::stt::{DecodeOptions, WhisperEngine};
 use rust_core::vad::{detect_speech_regions, SegmentationConfig};
 
@@ -64,8 +67,12 @@ struct Args {
     #[arg(long)]
     model: String,
 
-    /// `la2`, `legacy`, or `both`.
-    #[arg(long, default_value = "both")]
+    /// `la2`, `fixed`, `legacy`, or `all`.
+    ///
+    /// `la2` and `fixed` are the two [`StreamPolicy`] configurations the
+    /// app ships; `legacy` is the pre-Sprint-4b code path, reimplemented
+    /// here so the comparison is against what the app actually used to do.
+    #[arg(long, default_value = "all")]
     policy: String,
 
     /// Force a language. Auto-detect on a short window is a coin toss and
@@ -84,7 +91,17 @@ struct Measurement {
     /// Per-segment latency samples, in seconds.
     latencies: Vec<f64>,
     /// Wall-clock seconds the whole replay took.
+    ///
+    /// A *floor*, not a cost: the feeder paces in real time, so a policy
+    /// that keeps up finishes at the length of the clip however little
+    /// work it did. Read [`Self::decode_secs`] for the cost.
     wall_secs: f64,
+    /// Seconds actually spent inside the decoder.
+    ///
+    /// This is the number that separates the policies. LocalAgreement-2
+    /// decodes every second of audio at least twice by construction, and
+    /// on a device without the headroom for that it is the whole story.
+    decode_secs: f64,
 }
 
 impl Measurement {
@@ -101,6 +118,15 @@ impl Measurement {
             return 0.0;
         }
         (self.covered_secs / speech_secs).clamp(0.0, 1.0)
+    }
+
+    /// Seconds of audio the decoder got through per second of CPU. Above
+    /// 1.0 the policy keeps up with a live meeting; below it, it does not.
+    fn rtf(&self, audio_secs: f64) -> f64 {
+        if self.decode_secs <= 0.0 {
+            return f64::INFINITY;
+        }
+        audio_secs / self.decode_secs
     }
 }
 
@@ -145,45 +171,69 @@ fn main() {
     );
     println!("- Model: `{}`\n", args.model);
 
-    let run_la2 = args.policy != "legacy";
-    let run_legacy = args.policy != "la2";
-
-    let legacy = run_legacy.then(|| {
-        eprintln!("menjalankan kebijakan lama (potongan 5 s)…");
+    let all = args.policy == "all";
+    let legacy = (all || args.policy == "legacy").then(|| {
+        eprintln!("menjalankan jalur lama sebelum Sprint 4b (potongan 5 s)…");
         measure_legacy(&engine, &audio.samples, &args.language)
     });
-    let la2 = run_la2.then(|| {
+    let fixed = (all || args.policy == "fixed").then(|| {
+        eprintln!("menjalankan StreamPolicy::fixed_chunk…");
+        measure_policy(
+            &engine,
+            &audio.samples,
+            &args.language,
+            StreamPolicy::fixed_chunk(),
+        )
+    });
+    let la2 = (all || args.policy == "la2").then(|| {
         eprintln!("menjalankan LocalAgreement-2…");
-        measure_la2(&engine, &audio.samples, &args.language)
+        measure_policy(
+            &engine,
+            &audio.samples,
+            &args.language,
+            StreamPolicy::local_agreement(),
+        )
     });
 
     println!(
-        "| Kebijakan | Baris | Kata | Cakupan live | Latensi median | Latensi p90 | Waktu nyata |"
+        "| Kebijakan | Baris | Kata | Cakupan live | Latensi median | Latensi p90 | \
+         Detik dekode | RTF |"
     );
-    println!("|---|---|---|---|---|---|---|");
-    for (name, measurement) in [("Lama (5 s)", &legacy), ("LocalAgreement-2", &la2)] {
+    println!("|---|---|---|---|---|---|---|---|");
+    for (name, measurement) in [
+        ("Lama sebelum 4b (5 s)", &legacy),
+        ("fixed_chunk", &fixed),
+        ("LocalAgreement-2", &la2),
+    ] {
         let Some(m) = measurement else { continue };
         println!(
-            "| {name} | {} | {} | {:.0}% | {:.2} s | {:.2} s | {:.1} s |",
+            "| {name} | {} | {} | {:.0}% | {:.2} s | {:.2} s | {:.1} s | {:.2} |",
             m.segments,
             m.words,
             100.0 * m.coverage(speech_secs),
             m.median_latency(),
             m.p90_latency(),
-            m.wall_secs,
+            m.decode_secs,
+            m.rtf(audio.duration_secs),
         );
     }
 }
 
-/// LocalAgreement-2 through the real [`LivePipeline`].
-fn measure_la2(engine: &WhisperEngine, samples: &[f32], language: &str) -> Measurement {
-    let mut pipeline = LivePipeline::new(
+/// One [`StreamPolicy`] through the real [`LivePipeline`].
+fn measure_policy(
+    engine: &WhisperEngine,
+    samples: &[f32],
+    language: &str,
+    policy: StreamPolicy,
+) -> Measurement {
+    let mut pipeline = LivePipeline::with_policy(
         engine,
         "mic",
         Some(language.to_string()),
         rust_core::vad::VadConfig::default(),
         true,
         GlossaryConfig::default(),
+        policy,
     )
     .expect("build live pipeline");
 
@@ -193,19 +243,35 @@ fn measure_la2(engine: &WhisperEngine, samples: &[f32], language: &str) -> Measu
     let mut delivered_secs = 0.0f64;
     for chunk in samples.chunks(buffer) {
         delivered_secs += chunk.len() as f64 / TARGET_SAMPLE_RATE as f64;
-        let outcome = match pipeline.ingest(chunk) {
+        wait_until(started, delivered_secs);
+        let decode_started = Instant::now();
+        let outcome = pipeline.ingest(chunk);
+        measurement.decode_secs += decode_started.elapsed().as_secs_f64();
+        let outcome = match outcome {
             Ok(outcome) => outcome,
             Err(e) => {
                 eprintln!("ingest gagal: {e}");
                 continue;
             }
         };
-        record(&mut measurement, &outcome.segments, delivered_secs);
+        record(&mut measurement, &outcome.segments, started);
     }
     let finished = pipeline.finish();
-    record(&mut measurement, &finished, delivered_secs);
+    record(&mut measurement, &finished, started);
     measurement.wall_secs = started.elapsed().as_secs_f64();
     measurement
+}
+
+/// Blocks until `audio_secs` of the recording would have arrived.
+///
+/// A no-op once the decoder has fallen behind, which is the state this
+/// machine spends most of a session in.
+fn wait_until(started: Instant, audio_secs: f64) {
+    let target = std::time::Duration::from_secs_f64(audio_secs);
+    let elapsed = started.elapsed();
+    if let Some(remaining) = target.checked_sub(elapsed) {
+        std::thread::sleep(remaining);
+    }
 }
 
 /// The policy this sprint replaced: fixed 5-second chunks with 1 second of
@@ -226,7 +292,8 @@ fn measure_legacy(engine: &WhisperEngine, samples: &[f32], language: &str) -> Me
         let chunk = &samples[offset..offset + chunk_len];
         let chunk_start = offset as f64 / TARGET_SAMPLE_RATE as f64;
         // The chunk is only complete once its last sample has arrived.
-        let delivered_secs = chunk_start + LEGACY_CHUNK_SECS;
+        wait_until(started, chunk_start + LEGACY_CHUNK_SECS);
+        let decode_started = Instant::now();
         let mut segments = engine
             .transcribe_chunk_with(
                 chunk,
@@ -237,8 +304,9 @@ fn measure_legacy(engine: &WhisperEngine, samples: &[f32], language: &str) -> Me
                 DecodeOptions::live(),
             )
             .unwrap_or_default();
+        measurement.decode_secs += decode_started.elapsed().as_secs_f64();
         rust_core::hallucination::filter_segments(&mut segments);
-        record(&mut measurement, &segments, delivered_secs);
+        record(&mut measurement, &segments, started);
         offset += stride;
     }
     measurement.wall_secs = started.elapsed().as_secs_f64();
@@ -247,15 +315,17 @@ fn measure_legacy(engine: &WhisperEngine, samples: &[f32], language: &str) -> Me
 
 /// Folds a batch of emitted segments into the measurement.
 ///
-/// `delivered_secs` is how much audio had been handed to the pipeline when
-/// these came out. The latency of a segment is therefore
-/// `delivered_secs - segment_end`: how much later than the moment the
-/// words were spoken the user could read them.
+/// Latency is `wall_elapsed - segment_end`: how much later than the moment
+/// the words were spoken the user could read them. Because the feeder
+/// paces in real time, `wall_elapsed` is also when the audio arrived — so
+/// on a machine that keeps up this is the policy's own delay, and on one
+/// that does not it is that plus how far behind the decoder has fallen.
 fn record(
     measurement: &mut Measurement,
     segments: &[rust_core::export::Segment],
-    delivered_secs: f64,
+    started: Instant,
 ) {
+    let elapsed = started.elapsed().as_secs_f64();
     for segment in segments {
         if segment.text.trim().is_empty() {
             continue;
@@ -264,8 +334,6 @@ fn record(
         measurement.words += segment.text.split_whitespace().count();
         measurement.covered_secs += segment.duration.max(0.0);
         let segment_end = segment.timestamp + segment.duration;
-        measurement
-            .latencies
-            .push((delivered_secs - segment_end).max(0.0));
+        measurement.latencies.push((elapsed - segment_end).max(0.0));
     }
 }
