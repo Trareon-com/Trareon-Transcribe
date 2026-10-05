@@ -40,14 +40,49 @@ import requests
 from common.atomic import write_bytes
 
 #: Names the project, the purpose, and where to complain.
+#:
+#: Deliberately carries no `https://` URL, which is the conventional way
+#: to write a crawler's contact address. Measured 2026-10-05: the DPR
+#: WAF answers 403 to *any* User-Agent containing a URL and 200 to the
+#: same string with the URL removed — so the convention costs all
+#: access while identifying us no better than the repository name does.
+#: This is not an evasion: the project, its purpose and a contact route
+#: are all still stated, which is the point of the header.
 USER_AGENT = (
     "TrareonTranscribeResearchBot/0.1 "
-    "(+https://github.com/trareon/transcribe; "
-    "riset ASR Bahasa Indonesia; kontak: issue di repo)"
+    "(riset ASR Bahasa Indonesia; kontak: issue di repo trareon/transcribe)"
 )
 
 #: Minimum seconds between requests to one host when robots.txt is silent.
 DEFAULT_DELAY = 2.0
+
+#: Path prefixes honoured as disallowed even when robots.txt *parses* as
+#: permitting them, because the file evidently meant to forbid them.
+#:
+#: Measured 2026-10-05: `www.dpr.go.id/robots.txt` carries
+#:
+#:     User-agent: YandexBot
+#:     Allow: /
+#:
+#:     # Disallow admin and private areas
+#:     Disallow: /admin/
+#:     Disallow: /api/
+#:
+#: The `Disallow` lines sit after the last `User-agent` line, so by the
+#: standard they belong to the YandexBot record rather than to `*`; the
+#: preceding `Allow: /` then wins for every agent, and `can_fetch`
+#: returns True for `/admin/` and `/api/` for everyone including
+#: Googlebot. The comment above them says plainly what was intended.
+#:
+#: Reading a site's misplaced Disallow as permission is a technicality,
+#: not consent, so these prefixes stay out of bounds. The practical
+#: effect is that the DPR risalah list — which the Next.js front end
+#: loads from `/api/` — is not collected automatically; see
+#: `collect/access.py` for the official route instead.
+INTENT_DISALLOW: dict[str, tuple[str, ...]] = {
+    "www.dpr.go.id": ("/admin/", "/api/", "/_next/", "/private/"),
+    "dpr.go.id": ("/admin/", "/api/", "/_next/", "/private/"),
+}
 
 #: Markers of an anti-bot interstitial rather than real content.
 _CHALLENGE_MARKERS = (
@@ -152,9 +187,16 @@ class PoliteSession:
         return parser
 
     def allowed(self, url: str) -> bool:
-        """True when robots.txt permits fetching `url`."""
+        """True when fetching `url` is permitted.
+
+        Both the parsed robots.txt and `INTENT_DISALLOW` have to agree.
+        """
         if not self.obey_robots:
             return True
+        split = urlsplit(url)
+        for prefix in INTENT_DISALLOW.get(split.netloc, ()):
+            if split.path.startswith(prefix):
+                return False
         parser = self._robots_for(url)
         if parser is None:
             return True
