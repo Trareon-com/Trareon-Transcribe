@@ -1934,3 +1934,353 @@ default sink, tanpa suara dan tanpa mikrofon.
 - **PERLU IZIN OWNER: uji audio Windows** — capture WASAPI (mic/loopback) di
   win2060 belum pernah dijalankan; uji Windows pada sprint ini terbatas pada
   build, tes unit, dan screenshot UI.
+
+---
+
+# Sprint 4b report — branch `sprint/04b-engine`
+
+> Peningkatan mesin dari Research Round 2. 14 commit dari `origin/main`.
+> Bagian ini ditulis pada *finish round*: sepuluh commit pertama dibuat pada
+> sesi sprint yang berhenti sebelum sempat menulis laporan, jadi semua angka
+> di bawah diukur ulang pada putaran ini, bukan disalin dari catatan sesi itu.
+
+## Ringkasan per item
+
+| # | Item | Status |
+|---|---|---|
+| 1 | LocalAgreement-2 untuk pratinjau langsung | **DONE** (dengan temuan, lihat di bawah) |
+| 2 | Tumpukan anti-halusinasi di semua jalur | **DONE** |
+| 3 | Word-level timestamp + karaoke + klik-kata | **DONE** |
+| 4 | Diarization neural sherpa-onnx (opsional) | **DONE** (Linux terverifikasi; Windows/macOS belum) |
+| 5 | Model Bahasa Indonesia khusus | **PARTIAL** — skrip + dokumen ada, konversi & WER belum dijalankan |
+| 6 | Pembelajaran kamus pribadi | **DONE** |
+
+---
+
+## 1 — LocalAgreement-2 · DONE, tetapi tidak aktif di mesin ini
+
+Implementasi: `rust_core/src/streaming.rs` (`HypothesisBuffer`,
+`StreamingBuffer`, `LineBuilder`, `StreamPolicy`, `policy_for_rtf`),
+dipakai oleh `rust_core/src/pipeline.rs`. Ekor yang belum di-commit
+ditampilkan abu-abu sebagai "sementara"
+(`lib/widgets/transcript_view.dart`).
+
+### Angka yang diminta kriteria keluar
+
+Diukur dengan `rust_core/src/bin/live_bench.rs`, yang memutar berkas ke
+jalur live **dalam tempo nyata** (buffer 100 ms, persis seperti thread
+capture) dan membaca jam dinding setiap segmen keluar. Mesin: 2 inti, tanpa
+GPU. Audio: `rapat_id.mp3`, 14,8 detik, 100% bicara menurut VAD. Gerbang
+Silero aktif.
+
+```
+cd rust_core && cargo run --release --bin live_bench -- \
+  --audio /home/kali/trareon-sprints/rapat_id.mp3 \
+  --model ../models/ggml-tiny.bin --policy all \
+  --vad-model ~/Library/Caches/TrareonTranscribe/models/ggml-silero-v5.1.2.bin
+```
+
+**`ggml-tiny`**
+
+| Kebijakan | Baris | Kata | Cakupan live | Latensi median | p90 | Detik dekode | RTF |
+|---|---|---|---|---|---|---|---|
+| Lama sebelum 4b (potongan 5 s) | 4 | 28 | 100% | 16,93 s | 18,93 s | 23,3 s | 0,63 |
+| `fixed_chunk` (4b, fallback) | 4 | 18 | 78% | 21,39 s | 24,88 s | 28,5 s | 0,52 |
+| LocalAgreement-2 | 3 | 26 | 95% | 45,80 s | 45,92 s | 54,8 s | 0,27 |
+
+**`ggml-base`**
+
+| Kebijakan | Baris | Kata | Cakupan live | Latensi median | p90 | Detik dekode | RTF |
+|---|---|---|---|---|---|---|---|
+| Lama sebelum 4b (potongan 5 s) | 4 | 30 | 100% | 15,57 s | 17,87 s | 23,9 s | 0,62 |
+| `fixed_chunk` (4b, fallback) | 4 | 23 | 86% | 13,20 s | 15,20 s | 22,2 s | 0,67 |
+| LocalAgreement-2 | 3 | 24 | 92% | 35,99 s | 39,28 s | 48,1 s | 0,31 |
+
+### Temuan yang harus dibaca apa adanya
+
+**LocalAgreement-2 adalah regresi latensi di mesin ini, bukan perbaikan.**
+Kebijakan itu mendekode setiap detik audio sekurangnya dua kali — itulah
+arti "dua hipotesis harus setuju" — dan CPU ini tidak punya kepala ruang
+untuk dekode kedua. Latensi median naik 2–3×, dan RTF turun ke 0,27–0,31
+(artinya jalur live tertinggal tiga kali lipat dari pembicara).
+
+Itu sudah diantisipasi kode: `policy_for_rtf` memilih kebijakan dari RTF
+yang terukur, dan ambangnya `LA2_RTF_FLOOR = 2.0`. Kedua model di atas
+berada jauh di bawahnya, jadi **aplikasi di mesin ini menjalankan
+`fixed_chunk`, bukan LocalAgreement-2** — terlihat di smoke test sebagai
+spanduk jujur berbahasa Indonesia: "Perangkat ini terlalu lambat untuk
+model akurat secara langsung, jadi transkrip langsung memakai model cepat."
+
+Konsekuensi yang perlu dicatat: karena `fixed_chunk` mengosongkan ekor
+setiap commit (`require_agreement: false`), **ekor abu-abu "sementara"
+tidak pernah muncul di mesin ini**. Ia tidak bisa dibuktikan lewat smoke
+test di sini, jadi dibuktikan lewat tes widget
+(`test/transcript_view_test.dart`, 3 tes baru pada finish round).
+
+Jaminan kelengkapan Sprint 4 tidak turun: cakupan live 78–95%, dan sisanya
+diambil *completion pass* pasca-Stop dari WAV di disk.
+
+Komentar `LA2_RTF_FLOOR` sebelumnya mengutip angka (RTF 0,43; 65 s vs 34 s;
+21 s → 51 s) yang tidak dihasilkan oleh harness mana pun sekarang; tabel di
+atas menggantikannya.
+
+---
+
+## 2 — Tumpukan anti-halusinasi · DONE
+
+Lapisan: VAD Silero bawaan whisper.cpp (`rust_core/src/vad/whisper_silero.rs`,
+threshold 0,5 · min speech 250 ms · speech pad 300 ms · tail silence 500 ms,
+dipin oleh tes `the_defaults_are_the_tuned_values`), ambang
+`no_speech_prob`/`logprob` di dekoder, `no_context` untuk inferensi live
+terpotong, `suppress_nst`, dan daftar-hitam konservatif
+(`rust_core/src/hallucination.rs`, 16 tes).
+
+### Kriteria keluar: 0 baris halusinasi pada WAV 5 menit
+
+Fixture kini bisa dibangun ulang — sebelumnya dibuat manual di `/tmp`,
+sehingga angkanya tidak bisa diperiksa siapa pun:
+
+```
+scripts/make_silence_fixture.sh /tmp/silent5min.wav
+```
+
+300 detik, 16 kHz mono, bicara 15 detik di detik 40 dan detik 210 (klip yang
+sama dua kali, supaya transkrip yang melaporkan satu tetapi tidak yang lain
+jelas merupakan bug jalur live, bukan perbedaan audio).
+
+**Jalur berkas** (`transcribe_cli`, `ggml-tiny`, Linux):
+
+| | Baris | Baris halusinasi |
+|---|---|---|
+| Penjaga dimatikan (`--no-vad --no-hallucination-filter --no-decoder-thresholds`) | 13 | **7** |
+| Bawaan yang dikirim | 6 | **0** |
+
+Enam baris itu persis dua ledakan bicara × tiga baris. Yang hilang adalah
+tujuh baris `Terima kasih terima kasih terima kasih`.
+
+**Jalur live** (`live_bench --policy fixed`, `ggml-tiny`, gerbang Silero aktif):
+5 baris, **0 halusinasi**, semuanya di dua ledakan bicara —
+
+```
+[  39.71–  44.19] Selamat pagi semuanya, hari ini kita membahas angkat.
+[  44.41–  45.38] kuartang empat.
+[  45.70–  47.19] Budi bertanggung.
+[ 209.72– 214.19] Selamat pagi semuanya, hari ini kita membahas angkat.
+[ 214.41– 217.00] kuartang empat, budi bertanggung.
+```
+
+(Kualitas kata di atas adalah batas `tiny`, bukan halusinasi; transkrip
+akurat dibuat pasca-rapat.)
+
+**Windows** (`ggml-base`): 6 baris, **0 halusinasi** — sama seperti Linux.
+
+### Berapa harga gerbang Silero
+
+Gerbang itu tidak gratis, tetapi membayar dirinya dengan menjauhkan dekoder
+dari senyap. Pada fixture 5 menit, `fixed_chunk`:
+
+| | Detik dekode | RTF |
+|---|---|---|
+| Tanpa gerbang | 58,6 s | 5,12 |
+| Dengan gerbang | 35,4 s | 8,47 |
+
+Komentar lama mengklaim gerbang ini "~10 ms"; itu salah dua orde besaran
+dan sudah diganti dengan angka di atas.
+
+**Catatan kejujuran — satu perubahan dibatalkan.** Pada finish round saya
+menduga gerbang memindai ulang seluruh jendela setiap dekode secara
+kuadratik, dan menulis gerbang inkremental yang hanya memindai audio baru.
+Premisnya salah: jendela live dibatasi (5 detik untuk `fixed_chunk`, 18
+detik untuk LocalAgreement-2), bukan 30–60 detik seperti yang saya baca
+dari log *unit test*. Diukur, versi "inkremental" justru **lebih lambat**
+(77,3 s vs 35,4 s detik dekode, dua kali jalan dengan biner sama memberi
+35,4 s dan 36,2 s — jadi bukan derau), karena mengingat "jendela ini masih
+berisi bicara" melewatkan gerbang dan menyerahkan jendela ke dekoder.
+Perubahan itu dibatalkan; yang disimpan hanya pengukurannya.
+
+---
+
+## 3 — Word-level timestamp, karaoke, klik-kata · DONE
+
+- `rust_core/src/stt/words.rs` — agregasi token → kata.
+- `rust_core/src/stt/mod.rs` — `set_token_timestamps`, DTW alignment heads
+  lewat `dtw_preset_for` (nama berkas model → `DtwModelPreset`), dengan
+  `interpolate_words` sebagai jaring pengaman bila model tidak melaporkan
+  waktu token.
+- `rust_core/src/export/mod.rs` — `WordTimestamp { word, start, end, prob }`
+  per segmen, `#[serde(default)]` sehingga `transcript.json` lama tetap
+  terbaca.
+- `lib/widgets/karaoke_text.dart` + `transcript_view.dart` — sorot kata
+  berjalan, klik-kata-untuk-melompat, garis bawah untuk kata ber-probabilitas
+  rendah (`LOW_WORD_PROB = 0.6`).
+
+Terbukti di aplikasi rilis, bukan hanya di tes — lihat bagian smoke test.
+Dari sesi live nyata yang direkam pada putaran ini:
+
+```json
+{"word": "Selamat", "start": 12.509, "end": 12.929, "prob": 0.5941536}
+{"word": "pagi",    "start": 12.929, "end": 13.339, "prob": 0.9913373}
+```
+
+`Selamat` berada di bawah 0,6 dan memang itulah kata yang digarisbawahi di
+layar.
+
+---
+
+## 4 — Diarization neural opsional · DONE (Linux)
+
+`rust_core/src/diarization/neural.rs` (413 baris) di balik fitur cargo
+`neural-diarization` (sherpa-onnx 1.13.8, pyannote segmentation 3.0 +
+3D-Speaker CAM++). Mati secara bawaan: `sherpa-onnx-sys` mengunduh pustaka
+prebuilt saat build, dan menjadikannya wajib berarti ketersediaan GitHub
+masuk ke jalur `cargo test` setiap kontributor. Clustering ringan tetap
+menjadi bawaan dan fallback. Model diunduh lewat model manager yang ada,
+checksum terverifikasi, tercatat di Laporan Privasi.
+
+Diverifikasi pada putaran ini: `cargo check --lib --features
+neural-diarization` **lulus**, begitu pula `--features silero-onnx` (keduanya
+yang dijalankan CI). Status macOS/Windows belum diuji dan
+didokumentasikan di `docs/NEURAL-DIARIZATION.md`.
+
+---
+
+## 5 — Model Bahasa Indonesia khusus · PARTIAL
+
+Ada: `scripts/convert_hf_whisper_to_ggml.sh` (165 baris, lulus `bash -n`)
+dan `docs/INDONESIAN-MODEL.md` (131 baris).
+
+Tidak didaftarkan di katalog model, dan alasannya layak dibaca: satu artefak
+GGML terhosting memang ditemukan (`duckywise/whisper-medium-id-ggml`), tetapi
+model card-nya tidak menyebut `cahya` sama sekali, tidak melaporkan WER, dan
+berasal dari satu akun perorangan dengan 0 unduhan. Memasang SHA256-nya akan
+*terlihat* seperti verifikasi tanpa memverifikasi apa pun. Instruksi sprint
+memang berbunyi "hanya jika ada URL artefak terhosting" — penilaiannya: URL
+itu tidak memenuhi maksud syaratnya.
+
+**Yang belum dikerjakan, dan ini yang membuat item ini PARTIAL:** konversi
+belum pernah dijalankan, dan perbandingan WER terhadap `turbo-q5` belum
+pernah dibuat. Brief memintanya "pada sampel Bahasa Indonesia apa pun yang
+tersedia secara lokal"; satu-satunya yang ada adalah `rapat_id.mp3`, 14,8
+detik. WER dari satu klip 15 detik bukan angka yang bisa dipakai memilih
+model, jadi menuliskannya akan lebih menyesatkan daripada mengosongkannya.
+Jalan keluarnya sudah jelas dan tercatat: jalankan skrip di `win2060` (16 GB
+RAM, 220 GB ruang) lalu `wer_bench` pada korpus FLEURS `id_id` utuh
+(`scripts/fetch_wer_corpus.sh`).
+
+---
+
+## 6 — Pembelajaran kamus pribadi · DONE
+
+`lib/widgets/dictionary_learning_dialog.dart` menawarkan dua hal berbeda
+saat pengguna mengoreksi satu kata: **"Tambahkan ke kamus"** (membiaskan
+*dekoder* lewat `initial_prompt`) dan **"Ganti otomatis selanjutnya"**
+(aturan penggantian yang menulis ulang *keluaran*).
+
+Terhubung penuh, bukan stub:
+
+- `lib/widgets/transcript_view.dart:454` → `singleWordCorrection` mendeteksi
+  koreksi satu-kata (sengaja sempit: menulis ulang kalimat bukan pelajaran
+  kosakata) → `onWordCorrected`.
+- `lib/screens/transcript_player_screen.dart:764` → dialog → `setGlossary`.
+- `rust_core/src/glossary.rs` → `apply_replacements` / `correct_segments`,
+  dipanggil dari `stt/file.rs`, `pipeline.rs`, `completion.rs`, `api.rs` —
+  jadi aturan berlaku di impor, live, re-transkrip, dan completion pass.
+
+Tes: `rust_core/src/glossary.rs` (penggantian, termasuk urutan terhadap
+koreksi fuzzy), `test/word_timestamps_test.dart` (`singleWordCorrection`),
+`test/glossary_settings_test.dart`.
+
+---
+
+## Gate verifikasi (Linux, semua hijau)
+
+| Langkah | Hasil |
+|---|---|
+| `cargo fmt --check` | bersih |
+| `cargo clippy --all-targets -- -D warnings` | bersih |
+| `cargo test --lib` | **687 lulus, 0 gagal** |
+| `cargo check --lib --features neural-diarization` | lulus |
+| `cargo check --lib --features silero-onnx` | lulus |
+| `flutter analyze` | **No issues found** (0, termasuk level info) |
+| `flutter test` | **618 lulus** (615 + 3 tes ekor "sementara") |
+| `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
+
+## Gate verifikasi (Windows, win2060)
+
+| Langkah | Hasil |
+|---|---|
+| `cargo test --lib` | **683 lulus, 0 gagal** |
+| `flutter analyze` | **No issues found** |
+| `flutter test --exclude-tags golden` | **604 lulus, 0 gagal** |
+| `flutter test` (termasuk golden) | 14 golden gagal — lihat celah |
+| `flutter build windows --release` | `√ Built ...\Release\transcribe.exe` |
+| Transkripsi impor berkas | lulus, dengan word timestamp |
+
+Selisih 687 vs 683 adalah tes yang bergantung platform atau pada model yang
+hanya terpasang di mesin Linux.
+
+---
+
+## Smoke test aplikasi nyata
+
+### Linux — build rilis dari pohon ini
+
+Bukti: `docs/screenshots/sprint4b/`.
+
+1. **Word timestamp & garis bawah keyakinan** (`01-word-confidence-underline.png`)
+   — membuka sesi tersimpan, kata ber-probabilitas rendah (`angga`,
+   `kuartal`, `menyebkan`, `Jadualkan`) digarisbawahi; yang lain tidak.
+2. **Klik-kata-untuk-melompat** (`02-click-a-word-to-seek.png`) — playhead di
+   00:00, klik kata `Jadualkan` pada segmen 00:22 → playhead pindah ke
+   **00:23**, waveform ikut maju, segmen itu jadi aktif, kata tersorot.
+3. **Sesi live, hanya audio sistem** (`03-live-session-system-audio.png`) —
+   mikrofon **dimatikan** (aturan kantor), sumber `trareon_silent`,
+   `rapat_id.mp3` diputar hanya ke null sink (`pactl get-default-sink`
+   diperiksa = `trareon_silent` sebelum setiap pemutaran). Hasil: 6 segmen
+   ter-commit dengan garis bawah per kata, spanduk jujur "Perangkat ini
+   terlalu lambat…", lalu peringatan kesehatan capture "Tidak ada suara dari
+   audio sistem selama 1 menit terakhir" setelah pemutaran selesai.
+4. **Stop** → "Sesi selesai, ada masalah · Durasi 2 menit · 6 segmen
+   transkrip · Audio sistem: 2 menit terekam, 90% senyap". Sesi tersimpan,
+   `trareon-transkrip-cadangan.json` berisi `words` per segmen.
+5. `pkill -9 -x transcribe`. Tidak ada exception di log.
+
+### Windows — build rilis di win2060
+
+- Build rilis sukses (setelah menghentikan instance lama yang mengunci
+  `transcribe.exe`; `LNK1104`).
+- Impor berkas `rapat_id.mp3` → 3 segmen, word timestamp terisi (10/10/5
+  kata per segmen).
+- Fixture senyap 5 menit → 6 baris, 0 halusinasi.
+- **Jendela aplikasi render kosong putih** — lihat celah di bawah.
+- Tanpa pemutaran audio, tanpa mikrofon, tanpa perubahan volume atau
+  perangkat bawaan.
+
+---
+
+## Celah yang diketahui
+
+- **Jendela aplikasi kosong di Windows.** Build rilis berjalan
+  (`Responding = True`) tetapi tidak melukis apa pun; putih polos, baik
+  lewat `CopyFromScreen` maupun `PrintWindow(PW_RENDERFULLCONTENT)`
+  (`docs/screenshots/sprint4b/04-windows-blank-window.png`). Satu-satunya
+  baris di stderr: `Using the Impeller rendering backend (OpenGLESSDF)`.
+  **Bukan regresi sprint ini**: `origin/main` (6783d44) dibangun dan
+  dijalankan di mesin yang sama memberi jendela kosong yang identik.
+  Mesin: RTX 2060, driver 555.99. Perlu ditangani terpisah dari sprint ini;
+  verifikasi UI Windows karenanya belum mungkin.
+- **Item 5 PARTIAL** — konversi `cahya/whisper-medium-id` dan perbandingan
+  WER terhadap `turbo-q5` belum dijalankan (alasan di bagian 5).
+- **Ekor "sementara" tidak terbukti di aplikasi nyata** di mesin ini, karena
+  CPU-nya memilih `fixed_chunk`. Hanya terbukti lewat tes widget.
+- **LocalAgreement-2 belum pernah diukur di perangkat yang memenuhi
+  `LA2_RTF_FLOOR`.** Semua angka di atas berasal dari mesin yang justru
+  memilih untuk tidak memakainya. Manfaat kebijakan itu masih berupa klaim
+  dari makalahnya, bukan pengukuran kami.
+- **Diarization neural**: hanya Linux yang terverifikasi; macOS dan Windows
+  belum (`docs/NEURAL-DIARIZATION.md`).
+- **14 golden gagal di Windows** — rasterisasi teks berbeda antar host;
+  golden dibuat di Linux dan CI memang menjalankan `--exclude-tags golden`.
+- **PERLU IZIN OWNER: uji audio Windows** — capture WASAPI (mic/loopback) di
+  win2060 belum pernah dijalankan. Uji Windows pada sprint ini terbatas pada
+  build, tes, transkripsi impor berkas, dan screenshot.
