@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// What the user chose in [showRecoveryDialog].
 sealed class RecoveryChoice {
@@ -35,13 +37,15 @@ class DiscardSession extends RecoveryChoice {
 Future<RecoveryChoice?> showRecoveryDialog(
   BuildContext context,
   List<rust_session.RecoverableSession> sessions, {
+
   /// Recovery resumes capture, and only one session can be live at a
   /// time. Disabled (with the reason shown) rather than silently ignored.
   bool canRecover = true,
 }) {
   return showDialog<RecoveryChoice>(
     context: context,
-    builder: (context) => _RecoveryDialog(sessions: sessions, canRecover: canRecover),
+    builder: (context) =>
+        _RecoveryDialog(sessions: sessions, canRecover: canRecover),
   );
 }
 
@@ -53,7 +57,8 @@ class _RecoveryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return AlertDialog(
       title: const Text('Pulihkan sesi yang terhenti'),
       content: SizedBox(
@@ -66,14 +71,18 @@ class _RecoveryDialog extends StatelessWidget {
               sessions.length == 1
                   ? 'Satu sesi berhenti tanpa disimpan. Berikut isinya:'
                   : '${sessions.length} sesi berhenti tanpa disimpan. Berikut isinya:',
-              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: FontSizes.body,
+              ),
             ),
-            const SizedBox(height: 12),
+            Spacing.gapMd,
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: sessions.length,
-                separatorBuilder: (_, _) => Divider(color: colors.divider, height: 16),
+                separatorBuilder: (_, _) =>
+                    Divider(color: colors.divider, height: 16),
                 itemBuilder: (context, index) => _RecoverableTile(
                   session: sessions[index],
                   canRecover: canRecover,
@@ -115,7 +124,9 @@ class _RecoverableTile extends StatelessWidget {
     if (session.speakerAudioSecs > 0) {
       audio.add('audio sistem ${formatDurationId(session.speakerAudioSecs)}');
     }
-    parts.add(audio.isEmpty ? 'tanpa rekaman audio' : 'audio: ${audio.join(', ')}');
+    parts.add(
+      audio.isEmpty ? 'tanpa rekaman audio' : 'audio: ${audio.join(', ')}',
+    );
     return parts.join(' · ');
   }
 
@@ -130,8 +141,10 @@ class _RecoverableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final hasAnything = session.segmentCount > 0 ||
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final hasAnything =
+        session.segmentCount > 0 ||
         session.micAudioSecs > 0 ||
         session.speakerAudioSecs > 0;
 
@@ -142,34 +155,38 @@ class _RecoverableTile extends StatelessWidget {
           session.title,
           style: TextStyle(
             color: colors.text,
-            fontSize: 14,
+            fontSize: FontSizes.bodyLarge,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 2),
+        Spacing.gapXs,
         Text(
           '$_startedAt · ${formatDurationId(session.durationSecs)}',
-          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.caption,
+          ),
         ),
-        const SizedBox(height: 2),
+        Spacing.gapXs,
         Text(
           _contents,
           style: TextStyle(
             color: hasAnything ? colors.textSecondary : colors.error,
-            fontSize: 12,
+            fontSize: FontSizes.caption,
           ),
         ),
-        const SizedBox(height: 8),
+        Spacing.gapSm,
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton.icon(
-              onPressed: () => Navigator.of(context).pop(DiscardSession(session)),
-              icon: const Icon(Icons.delete_outline, size: 16),
+              onPressed: () =>
+                  Navigator.of(context).pop(DiscardSession(session)),
+              icon: const Icon(AppIcons.delete, size: IconSizes.sm),
               label: const Text('Hapus'),
               style: TextButton.styleFrom(foregroundColor: colors.error),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Tooltip(
               message: canRecover
                   ? 'Lanjutkan sesi ini dan rekam ke berkas yang sama'
@@ -178,7 +195,7 @@ class _RecoverableTile extends StatelessWidget {
                 onPressed: canRecover
                     ? () => Navigator.of(context).pop(RecoverSession(session))
                     : null,
-                icon: const Icon(Icons.restore, size: 16),
+                icon: const Icon(AppIcons.restore, size: IconSizes.sm),
                 label: const Text('Pulihkan'),
               ),
             ),

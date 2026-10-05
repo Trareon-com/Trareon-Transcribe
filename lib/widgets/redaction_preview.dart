@@ -15,6 +15,7 @@ import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 Future<void> showRedactionPreview(
   BuildContext context, {
@@ -75,7 +76,8 @@ class _RedactionPreviewState extends State<RedactionPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final matches = _matches;
     return SizedBox(
       width: 640,
@@ -87,7 +89,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
             padding: const EdgeInsets.all(Spacing.md),
             child: Row(
               children: [
-                Icon(Icons.visibility_off_outlined, color: colors.primary),
+                Icon(AppIcons.hide, color: colors.primary),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Semantics(
@@ -104,7 +106,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                 ),
                 IconButton(
                   tooltip: 'Tutup',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
@@ -120,73 +122,78 @@ class _RedactionPreviewState extends State<RedactionPreview> {
               ),
               child: Text(
                 redactionSummary(matches),
-                style: TextStyle(fontSize: FontSizes.caption, color: colors.text),
+                style: TextStyle(
+                  fontSize: FontSizes.caption,
+                  color: colors.text,
+                ),
               ),
             ),
           const Divider(height: 1),
           Expanded(
             child: switch ((matches, _error)) {
               (_, final String error) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text('Pratinjau gagal: $error',
-                        style: TextStyle(color: colors.error)),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Pratinjau gagal: $error',
+                    style: TextStyle(color: colors.error),
                   ),
                 ),
+              ),
               (null, _) => const Center(child: CircularProgressIndicator()),
               (final List<PiiMatch> list, _) when list.isEmpty => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text(
-                      'Tidak ada data pribadi yang terdeteksi. File hasil '
-                      'ekspor akan sama persis dengan transkrip.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textTertiary),
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Tidak ada data pribadi yang terdeteksi. File hasil '
+                    'ekspor akan sama persis dengan transkrip.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colors.textTertiary),
                   ),
                 ),
+              ),
               (final List<PiiMatch> list, _) => ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) {
-                    final match = list[index];
-                    return ListTile(
-                      dense: true,
-                      leading: Chip(
-                        label: Text(
-                          piiKindLabel(match.kind),
-                          style: const TextStyle(fontSize: FontSizes.micro),
-                        ),
-                        visualDensity: VisualDensity.compact,
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final match = list[index];
+                  return ListTile(
+                    dense: true,
+                    leading: Chip(
+                      label: Text(
+                        piiKindLabel(match.kind),
+                        style: const TextStyle(fontSize: FontSizes.micro),
                       ),
-                      title: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: match.text,
-                              style: TextStyle(
-                                color: colors.error,
-                                decoration: TextDecoration.lineThrough,
-                              ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    title: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: match.text,
+                            style: TextStyle(
+                              color: colors.error,
+                              decoration: TextDecoration.lineThrough,
                             ),
-                            const TextSpan(text: '  →  '),
-                            TextSpan(
-                              text: match.replacement,
-                              style: TextStyle(
-                                color: colors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          ),
+                          const TextSpan(text: '  →  '),
+                          TextSpan(
+                            text: match.replacement,
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
-                        style: TextStyle(
-                          fontSize: FontSizes.body,
-                          color: colors.text,
-                        ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                      style: TextStyle(
+                        fontSize: FontSizes.body,
+                        color: colors.text,
+                      ),
+                    ),
+                  );
+                },
+              ),
             },
           ),
         ],
@@ -203,7 +210,8 @@ String redactionSummary(List<PiiMatch> matches) {
     final label = piiKindLabel(match.kind);
     counts[label] = (counts[label] ?? 0) + 1;
   }
-  final parts = counts.entries.map((e) => '${e.value} ${e.key}').toList()..sort();
+  final parts = counts.entries.map((e) => '${e.value} ${e.key}').toList()
+    ..sort();
   return '${parts.join(', ')} akan disamarkan.';
 }
 

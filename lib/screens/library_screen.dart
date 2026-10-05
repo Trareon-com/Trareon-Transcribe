@@ -18,6 +18,9 @@ import '../widgets/storage_bar.dart';
 import '../widgets/empty_state.dart';
 import 'transcript_player_screen.dart';
 import '../widgets/export_dialog.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
+import '../widgets/app_toast.dart';
 
 /// How long the library search box waits after the last keystroke.
 /// Matching the whole corpus per keystroke was the second half of the
@@ -118,7 +121,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       try {
         final dir = Directory(entry.key);
         if (dir.existsSync()) dir.deleteSync(recursive: true);
-      } catch (e) { debugPrint("LibraryScreen: deleteSync error: $e"); }
+      } catch (e) {
+        debugPrint("LibraryScreen: deleteSync error: $e");
+      }
     }
     _pendingDeletions.clear();
     super.dispose();
@@ -149,7 +154,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final q = _query.toLowerCase();
     if (q.isEmpty) return _entries;
     return _entries
-        .where((e) => e.haystack.contains(q) || _deepHits.containsKey(e.dirPath))
+        .where(
+          (e) => e.haystack.contains(q) || _deepHits.containsKey(e.dirPath),
+        )
         .toList(growable: false);
   }
 
@@ -215,28 +222,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       try {
         final dir = Directory(session.dirPath);
         if (dir.existsSync()) dir.deleteSync(recursive: true);
-      } catch (e) { debugPrint("LibraryScreen: timer error: $e"); }
+      } catch (e) {
+        debugPrint("LibraryScreen: timer error: $e");
+      }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('"${session.title}" dihapus.'),
-        action: SnackBarAction(
-          label: 'Urungkan',
-          onPressed: () {
-            _pendingDeletions.remove(session.dirPath)?.cancel();
-            if (mounted) {
-              setState(() {
-                final restored = [..._entries];
-                restored.insert(index.clamp(0, restored.length), session);
-                _entries = restored;
-              });
-              _persistIndex();
-            }
-          },
-        ),
-        duration: const Duration(seconds: 4),
-      ),
+    AppToast.show(
+      context,
+      '"${session.title}" dihapus.',
+      actionLabel: 'Urungkan',
+      // Four seconds, inside the five the deletion is deferred by, so the
+      // offer never outlives the window in which it can still be taken.
+      duration: const Duration(seconds: 4),
+      onAction: () {
+        _pendingDeletions.remove(session.dirPath)?.cancel();
+        if (!mounted) return;
+        setState(() {
+          final restored = [..._entries];
+          restored.insert(index.clamp(0, restored.length), session);
+          _entries = restored;
+        });
+        _persistIndex();
+      },
     );
   }
 
@@ -300,9 +307,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       _persistIndex();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengganti nama: $e')),
-      );
+      AppToast.show(context, 'Gagal mengganti nama: $e', type: ToastType.error);
     }
   }
 
@@ -320,7 +325,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       defaultOutputDir: resolveTilde(settings.libraryPath),
       defaultFormat: settings.defaultExportFormat,
       summary: record?.meta.summary ?? '',
-      incomplete: (record?.meta.isIncomplete ?? false) ||
+      incomplete:
+          (record?.meta.isIncomplete ?? false) ||
           ref.read(enhanceQueueProvider).isCompletingSession(session.dirPath),
       pdp: settings.pdp,
     );
@@ -330,8 +336,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final record = await loadSessionRecord(session.dirPath);
     if (!mounted) return;
     if (record == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${session.title}" tidak bisa dibuka.')),
+      AppToast.show(
+        context,
+        '"${session.title}" tidak bisa dibuka.',
+        type: ToastType.error,
       );
       return;
     }
@@ -366,7 +374,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final filtered = _filteredEntries;
 
     return DefaultTabController(
@@ -377,10 +386,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         appBar: AppBar(
           backgroundColor: colors.headerBackground,
           foregroundColor: colors.text,
-          title: const Text('Perpustakaan', style: TextStyle(fontWeight: FontWeight.w600)),
+          title: const Text(
+            'Perpustakaan',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+            icon: const Icon(AppIcons.back, size: IconSizes.lg),
             onPressed: () => Navigator.of(context).pop(),
             tooltip: 'Kembali',
           ),
@@ -400,16 +412,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(Spacing.md),
                   child: TextField(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
                     decoration: InputDecoration(
-                      hintText: 'Cari judul, isi transkrip, atau ringkasan...',
-                      prefixIcon: Icon(Icons.search, color: colors.textTertiary, size: 18),
+                      hintText: 'Cari judul, isi transkrip, atau ringkasan…',
+                      prefixIcon: Icon(
+                        AppIcons.search,
+                        color: colors.textTertiary,
+                        size: IconSizes.md,
+                      ),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, size: 18, color: colors.textTertiary),
+                              icon: Icon(
+                                AppIcons.clear,
+                                size: IconSizes.md,
+                                color: colors.textTertiary,
+                              ),
                               onPressed: _clearSearch,
                               tooltip: 'Bersihkan pencarian',
                             )
@@ -417,20 +437,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       filled: true,
                       fillColor: colors.chipBackground,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(Radii.md),
                         borderSide: BorderSide(color: colors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(Radii.md),
                         borderSide: BorderSide(color: colors.border),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                        vertical: Spacing.sm,
+                      ),
                     ),
                   ),
                 ),
                 if (_deepSearching)
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: Spacing.md),
                     child: Row(
                       children: [
                         SizedBox(
@@ -438,9 +461,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           height: 12,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        SizedBox(width: 8),
-                        Text('Mencari di dalam transkrip…',
-                            style: TextStyle(fontSize: 12)),
+                        Spacing.hSm,
+                        Text(
+                          'Mencari di dalam transkrip…',
+                          style: TextStyle(fontSize: FontSizes.caption),
+                        ),
                       ],
                     ),
                   ),
@@ -449,7 +474,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 // creation walked the whole library directory (A.2-6).
                 if (!_loading && _entries.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                     child: StorageBar(
                       totalSessions: _entries.length,
                       libraryPath: widget.libraryPath,
@@ -459,43 +484,44 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : _entries.isEmpty
-                          ? const EmptyState(
-                              icon: Icons.folder_open_outlined,
-                              title: 'Belum ada sesi tersimpan',
-                              subtitle: 'Sesi transkripsi akan muncul di sini',
-                            )
-                          : filtered.isEmpty
-                              ? const EmptyState(
-                                  icon: Icons.search_off,
-                                  title: 'Tidak ada sesi cocok',
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 8),
-                                  itemBuilder: (context, index) {
-                                    final session = filtered[index];
-                                    return SessionCardFromSummary(
-                                      key: ValueKey(session.dirPath),
-                                      session: session.toSummary(),
-                                      hasSummary: session.hasSummary,
-                                      matchSnippet: _snippetFor(session),
-                                      onDelete: () => _deleteSession(session),
-                                      onExport: () => _exportSession(session),
-                                      onRename: () => _renameSession(session),
-                                      onTap: () => _openSession(session),
-                                    );
-                                  },
-                                ),
+                      ? const EmptyState(
+                          icon: AppIcons.folderOpen,
+                          title: 'Belum ada sesi tersimpan',
+                          subtitle: 'Sesi transkripsi akan muncul di sini',
+                        )
+                      : filtered.isEmpty
+                      ? const EmptyState(
+                          icon: AppIcons.searchOff,
+                          title: 'Tidak ada sesi cocok',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.md,
+                            vertical: Spacing.sm,
+                          ),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, _) => Spacing.gapSm,
+                          itemBuilder: (context, index) {
+                            final session = filtered[index];
+                            return SessionCardFromSummary(
+                              key: ValueKey(session.dirPath),
+                              session: session.toSummary(),
+                              hasSummary: session.hasSummary,
+                              matchSnippet: _snippetFor(session),
+                              onDelete: () => _deleteSession(session),
+                              onExport: () => _exportSession(session),
+                              onRename: () => _renameSession(session),
+                              onTap: () => _openSession(session),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
 
             // Upload tab
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(Spacing.md),
               child: FileUploadZone(onProcessed: _loadFromDisk),
             ),
           ],
@@ -513,7 +539,8 @@ Future<void> shareSessionSummary(SessionSummary session) {
   return SharePlus.instance.share(
     ShareParams(
       subject: session.title,
-      text: '${session.title}\n$minutes menit · ${session.segmentsCount} segmen\n\n$transcript',
+      text:
+          '${session.title}\n$minutes menit · ${session.segmentsCount} segmen\n\n$transcript',
     ),
   );
 }

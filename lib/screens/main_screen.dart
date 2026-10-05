@@ -2,32 +2,45 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/global_hotkey_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
 import '../services/tray_service.dart';
+import '../src/rust/disk.dart' as rust_disk;
+import '../src/rust/session.dart' as rust_session;
 import '../state/audio_stream_model.dart';
-import '../state/enhance_queue_model.dart';
 import '../state/audio_watchdog_model.dart';
+import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
 import '../state/models.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
-import '../src/rust/disk.dart' as rust_disk;
-import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_shortcuts.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
 import '../widgets/capture_health_view.dart';
+import '../widgets/platform_chrome.dart';
+import '../widgets/record_button.dart';
 import '../widgets/recovery_dialog.dart';
 import '../widgets/session_controls.dart';
 import '../widgets/session_sidebar.dart';
-import '../widgets/animated_record_button.dart';
 import '../widgets/transcript_view.dart';
+import '../widgets/ui/app_button.dart';
+import '../widgets/ui/app_chip.dart';
+import '../widgets/ui/app_feedback.dart';
+import '../widgets/ui/app_field.dart';
+import '../widgets/ui/app_surface.dart';
+import '../widgets/ui/interactive.dart';
+import '../widgets/ui/key_hint.dart';
 import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
@@ -48,14 +61,14 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final GlobalHotkeyService _globalHotkeys = GlobalHotkeyService();
-  final FocusNode _sidebarSearchFocus =
-      FocusNode(debugLabel: 'sidebar-search');
+  final FocusNode _sidebarSearchFocus = FocusNode(debugLabel: 'sidebar-search');
   final _titleController = TextEditingController();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   List<rust_session.RecoverableSession> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
+  bool _sidebarCollapsed = false;
   bool _isStoppingSession = false;
   bool _isStartingSession = false;
 
@@ -112,15 +125,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ref.read(sessionProvider).lifecycle == SessionLifecycle.recording;
     if (!queue.hasPendingWork && !recording) return true;
     final outstanding = queue.jobs
-        .where((j) =>
-            j.kind == EnhanceJobKind.complete &&
-            (j.status == EnhanceJobStatus.queued ||
-                j.status == EnhanceJobStatus.running))
+        .where(
+          (j) =>
+              j.kind == EnhanceJobKind.complete &&
+              (j.status == EnhanceJobStatus.queued ||
+                  j.status == EnhanceJobStatus.running),
+        )
         .length;
     final reasons = [
       if (recording) 'Rekaman masih berjalan.',
       if (outstanding > 0)
-        '$outstanding rekaman masih diselesaikan transkripnya — '
+        '$outstanding rekaman masih diselesaikan transkripnya, '
             'pekerjaan ini dilanjutkan otomatis saat aplikasi dibuka lagi.',
       if (outstanding == 0 && queue.hasPendingWork)
         'Masih ada transkrip yang sedang diperhalus.',
@@ -219,7 +234,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
-  Future<rust_session.CaptureHealth?> _readCaptureHealth(String sessionId) async {
+  Future<rust_session.CaptureHealth?> _readCaptureHealth(
+    String sessionId,
+  ) async {
     try {
       return await ref.read(rustBridgeProvider).captureHealth(sessionId);
     } catch (_) {
@@ -252,7 +269,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _diskTimer = null;
   }
 
-  String get _libraryPath => resolveTilde(ref.read(settingsProvider).libraryPath);
+  String get _libraryPath =>
+      resolveTilde(ref.read(settingsProvider).libraryPath);
 
   Future<void> _checkDiskSpaceWhileRecording() async {
     final status = await _readDiskSpace();
@@ -360,7 +378,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           .recoverFromSnapshot(session.snapshot);
     } catch (e) {
       if (context.mounted) {
-        AppToast.show(context, 'Gagal memulihkan sesi: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          'Gagal memulihkan sesi: $e',
+          type: ToastType.error,
+        );
       }
       return;
     }
@@ -368,9 +390,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _forgetRecoverable(session);
     if (recovered != null) {
       setState(() {
-      _openSession = null;
-      _openSessionSeek = null;
-    });
+        _openSession = null;
+        _openSessionSeek = null;
+      });
       _startHealthPolling(recovered.sessionId);
       _startDiskWatch();
     }
@@ -424,13 +446,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (contents.isEmpty) {
       return '$count tanpa transkrip atau audio yang tersisa.';
     }
-    return '$count — ${contents.join(' dan ')} bisa dipulihkan.';
+    return '$count: ${contents.join(' dan ')} bisa dipulihkan.';
   }
 
   void _forgetRecoverable(rust_session.RecoverableSession session) {
     setState(() {
       _recoverableSessions = _recoverableSessions
-          .where((item) => item.snapshot.sessionId != session.snapshot.sessionId)
+          .where(
+            (item) => item.snapshot.sessionId != session.snapshot.sessionId,
+          )
           .toList(growable: false);
     });
   }
@@ -438,6 +462,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _handleBerhentiPressed(
     BuildContext context,
     WidgetRef ref, {
+
     /// Set when the app stops the session itself (out of disk space) —
     /// there is nothing for the user to confirm.
     bool skipConfirmation = false,
@@ -471,8 +496,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Read the final health *before* stopping: the counters live in the
     // session the stop is about to remove.
     final sessionId = session.sessionId;
-    final health =
-        sessionId == null ? null : await _readCaptureHealth(sessionId);
+    final health = sessionId == null
+        ? null
+        : await _readCaptureHealth(sessionId);
     if (!context.mounted) return;
     _stopHealthPolling();
     _stopDiskWatch();
@@ -490,7 +516,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (mounted) setState(() => _saveError = '$e');
     } catch (e) {
       if (context.mounted) {
-        AppToast.show(context, 'Gagal menghentikan sesi: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          'Gagal menghentikan sesi: $e',
+          type: ToastType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _isStoppingSession = false);
@@ -568,13 +598,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       initial: bookmark.note,
     );
     if (note == null || !mounted) return;
-    ref.read(sessionProvider.notifier).setBookmarkNote(bookmark.timestamp, note);
+    ref
+        .read(sessionProvider.notifier)
+        .setBookmarkNote(bookmark.timestamp, note);
   }
 
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
     final lifecycle = ref.read(sessionProvider).lifecycle;
     final isActive =
-        lifecycle == SessionLifecycle.recording || lifecycle == SessionLifecycle.paused;
+        lifecycle == SessionLifecycle.recording ||
+        lifecycle == SessionLifecycle.paused;
     if (isActive) {
       await _handleBerhentiPressed(context, ref);
       return;
@@ -635,7 +668,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         title: title,
       );
       if (!context.mounted) return;
-      AppToast.show(context, 'Ekspor berhasil ke: $selectedDir', type: ToastType.success);
+      AppToast.show(
+        context,
+        'Ekspor berhasil ke: $selectedDir',
+        type: ToastType.success,
+      );
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, 'Ekspor gagal: $e', type: ToastType.error);
@@ -644,15 +681,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   // --- Navigation -----------------------------------------------------
 
-  void _openSettings() => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-      );
+  void _openSettings() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
 
   Future<void> _openLibrary({int tab = 0}) async {
     final libraryPath = resolveTilde(ref.read(settingsProvider).libraryPath);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => LibraryScreen(libraryPath: libraryPath, initialTab: tab),
+        builder: (_) =>
+            LibraryScreen(libraryPath: libraryPath, initialTab: tab),
       ),
     );
     if (mounted) unawaited(ref.read(libraryListProvider.notifier).refresh());
@@ -694,8 +732,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       _openSessionSeek = record == null ? null : seekSeconds;
     });
     if (record == null && context.mounted) {
-      AppToast.show(context, '"${entry.title}" tidak bisa dibuka.',
-          type: ToastType.error);
+      AppToast.show(
+        context,
+        '"${entry.title}" tidak bisa dibuka.',
+        type: ToastType.error,
+      );
     }
   }
 
@@ -705,6 +746,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       _openSessionSeek = null;
     });
     _sidebarSearchFocus.unfocus();
+  }
+
+  /// Collapses the sidebar to a 48 px icon rail and back.
+  void _toggleSidebar() {
+    setState(() => _sidebarCollapsed = !_sidebarCollapsed);
   }
 
   void _focusSidebarSearch() {
@@ -721,9 +767,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final notifier = ref.read(sessionProvider.notifier);
     final lifecycle = session.lifecycle;
     final isActive =
-        lifecycle == SessionLifecycle.recording || lifecycle == SessionLifecycle.paused;
+        lifecycle == SessionLifecycle.recording ||
+        lifecycle == SessionLifecycle.paused;
     final isPaused = lifecycle == SessionLifecycle.paused;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
 
     // The first completed library load is the earliest moment the sidecars
@@ -741,8 +789,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen(sessionProvider.select((s) => s.sessionTitle), (_, next) {
       if (_titleController.text != next) {
         _titleController.text = next;
-        _titleController.selection =
-            TextSelection.fromPosition(TextPosition(offset: next.length));
+        _titleController.selection = TextSelection.fromPosition(
+          TextPosition(offset: next.length),
+        );
       }
     });
 
@@ -785,109 +834,145 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       onOpenArchiveChat: _openArchiveChat,
       searchFocusNode: _sidebarSearchFocus,
       isRecording: isActive,
+      collapsed: _sidebarCollapsed,
+      onToggleCollapsed: _toggleSidebar,
     );
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-            _toggleStartBerhenti(context, ref),
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () =>
-            _toggleStartBerhenti(context, ref),
-        const SingleActivator(LogicalKeyboardKey.keyP, meta: true): () {
-          if (isPaused) {
-            notifier.resume();
-          } else if (lifecycle == SessionLifecycle.recording) {
-            notifier.pause();
-          }
+    return AppPlatformMenuBar(
+      onNewSession: _newSession,
+      onToggleRecording: () => _toggleStartBerhenti(context, ref),
+      onOpenSettings: _openSettings,
+      onFocusSearch: _focusSidebarSearch,
+      onToggleSidebar: _toggleSidebar,
+      onShowShortcuts: () => setState(() => _showShortcuts = true),
+      child: CallbackShortcuts(
+        bindings: {
+          for (final activator in AppShortcuts.startStop.activators)
+            activator: () => _toggleStartBerhenti(context, ref),
+          for (final activator in AppShortcuts.pauseResume.activators)
+            activator: () {
+              if (isPaused) {
+                notifier.resume();
+              } else if (lifecycle == SessionLifecycle.recording) {
+                notifier.pause();
+              }
+            },
+          // The history is already on screen, so this focuses the sidebar
+          // search rather than pushing a separate library screen.
+          for (final activator in AppShortcuts.searchSessions.activators)
+            activator: _focusSidebarSearch,
+          for (final activator in AppShortcuts.settings.activators)
+            activator: _openSettings,
+          for (final activator in AppShortcuts.shortcutsPanel.activators)
+            activator: () => setState(() => _showShortcuts = !_showShortcuts),
+          // Tandai poin penting (F9). One key, no dialog: the point of a
+          // one-key marker is that it does not interrupt the meeting.
+          for (final activator in AppShortcuts.bookmark.activators)
+            activator: _addBookmark,
+          for (final activator in AppShortcuts.toggleSidebar.activators)
+            activator: _toggleSidebar,
         },
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () {
-          if (isPaused) {
-            notifier.resume();
-          } else if (lifecycle == SessionLifecycle.recording) {
-            notifier.pause();
-          }
-        },
-        // Ctrl+L now focuses the sidebar search rather than pushing a
-        // separate library screen: the history is already on screen.
-        const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
-            _focusSidebarSearch,
-        const SingleActivator(LogicalKeyboardKey.keyL, control: true):
-            _focusSidebarSearch,
-        SingleActivator(LogicalKeyboardKey.comma, meta: true): _openSettings,
-        SingleActivator(LogicalKeyboardKey.comma, control: true): _openSettings,
-        SingleActivator(LogicalKeyboardKey.slash, meta: true): () =>
-            setState(() => _showShortcuts = !_showShortcuts),
-        SingleActivator(LogicalKeyboardKey.slash, control: true): () =>
-            setState(() => _showShortcuts = !_showShortcuts),
-        // Tandai poin penting (F9). One key, no dialog — the note is a
-        // separate, optional step.
-        const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
-            _addBookmark,
-        const SingleActivator(LogicalKeyboardKey.keyB, control: true):
-            _addBookmark,
-      },
-      child: Focus(
-        autofocus: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final persistentSidebar =
-                constraints.maxWidth >= kSidebarPersistentMinWidth;
-            return Scaffold(
-              key: _scaffoldKey,
-              backgroundColor: colors.background,
-              drawer: persistentSidebar ? null : Drawer(child: sidebar),
-              body: Row(
-                children: [
-                  if (persistentSidebar) sidebar,
-                  Expanded(
-                    child: _Workspace(
-                      showMenuButton: !persistentSidebar,
-                      onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                      session: session,
-                      notifier: notifier,
-                      isActive: isActive,
-                      isPaused: isPaused,
-                      openSession: _openSession,
-                      openingSession: _openingSession,
-                      openSessionSeek: _openSessionSeek,
-                      onCloseSession: _newSession,
-                      vuLevel: vuLevel,
-                      captureHealth: _captureHealth,
-                      titleController: _titleController,
-                      onStartBerhenti: () => _toggleStartBerhenti(context, ref),
-                      onEkspor: () => _onEkspor(context),
-                      isBusy: _isStoppingSession || _isStartingSession,
-                      busyLabel:
-                          _isStartingSession ? 'Memulai...' : 'Menyimpan...',
-                      saveError: _saveError,
-                      retryingSave: _retryingSave,
-                      onRetrySave: () => _retrySave(),
-                      onSaveElsewhere: () => _retrySave(elsewhere: true),
-                      loadingRecoveries: _loadingRecoveries,
-                      recoverySummary: _recoverableSessions.isEmpty
-                          ? null
-                          : _recoverySummary(_recoverableSessions),
-                      onOpenRecovery: () => _openRecoveryDialog(context),
-                      showShortcuts: _showShortcuts,
-                      onCloseShortcuts: () =>
-                          setState(() => _showShortcuts = false),
-                      onAddBookmark: _addBookmark,
-                      onAddBookmarkWithNote: () =>
-                          unawaited(_addBookmarkWithNote()),
-                      onRemoveBookmark: (bookmark) => ref
-                          .read(sessionProvider.notifier)
-                          .removeBookmark(bookmark.timestamp),
-                      onEditBookmarkNote: (bookmark) =>
-                          unawaited(_editBookmarkNote(bookmark)),
-                      onSessionEdited: (dirPath) => unawaited(
-                        ref.read(libraryListProvider.notifier).refreshOne(dirPath),
+        child: Focus(
+          autofocus: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final persistentSidebar =
+                  constraints.maxWidth >= kSidebarPersistentMinWidth;
+              return Scaffold(
+                key: _scaffoldKey,
+                backgroundColor: colors.background,
+                drawer: persistentSidebar
+                    ? null
+                    : Drawer(
+                        child: SessionSidebar(
+                          selectedDirPath: _openSession?.dirPath,
+                          onSelect: (entry) {
+                            Navigator.of(context).pop();
+                            _selectSession(entry);
+                          },
+                          onNewSession: () {
+                            Navigator.of(context).pop();
+                            _newSession();
+                          },
+                          onOpenLibrary: () => _openLibrary(),
+                          onOpenUpload: () => _openLibrary(tab: 1),
+                          onOpenSettings: _openSettings,
+                          onOpenArchiveChat: _openArchiveChat,
+                          searchFocusNode: _sidebarSearchFocus,
+                          isRecording: isActive,
+                        ),
+                      ),
+                // The drag strip and the caption buttons live at the root, in
+                // WindowChromeScaffold, so that every route has them. Repeating
+                // them here drew a second row of buttons under the first.
+                body: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          if (persistentSidebar) sidebar,
+                          Expanded(
+                            child: _Workspace(
+                              showMenuButton: !persistentSidebar,
+                              onOpenMenu: () =>
+                                  _scaffoldKey.currentState?.openDrawer(),
+                              session: session,
+                              notifier: notifier,
+                              isActive: isActive,
+                              isPaused: isPaused,
+                              openSession: _openSession,
+                              openingSession: _openingSession,
+                              openSessionSeek: _openSessionSeek,
+                              onCloseSession: _newSession,
+                              vuLevel: vuLevel,
+                              captureHealth: _captureHealth,
+                              titleController: _titleController,
+                              onStartBerhenti: () =>
+                                  _toggleStartBerhenti(context, ref),
+                              onEkspor: () => _onEkspor(context),
+                              isBusy: _isStoppingSession || _isStartingSession,
+                              busyLabel: _isStartingSession
+                                  ? 'Memulai…'
+                                  : 'Menyimpan…',
+                              saveError: _saveError,
+                              retryingSave: _retryingSave,
+                              onRetrySave: () => _retrySave(),
+                              onSaveElsewhere: () =>
+                                  _retrySave(elsewhere: true),
+                              loadingRecoveries: _loadingRecoveries,
+                              recoverySummary: _recoverableSessions.isEmpty
+                                  ? null
+                                  : _recoverySummary(_recoverableSessions),
+                              onOpenRecovery: () =>
+                                  _openRecoveryDialog(context),
+                              showShortcuts: _showShortcuts,
+                              onCloseShortcuts: () =>
+                                  setState(() => _showShortcuts = false),
+                              onShowShortcuts: () =>
+                                  setState(() => _showShortcuts = true),
+                              onAddBookmark: _addBookmark,
+                              onAddBookmarkWithNote: () =>
+                                  unawaited(_addBookmarkWithNote()),
+                              onRemoveBookmark: (bookmark) => ref
+                                  .read(sessionProvider.notifier)
+                                  .removeBookmark(bookmark.timestamp),
+                              onEditBookmarkNote: (bookmark) =>
+                                  unawaited(_editBookmarkNote(bookmark)),
+                              onSessionEdited: (dirPath) => unawaited(
+                                ref
+                                    .read(libraryListProvider.notifier)
+                                    .refreshOne(dirPath),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -922,6 +1007,7 @@ class _Workspace extends StatelessWidget {
     required this.onOpenRecovery,
     required this.showShortcuts,
     required this.onCloseShortcuts,
+    required this.onShowShortcuts,
     required this.onAddBookmark,
     required this.onAddBookmarkWithNote,
     required this.onRemoveBookmark,
@@ -955,6 +1041,9 @@ class _Workspace extends StatelessWidget {
   final VoidCallback onOpenRecovery;
   final bool showShortcuts;
   final VoidCallback onCloseShortcuts;
+
+  /// Opens the shortcuts panel from the footer hint.
+  final VoidCallback onShowShortcuts;
   final VoidCallback onAddBookmark;
   final VoidCallback onAddBookmarkWithNote;
   final void Function(Bookmark) onRemoveBookmark;
@@ -963,11 +1052,21 @@ class _Workspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final hasTranscript = session.segments.isNotEmpty;
 
+    // A shape-matched skeleton, not a bare spinner in the middle of an empty
+    // pane: the transcript that is loading has a known shape.
     if (openingSession) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(Spacing.xl),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: Measure.reading,
+            child: AppSkeletonList(rows: 8),
+          ),
+        ),
+      );
     }
 
     final opened = openSession;
@@ -989,6 +1088,14 @@ class _Workspace extends StatelessWidget {
       );
     }
 
+    // Three workspace states, in the order a meeting goes through them.
+    //
+    // Idle is a hero: one headline, three explained mode cards, the two
+    // capture chips, and one filled button. Blueprint §4.2 asks for exactly
+    // one primary action on an empty screen, and the old layout put nine
+    // controls above the fold before you could reach it.
+    final idle = !hasTranscript && !isActive;
+
     return Column(
       children: [
         if (saveError != null)
@@ -999,62 +1106,66 @@ class _Workspace extends StatelessWidget {
             onSaveElsewhere: onSaveElsewhere,
           ),
         if (loadingRecoveries)
-          const LinearProgressIndicator(minHeight: 2)
+          const AppLinearProgress(height: Strokes.focusRing)
         else if (recoverySummary != null)
-          Material(
-            color: colors.chipBackground,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.restore_outlined, color: colors.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      recoverySummary!,
-                      style: TextStyle(color: colors.text, fontSize: 13),
-                    ),
-                  ),
-                  // No "Abaikan": it hid the banner without deleting
-                  // anything, so the same sessions reappeared on every
-                  // launch forever.
-                  FilledButton(
-                    onPressed: onOpenRecovery,
-                    child: const Text('Lihat & pulihkan'),
-                  ),
-                ],
-              ),
-            ),
+          _RecoveryBanner(summary: recoverySummary!, onOpen: onOpenRecovery),
+        if (isActive)
+          _RecordingStrip(
+            showMenuButton: showMenuButton,
+            onOpenMenu: onOpenMenu,
+            elapsedSeconds: session.elapsedSeconds,
+            isPaused: isPaused,
+            mode: session.config.mode,
+            micEnabled: session.config.micEnabled,
+            speakerEnabled: session.config.speakerEnabled,
+            onMicToggled: notifier.toggleMic,
+            onSpeakerToggled: notifier.toggleSpeaker,
+            vuLevel: vuLevel,
+            captureHealth: captureHealth,
+            onStartBerhenti: onStartBerhenti,
+            onAddBookmark: onAddBookmark,
+            isBusy: isBusy,
+            busyLabel: busyLabel,
+          )
+        else if (!idle)
+          _SessionStrip(
+            showMenuButton: showMenuButton,
+            onOpenMenu: onOpenMenu,
+            notifier: notifier,
+            mode: session.config.mode,
+            titleController: titleController,
+            onEkspor: onEkspor,
+            onStartBerhenti: onStartBerhenti,
+            isBusy: isBusy,
+            busyLabel: busyLabel,
+          )
+        else if (showMenuButton)
+          _CompactMenuBar(onOpenMenu: onOpenMenu),
+        if (!idle)
+          BookmarkBar(
+            bookmarks: session.bookmarks,
+            live: isActive,
+            onAdd: onAddBookmark,
+            onAddWithNote: onAddBookmarkWithNote,
+            onRemove: onRemoveBookmark,
+            onEditNote: onEditBookmarkNote,
           ),
-        _ControlArea(
-          showMenuButton: showMenuButton,
-          onOpenMenu: onOpenMenu,
-          session: session,
-          notifier: notifier,
-          isActive: isActive,
-          isPaused: isPaused,
-          vuLevel: vuLevel,
-          captureHealth: captureHealth,
-          titleController: titleController,
-          onStartBerhenti: onStartBerhenti,
-          onEkspor: onEkspor,
-          isBusy: isBusy,
-          busyLabel: busyLabel,
-          hasTranscript: hasTranscript,
-        ),
-        BookmarkBar(
-          bookmarks: session.bookmarks,
-          live: isActive,
-          onAdd: onAddBookmark,
-          onAddWithNote: onAddBookmarkWithNote,
-          onRemove: onRemoveBookmark,
-          onEditNote: onEditBookmarkNote,
-        ),
         Expanded(
           child: Stack(
             children: [
-              if (!hasTranscript && !isActive)
-                _IdleWorkspace(onStart: onStartBerhenti, busy: isBusy)
+              if (idle)
+                _IdleHero(
+                  titleController: titleController,
+                  mode: session.config.mode,
+                  onModeChanged: notifier.setMode,
+                  micEnabled: session.config.micEnabled,
+                  speakerEnabled: session.config.speakerEnabled,
+                  onMicToggled: notifier.toggleMic,
+                  onSpeakerToggled: notifier.toggleSpeaker,
+                  onStart: onStartBerhenti,
+                  busy: isBusy,
+                  busyLabel: busyLabel,
+                )
               else
                 TranscriptView(
                   segments: session.segments,
@@ -1075,79 +1186,142 @@ class _Workspace extends StatelessWidget {
           lifecycle: session.lifecycle,
           segmentsCount: session.segments.length,
           elapsedSeconds: session.elapsedSeconds,
+          onShowShortcuts: onShowShortcuts,
         ),
       ],
     );
   }
 }
 
-/// The empty state: one big, obvious thing to do (blueprint §4.2).
-class _IdleWorkspace extends StatelessWidget {
-  const _IdleWorkspace({required this.onStart, required this.busy});
+/// The idle screen: one headline, the mode decision as three explained cards,
+/// the two capture chips, and one filled button.
+class _IdleHero extends StatelessWidget {
+  const _IdleHero({
+    required this.titleController,
+    required this.mode,
+    required this.onModeChanged,
+    required this.micEnabled,
+    required this.speakerEnabled,
+    required this.onMicToggled,
+    required this.onSpeakerToggled,
+    required this.onStart,
+    required this.busy,
+    required this.busyLabel,
+  });
 
+  final TextEditingController titleController;
+  final SessionMode mode;
+  final ValueChanged<SessionMode> onModeChanged;
+  final bool micEnabled;
+  final bool speakerEnabled;
+  final ValueChanged<bool> onMicToggled;
+  final ValueChanged<bool> onSpeakerToggled;
   final VoidCallback onStart;
   final bool busy;
+  final String busyLabel;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // At 800x600 the control groups take most of the window; the one
-        // action this screen exists for must still be fully on screen, so
-        // the illustration and the spacing shrink rather than push it
-        // below the fold.
-        final compact = constraints.maxHeight < 300;
-        return Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(compact ? 12 : 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!compact) ...[
-                  Icon(Icons.mic_none_outlined,
-                      size: 56, color: colors.textTertiary),
-                  const SizedBox(height: 16),
+        // The hero sheds weight in two stages as the pane gets shorter, so the
+        // one action this screen exists for is never pushed below the fold.
+        // It is still inside a scroll view, but a record button you have to
+        // scroll to find is a broken empty state, not a scrollable one.
+        //
+        //   >= 660: headline and the offline reassurance line
+        //   >= 600: the one-line explanation under each mode card
+        //    < 600: cards are name and glyph only
+        final showIntro = constraints.maxHeight >= 660;
+        final showExplanations = constraints.maxHeight >= 600;
+        final wide = constraints.maxWidth >= Measure.hero + Spacing.xxxl * 2;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.xl,
+            vertical: Spacing.xl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: DeviceStatusChip.width * 2 + Spacing.sm,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (showIntro) ...[
+                    Text(
+                      'Siap merekam',
+                      textAlign: TextAlign.center,
+                      style: AppText.title.c(colors.text),
+                    ),
+                    Spacing.gapSm,
+                    Text(
+                      'Semua transkripsi berjalan di komputer ini. '
+                      'Tidak ada audio yang keluar.',
+                      textAlign: TextAlign.center,
+                      style: AppText.body.c(colors.textSecondary),
+                    ),
+                    Spacing.gapXl,
+                  ],
+                  SizedBox(
+                    width: Measure.sidebar,
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: AppTextField(
+                        controller: titleController,
+                        placeholder: 'Judul sesi…',
+                        prefixIcon: AppIcons.edit,
+                        reserveHelperSpace: false,
+                      ),
+                    ),
+                  ),
+                  Spacing.gapLg,
+                  _ModeCards(
+                    mode: mode,
+                    onChanged: onModeChanged,
+                    stacked: !wide,
+                    showExplanations: showExplanations,
+                  ),
+                  Spacing.gapLg,
+                  DeviceGroup(
+                    compact: true,
+                    micEnabled: micEnabled,
+                    speakerEnabled: speakerEnabled,
+                    onMicToggled: onMicToggled,
+                    onSpeakerToggled: onSpeakerToggled,
+                    micLevel: 0,
+                    speakerLevel: 0,
+                    live: false,
+                  ),
+                  Spacing.gapXl,
+                  Center(
+                    child: RecordButton(
+                      large: true,
+                      isRecording: false,
+                      isPaused: false,
+                      isBusy: busy,
+                      busyLabel: busyLabel,
+                      onPressed: onStart,
+                    ),
+                  ),
+                  Spacing.gapMd,
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'atau tekan',
+                          style: AppText.caption.c(colors.textTertiary),
+                        ),
+                        Spacing.hSm,
+                        KeyHint(AppShortcuts.startStop.shortcut),
+                      ],
+                    ),
+                  ),
                 ],
-                Text(
-                  'Siap merekam',
-                  style: TextStyle(
-                    color: colors.text,
-                    fontSize: compact ? 16 : 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  compact
-                      ? 'Transkrip muncul di sini, diproses di komputer Anda.'
-                      : 'Transkrip muncul di sini begitu rekaman berjalan.\n'
-                          'Semuanya diproses di komputer Anda.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                ),
-                SizedBox(height: compact ? 14 : 24),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
-                    onPressed: busy ? null : onStart,
-                    icon: const Icon(Icons.fiber_manual_record, size: 18),
-                    label: const Text(
-                      'Mulai Rekam',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'atau tekan Ctrl+R',
-                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -1156,137 +1330,411 @@ class _IdleWorkspace extends StatelessWidget {
   }
 }
 
-/// "Sesi" and "Perangkat", plus the one action that applies right now.
-class _ControlArea extends StatelessWidget {
-  const _ControlArea({
+/// The three capture modes as cards: a glyph, a name, and one line saying what
+/// each one actually records. A bare three-way segmented control tells a
+/// first-time notulis nothing about the difference.
+class _ModeCards extends StatelessWidget {
+  const _ModeCards({
+    required this.mode,
+    required this.onChanged,
+    required this.stacked,
+    required this.showExplanations,
+  });
+
+  final SessionMode mode;
+  final ValueChanged<SessionMode> onChanged;
+  final bool stacked;
+  final bool showExplanations;
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = [
+      for (final m in kModeOrder)
+        _ModeCard(
+          mode: m,
+          selected: m == mode,
+          onPressed: () => onChanged(m),
+          showExplanation: showExplanations,
+        ),
+    ];
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) Spacing.gapSm,
+            cards[i],
+          ],
+        ],
+      );
+    }
+    // IntrinsicHeight so the three cards match the tallest one. Without it a
+    // `stretch` Row inside the hero's scroll view is handed an infinite
+    // height constraint and throws.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) Spacing.hSm,
+            Expanded(child: cards[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.mode,
+    required this.selected,
+    required this.onPressed,
+    required this.showExplanation,
+  });
+
+  final SessionMode mode;
+  final bool selected;
+  final VoidCallback onPressed;
+  final bool showExplanation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final motion = context.motion;
+    return Interactive(
+      onPressed: onPressed,
+      borderRadius: Radii.lgAll,
+      selected: selected,
+      semanticLabel: modeSemantics(mode),
+      builder: (context, state) => AnimatedContainer(
+        duration: motion.fast,
+        curve: AppEasing.standard,
+        padding: const EdgeInsets.all(Spacing.md),
+        decoration: BoxDecoration(
+          color: selected
+              ? colors.primarySubtle
+              : state.active
+              ? colors.surfaceSunken
+              : colors.surface,
+          borderRadius: Radii.lgAll,
+          border: Border.all(
+            color: selected ? colors.primary : colors.hairline,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                // The tick replaces the mode glyph rather than being appended:
+                // a third thing in the row costs the label the width it needs,
+                // and "Rapat Online" was being truncated to "Rapat Onl…".
+                Icon(
+                  selected ? AppIcons.checkPlain : modeIcon(mode),
+                  size: IconSizes.md,
+                  color: selected ? colors.primaryText : colors.textSecondary,
+                ),
+                Spacing.hSm,
+                Expanded(
+                  child: Text(
+                    mode.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.subheading.c(
+                      selected ? colors.primaryText : colors.text,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (showExplanation) ...[
+              Spacing.gapXs,
+              Text(
+                modeExplanation(mode),
+                style: AppText.caption.c(colors.textTertiary),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The strip above the transcript while a session is running: the timer, the
+/// live level per channel, the capture-health badge, bookmark and stop.
+class _RecordingStrip extends StatelessWidget {
+  const _RecordingStrip({
     required this.showMenuButton,
     required this.onOpenMenu,
-    required this.session,
-    required this.notifier,
-    required this.isActive,
+    required this.elapsedSeconds,
     required this.isPaused,
+    required this.mode,
+    required this.micEnabled,
+    required this.speakerEnabled,
+    required this.onMicToggled,
+    required this.onSpeakerToggled,
     required this.vuLevel,
     required this.captureHealth,
-    required this.titleController,
     required this.onStartBerhenti,
-    required this.onEkspor,
+    required this.onAddBookmark,
     required this.isBusy,
     required this.busyLabel,
-    required this.hasTranscript,
   });
 
   final bool showMenuButton;
   final VoidCallback onOpenMenu;
-  final SessionUiState session;
-  final SessionNotifier notifier;
-  final bool isActive;
+  final double elapsedSeconds;
   final bool isPaused;
+  final SessionMode mode;
+  final bool micEnabled;
+  final bool speakerEnabled;
+  final ValueChanged<bool> onMicToggled;
+  final ValueChanged<bool> onSpeakerToggled;
   final VuLevel? vuLevel;
   final rust_session.CaptureHealth? captureHealth;
-  final TextEditingController titleController;
   final VoidCallback onStartBerhenti;
-  final VoidCallback onEkspor;
+  final VoidCallback onAddBookmark;
   final bool isBusy;
   final String busyLabel;
-  final bool hasTranscript;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
+        Spacing.md,
+      ),
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
+        border: Border(bottom: BorderSide(color: colors.hairline)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Two capture chips plus a waveform need about 640 px. Below that
+          // the waveform moves under the chips rather than being squeezed to
+          // nothing, and the mode badge drops out of the timer row.
+          final roomy = constraints.maxWidth >= 640;
+          final waveform = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (showMenuButton)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8, top: 10),
-                  child: IconButton(
-                    icon: const Icon(Icons.menu),
-                    tooltip: 'Riwayat sesi',
-                    onPressed: onOpenMenu,
-                  ),
-                ),
-              Expanded(
-                child: Wrap(
-                  spacing: 20,
-                  runSpacing: 12,
-                  children: [
-                    SessionGroup(
-                      titleController: titleController,
-                      onTitleChanged: notifier.setTitle,
-                      mode: session.config.mode,
-                      onModeChanged: notifier.setMode,
-                      modeLocked: isActive,
-                    ),
-                    DeviceGroup(
-                      micEnabled: session.config.micEnabled,
-                      speakerEnabled: session.config.speakerEnabled,
-                      onMicToggled: notifier.toggleMic,
-                      onSpeakerToggled: notifier.toggleSpeaker,
-                      micLevel: vuLevel?.micLevel ?? 0,
-                      speakerLevel: vuLevel?.speakerLevel ?? 0,
-                      live: isActive,
-                    ),
-                  ],
-                ),
+              LiveWaveform(
+                live: !isPaused,
+                level: _loudest(vuLevel, micEnabled, speakerEnabled),
+                color: colors.primary,
               ),
-              const SizedBox(width: 12),
-              Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Hidden until there is something to export: it used
-                    // to sit next to the record button, enabled, on an
-                    // empty screen (blueprint §4.2).
-                    if (hasTranscript) ...[
-                      SizedBox(
-                        height: 36,
-                        child: OutlinedButton.icon(
-                          onPressed: onEkspor,
-                          icon: Icon(Icons.download_outlined,
-                              size: 16, color: colors.text),
-                          label: Text('Ekspor',
-                              style: TextStyle(color: colors.text)),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: colors.border),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    AnimatedRecordButton(
-                      isRecording: isActive,
-                      isPaused: isPaused,
-                      onPressed: onStartBerhenti,
-                      isBusy: isBusy,
-                      busyLabel: busyLabel,
-                    ),
-                  ],
-                ),
-              ),
+              Spacing.gapSm,
+              // The waveform alone cannot distinguish "recording" from "open
+              // but silent"; the badge is what says audio actually arrived
+              // and was written.
+              CaptureConfirmationBadge(health: captureHealth),
             ],
-          ),
-          // The VU meter alone cannot distinguish "recording" from "open
-          // but silent"; the badge is what says audio actually arrived.
-          if (isActive) ...[
-            const SizedBox(height: 8),
-            CaptureConfirmationBadge(health: captureHealth),
+          );
+          final devices = DeviceGroup(
+            compact: true,
+            micEnabled: micEnabled,
+            speakerEnabled: speakerEnabled,
+            onMicToggled: onMicToggled,
+            onSpeakerToggled: onSpeakerToggled,
+            micLevel: vuLevel?.micLevel ?? 0,
+            speakerLevel: vuLevel?.speakerLevel ?? 0,
+            live: true,
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  if (showMenuButton) ...[
+                    AppIconButton(
+                      icon: AppIcons.menu,
+                      tooltip: 'Riwayat sesi',
+                      onPressed: onOpenMenu,
+                    ),
+                    Spacing.hSm,
+                  ],
+                  RecordingDot(live: !isPaused),
+                  Spacing.hMd,
+                  Semantics(
+                    label: 'Durasi rekaman',
+                    child: Text(
+                      formatElapsed(elapsedSeconds),
+                      style: AppText.monoTimer.c(colors.text),
+                    ),
+                  ),
+                  if (roomy) ...[
+                    Spacing.hMd,
+                    AppStatusBadge(
+                      label: isPaused ? 'Dijeda' : mode.label,
+                      status: isPaused
+                          ? AppStatus.warning
+                          : AppStatus.recording,
+                      dot: !isPaused,
+                      icon: isPaused ? AppIcons.pause : null,
+                    ),
+                  ],
+                  const Spacer(),
+                  AppIconButton(
+                    icon: AppIcons.bookmarkAdd,
+                    tooltip:
+                        'Tandai poin penting '
+                        '(${AppShortcuts.bookmark.shortcut.label})',
+                    onPressed: onAddBookmark,
+                  ),
+                  Spacing.hSm,
+                  RecordButton(
+                    isRecording: true,
+                    isPaused: isPaused,
+                    isBusy: isBusy,
+                    busyLabel: busyLabel,
+                    onPressed: onStartBerhenti,
+                  ),
+                ],
+              ),
+              Spacing.gapMd,
+              if (roomy)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    devices,
+                    Spacing.hLg,
+                    Expanded(child: waveform),
+                  ],
+                )
+              else ...[
+                devices,
+                Spacing.gapMd,
+                waveform,
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static double _loudest(VuLevel? level, bool mic, bool speaker) {
+    if (level == null) return 0;
+    final values = <double>[
+      if (mic) level.micLevel,
+      if (speaker) level.speakerLevel,
+    ];
+    if (values.isEmpty) return 0;
+    return values.reduce((a, b) => a > b ? a : b);
+  }
+}
+
+/// The strip shown over a finished transcript that has not been saved away
+/// yet: title, mode, export and the record button.
+class _SessionStrip extends StatelessWidget {
+  const _SessionStrip({
+    required this.showMenuButton,
+    required this.onOpenMenu,
+    required this.notifier,
+    required this.mode,
+    required this.titleController,
+    required this.onEkspor,
+    required this.onStartBerhenti,
+    required this.isBusy,
+    required this.busyLabel,
+  });
+
+  final bool showMenuButton;
+  final VoidCallback onOpenMenu;
+  final SessionNotifier notifier;
+  final SessionMode mode;
+  final TextEditingController titleController;
+  final VoidCallback onEkspor;
+  final VoidCallback onStartBerhenti;
+  final bool isBusy;
+  final String busyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
+        Spacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.hairline)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (showMenuButton) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.xs / 2),
+              child: AppIconButton(
+                icon: AppIcons.menu,
+                tooltip: 'Riwayat sesi',
+                onPressed: onOpenMenu,
+              ),
+            ),
+            Spacing.hSm,
           ],
+          Expanded(
+            child: SessionControlGroup(
+              titleController: titleController,
+              onTitleChanged: notifier.setTitle,
+              mode: mode,
+              onModeChanged: notifier.setMode,
+              modeLocked: false,
+            ),
+          ),
+          Spacing.hMd,
+          AppButton(
+            label: 'Ekspor',
+            icon: AppIcons.download,
+            onPressed: onEkspor,
+          ),
+          Spacing.hSm,
+          RecordButton(
+            isRecording: false,
+            isPaused: false,
+            isBusy: isBusy,
+            busyLabel: busyLabel,
+            onPressed: onStartBerhenti,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Just the drawer button, for the idle hero in a narrow window.
+class _CompactMenuBar extends StatelessWidget {
+  const _CompactMenuBar({required this.onOpenMenu});
+
+  final VoidCallback onOpenMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.hairline)),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: AppIconButton(
+          icon: AppIcons.menu,
+          tooltip: 'Riwayat sesi',
+          onPressed: onOpenMenu,
+        ),
       ),
     );
   }
@@ -1312,123 +1760,153 @@ class _SaveFailedBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Material(
-      color: colors.error.withValues(alpha: 0.12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, color: colors.error),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  '$message Transkrip masih ada di memori — jangan tutup '
-                  'aplikasi sebelum tersimpan.',
-                  style: TextStyle(color: colors.text, fontSize: 13),
-                ),
+    final colors = context.colors;
+    return Container(
+      color: colors.errorSubtle,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.sm,
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.error, size: IconSizes.md, color: colors.error),
+          Spacing.hMd,
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                '$message Transkrip masih ada di memori, jangan tutup '
+                'aplikasi sebelum tersimpan.',
+                style: AppText.body.c(colors.text),
               ),
             ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: busy ? null : onSaveElsewhere,
-              child: const Text('Simpan ke folder lain'),
-            ),
-            FilledButton(
-              onPressed: busy ? null : onRetry,
-              child: Text(busy ? 'Menyimpan…' : 'Coba lagi'),
-            ),
-          ],
-        ),
+          ),
+          Spacing.hSm,
+          AppButton.ghost(
+            label: 'Simpan ke folder lain',
+            onPressed: busy ? null : onSaveElsewhere,
+          ),
+          Spacing.hSm,
+          AppButton.primary(
+            label: busy ? 'Menyimpan…' : 'Coba Lagi',
+            loading: busy,
+            onPressed: busy ? null : onRetry,
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Footer bar: recording timer and segment count.
+/// "A meeting stopped without being saved." Says what is recoverable, not just
+/// how many rows exist.
+class _RecoveryBanner extends StatelessWidget {
+  const _RecoveryBanner({required this.summary, required this.onOpen});
+
+  final String summary;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      color: colors.infoSubtle,
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.sm,
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.restore, size: IconSizes.md, color: colors.info),
+          Spacing.hMd,
+          Expanded(child: Text(summary, style: AppText.body.c(colors.text))),
+          Spacing.hSm,
+          // No "Abaikan": it hid the banner without deleting anything, so the
+          // same sessions reappeared on every launch forever.
+          AppButton(label: 'Lihat & Pulihkan', onPressed: onOpen),
+        ],
+      ),
+    );
+  }
+}
+
+/// Footer: the elapsed timer, the segment count, and the shortcut hint.
 class _FooterBar extends StatelessWidget {
+  const _FooterBar({
+    required this.lifecycle,
+    required this.segmentsCount,
+    required this.onShowShortcuts,
+    this.elapsedSeconds = 0,
+  });
+
   final SessionLifecycle lifecycle;
   final int segmentsCount;
   final double elapsedSeconds;
 
-  const _FooterBar({
-    required this.lifecycle,
-    required this.segmentsCount,
-    this.elapsedSeconds = 0,
-  });
-
-  String _formatElapsed(double secs) {
-    final h = (secs / 3600).floor();
-    final m = ((secs % 3600) / 60).floor();
-    final s = (secs % 60).floor();
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
+  /// The hint is a control, not decoration: a keyboard affordance that can
+  /// only be reached with the keyboard helps nobody who does not already
+  /// know it is there.
+  final VoidCallback onShowShortcuts;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     final isRecording = lifecycle == SessionLifecycle.recording;
     final isPaused = lifecycle == SessionLifecycle.paused;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: ControlSizes.md,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: Row(
         children: [
           if (isRecording || isPaused) ...[
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isRecording ? colors.success : colors.warning,
-                boxShadow: isRecording
-                    ? [
-                        BoxShadow(
-                          color: colors.success.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 8),
+            RecordingDot(size: Spacing.sm - 2, live: isRecording),
+            Spacing.hSm,
             Text(
-              _formatElapsed(elapsedSeconds),
-              style: TextStyle(
-                color: colors.text,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
-              ),
+              formatElapsed(elapsedSeconds),
+              style: AppText.monoMicro.c(colors.textSecondary),
             ),
-            const SizedBox(width: 16),
+            Spacing.hLg,
           ],
           if (segmentsCount > 0) ...[
-            Icon(Icons.chat_bubble_outline, size: 14, color: colors.textTertiary),
-            const SizedBox(width: 4),
-            Text(
-              '$segmentsCount',
-              style: TextStyle(
-                  color: colors.textTertiary,
-                  fontSize: 12,
-                  fontFamily: 'monospace'),
+            Icon(
+              AppIcons.segments,
+              size: IconSizes.xs,
+              color: colors.textTertiary,
             ),
-            const SizedBox(width: 16),
+            Spacing.hXs,
+            Text(
+              '$segmentsCount segmen',
+              style: AppText.monoMicro.c(colors.textTertiary),
+            ),
           ],
           const Spacer(),
-          Text(
-            'Ctrl+/ untuk pintasan',
-            style: TextStyle(color: colors.textTertiary, fontSize: 11),
+          Interactive(
+            onPressed: onShowShortcuts,
+            borderRadius: Radii.smAll,
+            semanticLabel: 'Tampilkan pintasan keyboard',
+            builder: (context, state) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.sm,
+                vertical: Spacing.xs / 2,
+              ),
+              decoration: BoxDecoration(
+                color: state.active ? colors.hoverOverlay : Colors.transparent,
+                borderRadius: Radii.smAll,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Pintasan', style: AppText.micro.c(colors.textTertiary)),
+                  Spacing.hSm,
+                  KeyHint(AppShortcuts.shortcutsPanel.shortcut),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1436,95 +1914,67 @@ class _FooterBar extends StatelessWidget {
   }
 }
 
-/// Keyboard shortcuts panel
-class _ShortcutsPanel extends StatelessWidget {
-  final VoidCallback onClose;
+/// hh:mm:ss (or mm:ss under an hour), in tabular figures so it does not
+/// reflow once a second.
+String formatElapsed(double secs) {
+  final total = secs.floor();
+  final h = total ~/ 3600;
+  final m = (total % 3600) ~/ 60;
+  final s = total % 60;
+  String two(int v) => v.toString().padLeft(2, '0');
+  return h > 0 ? '${two(h)}:${two(m)}:${two(s)}' : '${two(m)}:${two(s)}';
+}
 
+/// The keyboard shortcut panel, built from the one shortcut table so it cannot
+/// list a binding the app does not actually have.
+class _ShortcutsPanel extends StatelessWidget {
   const _ShortcutsPanel({required this.onClose});
 
+  final VoidCallback onClose;
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.divider)),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
+    final colors = context.colors;
+    return AppSurface(
+      elevation: Elevation.modal,
+      radius: const BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.xl,
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      // Capped and centred: at 1920 px an uncapped panel puts every keycap a
+      // screen-width away from the action it belongs to.
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Measure.reading),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Pintasan keyboard',
-                style: TextStyle(
-                  color: colors.text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Pintasan keyboard',
+                      style: AppText.heading.c(colors.text),
+                    ),
+                  ),
+                  AppIconButton(
+                    icon: AppIcons.close,
+                    tooltip: 'Tutup',
+                    size: IconSizes.md,
+                    onPressed: onClose,
+                  ),
+                ],
               ),
-              const Spacer(),
-              IconButton(
-                icon: Icon(Icons.close, size: 18, color: colors.textSecondary),
-                tooltip: 'Tutup',
-                onPressed: onClose,
-              ),
+              Spacing.gapSm,
+              for (final action in AppShortcuts.all)
+                KeyHintRow(label: action.label, shortcut: action.shortcut),
             ],
           ),
-          const SizedBox(height: 8),
-          const _ShortcutRow(label: 'Mulai / Berhenti merekam', shortcut: 'Ctrl+R'),
-          const _ShortcutRow(label: 'Jeda / Lanjutkan', shortcut: 'Ctrl+P'),
-          const _ShortcutRow(label: 'Cari di riwayat sesi', shortcut: 'Ctrl+L'),
-          const _ShortcutRow(
-              label: 'Tandai poin penting', shortcut: 'Ctrl+B'),
-          const _ShortcutRow(label: 'Buka Pengaturan', shortcut: 'Ctrl+,'),
-          const _ShortcutRow(label: 'Tampilkan panel pintasan', shortcut: 'Ctrl+/'),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShortcutRow extends StatelessWidget {
-  final String label;
-  final String shortcut;
-
-  const _ShortcutRow({required this.label, required this.shortcut});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: TextStyle(color: colors.text, fontSize: 13)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.chipBackground,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              shortcut,
-              style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 12,
-                  fontFamily: 'monospace'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

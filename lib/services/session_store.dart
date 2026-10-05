@@ -255,26 +255,29 @@ List<ActionItem> _actionItemsFromJson(Object? raw) {
     if (tugas is! String || tugas.trim().isEmpty) continue;
     final statusName = entry['status'];
     final segments = entry['segments'];
-    out.add(ActionItem(
-      id: entry['id'] is String && (entry['id'] as String).isNotEmpty
-          ? entry['id'] as String
-          : 'T${out.length + 1}',
-      tugas: tugas,
-      penanggungJawab: entry['pj'] is String ? entry['pj'] as String : '',
-      tenggat: entry['tenggat'] is String ? entry['tenggat'] as String : '',
-      status: ActionStatus.values
-              .where((s) => s.name == statusName)
-              .firstOrNull ??
-          ActionStatus.belum,
-      segmentIds: Uint32List.fromList(
-        segments is List
-            ? [
-                for (final id in segments)
-                  if (id is int && id >= 0) id,
-              ]
-            : const [],
+    out.add(
+      ActionItem(
+        id: entry['id'] is String && (entry['id'] as String).isNotEmpty
+            ? entry['id'] as String
+            : 'T${out.length + 1}',
+        tugas: tugas,
+        penanggungJawab: entry['pj'] is String ? entry['pj'] as String : '',
+        tenggat: entry['tenggat'] is String ? entry['tenggat'] as String : '',
+        status:
+            ActionStatus.values
+                .where((s) => s.name == statusName)
+                .firstOrNull ??
+            ActionStatus.belum,
+        segmentIds: Uint32List.fromList(
+          segments is List
+              ? [
+                  for (final id in segments)
+                    if (id is int && id >= 0) id,
+                ]
+              : const [],
+        ),
       ),
-    ));
+    );
   }
   return out;
 }
@@ -289,10 +292,12 @@ List<Bookmark> _bookmarksFromJson(Object? raw) {
     if (entry is! Map) continue;
     final timestamp = (entry['timestamp'] as num?)?.toDouble();
     if (timestamp == null || timestamp.isNaN || timestamp < 0) continue;
-    out.add(Bookmark(
-      timestamp: timestamp,
-      note: entry['note'] is String ? entry['note'] as String : '',
-    ));
+    out.add(
+      Bookmark(
+        timestamp: timestamp,
+        note: entry['note'] is String ? entry['note'] as String : '',
+      ),
+    );
   }
   out.sort((a, b) => a.timestamp.compareTo(b.timestamp));
   return out;
@@ -441,12 +446,12 @@ class NotulenFormData {
   };
 
   factory NotulenFormData.fromJson(Map<String, dynamic> json) {
-    List<String> strings(Object? raw) => raw is List
-        ? raw.whereType<String>().toList()
-        : const <String>[];
+    List<String> strings(Object? raw) =>
+        raw is List ? raw.whereType<String>().toList() : const <String>[];
     String text(String key) => json[key] is String ? json[key] as String : '';
     return NotulenFormData(
-      variant: NotulenVariant.values
+      variant:
+          NotulenVariant.values
               .where((v) => v.name == json['variant'])
               .firstOrNull ??
           NotulenVariant.dinas,
@@ -670,7 +675,9 @@ File? transcriptFileIn(Directory sessionDir) {
 
 /// The re-transcribe backup for [dirPath], or `null` when there is none.
 File? transcriptBackupIn(String dirPath) {
-  final file = File('$dirPath${Platform.pathSeparator}$kTranscriptBackupFilename');
+  final file = File(
+    '$dirPath${Platform.pathSeparator}$kTranscriptBackupFilename',
+  );
   return file.existsSync() ? file : null;
 }
 
@@ -678,7 +685,10 @@ File? transcriptBackupIn(String dirPath) {
 /// replaces it. Throws if the backup cannot be written — a "Transkrip
 /// Ulang" that silently skipped its backup would be the original bug with
 /// extra steps.
-Future<void> backupTranscript(String dirPath, List<TranscriptSegment> segments) {
+Future<void> backupTranscript(
+  String dirPath,
+  List<TranscriptSegment> segments,
+) {
   return writeStringAtomic(
     File('$dirPath${Platform.pathSeparator}$kTranscriptBackupFilename'),
     encodeTranscriptJson(segments),

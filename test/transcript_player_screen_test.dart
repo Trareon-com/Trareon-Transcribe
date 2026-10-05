@@ -5,14 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/screens/transcript_player_screen.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
 import 'package:transcribe/state/models.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 /// Find text inside [RichText] widgets which [find.text] does not match.
 ///
 /// Segment text in [TranscriptView] is rendered via [RichText] inside
 /// [_SegmentTile], so we need a custom predicate to locate it.
 Finder findRichText(String text) => find.byWidgetPredicate(
-      (widget) => widget is RichText && widget.text.toPlainText() == text,
-    );
+  (widget) => widget is RichText && widget.text.toPlainText() == text,
+);
 
 void main() {
   const segments = [
@@ -28,7 +29,9 @@ void main() {
     ),
   ];
 
-  testWidgets('renders title, transcript, and speed control', (WidgetTester tester) async {
+  testWidgets('renders title, transcript, and speed control', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: TranscriptPlayerScreen(
@@ -55,8 +58,8 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.play_circle_filled), findsOneWidget);
-    expect(find.byIcon(Icons.pause_circle_filled), findsNothing);
+    expect(find.byIcon(AppIcons.playFilled), findsOneWidget);
+    expect(find.byIcon(AppIcons.pauseFilled), findsNothing);
     expect(find.text('1.0x'), findsOneWidget);
   });
 
@@ -150,7 +153,9 @@ void main() {
     expect(updatedSegments!.single.text, 'Halo semua, selamat pagi');
   });
 
-  testWidgets('transcript view live search filters matching segments', (WidgetTester tester) async {
+  testWidgets('transcript view live search filters matching segments', (
+    WidgetTester tester,
+  ) async {
     const multiSegments = [
       TranscriptSegment(
         source: 'mic',

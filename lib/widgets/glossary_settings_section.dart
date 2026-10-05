@@ -30,6 +30,7 @@ import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
 import 'app_toast.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
 
 /// Terms a brand-new install is offered, as chips to tap rather than a
 /// prefilled list — a glossary the user did not choose is a glossary they
@@ -79,9 +80,9 @@ class _GlossarySettingsSectionState
   Future<void> _refreshPrompt() async {
     final settings = ref.read(settingsProvider);
     try {
-      final info = await ref.read(rustBridgeProvider).glossaryPromptPreview(
-            glossary: settings.glossary.toConfig(),
-          );
+      final info = await ref
+          .read(rustBridgeProvider)
+          .glossaryPromptPreview(glossary: settings.glossary.toConfig());
       if (mounted) setState(() => _prompt = info);
     } catch (_) {
       // The counter falls back to the plain term count; a preview that cannot
@@ -100,9 +101,10 @@ class _GlossarySettingsSectionState
         .map((t) => t.trim())
         .where((t) => t.isNotEmpty);
     _termController.clear();
-    await ref
-        .read(settingsProvider.notifier)
-        .setGlossaryTerms([...ref.read(settingsProvider).glossary.terms, ...terms]);
+    await ref.read(settingsProvider.notifier).setGlossaryTerms([
+      ...ref.read(settingsProvider).glossary.terms,
+      ...terms,
+    ]);
     await _refreshPrompt();
   }
 
@@ -116,8 +118,9 @@ class _GlossarySettingsSectionState
     if (path == null) return;
     try {
       final content = await File(path).readAsString();
-      final parsed =
-          await ref.read(rustBridgeProvider).parseGlossaryFile(content);
+      final parsed = await ref
+          .read(rustBridgeProvider)
+          .parseGlossaryFile(content);
       if (parsed.isEmpty) {
         if (mounted) {
           AppToast.show(
@@ -129,11 +132,12 @@ class _GlossarySettingsSectionState
         return;
       }
       final before = ref.read(settingsProvider).glossary.terms;
-      await ref
-          .read(settingsProvider.notifier)
-          .setGlossaryTerms([...before, ...parsed]);
-      final added = ref.read(settingsProvider).glossary.terms.length -
-          before.length;
+      await ref.read(settingsProvider.notifier).setGlossaryTerms([
+        ...before,
+        ...parsed,
+      ]);
+      final added =
+          ref.read(settingsProvider).glossary.terms.length - before.length;
       await _refreshPrompt();
       if (mounted) {
         AppToast.show(
@@ -161,8 +165,9 @@ class _GlossarySettingsSectionState
     );
     if (path == null) return;
     try {
-      final content =
-          await ref.read(rustBridgeProvider).renderGlossaryFile(terms, csv: csv);
+      final content = await ref
+          .read(rustBridgeProvider)
+          .renderGlossaryFile(terms, csv: csv);
       // Same atomic temp+rename every other persisted file in the app uses:
       // a truncated glossary export is a silently incomplete backup.
       await writeStringAtomic(File(path), content);
@@ -185,11 +190,13 @@ class _GlossarySettingsSectionState
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final glossary = settings.glossary;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     final suggestions = kGlossarySuggestions
-        .where((s) => !glossary.terms
-            .any((t) => t.toLowerCase() == s.toLowerCase()))
+        .where(
+          (s) => !glossary.terms.any((t) => t.toLowerCase() == s.toLowerCase()),
+        )
         .toList();
 
     return Column(
@@ -199,11 +206,11 @@ class _GlossarySettingsSectionState
           title: 'Kamus Istilah',
           children: [
             SettingsSwitch(
-              icon: Icons.menu_book_outlined,
+              icon: AppIcons.glossary,
               label: 'Pakai kamus istilah',
               subtitle: glossary.enabled
                   ? 'Istilah di bawah dibisikkan ke mesin transkripsi supaya '
-                      'singkatan dan nama lembaga tidak salah tulis.'
+                        'singkatan dan nama lembaga tidak salah tulis.'
                   : 'Mesin transkripsi menebak sendiri semua istilah.',
               value: glossary.enabled,
               onChanged: (value) async {
@@ -213,12 +220,12 @@ class _GlossarySettingsSectionState
             ),
             const SettingsDivider(),
             SettingsSwitch(
-              icon: Icons.auto_fix_high_outlined,
+              icon: AppIcons.autoFix,
               label: 'Perbaiki ejaan yang mirip',
               subtitle: glossary.postCorrection
                   ? 'Kata yang hampir sama dengan istilah di kamus '
-                      'diperbaiki setelah transkripsi. Kata lain tidak '
-                      'disentuh.'
+                        'diperbaiki setelah transkripsi. Kata lain tidak '
+                        'disentuh.'
                   : 'Hasil transkripsi dibiarkan apa adanya.',
               value: glossary.postCorrection,
               onChanged: notifier.setGlossaryPostCorrection,
@@ -253,14 +260,17 @@ class _GlossarySettingsSectionState
                         height: TouchTarget.minimum,
                         child: FilledButton.icon(
                           onPressed: _addTyped,
-                          icon: const Icon(Icons.add, size: IconSizes.md),
+                          icon: const Icon(AppIcons.add, size: IconSizes.md),
                           label: const Text('Tambah'),
                         ),
                       ),
                     ],
                   ),
                   Spacing.gapMd,
-                  _PromptBudget(info: _prompt, termCount: glossary.terms.length),
+                  _PromptBudget(
+                    info: _prompt,
+                    termCount: glossary.terms.length,
+                  ),
                   if (glossary.terms.isNotEmpty) ...[
                     Spacing.gapMd,
                     Wrap(
@@ -300,7 +310,10 @@ class _GlossarySettingsSectionState
                       children: [
                         for (final suggestion in suggestions)
                           ActionChip(
-                            avatar: const Icon(Icons.add, size: IconSizes.sm),
+                            avatar: const Icon(
+                              AppIcons.add,
+                              size: IconSizes.sm,
+                            ),
                             label: Text(suggestion),
                             tooltip: 'Tambahkan $suggestion ke kamus',
                             onPressed: () async {
@@ -323,23 +336,21 @@ class _GlossarySettingsSectionState
                 children: [
                   OutlinedButton.icon(
                     onPressed: _import,
-                    icon: const Icon(Icons.file_upload_outlined,
-                        size: IconSizes.md),
+                    icon: const Icon(AppIcons.fileUpload, size: IconSizes.md),
                     label: const Text('Impor .txt / .csv'),
                   ),
                   OutlinedButton.icon(
                     onPressed: glossary.terms.isEmpty
                         ? null
                         : () => _export(csv: false),
-                    icon: const Icon(Icons.file_download_outlined,
-                        size: IconSizes.md),
+                    icon: const Icon(AppIcons.fileDownload, size: IconSizes.md),
                     label: const Text('Ekspor .txt'),
                   ),
                   OutlinedButton.icon(
-                    onPressed:
-                        glossary.terms.isEmpty ? null : () => _export(csv: true),
-                    icon: const Icon(Icons.table_view_outlined,
-                        size: IconSizes.md),
+                    onPressed: glossary.terms.isEmpty
+                        ? null
+                        : () => _export(csv: true),
+                    icon: const Icon(AppIcons.table, size: IconSizes.md),
                     label: const Text('Ekspor .csv'),
                   ),
                 ],
@@ -361,7 +372,8 @@ class _PromptBudget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     if (termCount == 0) {
       return Text(
         'Belum ada istilah. Tanpa kamus, mesin transkripsi menebak sendiri.',
@@ -380,7 +392,7 @@ class _PromptBudget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            overflowing ? Icons.warning_amber_rounded : Icons.check_circle,
+            overflowing ? AppIcons.warning : AppIcons.checkFilled,
             size: IconSizes.sm,
             color: overflowing ? colors.warning : colors.success,
           ),
@@ -388,10 +400,10 @@ class _PromptBudget extends StatelessWidget {
           Expanded(
             child: Text(
               overflowing
-                  ? '$used dari $total istilah dipakai — daftar terlalu '
-                      'panjang untuk dibisikkan sekaligus. Istilah paling '
-                      'atas yang dibuang; pindahkan yang penting ke atas atau '
-                      'kurangi daftarnya.'
+                  ? '$used dari $total istilah dipakai, daftar terlalu '
+                        'panjang untuk dibisikkan sekaligus. Istilah paling '
+                        'atas yang dibuang; pindahkan yang penting ke atas atau '
+                        'kurangi daftarnya.'
                   : 'Semua $total istilah dipakai.',
               style: TextStyle(
                 fontSize: FontSizes.caption,

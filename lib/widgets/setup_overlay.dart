@@ -5,6 +5,7 @@ import '../screens/diagnostics_screen.dart';
 import '../services/preflight_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 /// Set to true before running tests so preflight does not reach for the
 /// native library.
@@ -32,8 +33,7 @@ class SetupOverlay extends ConsumerStatefulWidget {
   const SetupOverlay({super.key, required this.child, this.runChecks});
 
   /// Creates a SetupOverlay that skips preflight checks.
-  const SetupOverlay.test({super.key, required this.child})
-      : runChecks = null;
+  const SetupOverlay.test({super.key, required this.child}) : runChecks = null;
 
   @override
   ConsumerState<SetupOverlay> createState() => _SetupOverlayState();
@@ -68,7 +68,8 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     if (result == null || _dismissed) return widget.child;
 
@@ -90,18 +91,27 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: IconSizes.md, color: colors.warning),
-                  const SizedBox(width: 10),
+                  Icon(
+                    AppIcons.warning,
+                    size: IconSizes.md,
+                    color: colors.warning,
+                  ),
+                  Spacing.hSm,
                   Expanded(
                     child: Semantics(
                       liveRegion: true,
                       child: Text(
                         'Perlu diperiksa: ${summariseNames(result.warnings)}.',
-                        style: TextStyle(color: colors.text, fontSize: 13),
+                        style: TextStyle(
+                          color: colors.text,
+                          fontSize: FontSizes.body,
+                        ),
                       ),
                     ),
                   ),
@@ -110,7 +120,7 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
                     child: const Text('Lihat diagnostik'),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: IconSizes.md),
                     tooltip: 'Tutup',
                     onPressed: () => setState(() => _dismissed = true),
                   ),
@@ -140,33 +150,34 @@ class _BlockingFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Scaffold(
       backgroundColor: colors.background,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(Spacing.xl),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.error_outline, size: 56, color: colors.error),
-                const SizedBox(height: 16),
+                Icon(AppIcons.error, size: IconSizes.hero, color: colors.error),
+                Spacing.gapLg,
                 Text(
                   'Trareon belum siap merekam',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.text,
-                    fontSize: 20,
+                    fontSize: FontSizes.headline,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 16),
+                Spacing.gapLg,
                 for (final check in result.failures)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: Spacing.md),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -177,29 +188,34 @@ class _BlockingFailure extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        Spacing.gapXs,
                         Text(
                           messageOf(check),
                           style: TextStyle(
-                              color: colors.textSecondary, fontSize: 13),
+                            color: colors.textSecondary,
+                            fontSize: FontSizes.body,
+                          ),
                         ),
                         if (check.remediation != null) ...[
-                          const SizedBox(height: 4),
+                          Spacing.gapXs,
                           Text(
                             check.remediation!,
                             style: TextStyle(
-                                color: colors.text, fontSize: 13, height: 1.35),
+                              color: colors.text,
+                              fontSize: FontSizes.body,
+                              height: 1.35,
+                            ),
                           ),
                         ],
                       ],
                     ),
                   ),
-                const SizedBox(height: 8),
+                Spacing.gapSm,
                 FilledButton(
                   onPressed: busy ? null : onRetry,
                   child: Text(busy ? 'Memeriksa…' : 'Periksa Ulang'),
                 ),
-                const SizedBox(height: 8),
+                Spacing.gapSm,
                 // Always a way past: a preflight that is wrong about the
                 // machine must not be able to lock the user out of their
                 // own recordings.

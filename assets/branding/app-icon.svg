@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Trareon Transcribe app icon, master source.
+
+  A speech mark (a squircle whose bottom-left corner is squared off, the way a
+  speech bubble's tail attaches) holding four waveform bars. Flat brand teal
+  (#146F62, the light-mode accent from docs/DESIGN-SYSTEM.md §2.3) and
+  off-white; no gradient, no glow, no bevel, so the shape survives being
+  rendered at 16 px for a Windows taskbar.
+
+  Rendered to platform sizes by scripts/render_app_icon.sh:
+    macos/Runner/Assets.xcassets/AppIcon.appiconset/*.png  (16 .. 1024)
+    windows/runner/resources/app_icon.ico                  (16 .. 256)
+    linux/icons/*.png                                      (16 .. 512)
+    assets/logo.png                                        (in-app wordmark)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Trareon Transcribe">
+  <title>Trareon Transcribe</title>
+  <path
+    d="M 304 96 H 720 A 208 208 0 0 1 928 304 V 720 A 208 208 0 0 1 720 928 H 136 A 40 40 0 0 1 96 888 V 304 A 208 208 0 0 1 304 96 Z"
+    fill="#146F62"/>
+  <g fill="#F7F8F8">
+    <rect x="284" y="432" width="72" height="160" rx="36"/>
+    <rect x="412" y="352" width="72" height="320" rx="36"/>
+    <rect x="540" y="392" width="72" height="240" rx="36"/>
+    <rect x="668" y="312" width="72" height="400" rx="36"/>
+  </g>
+</svg>

@@ -94,25 +94,20 @@ class LibraryEntry {
     this.summary = '',
     this.audioPath,
     this.tags = const [],
-  }) : haystack = '$title\n$snippet\n$summary\n${tags.join(" ")}'
-            .toLowerCase();
+  }) : haystack = '$title\n$snippet\n$summary\n${tags.join(" ")}'.toLowerCase();
 
   bool get hasSummary => summary.trim().isNotEmpty;
 
   SessionSummary toSummary() => SessionSummary(
-        id: dirPath,
-        title: title,
-        date: date,
-        segmentsCount: segmentsCount,
-        durationSeconds: durationSeconds,
-        audioPath: audioPath,
-      );
+    id: dirPath,
+    title: title,
+    date: date,
+    segmentsCount: segmentsCount,
+    durationSeconds: durationSeconds,
+    audioPath: audioPath,
+  );
 
-  LibraryEntry copyWith({
-    String? title,
-    String? summary,
-    List<String>? tags,
-  }) =>
+  LibraryEntry copyWith({String? title, String? summary, List<String>? tags}) =>
       LibraryEntry(
         dirPath: dirPath,
         title: title ?? this.title,
@@ -128,18 +123,18 @@ class LibraryEntry {
       );
 
   Map<String, dynamic> toJson(String dirName) => {
-        'dir': dirName,
-        'title': title,
-        'date': date,
-        'duration': durationSeconds,
-        'segments': segmentsCount,
-        'snippet': snippet,
-        if (audioPath != null) 'audio': _basename(audioPath!),
-        if (summary.isNotEmpty) 'summary': summary,
-        if (tags.isNotEmpty) 'tags': tags,
-        'size': transcriptSize,
-        'mtime': transcriptModifiedMs,
-      };
+    'dir': dirName,
+    'title': title,
+    'date': date,
+    'duration': durationSeconds,
+    'segments': segmentsCount,
+    'snippet': snippet,
+    if (audioPath != null) 'audio': _basename(audioPath!),
+    if (summary.isNotEmpty) 'summary': summary,
+    if (tags.isNotEmpty) 'tags': tags,
+    'size': transcriptSize,
+    'mtime': transcriptModifiedMs,
+  };
 
   static LibraryEntry? fromJson(String libraryPath, Map<String, dynamic> json) {
     final dirName = json['dir'];
@@ -234,7 +229,8 @@ Future<LibraryEntry?> buildLibraryEntry(Directory dir) async {
     return LibraryEntry(
       dirPath: dir.path,
       title: title,
-      date: dateFromDirName(dirName) ??
+      date:
+          dateFromDirName(dirName) ??
           (await dir.stat()).modified.toIso8601String().substring(0, 10),
       durationSeconds: segments.isEmpty
           ? 0
@@ -306,8 +302,9 @@ Future<bool> _stillValid(Directory dir, LibraryEntry entry) async {
 
 Future<Map<String, LibraryEntry>> _readIndexFile(String libraryPath) async {
   try {
-    final file =
-        File('$libraryPath${Platform.pathSeparator}$kLibraryIndexFilename');
+    final file = File(
+      '$libraryPath${Platform.pathSeparator}$kLibraryIndexFilename',
+    );
     if (!await file.exists()) return {};
     final decoded = jsonDecode(await file.readAsString());
     if (decoded is! Map<String, dynamic>) return {};
@@ -332,8 +329,9 @@ Future<void> saveLibraryIndex(
   String libraryPath,
   List<LibraryEntry> entries,
 ) async {
-  final file =
-      File('$libraryPath${Platform.pathSeparator}$kLibraryIndexFilename');
+  final file = File(
+    '$libraryPath${Platform.pathSeparator}$kLibraryIndexFilename',
+  );
   await writeStringAtomic(
     file,
     jsonEncode({
@@ -365,7 +363,8 @@ Future<SessionRecord?> loadSessionRecord(String dirPath) async {
       title: meta.title?.trim().isNotEmpty == true
           ? meta.title!.trim()
           : titleFromDirName(dirName),
-      date: dateFromDirName(dirName) ??
+      date:
+          dateFromDirName(dirName) ??
           (await dir.stat()).modified.toIso8601String().substring(0, 10),
       segments: segments,
       durationSeconds: segments.isEmpty
@@ -423,10 +422,9 @@ List<DeepSearchHit> _deepSearchSync(
       if (!raw.toLowerCase().contains(needle)) continue;
       for (final segment in parseTranscriptJson(raw)) {
         if (!segment.text.toLowerCase().contains(needle)) continue;
-        hits.add(DeepSearchHit(
-          dirPath,
-          '${segment.speaker}: ${segment.text}'.trim(),
-        ));
+        hits.add(
+          DeepSearchHit(dirPath, '${segment.speaker}: ${segment.text}'.trim()),
+        );
         break;
       }
     } catch (_) {
@@ -442,9 +440,7 @@ List<DeepSearchHit> deepSearchLibrarySync(
   List<String> dirPaths,
   String query, {
   int limit = 50,
-}) =>
-    _deepSearchSync(dirPaths, query.trim().toLowerCase(), limit);
-
+}) => _deepSearchSync(dirPaths, query.trim().toLowerCase(), limit);
 
 /// Tags from an index entry or a sidecar, cleaned up.
 ///

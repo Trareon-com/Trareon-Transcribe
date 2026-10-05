@@ -52,8 +52,9 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light(),
           builder: (context, widget) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(scale)),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
             child: widget!,
           ),
           home: child,
@@ -93,7 +94,8 @@ void main() {
         expect(
           chip,
           findsAtLeastNWidgets(1),
-          reason: 'the "${category.label}" category is not in the sidebar at '
+          reason:
+              'the "${category.label}" category is not in the sidebar at '
               '${kMaxSupportedTextScale}x, so its pane cannot be checked',
         );
         await tester.ensureVisible(chip.first);
@@ -103,7 +105,8 @@ void main() {
         expect(
           tester.takeException(),
           isNull,
-          reason: 'overflow in the "${category.label}" pane at '
+          reason:
+              'overflow in the "${category.label}" pane at '
               '${kMaxSupportedTextScale}x',
         );
         // Proof the tap landed: the content pane is keyed by its category, so
@@ -136,8 +139,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the transcript, including the long-speaker-name case',
-        (tester) async {
+    testWidgets('the transcript, including the long-speaker-name case', (
+      tester,
+    ) async {
       await pumpScaled(
         tester,
         Scaffold(
@@ -177,8 +181,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the diagnostics screen, including the export card',
-        (tester) async {
+    testWidgets('the diagnostics screen, including the export card', (
+      tester,
+    ) async {
       await pumpScaled(
         tester,
         DiagnosticsScreen(
@@ -204,8 +209,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the player, with its control row and bookmark list',
-        (tester) async {
+    testWidgets('the player, with its control row and bookmark list', (
+      tester,
+    ) async {
       await pumpScaled(
         tester,
         TranscriptPlayerScreen(

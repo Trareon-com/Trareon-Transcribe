@@ -185,9 +185,8 @@ mixin SummaryBridgeStubs {
     required String today,
   }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
 
-  Future<String> actionItemsToCsv(
-    List<rust_actions.ActionItem> items,
-  ) async => '';
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items) async =>
+      '';
 
   Future<rust_provenance.SummaryProvenance> summaryProvenance({
     required String summary,
@@ -234,9 +233,10 @@ mixin SummaryBridgeStubs {
     required rust_glossary.GlossaryConfig glossary,
     String contextTail = '',
   }) async {
-    final terms = [...glossary.sessionTerms, ...glossary.globalTerms]
-        .where((t) => t.trim().isNotEmpty)
-        .toList();
+    final terms = [
+      ...glossary.sessionTerms,
+      ...glossary.globalTerms,
+    ].where((t) => t.trim().isNotEmpty).toList();
     return rust_api.GlossaryPromptInfo(
       prompt: terms.isEmpty ? contextTail : 'Istilah: ${terms.join(', ')}.',
       termsUsed: terms.length,
@@ -304,7 +304,8 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
 
   @override
-  Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      const Stream.empty();
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
@@ -313,8 +314,8 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -363,16 +364,21 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
   Future<void> downloadModel(String modelsDir, String modelId) async {}
 
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [];
 
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
+      const [];
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async =>
+      const [];
 
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
@@ -419,7 +425,7 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
 
 /// Test app that skips SetupOverlay (preflight checks)
 /// Use this instead of TranscribeApp in widget tests
-Widget buildTestApp({Widget? child}) {
+Widget buildTestApp({Widget? child, ThemeMode themeMode = ThemeMode.light}) {
   // Enable test mode to skip preflight checks
   skipPreflightChecks = true;
 
@@ -428,15 +434,16 @@ Widget buildTestApp({Widget? child}) {
       rustBridgeProvider.overrideWithValue(NoopBridge()),
       // The sidebar reads the session index off disk; real I/O never
       // completes inside a widget test's fake-async zone.
-      libraryListProvider
-          .overrideWith((ref) => LibraryListNotifier.seeded(const [])),
+      libraryListProvider.overrideWith(
+        (ref) => LibraryListNotifier.seeded(const []),
+      ),
     ],
     child: MaterialApp(
       title: 'Trareon Transcribe',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.light,
+      themeMode: themeMode,
       home: child ?? const MainScreenTestWrapper(),
     ),
   );
@@ -464,8 +471,9 @@ Widget buildTestAppWithOverrides({
   return ProviderScope(
     overrides: [
       rustBridgeProvider.overrideWithValue(NoopBridge()),
-      libraryListProvider
-          .overrideWith((ref) => LibraryListNotifier.seeded(const [])),
+      libraryListProvider.overrideWith(
+        (ref) => LibraryListNotifier.seeded(const []),
+      ),
       ...overrides,
     ],
     child: MaterialApp(

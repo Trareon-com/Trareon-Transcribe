@@ -120,8 +120,9 @@ Future<Directory> plantSession(
   List<String> tracks = const ['speaker.wav'],
 }) async {
   final dir = await Directory.systemTemp.createTemp('trareon_completion_');
-  await File(p.join(dir.path, 'Sesi.json'))
-      .writeAsString(encodeTranscriptJson(transcript));
+  await File(
+    p.join(dir.path, 'Sesi.json'),
+  ).writeAsString(encodeTranscriptJson(transcript));
   for (final track in tracks) {
     await File(p.join(dir.path, track)).writeAsBytes(const [0, 0, 0, 0]);
   }
@@ -159,9 +160,9 @@ void main() {
       );
       await File(p.join(dir.path, 'impor.mp3')).writeAsBytes(const [0]);
       addTearDown(() => dir.delete(recursive: true));
-      final names = capturedTracks(dir.path)
-          .map((f) => f.uri.pathSegments.last)
-          .toList();
+      final names = capturedTracks(
+        dir.path,
+      ).map((f) => f.uri.pathSegments.last).toList();
       expect(names, ['mic.wav', 'speaker.wav']);
     });
 
@@ -206,7 +207,7 @@ void main() {
         completionStatusLine([
           job(status: EnhanceJobStatus.running, progress: 0.5, etaSecs: 90),
         ]),
-        'Menyelesaikan transkrip… 50% — sisa 2 menit',
+        'Menyelesaikan transkrip… 50%, sisa 2 menit',
       );
       // Under 5 s the number churns faster than it can be read.
       expect(
@@ -257,8 +258,7 @@ void main() {
   });
 
   group('considerSession', () {
-    test('queues a completion pass when the transcript misses audio',
-        () async {
+    test('queues a completion pass when the transcript misses audio', () async {
       final live = [seg(timestamp: 1, text: 'Selamat pagi semuanya.')];
       final dir = await plantSession(live);
       addTearDown(() => dir.delete(recursive: true));
@@ -309,47 +309,54 @@ void main() {
       );
     });
 
-    test('a complete transcript queues nothing and is marked finished',
-        () async {
-      final live = [seg(timestamp: 1, text: 'Selamat pagi semuanya.')];
-      final dir = await plantSession(live);
-      addTearDown(() => dir.delete(recursive: true));
-      final bridge = _CompletionBridge(gaps: const []);
-      final queue = EnhanceQueueNotifier(
-        bridge,
-        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
-      );
+    test(
+      'a complete transcript queues nothing and is marked finished',
+      () async {
+        final live = [seg(timestamp: 1, text: 'Selamat pagi semuanya.')];
+        final dir = await plantSession(live);
+        addTearDown(() => dir.delete(recursive: true));
+        final bridge = _CompletionBridge(gaps: const []);
+        final queue = EnhanceQueueNotifier(
+          bridge,
+          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        );
 
-      expect(await queue.considerSession(handoffFor(dir, live)), isFalse);
-      expect(queue.state.hasPendingWork, isFalse);
-      final meta = await readSessionMeta(dir.path);
-      expect(meta.isIncomplete, isFalse);
-      expect(meta.coverageFraction, 1.0);
-    });
+        expect(await queue.considerSession(handoffFor(dir, live)), isFalse);
+        expect(queue.state.hasPendingWork, isFalse);
+        final meta = await readSessionMeta(dir.path);
+        expect(meta.isIncomplete, isFalse);
+        expect(meta.coverageFraction, 1.0);
+      },
+    );
 
-    test('a finished silent track does not mark the session complete',
-        () async {
-      // The observed overclaim: a mic track that was pure silence finished
-      // first and wrote coverage 100% while the speaker track was still
-      // missing five minutes.
-      final live = [seg(timestamp: 1, text: 'halo')];
-      final dir = await plantSession(
-        live,
-        tracks: const ['mic.wav', 'speaker.wav'],
-      );
-      addTearDown(() => dir.delete(recursive: true));
-      final queue = EnhanceQueueNotifier(
-        _OneTrackOnlyBridge(),
-        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
-      );
-      await queue.considerSession(handoffFor(dir, live));
-      // Let the mic job finish; the speaker job is still queued.
-      await queue.idle;
-      final meta = await readSessionMeta(dir.path);
-      expect(meta.pendingCompletion, isEmpty);
-      expect(meta.coverageFraction, lessThan(1.0),
-          reason: 'the least-complete track decides');
-    });
+    test(
+      'a finished silent track does not mark the session complete',
+      () async {
+        // The observed overclaim: a mic track that was pure silence finished
+        // first and wrote coverage 100% while the speaker track was still
+        // missing five minutes.
+        final live = [seg(timestamp: 1, text: 'halo')];
+        final dir = await plantSession(
+          live,
+          tracks: const ['mic.wav', 'speaker.wav'],
+        );
+        addTearDown(() => dir.delete(recursive: true));
+        final queue = EnhanceQueueNotifier(
+          _OneTrackOnlyBridge(),
+          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        );
+        await queue.considerSession(handoffFor(dir, live));
+        // Let the mic job finish; the speaker job is still queued.
+        await queue.idle;
+        final meta = await readSessionMeta(dir.path);
+        expect(meta.pendingCompletion, isEmpty);
+        expect(
+          meta.coverageFraction,
+          lessThan(1.0),
+          reason: 'the least-complete track decides',
+        );
+      },
+    );
 
     test('one job per captured track', () async {
       final live = [seg(timestamp: 1, text: 'halo')];
@@ -433,54 +440,58 @@ void main() {
         'Catatan saya.',
       );
       final meta = await readSessionMeta(dir.path);
-      expect(meta.isIncomplete, isFalse,
-          reason: 'the sidecar must stop claiming the track is pending');
+      expect(
+        meta.isIncomplete,
+        isFalse,
+        reason: 'the sidecar must stop claiming the track is pending',
+      );
       expect(meta.coverageFraction, 1.0);
     });
 
-    test('the previous transcript is backed up before it is replaced',
-        () async {
-      final live = [seg(timestamp: 1, text: 'asli')];
-      final dir = await plantSession(live);
-      addTearDown(() => dir.delete(recursive: true));
-      final bridge = _CompletionBridge(
-        recovered: [rustSeg(timestamp: 152, text: 'baru')],
-      );
-      final queue = EnhanceQueueNotifier(
-        bridge,
-        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
-      );
-      await queue.considerSession(handoffFor(dir, live));
-      await queue.idle;
-      final backup = await readTranscriptBackup(dir.path);
-      expect(backup?.single.text, 'asli');
-    });
+    test(
+      'the previous transcript is backed up before it is replaced',
+      () async {
+        final live = [seg(timestamp: 1, text: 'asli')];
+        final dir = await plantSession(live);
+        addTearDown(() => dir.delete(recursive: true));
+        final bridge = _CompletionBridge(
+          recovered: [rustSeg(timestamp: 152, text: 'baru')],
+        );
+        final queue = EnhanceQueueNotifier(
+          bridge,
+          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        );
+        await queue.considerSession(handoffFor(dir, live));
+        await queue.idle;
+        final backup = await readTranscriptBackup(dir.path);
+        expect(backup?.single.text, 'asli');
+      },
+    );
 
-    test('a failed pass leaves the transcript and the pending mark alone',
-        () async {
-      final live = [seg(timestamp: 1, text: 'asli')];
-      final dir = await plantSession(live);
-      addTearDown(() => dir.delete(recursive: true));
-      final queue = EnhanceQueueNotifier(
-        _FailingCompletionBridge(),
-        () => AppSettings.defaults().copyWith(libraryPath: dir.path),
-      );
-      await queue.considerSession(handoffFor(dir, live));
-      await queue.idle;
+    test(
+      'a failed pass leaves the transcript and the pending mark alone',
+      () async {
+        final live = [seg(timestamp: 1, text: 'asli')];
+        final dir = await plantSession(live);
+        addTearDown(() => dir.delete(recursive: true));
+        final queue = EnhanceQueueNotifier(
+          _FailingCompletionBridge(),
+          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        );
+        await queue.considerSession(handoffFor(dir, live));
+        await queue.idle;
 
-      final written = parseTranscriptJson(
-        await File(p.join(dir.path, 'Sesi.json')).readAsString(),
-      );
-      expect(written.single.text, 'asli');
-      // Still pending, so the next launch tries again rather than calling
-      // a session finished that is not.
-      final meta = await readSessionMeta(dir.path);
-      expect(meta.isIncomplete, isTrue);
-      expect(
-        queue.state.jobs.single.status,
-        EnhanceJobStatus.failed,
-      );
-    });
+        final written = parseTranscriptJson(
+          await File(p.join(dir.path, 'Sesi.json')).readAsString(),
+        );
+        expect(written.single.text, 'asli');
+        // Still pending, so the next launch tries again rather than calling
+        // a session finished that is not.
+        final meta = await readSessionMeta(dir.path);
+        expect(meta.isIncomplete, isTrue);
+        expect(queue.state.jobs.single.status, EnhanceJobStatus.failed);
+      },
+    );
   });
 
   group('resumePending', () {
@@ -498,8 +509,9 @@ void main() {
         () => AppSettings.defaults().copyWith(libraryPath: dir.path),
       );
 
-      final resumed = await queue
-          .resumePending([(dirPath: dir.path, title: 'Sesi')]);
+      final resumed = await queue.resumePending([
+        (dirPath: dir.path, title: 'Sesi'),
+      ]);
       expect(resumed, 1);
       await queue.idle;
       expect(bridge.completionRuns.single, track);
@@ -546,44 +558,50 @@ void main() {
   group('queue ordering', () {
     test('completion outranks enhancement', () {
       // Missing text is a defect; better text is an improvement.
-      const state = EnhanceQueueState(jobs: [
-        EnhanceJob(
-          directoryPath: '/a',
-          title: 'a',
-          audioPath: '/a/mic.wav',
-          language: 'id',
-        ),
-        EnhanceJob(
-          directoryPath: '/b',
-          title: 'b',
-          audioPath: '/b/speaker.wav',
-          language: 'id',
-          kind: EnhanceJobKind.complete,
-        ),
-      ]);
+      const state = EnhanceQueueState(
+        jobs: [
+          EnhanceJob(
+            directoryPath: '/a',
+            title: 'a',
+            audioPath: '/a/mic.wav',
+            language: 'id',
+          ),
+          EnhanceJob(
+            directoryPath: '/b',
+            title: 'b',
+            audioPath: '/b/speaker.wav',
+            language: 'id',
+            kind: EnhanceJobKind.complete,
+          ),
+        ],
+      );
       expect(state.pending.first.kind, EnhanceJobKind.complete);
     });
 
     test('hasPendingWork is what the quit dialog keys off', () {
-      const idle = EnhanceQueueState(jobs: [
-        EnhanceJob(
-          directoryPath: '/a',
-          title: 'a',
-          audioPath: '/a/mic.wav',
-          language: 'id',
-          status: EnhanceJobStatus.done,
-        ),
-      ]);
+      const idle = EnhanceQueueState(
+        jobs: [
+          EnhanceJob(
+            directoryPath: '/a',
+            title: 'a',
+            audioPath: '/a/mic.wav',
+            language: 'id',
+            status: EnhanceJobStatus.done,
+          ),
+        ],
+      );
       expect(idle.hasPendingWork, isFalse);
-      const busy = EnhanceQueueState(jobs: [
-        EnhanceJob(
-          directoryPath: '/a',
-          title: 'a',
-          audioPath: '/a/mic.wav',
-          language: 'id',
-          status: EnhanceJobStatus.running,
-        ),
-      ]);
+      const busy = EnhanceQueueState(
+        jobs: [
+          EnhanceJob(
+            directoryPath: '/a',
+            title: 'a',
+            audioPath: '/a/mic.wav',
+            language: 'id',
+            status: EnhanceJobStatus.running,
+          ),
+        ],
+      );
       expect(busy.hasPendingWork, isTrue);
     });
   });

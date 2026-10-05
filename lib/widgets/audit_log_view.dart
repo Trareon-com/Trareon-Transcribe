@@ -15,6 +15,7 @@ import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 Future<void> showAuditLogDialog(BuildContext context) {
   return showDialog<void>(
@@ -60,7 +61,8 @@ class _AuditLogViewState extends State<AuditLogView> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final entries = _entries;
     return SizedBox(
       width: 700,
@@ -72,7 +74,7 @@ class _AuditLogViewState extends State<AuditLogView> {
             padding: const EdgeInsets.all(Spacing.md),
             child: Row(
               children: [
-                Icon(Icons.history_outlined, color: colors.primary),
+                Icon(AppIcons.history, color: colors.primary),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Semantics(
@@ -89,7 +91,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                 ),
                 IconButton(
                   tooltip: 'Tutup',
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
@@ -99,32 +101,32 @@ class _AuditLogViewState extends State<AuditLogView> {
           Expanded(
             child: switch ((entries, _error)) {
               (_, final String error) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text(
-                      'Log audit tidak bisa dibaca: $error',
-                      style: TextStyle(color: colors.error),
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Log audit tidak bisa dibaca: $error',
+                    style: TextStyle(color: colors.error),
                   ),
                 ),
+              ),
               (null, _) => const Center(child: CircularProgressIndicator()),
               (final List<AuditEntry> list, _) when list.isEmpty => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Text(
-                      'Belum ada catatan. Log terisi saat sesi dibuat, '
-                      'transkrip diekspor, atau data dihapus.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textTertiary),
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text(
+                    'Belum ada catatan. Log terisi saat sesi dibuat, '
+                    'transkrip diekspor, atau data dihapus.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colors.textTertiary),
                   ),
                 ),
+              ),
               (final List<AuditEntry> list, _) => ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) =>
-                      _AuditRow(entry: list[index], colors: colors),
-                ),
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, index) =>
+                    _AuditRow(entry: list[index], colors: colors),
+              ),
             },
           ),
         ],
@@ -143,9 +145,13 @@ class _AuditRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       dense: true,
-      leading: Icon(_iconFor(entry.action), size: IconSizes.md, color: colors.primary),
+      leading: Icon(
+        _iconFor(entry.action),
+        size: IconSizes.md,
+        color: colors.primary,
+      ),
       title: Text(
-        '${auditActionLabel(entry.action)} — ${entry.subject}',
+        '${auditActionLabel(entry.action)}: ${entry.subject}',
         style: TextStyle(fontSize: FontSizes.body, color: colors.text),
       ),
       subtitle: Text(
@@ -161,16 +167,16 @@ class _AuditRow extends StatelessWidget {
   }
 
   IconData _iconFor(AuditAction action) => switch (action) {
-    AuditAction.sessionCreated => Icons.fiber_manual_record_outlined,
-    AuditAction.sessionExported => Icons.upload_outlined,
-    AuditAction.summarySent => Icons.cloud_upload_outlined,
-    AuditAction.sessionDeleted => Icons.folder_delete_outlined,
-    AuditAction.audioDeleted => Icons.audiotrack_outlined,
-    AuditAction.transcriptDeleted => Icons.delete_outline,
-    AuditAction.consentAcknowledged => Icons.campaign_outlined,
-    AuditAction.redactionApplied => Icons.visibility_off_outlined,
-    AuditAction.retentionApplied => Icons.schedule_outlined,
-    AuditAction.auditExported => Icons.table_view_outlined,
+    AuditAction.sessionCreated => AppIcons.dot,
+    AuditAction.sessionExported => AppIcons.upload,
+    AuditAction.summarySent => AppIcons.cloudUpload,
+    AuditAction.sessionDeleted => AppIcons.folderDelete,
+    AuditAction.audioDeleted => AppIcons.audioTrack,
+    AuditAction.transcriptDeleted => AppIcons.delete,
+    AuditAction.consentAcknowledged => AppIcons.announce,
+    AuditAction.redactionApplied => AppIcons.hide,
+    AuditAction.retentionApplied => AppIcons.clock,
+    AuditAction.auditExported => AppIcons.table,
   };
 }
 

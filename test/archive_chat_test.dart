@@ -90,10 +90,10 @@ AppSettings _withEndpoint() {
 /// The notifier under test, built directly rather than through the
 /// provider: the provider's settings arrive from an async load off disk,
 /// and what these tests are about is the behaviour given some settings.
-({
-  ArchiveChatNotifier notifier,
-  List<(String, int)> recorded,
-}) _notifier(_ArchiveBridge bridge, {AppSettings? settings}) {
+({ArchiveChatNotifier notifier, List<(String, int)> recorded}) _notifier(
+  _ArchiveBridge bridge, {
+  AppSettings? settings,
+}) {
   final recorded = <(String, int)>[];
   final notifier = ArchiveChatNotifier(
     bridge,
@@ -105,13 +105,16 @@ AppSettings _withEndpoint() {
 }
 
 void main() {
-  testWidgets('Cari works with no endpoint configured and cites its sources',
-      (tester) async {
+  testWidgets('Cari works with no endpoint configured and cites its sources', (
+    tester,
+  ) async {
     final bridge = _ArchiveBridge();
-    await tester.pumpWidget(buildTestAppWithOverrides(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-      child: const ArchiveChatScreen(),
-    ));
+    await tester.pumpWidget(
+      buildTestAppWithOverrides(
+        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+        child: const ArchiveChatScreen(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'anggaran kuartal depan');
@@ -136,16 +139,20 @@ void main() {
     );
   });
 
-  testWidgets('a citation opens its meeting at the moment it came from',
-      (tester) async {
+  testWidgets('a citation opens its meeting at the moment it came from', (
+    tester,
+  ) async {
     final bridge = _ArchiveBridge();
     final jumps = <(String, double)>[];
-    await tester.pumpWidget(buildTestAppWithOverrides(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-      child: ArchiveChatScreen(
-        onOpenSession: (dirPath, timestamp) => jumps.add((dirPath, timestamp)),
+    await tester.pumpWidget(
+      buildTestAppWithOverrides(
+        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+        child: ArchiveChatScreen(
+          onOpenSession: (dirPath, timestamp) =>
+              jumps.add((dirPath, timestamp)),
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'anggaran');
@@ -163,23 +170,25 @@ void main() {
     expect(jumps.last, ('/lib/20260915-Rapat Peluncuran', 0.0));
   });
 
-  test('Jawab refuses, rather than quietly searching, with no endpoint',
-      () async {
-    final bridge = _ArchiveBridge();
-    final h = _notifier(bridge); // default settings: summary disabled
-    await h.notifier.ask('apa keputusannya');
+  test(
+    'Jawab refuses, rather than quietly searching, with no endpoint',
+    () async {
+      final bridge = _ArchiveBridge();
+      final h = _notifier(bridge); // default settings: summary disabled
+      await h.notifier.ask('apa keputusannya');
 
-    expect(bridge.asks, 0);
-    // Not even retrieval: the user pressed the button that sends data
-    // somewhere, so the refusal has to come before anything happens.
-    expect(bridge.searches, 0);
-    expect(h.notifier.state.status, ArchiveChatStatus.failed);
-    expect(
-      h.notifier.state.turns.single.error,
-      contains('memerlukan endpoint ringkasan'),
-    );
-    expect(h.recorded, isEmpty);
-  });
+      expect(bridge.asks, 0);
+      // Not even retrieval: the user pressed the button that sends data
+      // somewhere, so the refusal has to come before anything happens.
+      expect(bridge.searches, 0);
+      expect(h.notifier.state.status, ArchiveChatStatus.failed);
+      expect(
+        h.notifier.state.turns.single.error,
+        contains('memerlukan endpoint ringkasan'),
+      );
+      expect(h.recorded, isEmpty);
+    },
+  );
 
   test('Cari needs no endpoint and sends nothing', () async {
     final bridge = _ArchiveBridge();
@@ -227,8 +236,7 @@ void main() {
     expect(h.recorded, hasLength(1));
   });
 
-  test('an empty index answers plainly without calling the endpoint',
-      () async {
+  test('an empty index answers plainly without calling the endpoint', () async {
     final bridge = _EmptyArchiveBridge();
     final h = _notifier(bridge, settings: _withEndpoint());
     await h.notifier.ask('apa keputusannya');

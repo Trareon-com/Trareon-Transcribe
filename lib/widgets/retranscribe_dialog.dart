@@ -6,6 +6,7 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
+import '../theme/app_tokens.dart';
 
 /// Outcome of a successful re-transcription.
 class RetranscribeResult {
@@ -58,7 +59,8 @@ class _RetranscribeDialog extends ConsumerStatefulWidget {
   final String? currentLanguage;
 
   @override
-  ConsumerState<_RetranscribeDialog> createState() => _RetranscribeDialogState();
+  ConsumerState<_RetranscribeDialog> createState() =>
+      _RetranscribeDialogState();
 }
 
 class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
@@ -73,10 +75,8 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
     final settings = ref.read(settingsProvider);
     // Default to the *accurate* model when it's available: re-transcribing is
     // almost always an attempt to improve on a fast first pass.
-    final preferred = isModelAvailable(
-      'large-v3-turbo-q5',
-      libraryPath: settings.libraryPath,
-    )
+    final preferred =
+        isModelAvailable('large-v3-turbo-q5', libraryPath: settings.libraryPath)
         ? 'large-v3-turbo-q5'
         : settings.defaultModel;
     _modelId = widget.currentModel == preferred
@@ -144,7 +144,8 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final settings = ref.watch(settingsProvider);
     final models = availableModelIds(settings.libraryPath);
 
@@ -160,11 +161,16 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
             Text(
               'Audio asli akan ditranskrip ulang. Transkrip lama diganti hanya '
               'kalau proses berhasil.',
-              style: TextStyle(color: colors.textSecondary, fontSize: 12.5),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: FontSizes.caption,
+              ),
             ),
-            const SizedBox(height: 14),
+            Spacing.gapMd,
             DropdownButtonFormField<String>(
-              initialValue: models.contains(_modelId) ? _modelId : models.firstOrNull,
+              initialValue: models.contains(_modelId)
+                  ? _modelId
+                  : models.firstOrNull,
               isDense: true,
               decoration: const InputDecoration(
                 labelText: 'Kualitas model',
@@ -172,7 +178,10 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               ),
               items: [
                 for (final id in models)
-                  DropdownMenuItem(value: id, child: Text(modelDisplayLabel(id))),
+                  DropdownMenuItem(
+                    value: id,
+                    child: Text(modelDisplayLabel(id)),
+                  ),
               ],
               onChanged: _running
                   ? null
@@ -180,7 +189,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
                       if (v != null) setState(() => _modelId = v);
                     },
             ),
-            const SizedBox(height: 12),
+            Spacing.gapMd,
             DropdownButtonFormField<String?>(
               initialValue: _language,
               isDense: true,
@@ -196,14 +205,17 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
               onChanged: _running ? null : (v) => setState(() => _language = v),
             ),
             if (models.isEmpty) ...[
-              const SizedBox(height: 12),
+              Spacing.gapMd,
               Text(
                 'Tidak ada model terpasang.',
-                style: TextStyle(color: colors.error, fontSize: 12),
+                style: TextStyle(
+                  color: colors.error,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ],
             if (_running) ...[
-              const SizedBox(height: 16),
+              Spacing.gapLg,
               Row(
                 children: [
                   const SizedBox(
@@ -211,21 +223,27 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  const SizedBox(width: 12),
+                  Spacing.hMd,
                   Expanded(
                     child: Text(
                       'Memproses… ini bisa memakan waktu untuk rekaman panjang.',
-                      style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: FontSizes.caption,
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
             if (_error != null) ...[
-              const SizedBox(height: 12),
+              Spacing.gapMd,
               Text(
                 _error!,
-                style: TextStyle(color: colors.error, fontSize: 12),
+                style: TextStyle(
+                  color: colors.error,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ],
           ],

@@ -27,7 +27,11 @@ class SegmentTimeline {
   /// or hand-edited transcript carries no ordering guarantee at all. A
   /// binary search over an unsorted array silently returns the wrong row.
   factory SegmentTimeline(List<TranscriptSegment> segments) {
-    final order = List<int>.generate(segments.length, (i) => i, growable: false);
+    final order = List<int>.generate(
+      segments.length,
+      (i) => i,
+      growable: false,
+    );
     order.sort((a, b) {
       final cmp = segments[a].timestamp.compareTo(segments[b].timestamp);
       return cmp != 0 ? cmp : a.compareTo(b);

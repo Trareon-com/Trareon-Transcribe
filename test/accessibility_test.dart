@@ -26,37 +26,48 @@ import 'test_helpers.dart';
 /// interactive targets are big enough. Text scaling has its own file.
 void main() {
   group('icon-only buttons are labelled', () {
-    test('every IconButton in lib/ has a tooltip, or sits inside a Tooltip',
-        () {
-      final offenders = <String>[];
-      for (final file in _uiSources()) {
-        final source = file.readAsStringSync();
-        for (final match in RegExp('IconButton\\(').allMatches(source)) {
-          final block = _balancedCall(source, match.start);
-          if (block == null) continue;
-          if (block.contains('tooltip:')) continue;
-          // `Tooltip(message: …, child: IconButton(…))` is equally good —
-          // and sometimes necessary, because a disabled IconButton swallows
-          // its own tooltip.
-          final before = source.substring(
-            (match.start - 220).clamp(0, source.length),
-            match.start,
-          );
-          if (before.contains('Tooltip(')) continue;
-          final line = source.substring(0, match.start).split('\n').length;
-          offenders.add('${_relative(file)}:$line');
+    test(
+      'every IconButton in lib/ has a tooltip, or sits inside a Tooltip',
+      () {
+        final offenders = <String>[];
+        for (final file in _uiSources()) {
+          final source = file.readAsStringSync();
+          // Matches Material's `IconButton(` and the kit's own
+          // `AppIconButton(`. The kit declares `tooltip` as a required
+          // parameter, so its call sites are compiler-enforced, but scanning
+          // them anyway means the rule survives someone making it optional.
+          for (final match in RegExp(
+            r'(?<![A-Za-z])(?:App)?IconButton\(',
+          ).allMatches(source)) {
+            final block = _balancedCall(source, match.start);
+            if (block == null) continue;
+            if (block.contains('tooltip:')) continue;
+            // The kit's own constructor declaration, not a call site.
+            if (block.contains('required this.tooltip')) continue;
+            // `Tooltip(message: …, child: IconButton(…))` is equally good —
+            // and sometimes necessary, because a disabled IconButton swallows
+            // its own tooltip.
+            final before = source.substring(
+              (match.start - 220).clamp(0, source.length),
+              match.start,
+            );
+            if (before.contains('Tooltip(')) continue;
+            final line = source.substring(0, match.start).split('\n').length;
+            offenders.add('${_relative(file)}:$line');
+          }
         }
-      }
-      expect(
-        offenders,
-        isEmpty,
-        reason: 'An icon with no tooltip is unreadable to a screen reader and '
-            'a guess for everyone else:\n  ${offenders.join('\n  ')}',
-      );
-    });
+        expect(
+          offenders,
+          isEmpty,
+          reason:
+              'An icon with no tooltip is unreadable to a screen reader and '
+              'a guess for everyone else:\n  ${offenders.join('\n  ')}',
+        );
+      },
+    );
 
     test('the scan would actually catch an untooltipped button', () {
-      const sample = 'IconButton(icon: Icon(Icons.close), onPressed: x)';
+      const sample = 'IconButton(icon: Icon(AppIcons.close), onPressed: x)';
       final block = _balancedCall(sample, 0);
       expect(block, isNotNull);
       expect(block!.contains('tooltip:'), isFalse);
@@ -75,8 +86,9 @@ void main() {
       isPartial: false,
     );
 
-    testWidgets('a new segment produces one live region, not one per row',
-        (tester) async {
+    testWidgets('a new segment produces one live region, not one per row', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       final segments = [segment('baris pertama', 0)];
 
@@ -106,8 +118,9 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('a burst is summarised rather than read line by line',
-        (tester) async {
+    testWidgets('a burst is summarised rather than read line by line', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       final segments = [segment('satu', 0)];
 
@@ -144,8 +157,9 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('the player does not announce anything unprompted',
-        (tester) async {
+    testWidgets('the player does not announce anything unprompted', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       final segments = [segment('satu', 0)];
       final active = ValueNotifier<int?>(0);
@@ -170,7 +184,8 @@ void main() {
       expect(
         tester.takeAnnouncements(),
         isEmpty,
-        reason: 'in the player the user is navigating; an unprompted '
+        reason:
+            'in the player the user is navigating; an unprompted '
             'announcement fights with them',
       );
 
@@ -183,8 +198,9 @@ void main() {
     // wrapped to at least this". That is a claim about rendered geometry, so
     // it is checked against rendered geometry on the screens the user spends
     // their time on, rather than left as a comment.
-    testWidgets('every icon button on the main surfaces is at least 48 px',
-        (tester) async {
+    testWidgets('every icon button on the main surfaces is at least 48 px', (
+      tester,
+    ) async {
       final undersized = <String>[];
 
       Future<void> check(String where, Widget screen) async {
@@ -200,8 +216,10 @@ void main() {
           final size = element.renderObject! as RenderBox;
           if (size.size.shortestSide + 0.01 < TouchTarget.minimum) {
             final icon = element.widget as IconButton;
-            undersized.add('$where: ${icon.tooltip ?? icon.icon} is '
-                '${size.size.width}x${size.size.height}');
+            undersized.add(
+              '$where: ${icon.tooltip ?? icon.icon} is '
+              '${size.size.width}x${size.size.height}',
+            );
           }
         }
       }
@@ -246,13 +264,15 @@ void main() {
       expect(
         undersized,
         isEmpty,
-        reason: 'a target under 48 px fails WCAG 2.2 AA 2.5.8 and is a miss '
+        reason:
+            'a target under 48 px fails WCAG 2.2 AA 2.5.8 and is a miss '
             'for anyone without a steady hand:\n  ${undersized.join('\n  ')}',
       );
     });
 
-    testWidgets('bookmark jump-list rows meet the 48 px minimum height',
-        (tester) async {
+    testWidgets('bookmark jump-list rows meet the 48 px minimum height', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -282,8 +302,9 @@ void main() {
       }
     });
 
-    testWidgets('the "Tandai" control is reachable and labelled',
-        (tester) async {
+    testWidgets('the "Tandai" control is reachable and labelled', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -344,12 +365,13 @@ String? _balancedCall(String source, int start) {
   return null;
 }
 
-Iterable<File> _uiSources() => Directory('lib')
-    .listSync(recursive: true)
-    .whereType<File>()
-    .where((f) => f.path.endsWith('.dart'))
-    .where((f) => !_relative(f).startsWith('lib/src/rust/'))
-    .toList()
-  ..sort((a, b) => a.path.compareTo(b.path));
+Iterable<File> _uiSources() =>
+    Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .where((f) => !_relative(f).startsWith('lib/src/rust/'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
 
 String _relative(File file) => file.path.replaceAll(r'\', '/');

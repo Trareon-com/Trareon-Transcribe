@@ -19,10 +19,16 @@ const _signalEpsilon = 0.02;
 /// permission. Without this, the session just sits there recording
 /// nothing with zero indication anything is wrong.
 class AudioWatchdogNotifier extends StateNotifier<String?> {
-  AudioWatchdogNotifier(this._ref, {Duration silenceWarningDelay = _silenceWarningDelay})
-      : _delay = silenceWarningDelay,
-        super(null) {
-    _ref.listen<SessionUiState>(sessionProvider, _onSessionChanged, fireImmediately: true);
+  AudioWatchdogNotifier(
+    this._ref, {
+    Duration silenceWarningDelay = _silenceWarningDelay,
+  }) : _delay = silenceWarningDelay,
+       super(null) {
+    _ref.listen<SessionUiState>(
+      sessionProvider,
+      _onSessionChanged,
+      fireImmediately: true,
+    );
   }
 
   final Ref _ref;
@@ -61,12 +67,13 @@ class AudioWatchdogNotifier extends StateNotifier<String?> {
       if (_signalSeen || current.segments.isNotEmpty) return;
       if (current.sessionId != _watchedSessionId) return;
       if (current.lifecycle != SessionLifecycle.recording) return;
-      final hasEnabledSource = current.config.micEnabled || current.config.speakerEnabled;
+      final hasEnabledSource =
+          current.config.micEnabled || current.config.speakerEnabled;
       if (!hasEnabledSource) return;
       state =
           'Belum ada suara terdeteksi. Periksa izin Mikrofon dan "Rekam Layar & '
-      'Audio Sistem" di Pengaturan Sistem, atau pastikan sumber audio yang '
-      'dipilih sudah benar.';
+          'Audio Sistem" di Pengaturan Sistem, atau pastikan sumber audio yang '
+          'dipilih sudah benar.';
     });
   }
 
@@ -90,6 +97,7 @@ class AudioWatchdogNotifier extends StateNotifier<String?> {
   }
 }
 
-final audioWatchdogProvider = StateNotifierProvider<AudioWatchdogNotifier, String?>((ref) {
-  return AudioWatchdogNotifier(ref);
-});
+final audioWatchdogProvider =
+    StateNotifierProvider<AudioWatchdogNotifier, String?>((ref) {
+      return AudioWatchdogNotifier(ref);
+    });

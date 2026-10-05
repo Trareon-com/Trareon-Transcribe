@@ -39,7 +39,10 @@ void main() {
     () async {
       final recorded = <String>[];
       final bridge = _FakeDownloadBridge();
-      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
+      final notifier = OnboardingNotifier(
+        bridge,
+        onNetworkRequest: recorded.add,
+      );
 
       await notifier.start();
 
@@ -57,7 +60,10 @@ void main() {
     () async {
       final recorded = <String>[];
       final bridge = _FakeDownloadBridge(failuresRemaining: {'base': 1});
-      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
+      final notifier = OnboardingNotifier(
+        bridge,
+        onNetworkRequest: recorded.add,
+      );
 
       await notifier.start();
 
@@ -92,7 +98,10 @@ void main() {
       final bridge = _FakeDownloadBridge(
         failuresRemaining: {'large-v3-turbo-q5': 1},
       );
-      final notifier = OnboardingNotifier(bridge, onNetworkRequest: recorded.add);
+      final notifier = OnboardingNotifier(
+        bridge,
+        onNetworkRequest: recorded.add,
+      );
 
       await notifier.start();
 

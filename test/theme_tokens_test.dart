@@ -118,8 +118,10 @@ void main() {
   group('the new colour roles are legible in both themes', () {
     // Added this sprint: success/warning/recording used to be fixed
     // `AppColors` constants applied over both a white and a #121212 surface.
-    for (final entry in {'light': AppColors.light, 'dark': AppColors.dark}
-        .entries) {
+    for (final entry in {
+      'light': AppColors.light,
+      'dark': AppColors.dark,
+    }.entries) {
       final name = entry.key;
       final colors = entry.value;
 
@@ -134,7 +136,8 @@ void main() {
           expect(
             ratio,
             greaterThanOrEqualTo(4.5),
-            reason: '$name ${pair.key} on surface is '
+            reason:
+                '$name ${pair.key} on surface is '
                 '${ratio.toStringAsFixed(2)}:1',
           );
         }
@@ -151,7 +154,8 @@ void main() {
           expect(
             ratio,
             greaterThanOrEqualTo(4.5),
-            reason: '$name on${pair.key} over ${pair.key} is '
+            reason:
+                '$name on${pair.key} over ${pair.key} is '
                 '${ratio.toStringAsFixed(2)}:1',
           );
         }

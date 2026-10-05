@@ -15,10 +15,10 @@ import 'package:transcribe/src/rust/model.dart' as rust_model;
 import 'test_helpers.dart';
 
 Future<WizardSpecs> _detectSpecs() async => const WizardSpecs(
-      cpuCores: 8,
-      ramMb: 16384,
-      suggestedModel: 'large-v3-turbo-q5',
-    );
+  cpuCores: 8,
+  ramMb: 16384,
+  suggestedModel: 'large-v3-turbo-q5',
+);
 
 class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   AppSettings savedSettings = AppSettings.defaults();
@@ -40,7 +40,8 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
 
   @override
-  Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      const Stream.empty();
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
@@ -49,8 +50,8 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -102,23 +103,27 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   }
 
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [];
 
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
+      const [];
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async =>
+      const [];
 
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
 
   @override
-  Stream<double> downloadProgress() =>
-      Stream.fromIterable([0.0, 0.5, 1.0]);
+  Stream<double> downloadProgress() => Stream.fromIterable([0.0, 0.5, 1.0]);
 
   @override
   Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
@@ -151,13 +156,20 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
 }
 
 void main() {
-  testWidgets('wizard walks through all 4 steps and calls onFinished', (WidgetTester tester) async {
+  testWidgets('wizard walks through all 4 steps and calls onFinished', (
+    WidgetTester tester,
+  ) async {
     var finished = false;
     final bridge = _FakeBridge();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-        child: MaterialApp(home: SetupWizardScreen(onFinished: () => finished = true, detectSpecs: _detectSpecs)),
+        child: MaterialApp(
+          home: SetupWizardScreen(
+            onFinished: () => finished = true,
+            detectSpecs: _detectSpecs,
+          ),
+        ),
       ),
     );
 
@@ -182,25 +194,33 @@ void main() {
     expect(finished, isTrue);
   });
 
-  testWidgets('back button disabled on first step, enabled after', (WidgetTester tester) async {
+  testWidgets('back button disabled on first step, enabled after', (
+    WidgetTester tester,
+  ) async {
     final bridge = _FakeBridge();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-        child: MaterialApp(home: SetupWizardScreen(onFinished: () {}, detectSpecs: _detectSpecs)),
+        child: MaterialApp(
+          home: SetupWizardScreen(onFinished: () {}, detectSpecs: _detectSpecs),
+        ),
       ),
     );
 
     // Wait for spec detection to settle, then back button should be disabled on step 1
     await tester.pumpAndSettle();
 
-    final backButton = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Kembali'));
+    final backButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Kembali'),
+    );
     expect(backButton.onPressed, isNull);
 
     await tester.tap(find.text('Lanjut'));
     await tester.pumpAndSettle();
 
-    final backButtonAfter = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Kembali'));
+    final backButtonAfter = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Kembali'),
+    );
     expect(backButtonAfter.onPressed, isNotNull);
   });
 

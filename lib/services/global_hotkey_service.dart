@@ -17,10 +17,7 @@ class GlobalHotkeyService {
   /// [notifier] is the session notifier used to action start/stop/pause/resume.
   /// [lifecycle] provides the current lifecycle when a callback fires so the
   /// service can decide which action to take.
-  void init(
-    SessionNotifier notifier,
-    SessionLifecycle Function() lifecycle,
-  ) {
+  void init(SessionNotifier notifier, SessionLifecycle Function() lifecycle) {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'startStop':

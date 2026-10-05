@@ -22,6 +22,7 @@ import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
 
 /// What the dialog asks the host screen to do.
 sealed class SpeakerAction {
@@ -169,20 +170,21 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
     setState(() {
       _actions.add(MergeSpeakers(from, into));
       final source = _speakers.firstWhere((s) => s.label == from);
-      _speakers = [
-        for (final speaker in _speakers)
-          if (speaker.label == from)
-            null
-          else if (speaker.label == into)
-            SpeakerSummary(
-              label: into,
-              segments: speaker.segments + source.segments,
-              seconds: speaker.seconds + source.seconds,
-            )
-          else
-            speaker,
-      ].whereType<SpeakerSummary>().toList()
-        ..sort((a, b) => b.seconds.compareTo(a.seconds));
+      _speakers =
+          [
+              for (final speaker in _speakers)
+                if (speaker.label == from)
+                  null
+                else if (speaker.label == into)
+                  SpeakerSummary(
+                    label: into,
+                    segments: speaker.segments + source.segments,
+                    seconds: speaker.seconds + source.seconds,
+                  )
+                else
+                  speaker,
+            ].whereType<SpeakerSummary>().toList()
+            ..sort((a, b) => b.seconds.compareTo(a.seconds));
       _suggestions.remove(from);
       _toRemember.remove(from);
       _origin.remove(from);
@@ -259,7 +261,8 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return AlertDialog(
       title: const Text('Kelola Pembicara'),
@@ -413,14 +416,14 @@ class _SpeakerRow extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Ganti nama',
-                icon: const Icon(Icons.edit_outlined, size: IconSizes.sm),
+                icon: const Icon(AppIcons.edit, size: IconSizes.sm),
                 onPressed: onRename,
               ),
               IconButton(
                 tooltip: canMerge
                     ? 'Gabungkan dengan pembicara lain'
                     : 'Tidak ada pembicara lain untuk digabung',
-                icon: const Icon(Icons.merge_outlined, size: IconSizes.sm),
+                icon: const Icon(AppIcons.merge, size: IconSizes.sm),
                 onPressed: canMerge ? onMerge : null,
               ),
             ],
@@ -458,9 +461,9 @@ class _SpeakerRow extends StatelessWidget {
                   child: Text(
                     engineLabel == speaker.label
                         ? 'Ingat nama ini untuk label "${speaker.label}" di '
-                            'rapat berikutnya (ganti namanya dulu)'
+                              'rapat berikutnya (ganti namanya dulu)'
                         : 'Ingat "${speaker.label}" untuk label '
-                            '"$engineLabel" di rapat berikutnya',
+                              '"$engineLabel" di rapat berikutnya',
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textSecondary,

@@ -30,15 +30,15 @@ import 'test_helpers.dart';
 const TranscriptSegment Function() _segment = _makeSegment;
 
 TranscriptSegment _makeSegment() => const TranscriptSegment(
-      source: 'mic',
-      speaker: 'Peserta 2',
-      text: 'Anggaran kuartal depan disetujui.',
-      timestamp: 612.5,
-      duration: 4,
-      language: 'id',
-      confidence: 0.9,
-      isPartial: false,
-    );
+  source: 'mic',
+  speaker: 'Peserta 2',
+  text: 'Anggaran kuartal depan disetujui.',
+  timestamp: 612.5,
+  duration: 4,
+  language: 'id',
+  confidence: 0.9,
+  isPartial: false,
+);
 
 ActionItem _item({
   String id = 'T1',
@@ -47,15 +47,14 @@ ActionItem _item({
   String tenggat = 'Jumat',
   ActionStatus status = ActionStatus.belum,
   List<int> segments = const [],
-}) =>
-    ActionItem(
-      id: id,
-      tugas: tugas,
-      penanggungJawab: pj,
-      tenggat: tenggat,
-      status: status,
-      segmentIds: Uint32List.fromList(segments),
-    );
+}) => ActionItem(
+  id: id,
+  tugas: tugas,
+  penanggungJawab: pj,
+  tenggat: tenggat,
+  status: status,
+  segmentIds: Uint32List.fromList(segments),
+);
 
 /// A bridge that records what the exports were handed and returns
 /// recognisable content, so the test checks the file that was written
@@ -79,9 +78,7 @@ class _ExportBridge extends NoopBridge {
   }
 
   @override
-  Future<String> actionItemsToCsv(
-    List<rust_actions.ActionItem> items,
-  ) async {
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items) async {
     csvItems = items;
     return 'tugas,pj\n${items.map((i) => '${i.tugas},${i.penanggungJawab}').join('\n')}\n';
   }
@@ -94,24 +91,21 @@ class _CitingBridge extends NoopBridge {
     required String summary,
     required List<TranscriptSegment> segments,
     bool verify = true,
-  }) async =>
-      const rust_provenance.SummaryProvenance(
-        lines: [
-          rust_provenance.SummaryLine(
-            text: 'Keputusan',
-            citations: [],
-            isHeading: true,
-          ),
-          rust_provenance.SummaryLine(
-            text: 'Anggaran kuartal depan disetujui.',
-            citations: [
-              rust_provenance.Citation(segmentId: 4, timestamp: 612.5),
-            ],
-            isHeading: false,
-          ),
-        ],
-        dropped: 2,
-      );
+  }) async => const rust_provenance.SummaryProvenance(
+    lines: [
+      rust_provenance.SummaryLine(
+        text: 'Keputusan',
+        citations: [],
+        isHeading: true,
+      ),
+      rust_provenance.SummaryLine(
+        text: 'Anggaran kuartal depan disetujui.',
+        citations: [rust_provenance.Citation(segmentId: 4, timestamp: 612.5)],
+        isHeading: false,
+      ),
+    ],
+    dropped: 2,
+  );
 }
 
 /// A throwaway session directory.
@@ -140,21 +134,21 @@ Directory _tempSession() {
 /// and a mutator also marks the settings as user-acted so that pending
 /// load cannot overwrite them.
 List<Override> _summaryEnabled(RustBridge bridge) => [
-      rustBridgeProvider.overrideWithValue(bridge),
-      settingsProvider.overrideWith((ref) {
-        final notifier = SettingsNotifier(bridge);
-        final base = AppSettings.defaults();
-        notifier.setSummarySettings(
-          base.summary.copyWith(
-            enabled: true,
-            baseUrl: 'http://127.0.0.1:11434',
-            model: 'qwen2.5:0.5b',
-            withCitations: true,
-          ),
-        );
-        return notifier;
-      }),
-    ];
+  rustBridgeProvider.overrideWithValue(bridge),
+  settingsProvider.overrideWith((ref) {
+    final notifier = SettingsNotifier(bridge);
+    final base = AppSettings.defaults();
+    notifier.setSummarySettings(
+      base.summary.copyWith(
+        enabled: true,
+        baseUrl: 'http://127.0.0.1:11434',
+        model: 'qwen2.5:0.5b',
+        withCitations: true,
+      ),
+    );
+    return notifier;
+  }),
+];
 
 Future<SessionMeta> _metaWhenWritten(
   String dirPath,
@@ -180,7 +174,8 @@ void main() {
         expect(
           rust,
           contains('=> "$label"'),
-          reason: 'ActionStatus.${status.name} renders "$label" in Dart, '
+          reason:
+              'ActionStatus.${status.name} renders "$label" in Dart, '
               'which rust_core/src/actions.rs does not produce',
         );
       }
@@ -241,8 +236,9 @@ void main() {
 
     test('blank rows are not persisted', () async {
       final dir = _tempSession();
-      final provider =
-          StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      final provider = StateNotifierProvider<SummaryNotifier, SummaryUiState>((
+        ref,
+      ) {
         return SummaryNotifier(
           NoopBridge(),
           dir.path,
@@ -268,8 +264,9 @@ void main() {
 
     test('a new row never reuses an existing id', () async {
       final dir = _tempSession();
-      final provider =
-          StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      final provider = StateNotifierProvider<SummaryNotifier, SummaryUiState>((
+        ref,
+      ) {
         return SummaryNotifier(
           NoopBridge(),
           dir.path,
@@ -277,7 +274,10 @@ void main() {
             summary: 'x',
             // Ids that are not 1..n, which is what a model's JSON
             // actually looks like after the user deletes a row.
-            actionItems: [_item(id: 'T2'), _item(id: 'T3', tugas: 'Lain')],
+            actionItems: [
+              _item(id: 'T2'),
+              _item(id: 'T3', tugas: 'Lain'),
+            ],
           ),
         );
       });
@@ -293,8 +293,9 @@ void main() {
   group('panel', () {
     testWidgets('ticking a task writes it to the sidecar', (tester) async {
       final dir = _tempSession();
-      final provider =
-          StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      final provider = StateNotifierProvider<SummaryNotifier, SummaryUiState>((
+        ref,
+      ) {
         return SummaryNotifier(
           NoopBridge(),
           dir.path,
@@ -302,16 +303,18 @@ void main() {
         );
       });
 
-      await tester.pumpWidget(buildTestAppWithOverrides(
-        overrides: const [],
-        child: Material(
-          child: ActionItemsPanel(
-            provider: provider,
-            sessionTitle: 'Rapat Anggaran',
-            sessionDirPath: dir.path,
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: const [],
+          child: Material(
+            child: ActionItemsPanel(
+              provider: provider,
+              sessionTitle: 'Rapat Anggaran',
+              sessionDirPath: dir.path,
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Tindak Lanjut'), findsOneWidget);
@@ -339,28 +342,34 @@ void main() {
     testWidgets('exports land next to the session', (tester) async {
       final dir = _tempSession();
       final bridge = _ExportBridge();
-      final provider =
-          StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      final provider = StateNotifierProvider<SummaryNotifier, SummaryUiState>((
+        ref,
+      ) {
         return SummaryNotifier(
           bridge,
           dir.path,
           initialMeta: SessionMeta(
             summary: 'x',
-            actionItems: [_item(), _item(id: 'T2', tugas: '   ')],
+            actionItems: [
+              _item(),
+              _item(id: 'T2', tugas: '   '),
+            ],
           ),
         );
       });
 
-      await tester.pumpWidget(buildTestAppWithOverrides(
-        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-        child: Material(
-          child: ActionItemsPanel(
-            provider: provider,
-            sessionTitle: 'Rapat Anggaran',
-            sessionDirPath: dir.path,
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+          child: Material(
+            child: ActionItemsPanel(
+              provider: provider,
+              sessionTitle: 'Rapat Anggaran',
+              sessionDirPath: dir.path,
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Same reason as the tick above: the export is real file I/O.
@@ -403,33 +412,39 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('a cited task jumps the player to the line it came from',
-        (tester) async {
+    testWidgets('a cited task jumps the player to the line it came from', (
+      tester,
+    ) async {
       final dir = _tempSession();
       final jumps = <int>[];
-      final provider =
-          StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
+      final provider = StateNotifierProvider<SummaryNotifier, SummaryUiState>((
+        ref,
+      ) {
         return SummaryNotifier(
           NoopBridge(),
           dir.path,
           initialMeta: SessionMeta(
             summary: 'x',
-            actionItems: [_item(segments: [4])],
+            actionItems: [
+              _item(segments: [4]),
+            ],
           ),
         );
       });
 
-      await tester.pumpWidget(buildTestAppWithOverrides(
-        overrides: const [],
-        child: Material(
-          child: ActionItemsPanel(
-            provider: provider,
-            sessionTitle: 'Rapat Anggaran',
-            sessionDirPath: dir.path,
-            onSeekToSegment: jumps.add,
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: const [],
+          child: Material(
+            child: ActionItemsPanel(
+              provider: provider,
+              sessionTitle: 'Rapat Anggaran',
+              sessionDirPath: dir.path,
+              onSeekToSegment: jumps.add,
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('[#4]'));
@@ -440,24 +455,27 @@ void main() {
   });
 
   group('provenance (F7)', () {
-    testWidgets('each cited line is a link that seeks the player',
-        (tester) async {
+    testWidgets('each cited line is a link that seeks the player', (
+      tester,
+    ) async {
       final seeks = <double>[];
-      await tester.pumpWidget(buildTestAppWithOverrides(
-        overrides: _summaryEnabled(_CitingBridge()),
-        child: Material(
-          child: SingleChildScrollView(
-            child: SummaryPanel(
-              sessionDirPath: '/tmp/does-not-need-to-exist',
-              segments: () => [
-                _segment(),
-              ],
-              initialMeta: const SessionMeta(summary: '# Keputusan\n- ya [#4]'),
-              onSeekToTimestamp: seeks.add,
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: _summaryEnabled(_CitingBridge()),
+          child: Material(
+            child: SingleChildScrollView(
+              child: SummaryPanel(
+                sessionDirPath: '/tmp/does-not-need-to-exist',
+                segments: () => [_segment()],
+                initialMeta: const SessionMeta(
+                  summary: '# Keputusan\n- ya [#4]',
+                ),
+                onSeekToTimestamp: seeks.add,
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Anggaran kuartal depan disetujui.'), findsOneWidget);
@@ -469,27 +487,30 @@ void main() {
     });
 
     testWidgets('dropped citations are reported, not hidden', (tester) async {
-      await tester.pumpWidget(buildTestAppWithOverrides(
-        overrides: _summaryEnabled(_CitingBridge()),
-        child: Material(
-          child: SingleChildScrollView(
-            child: SummaryPanel(
-              sessionDirPath: '/tmp/does-not-need-to-exist',
-              segments: () => [
-                _segment(),
-              ],
-              initialMeta: const SessionMeta(summary: '# Keputusan\n- ya [#4]'),
-              onSeekToTimestamp: (_) {},
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: _summaryEnabled(_CitingBridge()),
+          child: Material(
+            child: SingleChildScrollView(
+              child: SummaryPanel(
+                sessionDirPath: '/tmp/does-not-need-to-exist',
+                segments: () => [_segment()],
+                initialMeta: const SessionMeta(
+                  summary: '# Keputusan\n- ya [#4]',
+                ),
+                onSeekToTimestamp: (_) {},
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(
         find.textContaining('2 rujukan dibuang'),
         findsOneWidget,
-        reason: 'a model that cites lines the transcript lacks is guessing, '
+        reason:
+            'a model that cites lines the transcript lacks is guessing, '
             'and the user has to be told before signing the notulen',
       );
     });

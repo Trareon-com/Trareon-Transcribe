@@ -19,7 +19,8 @@ import 'test_helpers.dart';
 class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   final AppSettings settings;
 
-  _NoopBridge({AppSettings? settings}) : settings = settings ?? AppSettings.defaults();
+  _NoopBridge({AppSettings? settings})
+    : settings = settings ?? AppSettings.defaults();
 
   @override
   Future<String> startSession(SessionConfig config) async => 'test-session';
@@ -37,7 +38,8 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
 
   @override
-  Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      const Stream.empty();
 
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
@@ -46,8 +48,8 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
 
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -94,16 +96,21 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   Future<void> downloadModel(String modelsDir, String modelId) async {}
 
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [];
 
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
+      const [];
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async =>
+      const [];
 
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
@@ -188,7 +195,9 @@ void main() {
   });
 
   test('session provider syncs loaded settings while idle', () async {
-    final tempDir = await Directory.systemTemp.createTemp('transcribe-session-test-');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'transcribe-session-test-',
+    );
     addTearDown(() => tempDir.deleteSync(recursive: true));
     File('${tempDir.path}/ggml-medium.bin').writeAsStringSync('stub');
 
@@ -208,8 +217,10 @@ void main() {
     addTearDown(container.dispose);
 
     // Initial state uses AppSettings.defaults() (model='base')
-    expect(container.read(sessionProvider).config.modelPath,
-        endsWith('ggml-base.bin'));
+    expect(
+      container.read(sessionProvider).config.modelPath,
+      endsWith('ggml-base.bin'),
+    );
 
     SessionUiState session = container.read(sessionProvider);
     for (var i = 0; i < 20; i++) {
@@ -222,41 +233,52 @@ void main() {
     expect(session.config.mode, SessionMode.webinar);
   });
 
-  test('progressive enabled wires q5 refine path into session config', () async {
-    final tempDir = await Directory.systemTemp.createTemp('transcribe-hpt-test-');
-    addTearDown(() => tempDir.deleteSync(recursive: true));
-    File('${tempDir.path}/ggml-base.bin').writeAsStringSync('stub');
-    File('${tempDir.path}/ggml-large-v3-turbo-q5_0.bin').writeAsStringSync('stub');
+  test(
+    'progressive enabled wires q5 refine path into session config',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'transcribe-hpt-test-',
+      );
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      File('${tempDir.path}/ggml-base.bin').writeAsStringSync('stub');
+      File(
+        '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin',
+      ).writeAsStringSync('stub');
 
-    final bridge = _NoopBridge(
-      settings: AppSettings(
-        theme: AppThemeMode.light,
-        defaultModel: 'base',
-        defaultMode: SessionMode.online,
-        libraryPath: tempDir.path,
-        vadEnabled: true,
-        progressiveEnabled: true,
-      ),
-    );
-    final container = ProviderContainer(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-    );
-    addTearDown(container.dispose);
+      final bridge = _NoopBridge(
+        settings: AppSettings(
+          theme: AppThemeMode.light,
+          defaultModel: 'base',
+          defaultMode: SessionMode.online,
+          libraryPath: tempDir.path,
+          vadEnabled: true,
+          progressiveEnabled: true,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+      );
+      addTearDown(container.dispose);
 
-    SessionUiState session = container.read(sessionProvider);
-    for (var i = 0; i < 20; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      session = container.read(sessionProvider);
-      if (session.config.modelPath.endsWith('ggml-base.bin')) break;
-    }
+      SessionUiState session = container.read(sessionProvider);
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        session = container.read(sessionProvider);
+        if (session.config.modelPath.endsWith('ggml-base.bin')) break;
+      }
 
-    expect(session.config.modelPath, '${tempDir.path}/ggml-base.bin');
-    expect(session.config.refineModelPath,
-        '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin');
-  });
+      expect(session.config.modelPath, '${tempDir.path}/ggml-base.bin');
+      expect(
+        session.config.refineModelPath,
+        '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin',
+      );
+    },
+  );
 
   test('progressive disabled leaves refine path null', () async {
-    final tempDir = await Directory.systemTemp.createTemp('transcribe-hpt-off-test-');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'transcribe-hpt-off-test-',
+    );
     addTearDown(() => tempDir.deleteSync(recursive: true));
     File('${tempDir.path}/ggml-base.bin').writeAsStringSync('stub');
 
@@ -287,9 +309,13 @@ void main() {
   });
 
   test('q5 as default model skips refine (HPT needs quick≠refine)', () async {
-    final tempDir = await Directory.systemTemp.createTemp('transcribe-hpt-q5-test-');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'transcribe-hpt-q5-test-',
+    );
     addTearDown(() => tempDir.deleteSync(recursive: true));
-    File('${tempDir.path}/ggml-large-v3-turbo-q5_0.bin').writeAsStringSync('stub');
+    File(
+      '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin',
+    ).writeAsStringSync('stub');
 
     final bridge = _NoopBridge(
       settings: AppSettings(
@@ -310,60 +336,68 @@ void main() {
     for (var i = 0; i < 20; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
       session = container.read(sessionProvider);
-      if (session.config.modelPath.endsWith('ggml-large-v3-turbo-q5_0.bin')) break;
+      if (session.config.modelPath.endsWith('ggml-large-v3-turbo-q5_0.bin')) {
+        break;
+      }
     }
 
-    expect(session.config.modelPath,
-        '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin');
+    expect(
+      session.config.modelPath,
+      '${tempDir.path}/ggml-large-v3-turbo-q5_0.bin',
+    );
     expect(session.config.refineModelPath, isNull);
   });
 
-  test('recoverFromSnapshot is a no-op while a session is already active', () async {
-    final notifier = SessionNotifier(
-      _NoopBridge(),
-      SessionMode.online,
-      modelPathForId('tiny'),
-    );
-    // Simulate an already-recording session (e.g. a prior recovery, or the
-    // user pressing Mulai) — recovering another must not clobber it.
-    notifier.state = notifier.state.copyWith(
-      lifecycle: SessionLifecycle.recording,
-      sessionId: 'already-recording-session',
-    );
+  test(
+    'recoverFromSnapshot is a no-op while a session is already active',
+    () async {
+      final notifier = SessionNotifier(
+        _NoopBridge(),
+        SessionMode.online,
+        modelPathForId('tiny'),
+      );
+      // Simulate an already-recording session (e.g. a prior recovery, or the
+      // user pressing Mulai) — recovering another must not clobber it.
+      notifier.state = notifier.state.copyWith(
+        lifecycle: SessionLifecycle.recording,
+        sessionId: 'already-recording-session',
+      );
 
-    final snapshot = rust_session.SessionRecoverySnapshot(
-      sessionId: 'orphan-candidate',
-      config: const rust_audio.SessionConfig(
-        micEnabled: true,
-        speakerEnabled: false,
-        mode: rust_audio.SessionMode.offline,
-        modelPath: 'ggml-base.bin',
-        hptMode: rust_audio.HptMode.auto,
-        gpuEnabled: false,
-        gpuDevice: 0,
-        vadEnabled: false,
-        audioToDisk: true,
-      glossary: kEmptyGlossary,),
-      startedAtUnixMs: BigInt.zero,
-      lastSplitAtUnixMs: BigInt.zero,
-      segmentsCount: 0,
-      title: 'orphan-candidate',
-      updatedAtUnixMs: BigInt.zero,
-      elapsedSecs: 0,
-      micCounters: rust_session.ChannelCounters(
-        totalSamples: BigInt.zero,
-        voicedSamples: BigInt.zero,
-      ),
-      speakerCounters: rust_session.ChannelCounters(
-        totalSamples: BigInt.zero,
-        voicedSamples: BigInt.zero,
-      ),
-    );
+      final snapshot = rust_session.SessionRecoverySnapshot(
+        sessionId: 'orphan-candidate',
+        config: const rust_audio.SessionConfig(
+          micEnabled: true,
+          speakerEnabled: false,
+          mode: rust_audio.SessionMode.offline,
+          modelPath: 'ggml-base.bin',
+          hptMode: rust_audio.HptMode.auto,
+          gpuEnabled: false,
+          gpuDevice: 0,
+          vadEnabled: false,
+          audioToDisk: true,
+          glossary: kEmptyGlossary,
+        ),
+        startedAtUnixMs: BigInt.zero,
+        lastSplitAtUnixMs: BigInt.zero,
+        segmentsCount: 0,
+        title: 'orphan-candidate',
+        updatedAtUnixMs: BigInt.zero,
+        elapsedSecs: 0,
+        micCounters: rust_session.ChannelCounters(
+          totalSamples: BigInt.zero,
+          voicedSamples: BigInt.zero,
+        ),
+        speakerCounters: rust_session.ChannelCounters(
+          totalSamples: BigInt.zero,
+          voicedSamples: BigInt.zero,
+        ),
+      );
 
-    await notifier.recoverFromSnapshot(snapshot);
+      await notifier.recoverFromSnapshot(snapshot);
 
-    expect(notifier.state.sessionId, 'already-recording-session');
-  });
+      expect(notifier.state.sessionId, 'already-recording-session');
+    },
+  );
 
   test('recoverFromSnapshot restores the recovered transcript', () async {
     // UX-01: `segments: []` was hardcoded here, so a crash in the second
@@ -447,7 +481,8 @@ rust_session.SessionRecoverySnapshot _snapshot(
       gpuDevice: 0,
       vadEnabled: false,
       audioToDisk: true,
-    glossary: kEmptyGlossary,),
+      glossary: kEmptyGlossary,
+    ),
     startedAtUnixMs: BigInt.zero,
     lastSplitAtUnixMs: BigInt.zero,
     segmentsCount: 2,

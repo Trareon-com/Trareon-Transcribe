@@ -64,8 +64,10 @@ void main() {
         ),
       );
       expect(off.redacts, isFalse);
-      expect(off.copyWith(redaction: off.redaction.copyWith(nik: true)).redacts,
-          isTrue);
+      expect(
+        off.copyWith(redaction: off.redaction.copyWith(nik: true)).redacts,
+        isTrue,
+      );
     });
 
     test('a name list alone is enough to redact', () {
@@ -88,8 +90,9 @@ void main() {
       // The bug this guards: a toggle that silently emptied the name list.
       final pdp = kDefaultPdpSettings.copyWith(
         enabled: true,
-        redaction: kDefaultPdpSettings.redaction
-            .copyWith(names: ['Budi', 'Siti']),
+        redaction: kDefaultPdpSettings.redaction.copyWith(
+          names: ['Budi', 'Siti'],
+        ),
         consentText: 'Rapat ini direkam.',
       );
       final toggled = pdp.copyWith(consentReminder: true);
@@ -149,11 +152,16 @@ void main() {
   group('audit log view', () {
     test('every action has an Indonesian label', () {
       for (final action in AuditAction.values) {
-        expect(auditActionLabel(action), isNotEmpty,
-            reason: '$action has no label');
+        expect(
+          auditActionLabel(action),
+          isNotEmpty,
+          reason: '$action has no label',
+        );
       }
-      expect(auditActionLabel(AuditAction.summarySent),
-          'Ringkasan dikirim ke endpoint');
+      expect(
+        auditActionLabel(AuditAction.summarySent),
+        'Ringkasan dikirim ke endpoint',
+      );
     });
 
     test('timestamps render as Indonesian day/month order', () {
@@ -163,17 +171,21 @@ void main() {
       expect(text, '04/10/2026 09:05');
     });
 
-    testWidgets('an empty log explains itself instead of showing blank',
-        (tester) async {
+    testWidgets('an empty log explains itself instead of showing blank', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: AuditLogView(entries: []))),
+        const MaterialApp(
+          home: Scaffold(body: AuditLogView(entries: [])),
+        ),
       );
       await tester.pump();
       expect(find.textContaining('Belum ada catatan'), findsOneWidget);
     });
 
-    testWidgets('entries render newest-first as the engine returns them',
-        (tester) async {
+    testWidgets('entries render newest-first as the engine returns them', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -188,11 +200,11 @@ void main() {
       );
       await tester.pump();
       expect(
-        find.textContaining('Transkrip diekspor — Rapat Anggaran'),
+        find.textContaining('Transkrip diekspor: Rapat Anggaran'),
         findsOneWidget,
       );
       expect(
-        find.textContaining('Sesi dibuat — Rapat Anggaran'),
+        find.textContaining('Sesi dibuat: Rapat Anggaran'),
         findsOneWidget,
       );
     });
@@ -224,8 +236,9 @@ void main() {
       expect(find.textContaining('3174012509800003'), findsWidgets);
     });
 
-    testWidgets('a clean transcript says the export is unchanged',
-        (tester) async {
+    testWidgets('a clean transcript says the export is unchanged', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

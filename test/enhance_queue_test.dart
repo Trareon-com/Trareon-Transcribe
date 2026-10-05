@@ -100,8 +100,9 @@ class _EnhanceBridge extends NoopBridge {
 /// The name comes from [modelPathForId] rather than a literal so it cannot
 /// drift away from the mapping the production gate uses.
 Future<void> installAccurateModelStub(String dirPath) async {
-  final fileName =
-      p.basename(modelPathForId(kAccurateModelId, libraryPath: dirPath));
+  final fileName = p.basename(
+    modelPathForId(kAccurateModelId, libraryPath: dirPath),
+  );
   await File(p.join(dirPath, fileName)).writeAsBytes(const [0]);
 }
 
@@ -209,7 +210,10 @@ void main() {
   group('retainAlignedBookmarks', () {
     test('keeps markers inside the new transcript span', () {
       final kept = retainAlignedBookmarks(
-        const [Bookmark(timestamp: 5, note: ''), Bookmark(timestamp: 50, note: '')],
+        const [
+          Bookmark(timestamp: 5, note: ''),
+          Bookmark(timestamp: 50, note: ''),
+        ],
         [segment(timestamp: 0, text: 'a'), segment(timestamp: 20, text: 'b')],
       );
       // The span ends at 20 + 2 = 22 s.
@@ -235,10 +239,12 @@ void main() {
     Future<Directory> sessionWithAudio() async {
       final dir = await Directory.systemTemp.createTemp('trareon-enhance-');
       await installAccurateModelStub(dir.path);
-      await File('${dir.path}${Platform.pathSeparator}mic.wav')
-          .writeAsBytes(const [0, 1, 2, 3]);
-      await File('${dir.path}${Platform.pathSeparator}Rapat.json')
-          .writeAsString(
+      await File(
+        '${dir.path}${Platform.pathSeparator}mic.wav',
+      ).writeAsBytes(const [0, 1, 2, 3]);
+      await File(
+        '${dir.path}${Platform.pathSeparator}Rapat.json',
+      ).writeAsString(
         encodeTranscriptJson([segment(timestamp: 0, text: 'hasil cepat')]),
       );
       return dir;
@@ -254,38 +260,40 @@ void main() {
       segments: [segment(timestamp: 0, text: 'hasil cepat')],
     );
 
-    test('replaces the transcript, backs it up, and records that it is done',
-        () async {
-      final dir = await sessionWithAudio();
-      try {
-        final bridge = _EnhanceBridge([
-          rustSegment(timestamp: 0, text: 'hasil akurat'),
-        ]);
-        final queue = EnhanceQueueNotifier(
-          bridge,
-          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
-        );
+    test(
+      'replaces the transcript, backs it up, and records that it is done',
+      () async {
+        final dir = await sessionWithAudio();
+        try {
+          final bridge = _EnhanceBridge([
+            rustSegment(timestamp: 0, text: 'hasil akurat'),
+          ]);
+          final queue = EnhanceQueueNotifier(
+            bridge,
+            () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+          );
 
-        await queue.considerSession(handoff(dir.path));
-        await queue.idle;
+          await queue.considerSession(handoff(dir.path));
+          await queue.idle;
 
-        expect(bridge.calls, 1);
-        final transcript = await File(
-          '${dir.path}${Platform.pathSeparator}Rapat.json',
-        ).readAsString();
-        expect(transcript, contains('hasil akurat'));
+          expect(bridge.calls, 1);
+          final transcript = await File(
+            '${dir.path}${Platform.pathSeparator}Rapat.json',
+          ).readAsString();
+          expect(transcript, contains('hasil akurat'));
 
-        final backup = transcriptBackupIn(dir.path);
-        expect(backup, isNotNull, reason: 'the old transcript must survive');
-        expect(await backup!.readAsString(), contains('hasil cepat'));
+          final backup = transcriptBackupIn(dir.path);
+          expect(backup, isNotNull, reason: 'the old transcript must survive');
+          expect(await backup!.readAsString(), contains('hasil cepat'));
 
-        final meta = await readSessionMeta(dir.path);
-        expect(meta.autoRetranscribeDone, isTrue);
-        expect(meta.model, kAccurateModelId);
-      } finally {
-        await dir.delete(recursive: true);
-      }
-    });
+          final meta = await readSessionMeta(dir.path);
+          expect(meta.autoRetranscribeDone, isTrue);
+          expect(meta.model, kAccurateModelId);
+        } finally {
+          await dir.delete(recursive: true);
+        }
+      },
+    );
 
     test('a failed pass leaves the transcript exactly as it was', () async {
       final dir = await sessionWithAudio();
@@ -310,31 +318,33 @@ void main() {
       }
     });
 
-    test('the pass carries the glossary so jargon survives the upgrade',
-        () async {
-      final dir = await sessionWithAudio();
-      try {
-        final bridge = _EnhanceBridge([
-          rustSegment(timestamp: 0, text: 'PPBJ'),
-        ]);
-        final queue = EnhanceQueueNotifier(
-          bridge,
-          () => AppSettings.defaults().copyWith(
-            libraryPath: dir.path,
-            glossary: const GlossarySettings(
-              enabled: true,
-              terms: ['PPBJ'],
-              postCorrection: true,
+    test(
+      'the pass carries the glossary so jargon survives the upgrade',
+      () async {
+        final dir = await sessionWithAudio();
+        try {
+          final bridge = _EnhanceBridge([
+            rustSegment(timestamp: 0, text: 'PPBJ'),
+          ]);
+          final queue = EnhanceQueueNotifier(
+            bridge,
+            () => AppSettings.defaults().copyWith(
+              libraryPath: dir.path,
+              glossary: const GlossarySettings(
+                enabled: true,
+                terms: ['PPBJ'],
+                postCorrection: true,
+              ),
             ),
-          ),
-        );
-        await queue.considerSession(handoff(dir.path));
-        await queue.idle;
-        expect(bridge.lastGlossary?.globalTerms, ['PPBJ']);
-      } finally {
-        await dir.delete(recursive: true);
-      }
-    });
+          );
+          await queue.considerSession(handoff(dir.path));
+          await queue.idle;
+          expect(bridge.lastGlossary?.globalTerms, ['PPBJ']);
+        } finally {
+          await dir.delete(recursive: true);
+        }
+      },
+    );
 
     test('a live recording pauses the queue', () async {
       final dir = await sessionWithAudio();

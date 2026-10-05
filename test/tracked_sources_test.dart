@@ -15,47 +15,53 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const scannedRoots = ['lib', 'test', 'integration_test'];
 
-  test('no Dart source under lib/, test/ or integration_test/ is gitignored', () {
-    // The probe has to be "am I inside a work tree", not "does the git binary
-    // exist": in a source export git runs fine but every check-ignore returns
-    // 128. Either way the invariant is real but unobservable, so skip rather
-    // than assert — and skip loudly, not silently pass.
-    final inWorkTree = _tryGit(['rev-parse', '--is-inside-work-tree']);
-    if (inWorkTree?.trim() != 'true') {
-      markTestSkipped('not a git work tree — cannot check ignore rules');
-      return;
-    }
+  test(
+    'no Dart source under lib/, test/ or integration_test/ is gitignored',
+    () {
+      // The probe has to be "am I inside a work tree", not "does the git binary
+      // exist": in a source export git runs fine but every check-ignore returns
+      // 128. Either way the invariant is real but unobservable, so skip rather
+      // than assert — and skip loudly, not silently pass.
+      final inWorkTree = _tryGit(['rev-parse', '--is-inside-work-tree']);
+      if (inWorkTree?.trim() != 'true') {
+        markTestSkipped('not a git work tree — cannot check ignore rules');
+        return;
+      }
 
-    final dartFiles = <String>[];
-    for (final root in scannedRoots) {
-      final dir = Directory(root);
-      if (!dir.existsSync()) continue;
-      for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-        if (entity is File && entity.path.endsWith('.dart')) {
-          dartFiles.add(entity.path);
+      final dartFiles = <String>[];
+      for (final root in scannedRoots) {
+        final dir = Directory(root);
+        if (!dir.existsSync()) continue;
+        for (final entity in dir.listSync(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File && entity.path.endsWith('.dart')) {
+            dartFiles.add(entity.path);
+          }
         }
       }
-    }
 
-    expect(
-      dartFiles,
-      isNotEmpty,
-      reason: 'found no Dart files at all — the scan itself is broken',
-    );
+      expect(
+        dartFiles,
+        isNotEmpty,
+        reason: 'found no Dart files at all — the scan itself is broken',
+      );
 
-    final ignored = _ignoredPaths(dartFiles);
+      final ignored = _ignoredPaths(dartFiles);
 
-    expect(
-      ignored,
-      isEmpty,
-      reason:
-          'These Dart sources are gitignored and will not exist on CI:\n'
-          '  ${ignored.join('\n  ')}\n'
-          'Move them out of the ignored directory (hand-written test helpers '
-          'belong in test/support/, not test/fixtures/, which holds generated '
-          'artifacts).',
-    );
-  });
+      expect(
+        ignored,
+        isEmpty,
+        reason:
+            'These Dart sources are gitignored and will not exist on CI:\n'
+            '  ${ignored.join('\n  ')}\n'
+            'Move them out of the ignored directory (hand-written test helpers '
+            'belong in test/support/, not test/fixtures/, which holds generated '
+            'artifacts).',
+      );
+    },
+  );
 }
 
 /// Runs a git command, returning its stdout, or null if git is unavailable or
@@ -82,10 +88,15 @@ List<String> _ignoredPaths(List<String> paths) {
     // error we must not silently read as "clean".
     if (result.exitCode == 0) {
       ignored.addAll(
-        (result.stdout as String).split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty),
+        (result.stdout as String)
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty),
       );
     } else if (result.exitCode != 1) {
-      throw StateError('git check-ignore failed (${result.exitCode}): ${result.stderr}');
+      throw StateError(
+        'git check-ignore failed (${result.exitCode}): ${result.stderr}',
+      );
     }
   }
   return ignored;

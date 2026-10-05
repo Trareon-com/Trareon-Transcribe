@@ -69,7 +69,8 @@ class ArchiveChatState {
   final int indexedSessions;
 
   bool get busy =>
-      status == ArchiveChatStatus.searching || status == ArchiveChatStatus.asking;
+      status == ArchiveChatStatus.searching ||
+      status == ArchiveChatStatus.asking;
 
   ArchiveChatState copyWith({
     ArchiveChatStatus? status,
@@ -86,7 +87,7 @@ class ArchiveChatState {
 
 class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
   ArchiveChatNotifier(this._bridge, this._settings, this._onNetworkRequest)
-      : super(const ArchiveChatState());
+    : super(const ArchiveChatState());
 
   final RustBridge _bridge;
   final AppSettings Function() _settings;
@@ -199,7 +200,8 @@ class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
         turns: [
           ...state.turns,
           turn.copyWith(
-            error: 'Jawaban otomatis memerlukan endpoint ringkasan yang '
+            error:
+                'Jawaban otomatis memerlukan endpoint ringkasan yang '
                 'sudah diatur di Pengaturan → Ringkasan AI. Pencarian '
                 'arsip tetap bisa dipakai tanpa itu.',
           ),
@@ -257,11 +259,11 @@ class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
 
 final archiveChatProvider =
     StateNotifierProvider<ArchiveChatNotifier, ArchiveChatState>((ref) {
-  return ArchiveChatNotifier(
-    ref.read(rustBridgeProvider),
-    () => ref.read(settingsProvider),
-    (endpoint, passages) => ref
-        .read(privacyReportProvider.notifier)
-        .recordArchiveQuestion(endpoint, passages),
-  );
-});
+      return ArchiveChatNotifier(
+        ref.read(rustBridgeProvider),
+        () => ref.read(settingsProvider),
+        (endpoint, passages) => ref
+            .read(privacyReportProvider.notifier)
+            .recordArchiveQuestion(endpoint, passages),
+      );
+    });

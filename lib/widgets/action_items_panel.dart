@@ -23,6 +23,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_typography.dart';
 
 /// Indonesian label for a status.
 ///
@@ -33,11 +35,11 @@ import 'app_toast.dart';
 /// come from the Rust side, so two spellings would mean a status that
 /// reads one way on screen and another in the file.
 String actionStatusLabel(ActionStatus status) => switch (status) {
-      ActionStatus.belum => 'Belum mulai',
-      ActionStatus.berjalan => 'Sedang berjalan',
-      ActionStatus.selesai => 'Selesai',
-      ActionStatus.dibatalkan => 'Dibatalkan',
-    };
+  ActionStatus.belum => 'Belum mulai',
+  ActionStatus.berjalan => 'Sedang berjalan',
+  ActionStatus.selesai => 'Selesai',
+  ActionStatus.dibatalkan => 'Dibatalkan',
+};
 
 class ActionItemsPanel extends ConsumerStatefulWidget {
   const ActionItemsPanel({
@@ -84,8 +86,11 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       AppToast.show(context, '$what disimpan: $filename');
     } catch (e) {
       if (!mounted) return;
-      AppToast.show(context, 'Gagal menyimpan $what: $e',
-          type: ToastType.error);
+      AppToast.show(
+        context,
+        'Gagal menyimpan $what: $e',
+        type: ToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -94,13 +99,14 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
   Future<void> _exportIcs(List<ActionItem> items) async {
     final bridge = ref.read(rustBridgeProvider);
     final now = DateTime.now();
-    final today = '${now.year.toString().padLeft(4, '0')}-'
+    final today =
+        '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
     try {
       final ics = await bridge.actionItemsToIcs(
         items: items,
-        calendarName: 'Tindak Lanjut — ${widget.sessionTitle}',
+        calendarName: 'Tindak Lanjut: ${widget.sessionTitle}',
         today: today,
       );
       await _write('tindak-lanjut.ics', ics, 'Kalender tindak lanjut');
@@ -123,7 +129,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
 
   Future<void> _copyAsText(List<ActionItem> items) async {
     final lines = [
-      'Tindak Lanjut — ${widget.sessionTitle}',
+      'Tindak Lanjut: ${widget.sessionTitle}',
       for (final item in items)
         '- ${item.tugas}'
             '${item.penanggungJawab.isEmpty ? '' : ' (PJ: ${item.penanggungJawab})'}'
@@ -137,7 +143,8 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final items = ref.watch(widget.provider).actionItems;
     // Only rows with a task can be exported; a blank row the user added
     // and has not filled in yet is not something to put in a calendar.
@@ -145,8 +152,9 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       for (final item in items)
         if (item.tugas.trim().isNotEmpty) item,
     ];
-    final done =
-        exportable.where((i) => i.status == ActionStatus.selesai).length;
+    final done = exportable
+        .where((i) => i.status == ActionStatus.selesai)
+        .length;
 
     return Container(
       decoration: BoxDecoration(
@@ -159,12 +167,18 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.checklist_outlined,
-                      size: IconSizes.md, color: colors.primary),
-                  const SizedBox(width: 8),
+                  Icon(
+                    AppIcons.checklist,
+                    size: IconSizes.md,
+                    color: colors.primary,
+                  ),
+                  Spacing.hSm,
                   Text(
                     'Tindak Lanjut',
                     style: TextStyle(
@@ -174,7 +188,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     ),
                   ),
                   if (exportable.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    Spacing.hSm,
                     Text(
                       '$done/${exportable.length} selesai',
                       style: TextStyle(
@@ -192,7 +206,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     )
                   else
                     Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      _expanded ? AppIcons.expandLess : AppIcons.expandMore,
                       size: IconSizes.lg,
                       color: colors.textSecondary,
                     ),
@@ -202,7 +216,12 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                0,
+                Spacing.lg,
+                Spacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -241,31 +260,28 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     children: [
                       TextButton.icon(
                         onPressed: _notifier.addActionItem,
-                        icon: const Icon(Icons.add, size: IconSizes.sm),
+                        icon: const Icon(AppIcons.add, size: IconSizes.sm),
                         label: const Text('Tambah tugas'),
                       ),
                       TextButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _copyAsText(exportable),
-                        icon: const Icon(Icons.copy_outlined,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.copy, size: IconSizes.sm),
                         label: const Text('Salin'),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportCsv(exportable),
-                        icon: const Icon(Icons.table_view_outlined,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.table, size: IconSizes.sm),
                         label: const Text('Ekspor CSV'),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _exportIcs(exportable),
-                        icon: const Icon(Icons.event_outlined,
-                            size: IconSizes.sm),
+                        icon: const Icon(AppIcons.event, size: IconSizes.sm),
                         label: const Text('Ekspor .ics'),
                       ),
                     ],
@@ -328,14 +344,16 @@ class _ActionRowState extends State<_ActionRow> {
   }
 
   void _emit({ActionStatus? status}) {
-    widget.onChanged(ActionItem(
-      id: widget.item.id,
-      tugas: _tugas.text,
-      penanggungJawab: _pj.text,
-      tenggat: _tenggat.text,
-      status: status ?? widget.item.status,
-      segmentIds: widget.item.segmentIds,
-    ));
+    widget.onChanged(
+      ActionItem(
+        id: widget.item.id,
+        tugas: _tugas.text,
+        penanggungJawab: _pj.text,
+        tenggat: _tenggat.text,
+        status: status ?? widget.item.status,
+        segmentIds: widget.item.segmentIds,
+      ),
+    );
   }
 
   @override
@@ -359,7 +377,7 @@ class _ActionRowState extends State<_ActionRow> {
               // A checkbox for the one status transition that happens a
               // hundred times more often than the others.
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: Spacing.xs),
                 child: Semantics(
                   label: 'Tandai "${widget.item.tugas}" selesai',
                   child: Checkbox(
@@ -390,14 +408,17 @@ class _ActionRowState extends State<_ActionRow> {
               ),
               IconButton(
                 tooltip: 'Hapus tugas',
-                icon: const Icon(Icons.close, size: IconSizes.sm),
+                icon: const Icon(AppIcons.close, size: IconSizes.sm),
                 onPressed: widget.onRemove,
               ),
             ],
           ),
           if (citations.isNotEmpty && widget.onSeekToSegment != null)
             Padding(
-              padding: const EdgeInsets.only(left: 40, top: Spacing.xs),
+              padding: const EdgeInsets.only(
+                left: TouchTarget.minimum - Spacing.sm,
+                top: Spacing.xs,
+              ),
               child: Wrap(
                 spacing: Spacing.xs,
                 children: [
@@ -417,7 +438,10 @@ class _ActionRowState extends State<_ActionRow> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.only(left: 40, top: Spacing.xs),
+            padding: const EdgeInsets.only(
+              left: TouchTarget.minimum - Spacing.sm,
+              top: Spacing.xs,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -456,10 +480,7 @@ class _ActionRowState extends State<_ActionRow> {
                     // Ellipsise rather than overflow: "Sedang berjalan"
                     // is wider than the column at a narrow window.
                     isExpanded: true,
-                    style: TextStyle(
-                      fontSize: FontSizes.caption,
-                      color: colors.text,
-                    ),
+                    style: AppText.caption.c(colors.text),
                     decoration: const InputDecoration(
                       isDense: true,
                       labelText: 'Status',

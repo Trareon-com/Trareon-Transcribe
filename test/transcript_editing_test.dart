@@ -18,6 +18,7 @@ import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_colors.dart';
 import 'package:transcribe/widgets/tag_editor_dialog.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 TranscriptSegment _seg(
   String text, {
@@ -25,18 +26,17 @@ TranscriptSegment _seg(
   double duration = 3,
   String speaker = 'Saya',
   bool lowConfidence = false,
-}) =>
-    TranscriptSegment(
-      source: 'mic',
-      speaker: speaker,
-      text: text,
-      timestamp: timestamp,
-      duration: duration,
-      language: 'id',
-      confidence: lowConfidence ? 0.4 : 0.95,
-      isPartial: false,
-      lowConfidence: lowConfidence,
-    );
+}) => TranscriptSegment(
+  source: 'mic',
+  speaker: speaker,
+  text: text,
+  timestamp: timestamp,
+  duration: duration,
+  language: 'id',
+  confidence: lowConfidence ? 0.4 : 0.95,
+  isPartial: false,
+  lowConfidence: lowConfidence,
+);
 
 /// Records what the view asked the host screen to do.
 class _Recorder {
@@ -51,18 +51,21 @@ Future<void> _pumpView(
   List<TranscriptSegment> segments,
   _Recorder recorder,
 ) async {
-  await tester.pumpWidget(MaterialApp(
-    theme: ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
-    home: Scaffold(
-      body: TranscriptView(
-        segments: segments,
-        onEdit: (index, text) => recorder.edits.add((index, text)),
-        onMoveSegment: (index, delta) => recorder.moves.add((index, delta)),
-        onMergeWithPrevious: recorder.merges.add,
-        onSplitSegment: (index, offset) => recorder.splits.add((index, offset)),
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
+      home: Scaffold(
+        body: TranscriptView(
+          segments: segments,
+          onEdit: (index, text) => recorder.edits.add((index, text)),
+          onMoveSegment: (index, delta) => recorder.moves.add((index, delta)),
+          onMergeWithPrevious: recorder.merges.add,
+          onSplitSegment: (index, offset) =>
+              recorder.splits.add((index, offset)),
+        ),
       ),
     ),
-  ));
+  );
   await tester.pump();
   tester.takeException();
   await tester.pumpAndSettle();
@@ -79,23 +82,28 @@ Future<void> _select(WidgetTester tester, String text) async {
 
 void main() {
   group('keyboard editing', () {
-    testWidgets('the shortcut crib is on screen when editing is possible',
-        (tester) async {
+    testWidgets('the shortcut crib is on screen when editing is possible', (
+      tester,
+    ) async {
       await _pumpView(tester, [_seg('satu')], _Recorder());
       expect(find.textContaining('Enter sunting'), findsOneWidget);
       expect(find.textContaining('Ctrl+M gabung ke atas'), findsOneWidget);
     });
 
-    testWidgets('Enter opens an inline editor and Enter again commits',
-        (tester) async {
+    testWidgets('Enter opens an inline editor and Enter again commits', (
+      tester,
+    ) async {
       final recorder = _Recorder();
       await _pumpView(tester, [_seg('salah tulis')], recorder);
       await _select(tester, 'salah tulis');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNWidgets(2),
-          reason: 'the search box plus the inline editor');
+      expect(
+        find.byType(TextField),
+        findsNWidgets(2),
+        reason: 'the search box plus the inline editor',
+      );
       // The crib switches to the editing keys.
       expect(find.textContaining('Esc batal'), findsOneWidget);
 
@@ -123,11 +131,10 @@ void main() {
 
     testWidgets('Ctrl+↑/↓ moves the selected segment', (tester) async {
       final recorder = _Recorder();
-      await _pumpView(
-        tester,
-        [_seg('satu'), _seg('dua', timestamp: 3)],
-        recorder,
-      );
+      await _pumpView(tester, [
+        _seg('satu'),
+        _seg('dua', timestamp: 3),
+      ], recorder);
       await _select(tester, 'dua');
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
@@ -138,8 +145,9 @@ void main() {
       expect(recorder.moves, [(1, -1)]);
     });
 
-    testWidgets('a move past either end is refused rather than clamped',
-        (tester) async {
+    testWidgets('a move past either end is refused rather than clamped', (
+      tester,
+    ) async {
       final recorder = _Recorder();
       await _pumpView(tester, [_seg('satu')], recorder);
       await _select(tester, 'satu');
@@ -153,14 +161,14 @@ void main() {
       expect(recorder.moves, isEmpty);
     });
 
-    testWidgets('Ctrl+M merges upwards, and never on the first row',
-        (tester) async {
+    testWidgets('Ctrl+M merges upwards, and never on the first row', (
+      tester,
+    ) async {
       final recorder = _Recorder();
-      await _pumpView(
-        tester,
-        [_seg('kalimat'), _seg('terpotong', timestamp: 3)],
-        recorder,
-      );
+      await _pumpView(tester, [
+        _seg('kalimat'),
+        _seg('terpotong', timestamp: 3),
+      ], recorder);
 
       await _select(tester, 'kalimat');
       await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
@@ -226,32 +234,28 @@ void main() {
   });
 
   group('Tinjau filter', () {
-    testWidgets('the flag only appears when something was flagged',
-        (tester) async {
+    testWidgets('the flag only appears when something was flagged', (
+      tester,
+    ) async {
       await _pumpView(tester, [_seg('yakin')], _Recorder());
-      expect(find.byIcon(Icons.flag_outlined), findsNothing);
+      expect(find.byIcon(AppIcons.flag), findsNothing);
 
-      await _pumpView(
-        tester,
-        [_seg('yakin'), _seg('ragu', timestamp: 3, lowConfidence: true)],
-        _Recorder(),
-      );
-      expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
+      await _pumpView(tester, [
+        _seg('yakin'),
+        _seg('ragu', timestamp: 3, lowConfidence: true),
+      ], _Recorder());
+      expect(find.byIcon(AppIcons.flag), findsOneWidget);
     });
 
     testWidgets('narrows the list to the flagged segments', (tester) async {
-      await _pumpView(
-        tester,
-        [
-          _seg('yakin'),
-          _seg('ragu', timestamp: 3, lowConfidence: true),
-          _seg('yakin lagi', timestamp: 6),
-        ],
-        _Recorder(),
-      );
+      await _pumpView(tester, [
+        _seg('yakin'),
+        _seg('ragu', timestamp: 3, lowConfidence: true),
+        _seg('yakin lagi', timestamp: 6),
+      ], _Recorder());
       expect(find.text('3 segmen'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.flag_outlined));
+      await tester.tap(find.byIcon(AppIcons.flag));
       await tester.pumpAndSettle();
 
       expect(find.text('ragu', findRichText: true), findsOneWidget);
@@ -270,27 +274,31 @@ void main() {
       expect(normaliseTags(null), isEmpty);
     });
 
-    testWidgets('the editor adds, removes and offers existing tags',
-        (tester) async {
+    testWidgets('the editor adds, removes and offers existing tags', (
+      tester,
+    ) async {
       List<String>? saved;
-      await tester.pumpWidget(MaterialApp(
-        theme:
-            ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                saved = await showTagEditor(
-                  context,
-                  current: const ['Anggaran'],
-                  known: const ['Anggaran', 'Mingguan', 'Direksi'],
-                );
-              },
-              child: const Text('buka'),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: <ThemeExtension<dynamic>>[AppColors.light],
+          ),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  saved = await showTagEditor(
+                    context,
+                    current: const ['Anggaran'],
+                    known: const ['Anggaran', 'Mingguan', 'Direksi'],
+                  );
+                },
+                child: const Text('buka'),
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.tap(find.text('buka'));
       await tester.pumpAndSettle();
 
@@ -316,24 +324,27 @@ void main() {
 
     testWidgets('cancelling changes nothing', (tester) async {
       List<String>? saved = ['sentinel'];
-      await tester.pumpWidget(MaterialApp(
-        theme:
-            ThemeData(extensions: <ThemeExtension<dynamic>>[AppColors.light]),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                saved = await showTagEditor(
-                  context,
-                  current: const ['Anggaran'],
-                  known: const [],
-                );
-              },
-              child: const Text('buka'),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: <ThemeExtension<dynamic>>[AppColors.light],
+          ),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  saved = await showTagEditor(
+                    context,
+                    current: const ['Anggaran'],
+                    known: const [],
+                  );
+                },
+                child: const Text('buka'),
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.tap(find.text('buka'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'Batal'));

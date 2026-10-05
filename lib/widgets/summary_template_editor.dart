@@ -14,6 +14,7 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 /// Opens the template manager: list, duplicate, edit, delete.
 Future<void> showSummaryTemplateManager(BuildContext context) {
@@ -30,7 +31,8 @@ class _TemplateManagerDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final templates = settings.summaryTemplates;
 
     return AlertDialog(
@@ -82,8 +84,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Ubah ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.edit_outlined,
-                              size: IconSizes.md),
+                          icon: const Icon(AppIcons.edit, size: IconSizes.md),
                           onPressed: () async {
                             final edited = await showSummaryTemplateEditor(
                               context,
@@ -97,8 +98,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Duplikat ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.copy_outlined,
-                              size: IconSizes.md),
+                          icon: const Icon(AppIcons.copy, size: IconSizes.md),
                           onPressed: () => notifier.saveSummaryTemplate(
                             CustomSummaryTemplate(
                               id: newTemplateId(),
@@ -111,8 +111,11 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         IconButton(
                           tooltip: 'Hapus ${template.name}',
                           constraints: TouchTarget.constraints,
-                          icon: Icon(Icons.delete_outline,
-                              size: IconSizes.md, color: colors.error),
+                          icon: Icon(
+                            AppIcons.delete,
+                            size: IconSizes.md,
+                            color: colors.error,
+                          ),
                           onPressed: () =>
                               notifier.deleteSummaryTemplate(template.id),
                         ),
@@ -136,7 +139,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                   for (final builtin in SummaryTemplate.values)
                     if (builtin != SummaryTemplate.kustom)
                       ActionChip(
-                        avatar: const Icon(Icons.add, size: IconSizes.sm),
+                        avatar: const Icon(AppIcons.add, size: IconSizes.sm),
                         label: Text(summaryTemplateLabel(builtin)),
                         tooltip:
                             'Duplikat "${summaryTemplateLabel(builtin)}" jadi '
@@ -161,8 +164,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                         },
                       ),
                   ActionChip(
-                    avatar: const Icon(Icons.note_add_outlined,
-                        size: IconSizes.sm),
+                    avatar: const Icon(AppIcons.noteAdd, size: IconSizes.sm),
                     label: const Text('Kosong'),
                     tooltip: 'Buat template dari nol',
                     onPressed: () async {
@@ -231,9 +233,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
     super.initState();
     _name = TextEditingController(text: widget.initial.name);
     _instructions = TextEditingController(text: widget.initial.instructions);
-    _headings = TextEditingController(
-      text: widget.initial.headings.join('\n'),
-    );
+    _headings = TextEditingController(text: widget.initial.headings.join('\n'));
   }
 
   @override
@@ -246,7 +246,8 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return AlertDialog(
       backgroundColor: colors.surface,
       title: const Text('Ubah template'),
@@ -284,7 +285,8 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                 maxLines: 10,
                 decoration: const InputDecoration(
                   labelText: 'Instruksi tambahan',
-                  hintText: 'mis. Fokus pada risiko anggaran dan sebutkan '
+                  hintText:
+                      'mis. Fokus pada risiko anggaran dan sebutkan '
                       'angka persis seperti di transkrip.',
                   border: OutlineInputBorder(),
                   isDense: true,

@@ -7,21 +7,29 @@ library;
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 
 class SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const SettingsSection({super.key, required this.title, required this.children});
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(left: Spacing.xs, bottom: Spacing.sm),
           // A heading, so a screen reader can jump between settings groups
           // instead of reading the whole pane top to bottom.
           child: Semantics(
@@ -29,7 +37,7 @@ class SettingsSection extends StatelessWidget {
             child: Text(
               title,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: FontSizes.caption,
                 fontWeight: FontWeight.w600,
                 color: colors.textTertiary,
                 letterSpacing: 0.5,
@@ -40,7 +48,7 @@ class SettingsSection extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: colors.surfaceElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.lg),
             border: Border.all(color: colors.border),
           ),
           child: Column(children: children),
@@ -55,8 +63,15 @@ class SettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return Divider(height: 1, thickness: 1, color: colors.divider, indent: 56, endIndent: 16);
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: colors.divider,
+      indent: 56,
+      endIndent: 16,
+    );
   }
 }
 
@@ -78,29 +93,41 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.lg),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: colors.textSecondary),
-            const SizedBox(width: 14),
+            Icon(icon, size: IconSizes.lg, color: colors.textSecondary),
+            Spacing.hMd,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.text),
+                    style: TextStyle(
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w500,
+                      color: colors.text,
+                    ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 2),
+                    Spacing.gapXs,
                     Text(
                       subtitle!,
-                      style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.3),
+                      style: TextStyle(
+                        fontSize: FontSizes.caption,
+                        color: colors.textTertiary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ],
@@ -132,28 +159,46 @@ class SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     // One node per row: a reader announcing the icon, then the label, then the
     // helper text, then "switch" is four stops for one decision.
     return MergeSemantics(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         child: Row(
           children: [
-            ExcludeSemantics(child: Icon(icon, size: 22, color: colors.textSecondary)),
-            const SizedBox(width: 14),
+            ExcludeSemantics(
+              child: Icon(
+                icon,
+                size: IconSizes.lg,
+                color: colors.textSecondary,
+              ),
+            ),
+            Spacing.hMd,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: colors.text),
+                    style: TextStyle(
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w500,
+                      color: colors.text,
+                    ),
                   ),
-                  const SizedBox(height: 2),
+                  Spacing.gapXs,
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.3),
+                    style: TextStyle(
+                      fontSize: FontSizes.caption,
+                      color: colors.textTertiary,
+                      height: 1.3,
+                    ),
                   ),
                 ],
               ),
@@ -189,12 +234,16 @@ class CompactDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.chipBackground,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(color: colors.border),
       ),
       child: DropdownButtonHideUnderline(
@@ -208,7 +257,7 @@ class CompactDropdown<T> extends StatelessWidget {
                   value: item,
                   child: Text(
                     labelBuilder(item),
-                    style: TextStyle(fontSize: 13, color: colors.text),
+                    style: AppText.body.c(colors.text),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -218,9 +267,17 @@ class CompactDropdown<T> extends StatelessWidget {
             if (newValue != null) onChanged(newValue);
           },
           dropdownColor: colors.surface,
-          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: colors.textSecondary),
-          style: TextStyle(fontSize: 13, color: colors.text),
-          borderRadius: BorderRadius.circular(8),
+          icon: Icon(
+            AppIcons.chevronDown,
+            size: IconSizes.md,
+            color: colors.textSecondary,
+          ),
+          // A real role, not a bare TextStyle: DropdownButton *replaces*
+          // the DefaultTextStyle with whatever it is handed, so a style with
+          // no family rendered the selected value in the platform fallback
+          // face instead of the app's own.
+          style: AppText.body.c(colors.text),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
       ),
     );
@@ -234,25 +291,33 @@ class InfoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return InkWell(
       onTap: () => _showInfoDialog(context, colors),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.lg),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: Spacing.xs,
+        ),
         decoration: BoxDecoration(
           color: colors.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.lg),
           border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.info_outline, size: 14, color: colors.primary),
-            const SizedBox(width: 4),
+            Icon(AppIcons.info, size: IconSizes.xs, color: colors.primary),
+            Spacing.hXs,
             Text(
               'Penjelasan',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.primary),
+              style: TextStyle(
+                fontSize: FontSizes.micro,
+                fontWeight: FontWeight.w600,
+                color: colors.primary,
+              ),
             ),
           ],
         ),

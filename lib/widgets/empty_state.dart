@@ -1,19 +1,24 @@
-import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-
-/// Centred icon + message for a pane with nothing in it yet.
+/// Centred icon and message for a pane with nothing in it yet.
 ///
-/// Shrinks and then scrolls rather than overflowing. At 800x600 — the app's
-/// smallest window — the transcript pane is only ~140px tall while a session
-/// is starting, and the full-size layout (40px padding, 40px glyph, two
-/// lines of text) needs about 220px: it used to paint the yellow-and-black
-/// overflow stripes right where the first transcript line was about to
-/// appear. Same `compact` rule as the idle workspace in main_screen.dart.
+/// Shrinks and then scrolls rather than overflowing. At the app's smallest
+/// window the transcript pane is only about 140 px tall while a session is
+/// starting, and the full-size layout (a hero glyph plus two lines of text)
+/// needs about 220: it used to paint the yellow-and-black overflow stripes
+/// exactly where the first transcript line was about to appear.
+///
+/// The richer composition (an icon plate with a badged second glyph, and an
+/// action) lives in `ui/app_feedback.dart` as `AppEmptyState`. This one stays
+/// for the panes that only ever need a glyph and two lines, and is where the
+/// short-pane behaviour is tested.
+library;
+
+import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
+
 class EmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
   const EmptyState({
     super.key,
     required this.icon,
@@ -21,32 +26,69 @@ class EmptyState extends StatelessWidget {
     this.subtitle,
     this.action,
   });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? action;
+
+  /// Below this pane height the glyph and the generous padding are dropped,
+  /// so the words survive rather than the decoration.
+  static const double compactBelow = 220;
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return LayoutBuilder(builder: (context, constraints) {
-      // Every current caller sits in an Expanded, but a scroll view given
-      // unbounded height throws outright — a worse failure than the overflow
-      // above — so the scrolling is conditional on actually having a height.
-      final bounded = constraints.hasBoundedHeight;
-      final compact = bounded && constraints.maxHeight < 220;
-      final padding = EdgeInsets.all(compact ? 16 : 40);
-      final body = Column(mainAxisSize: MainAxisSize.min, children: [
-        if (!compact) ...[
-          // Decorative: it repeats what the title already says.
-          ExcludeSemantics(child: Icon(icon, size: 40, color: colors.textTertiary)),
-          const SizedBox(height: 16),
-        ],
-        Semantics(
-          header: true,
-          child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: colors.textSecondary), textAlign: TextAlign.center),
-        ),
-        if (subtitle != null) ...[const SizedBox(height: 6), Text(subtitle!, style: TextStyle(fontSize: 13, color: colors.textTertiary), textAlign: TextAlign.center)],
-        if (action != null) ...[SizedBox(height: compact ? 12 : 20), action!],
-      ]);
-      return Center(child: bounded
-          ? SingleChildScrollView(padding: padding, child: body)
-          : Padding(padding: padding, child: body));
-    });
+    final colors = context.colors;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Every current caller sits in an Expanded, but a scroll view given
+        // unbounded height throws outright, which is a worse failure than the
+        // overflow above, so the scrolling is conditional on having a height.
+        final bounded = constraints.hasBoundedHeight;
+        final compact = bounded && constraints.maxHeight < compactBelow;
+        final padding = EdgeInsets.all(compact ? Spacing.lg : Spacing.xxxl);
+        final body = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!compact) ...[
+              // Decorative: it repeats what the title already says.
+              ExcludeSemantics(
+                child: Icon(
+                  icon,
+                  size: IconSizes.hero,
+                  color: colors.textTertiary,
+                ),
+              ),
+              Spacing.gapLg,
+            ],
+            Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: AppText.subheading.c(colors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            if (subtitle != null) ...[
+              Spacing.gapSm,
+              Text(
+                subtitle!,
+                style: AppText.body.c(colors.textTertiary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (action != null) ...[
+              compact ? Spacing.gapMd : Spacing.gapLg,
+              action!,
+            ],
+          ],
+        );
+        return Center(
+          child: bounded
+              ? SingleChildScrollView(padding: padding, child: body)
+              : Padding(padding: padding, child: body),
+        );
+      },
+    );
   }
 }

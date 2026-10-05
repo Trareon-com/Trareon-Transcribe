@@ -8,6 +8,7 @@ import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_toast.dart';
+import '../theme/app_icons.dart';
 
 /// "Diagnostik" — runs `doctor.rs` on demand and says, in Indonesian, what
 /// is wrong and what to do about it.
@@ -76,11 +77,19 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
           );
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(context, 'Log diagnostik tersimpan: $written', type: ToastType.success);
+      AppToast.show(
+        context,
+        'Log diagnostik tersimpan: $written',
+        type: ToastType.success,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _exporting = false);
-      AppToast.show(context, 'Gagal menyimpan log diagnostik: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        'Gagal menyimpan log diagnostik: $e',
+        type: ToastType.error,
+      );
     }
   }
 
@@ -98,7 +107,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final result = _result;
 
     return Scaffold(
@@ -111,21 +121,24 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         actions: [
           TextButton.icon(
             onPressed: _running ? null : _run,
-            icon: const Icon(Icons.refresh, size: 18),
+            icon: const Icon(AppIcons.refresh, size: IconSizes.md),
             label: const Text('Periksa ulang'),
           ),
-          const SizedBox(width: 8),
+          Spacing.hSm,
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         children: [
           Text(
             'Pemeriksaan ini berjalan sepenuhnya di komputer Anda dan tidak '
             'mengirim apa pun ke internet.',
-            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: FontSizes.body,
+            ),
           ),
-          const SizedBox(height: 16),
+          Spacing.gapLg,
           if (_running) const LinearProgressIndicator(minHeight: 2),
           if (result != null) ...[
             if (result.error != null)
@@ -155,10 +168,12 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     PreflightSeverity.fail => colors.error,
                   },
                   title: checkTitle(check.name),
-                  message: messageOf(check).isEmpty ? checkPurpose(check.name) : messageOf(check),
+                  message: messageOf(check).isEmpty
+                      ? checkPurpose(check.name)
+                      : messageOf(check),
                   remediation: check.remediation,
                 ),
-            const SizedBox(height: 12),
+            Spacing.gapMd,
             Text(
               result.hasFailures
                   ? 'Ada masalah yang perlu diperbaiki sebelum merekam.'
@@ -166,7 +181,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   ? 'Aplikasi bisa dipakai, tapi ada hal yang sebaiknya '
                         'diperiksa.'
                   : 'Semua siap. Aplikasi bisa merekam.',
-              style: TextStyle(color: colors.text, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: colors.text,
+                fontSize: FontSizes.body,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
           // Last: exporting the log is what you do *after* reading the
@@ -200,14 +219,15 @@ class _DiagnosticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Spacing.md),
         decoration: BoxDecoration(
           color: colors.surfaceElevated,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.lg),
           border: Border.all(color: colors.border),
         ),
         child: Row(
@@ -226,7 +246,11 @@ class _DiagnosticCard extends StatelessWidget {
                 excludeSemantics: true,
                 child: Text(
                   marker,
-                  style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: FontSizes.title,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -236,23 +260,37 @@ class _DiagnosticCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(color: colors.text, fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: FontSizes.bodyLarge,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (message.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(message, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                    Spacing.gapXs,
+                    Text(
+                      message,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: FontSizes.caption,
+                      ),
+                    ),
                   ],
                   if (remediation != null && remediation!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    Spacing.gapSm,
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.lightbulb_outline, size: 14, color: color),
-                        const SizedBox(width: 6),
+                        Icon(AppIcons.idea, size: IconSizes.xs, color: color),
+                        Spacing.hSm,
                         Expanded(
                           child: Text(
                             remediation!,
-                            style: TextStyle(color: colors.text, fontSize: 12, height: 1.35),
+                            style: TextStyle(
+                              color: colors.text,
+                              fontSize: FontSizes.caption,
+                              height: 1.35,
+                            ),
                           ),
                         ),
                       ],
@@ -292,7 +330,8 @@ class _DiagnosticsExportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Container(
       padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
@@ -303,7 +342,11 @@ class _DiagnosticsExportCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.bug_report_outlined, size: IconSizes.lg, color: colors.textSecondary),
+          Icon(
+            AppIcons.bugReport,
+            size: IconSizes.lg,
+            color: colors.textSecondary,
+          ),
           const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
@@ -340,7 +383,7 @@ class _DiagnosticsExportCard extends StatelessWidget {
                     height: IconSizes.sm,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.download_outlined, size: IconSizes.md),
+                : const Icon(AppIcons.download, size: IconSizes.md),
             label: const Text('Ekspor'),
           ),
         ],

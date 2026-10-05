@@ -85,39 +85,41 @@ void main() {
     }
   });
 
-  test('the Privacy Report knows about exactly the outbound paths that exist', () {
-    // Anything in lib/ that can put bytes on the wire. Adding a fifth one
-    // means adding a recorder for it and updating the screen copy.
-    const initiators = <String, String>{
-      'downloadModel(': 'recordModelDownload',
-      // `generateSummaryLong` (F15) is the same endpoint and the same
-      // recorder: it is `generateSummary` with the transcript cut into
-      // windows, not a second destination.
-      'generateSummary(': 'recordSummaryRequest',
-      'checkForUpdate(': 'recordUpdateCheck',
-      'launchUrl(': 'recordExternalLink',
-      // F12: the archive answer reuses the summary endpoint, but what
-      // it sends is different — passages from several past meetings —
-      // so it is recorded as its own kind of outbound call.
-      'archiveAsk(': 'recordArchiveQuestion',
-    };
-    final recorders = File(
-      'lib/state/privacy_report_model.dart',
-    ).readAsStringSync();
-    for (final recorder in initiators.values) {
-      expect(
-        recorders,
-        contains('void $recorder('),
-        reason: 'the report must be able to record $recorder',
-      );
-    }
-    // And no recorder exists for an activity that no longer happens.
-    final declared = RegExp(r'void (record\w+)\(')
-        .allMatches(recorders)
-        .map((m) => m.group(1)!)
-        .toSet();
-    expect(declared, unorderedEquals(initiators.values.toSet()));
-  });
+  test(
+    'the Privacy Report knows about exactly the outbound paths that exist',
+    () {
+      // Anything in lib/ that can put bytes on the wire. Adding a fifth one
+      // means adding a recorder for it and updating the screen copy.
+      const initiators = <String, String>{
+        'downloadModel(': 'recordModelDownload',
+        // `generateSummaryLong` (F15) is the same endpoint and the same
+        // recorder: it is `generateSummary` with the transcript cut into
+        // windows, not a second destination.
+        'generateSummary(': 'recordSummaryRequest',
+        'checkForUpdate(': 'recordUpdateCheck',
+        'launchUrl(': 'recordExternalLink',
+        // F12: the archive answer reuses the summary endpoint, but what
+        // it sends is different — passages from several past meetings —
+        // so it is recorded as its own kind of outbound call.
+        'archiveAsk(': 'recordArchiveQuestion',
+      };
+      final recorders = File(
+        'lib/state/privacy_report_model.dart',
+      ).readAsStringSync();
+      for (final recorder in initiators.values) {
+        expect(
+          recorders,
+          contains('void $recorder('),
+          reason: 'the report must be able to record $recorder',
+        );
+      }
+      // And no recorder exists for an activity that no longer happens.
+      final declared = RegExp(
+        r'void (record\w+)\(',
+      ).allMatches(recorders).map((m) => m.group(1)!).toSet();
+      expect(declared, unorderedEquals(initiators.values.toSet()));
+    },
+  );
 
   test('every network call site records itself first', () {
     /// Files that *define* a network-capable operation rather than
@@ -140,9 +142,7 @@ void main() {
     /// `constructor` -> `recorder that must be handed to it`. Ordering is
     /// meaningless here: the recorder *is* the argument, so what matters is
     /// that it appears inside the argument list.
-    const mustInject = <String, String>{
-      'UpdateChecker(': 'recordUpdateCheck',
-    };
+    const mustInject = <String, String>{'UpdateChecker(': 'recordUpdateCheck'};
 
     /// The argument list starting at the `(` that ends [open], by bracket
     /// depth — string literals in this codebase never contain unbalanced
@@ -211,7 +211,9 @@ void main() {
       contains('required this.onNetworkRequest'),
       reason: 'the recorder must not be skippable',
     );
-    final body = source.substring(source.indexOf('Future<UpdateInfo> checkForUpdate()'));
+    final body = source.substring(
+      source.indexOf('Future<UpdateInfo> checkForUpdate()'),
+    );
     final notifyIndex = body.indexOf('onNetworkRequest(');
     final requestIndex = body.indexOf('client.getUrl(');
     expect(notifyIndex, greaterThan(-1));
@@ -284,7 +286,11 @@ void main() {
       generateBody.indexOf('_bridge.generateSummaryLong('),
     ].where((i) => i >= 0).fold<int>(-1, (a, b) => a < 0 ? b : (b < a ? b : a));
 
-    expect(notifyIndex, greaterThan(-1), reason: 'generate() must notify the counter');
+    expect(
+      notifyIndex,
+      greaterThan(-1),
+      reason: 'generate() must notify the counter',
+    );
     expect(
       requestIndex,
       greaterThan(-1),

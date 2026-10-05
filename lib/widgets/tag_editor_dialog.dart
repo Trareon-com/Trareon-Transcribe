@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../services/library_index.dart' show normaliseTags;
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
 
 /// Opens the editor. Returns the new tag list, or null if cancelled.
 Future<List<String>?> showTagEditor(
@@ -70,12 +71,12 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     // Tags elsewhere in the library that this session does not have, so
     // the user reuses a spelling instead of inventing one.
     final suggestions = normaliseTags(widget.known)
-        .where((tag) =>
-            !_tags.any((t) => t.toLowerCase() == tag.toLowerCase()))
+        .where((tag) => !_tags.any((t) => t.toLowerCase() == tag.toLowerCase()))
         .toList();
 
     return AlertDialog(
@@ -105,7 +106,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
                 border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.add, size: IconSizes.sm),
+                  icon: const Icon(AppIcons.add, size: IconSizes.sm),
                   tooltip: 'Tambah',
                   onPressed: () => _add(_controller.text),
                 ),
@@ -128,9 +129,15 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
                 children: [
                   for (final tag in _tags)
                     InputChip(
-                      label: Text(tag, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        tag,
+                        style: const TextStyle(fontSize: FontSizes.caption),
+                      ),
                       onDeleted: () => _remove(tag),
-                      deleteIcon: const Icon(Icons.close, size: 14),
+                      deleteIcon: const Icon(
+                        AppIcons.close,
+                        size: IconSizes.xs,
+                      ),
                     ),
                 ],
               ),
@@ -150,7 +157,10 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
                 children: [
                   for (final tag in suggestions)
                     ActionChip(
-                      label: Text(tag, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        tag,
+                        style: const TextStyle(fontSize: FontSizes.caption),
+                      ),
                       visualDensity: VisualDensity.compact,
                       onPressed: () => _add(tag),
                     ),

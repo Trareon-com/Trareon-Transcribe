@@ -21,7 +21,16 @@ import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 import 'app_toast.dart';
+import '../theme/app_icons.dart';
+import 'ui/app_button.dart';
+import 'ui/app_chip.dart';
+import 'ui/app_controls.dart';
+import 'ui/app_dialog.dart';
+import 'ui/app_feedback.dart';
+import 'ui/app_field.dart';
+import 'ui/app_surface.dart';
 
 /// Indonesian day names, indexed by `DateTime.weekday` (1 = Monday).
 const List<String> kHariIndonesia = [
@@ -65,7 +74,7 @@ String waktuIndonesia(DateTime start, double durationSeconds) {
   String clock(DateTime at) =>
       '${at.hour.toString().padLeft(2, '0')}.${at.minute.toString().padLeft(2, '0')}';
   final end = start.add(Duration(seconds: durationSeconds.round()));
-  return '${clock(start)} – ${clock(end)} WIB';
+  return '${clock(start)} - ${clock(end)} WIB';
 }
 
 /// Speaker labels worth offering as peserta.
@@ -254,7 +263,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     );
     if (!mounted) return;
     setState(() {
-      _form = draft == null && widget.saved == null &&
+      _form =
+          draft == null &&
+              widget.saved == null &&
               widget.summary.trim().isNotEmpty
           // No parse, but there *is* a summary — do not silently lose it.
           ? form.copyWith(pembahasan: widget.summary.trim())
@@ -304,263 +315,280 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
-    return AlertDialog(
-      backgroundColor: colors.surface,
-      title: const Text('Notulen Rapat'),
-      content: SizedBox(
-        width: 560,
+    return AppDialog(
+      title: 'Notulen Rapat',
+      icon: AppIcons.document,
+      width: Measure.dialogForm,
+      actions: [
+        AppButton.ghost(
+          onPressed: _exporting ? null : () => Navigator.of(context).pop(),
+          label: 'Batal',
+        ),
+        AppButton.primary(
+          onPressed: _loading || _exporting ? null : _export,
+          loading: _exporting,
+          icon: AppIcons.document,
+          label: _exporting ? 'Menyusun…' : 'Buat Notulen (DOCX)',
+        ),
+      ],
+      child: SizedBox(
+        width: double.infinity,
         child: _loading
             ? const Center(
                 child: Padding(
                   padding: EdgeInsets.all(Spacing.xl),
-                  child: CircularProgressIndicator(),
+                  child: AppProgressRing(),
                 ),
               )
-            : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _variantPicker(colors),
-                    Spacing.gapLg,
-                    _sectionLabel('Identitas rapat', colors),
-                    Spacing.gapSm,
-                    _field('judul', 'Judul Rapat', _form.judul,
-                        (v) => _form = _form.copyWith(judul: v)),
-                    if (_form.variant == NotulenVariant.dinas) ...[
-                      Spacing.gapMd,
-                      _field('nomor', 'Nomor Notulen', _form.nomor,
-                          (v) => _form = _form.copyWith(nomor: v),
-                          hint: 'mis. ND-12/AG.3/2026'),
-                      Spacing.gapMd,
-                      _field('instansi', 'Instansi (kop surat)', _form.instansi,
-                          (v) => _form = _form.copyWith(instansi: v)),
-                      Spacing.gapMd,
-                      _field('unitKerja', 'Unit kerja (baris kedua kop)',
-                          _form.unitKerja,
-                          (v) => _form = _form.copyWith(unitKerja: v)),
-                    ],
+            // AppDialog scrolls its own child, so this must not nest a
+            // second scroll view inside it.
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _variantPicker(colors),
+                  Spacing.gapLg,
+                  AppGroupLabel('Identitas rapat'),
+                  Spacing.gapSm,
+                  _field(
+                    'judul',
+                    'Judul Rapat',
+                    _form.judul,
+                    (v) => _form = _form.copyWith(judul: v),
+                  ),
+                  if (_form.variant == NotulenVariant.dinas) ...[
                     Spacing.gapMd,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _field('hari', 'Hari', _form.hari,
-                              (v) => _form = _form.copyWith(hari: v)),
-                        ),
-                        const SizedBox(width: Spacing.md),
-                        Expanded(
-                          flex: 2,
-                          child: _field('tanggal', 'Tanggal', _form.tanggal,
-                              (v) => _form = _form.copyWith(tanggal: v)),
-                        ),
-                      ],
+                    _field(
+                      'nomor',
+                      'Nomor Notulen',
+                      _form.nomor,
+                      (v) => _form = _form.copyWith(nomor: v),
+                      hint: 'mis. ND-12/AG.3/2026',
                     ),
                     Spacing.gapMd,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _field('waktu', 'Waktu', _form.waktu,
-                              (v) => _form = _form.copyWith(waktu: v)),
-                        ),
-                        const SizedBox(width: Spacing.md),
-                        Expanded(
-                          child: _field('tempat', 'Tempat/Media', _form.tempat,
-                              (v) => _form = _form.copyWith(tempat: v)),
-                        ),
-                      ],
+                    _field(
+                      'instansi',
+                      'Instansi (kop surat)',
+                      _form.instansi,
+                      (v) => _form = _form.copyWith(instansi: v),
                     ),
                     Spacing.gapMd,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _field(
-                              'pimpinan', 'Pimpinan Rapat', _form.pimpinan,
-                              (v) => _form = _form.copyWith(pimpinan: v)),
-                        ),
-                        const SizedBox(width: Spacing.md),
-                        Expanded(
-                          child: _field('notulis', 'Notulis', _form.notulis,
-                              (v) => _form = _form.copyWith(notulis: v)),
-                        ),
-                      ],
+                    _field(
+                      'unitKerja',
+                      'Unit kerja (baris kedua kop)',
+                      _form.unitKerja,
+                      (v) => _form = _form.copyWith(unitKerja: v),
                     ),
-                    Spacing.gapLg,
-                    _sectionLabel('Peserta', colors),
-                    Spacing.gapSm,
-                    _ListEditor(
-                      items: _form.peserta,
-                      hint: 'Nama peserta',
-                      addLabel: 'Tambah peserta',
-                      onChanged: (items) =>
-                          setState(() => _form = _form.copyWith(peserta: items)),
-                    ),
-                    Spacing.gapLg,
-                    _sectionLabel('Agenda', colors),
-                    Spacing.gapSm,
-                    _ListEditor(
-                      items: _form.agenda,
-                      hint: 'Butir agenda',
-                      addLabel: 'Tambah agenda',
-                      onChanged: (items) =>
-                          setState(() => _form = _form.copyWith(agenda: items)),
-                    ),
-                    Spacing.gapLg,
-                    _sectionLabel('Pembahasan', colors),
-                    Spacing.gapSm,
-                    TextField(
-                      controller: _controller('pembahasan', _form.pembahasan),
-                      maxLines: 6,
-                      minLines: 3,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Isi pembahasan. Terisi otomatis dari '
-                            'ringkasan AI kalau ada.',
-                        isDense: true,
-                      ),
-                      onChanged: (v) => _form = _form.copyWith(pembahasan: v),
-                    ),
-                    Spacing.gapLg,
-                    _sectionLabel('Keputusan', colors),
-                    Spacing.gapSm,
-                    _ListEditor(
-                      items: _form.keputusan,
-                      hint: 'Keputusan rapat',
-                      addLabel: 'Tambah keputusan',
-                      onChanged: (items) => setState(
-                          () => _form = _form.copyWith(keputusan: items)),
-                    ),
-                    Spacing.gapLg,
-                    _sectionLabel('Tindak Lanjut', colors),
-                    Spacing.gapSm,
-                    _TaskEditor(
-                      tasks: _form.tindakLanjut,
-                      onChanged: (tasks) => setState(
-                          () => _form = _form.copyWith(tindakLanjut: tasks)),
-                    ),
-                    if (widget.bookmarks.isNotEmpty) ...[
-                      Spacing.gapLg,
-                      Row(
-                        children: [
-                          Icon(Icons.bookmark_outline,
-                              size: IconSizes.sm, color: colors.primary),
-                          const SizedBox(width: Spacing.sm),
-                          Expanded(
-                            child: Text(
-                              '${widget.bookmarks.length} poin penting yang '
-                              'Anda tandai saat rapat akan disertakan.',
-                              style: TextStyle(
-                                fontSize: FontSizes.caption,
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    Spacing.gapMd,
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: _form.lampirkanTranskrip,
-                      onChanged: (v) => setState(() => _form =
-                          _form.copyWith(lampirkanTranskrip: v ?? false)),
-                      title: const Text('Lampirkan transkrip lengkap'),
-                      subtitle: Text(
-                        '${widget.session.segmentsCount} baris transkrip '
-                        'ditambahkan di halaman terpisah.',
-                        style: TextStyle(
-                          fontSize: FontSizes.caption,
-                          color: colors.textTertiary,
-                        ),
-                      ),
-                    ),
-                    if (_error != null) ...[
-                      Spacing.gapMd,
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            color: colors.error,
-                            fontSize: FontSizes.caption,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                  Spacing.gapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _field(
+                          'hari',
+                          'Hari',
+                          _form.hari,
+                          (v) => _form = _form.copyWith(hari: v),
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        flex: 2,
+                        child: _field(
+                          'tanggal',
+                          'Tanggal',
+                          _form.tanggal,
+                          (v) => _form = _form.copyWith(tanggal: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Spacing.gapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _field(
+                          'waktu',
+                          'Waktu',
+                          _form.waktu,
+                          (v) => _form = _form.copyWith(waktu: v),
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        child: _field(
+                          'tempat',
+                          'Tempat/Media',
+                          _form.tempat,
+                          (v) => _form = _form.copyWith(tempat: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Spacing.gapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _field(
+                          'pimpinan',
+                          'Pimpinan Rapat',
+                          _form.pimpinan,
+                          (v) => _form = _form.copyWith(pimpinan: v),
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        child: _field(
+                          'notulis',
+                          'Notulis',
+                          _form.notulis,
+                          (v) => _form = _form.copyWith(notulis: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Spacing.gapLg,
+                  AppGroupLabel('Peserta'),
+                  Spacing.gapSm,
+                  _ListEditor(
+                    items: _form.peserta,
+                    hint: 'Nama peserta',
+                    addLabel: 'Tambah peserta',
+                    onChanged: (items) =>
+                        setState(() => _form = _form.copyWith(peserta: items)),
+                  ),
+                  Spacing.gapLg,
+                  AppGroupLabel('Agenda'),
+                  Spacing.gapSm,
+                  _ListEditor(
+                    items: _form.agenda,
+                    hint: 'Butir agenda',
+                    addLabel: 'Tambah agenda',
+                    onChanged: (items) =>
+                        setState(() => _form = _form.copyWith(agenda: items)),
+                  ),
+                  Spacing.gapLg,
+                  AppGroupLabel('Pembahasan'),
+                  Spacing.gapSm,
+                  AppTextField(
+                    controller: _controller('pembahasan', _form.pembahasan),
+                    maxLines: 6,
+                    minLines: 3,
+                    reserveHelperSpace: false,
+                    placeholder:
+                        'Isi pembahasan. Terisi otomatis dari '
+                        'ringkasan AI kalau ada.',
+                    onChanged: (v) => _form = _form.copyWith(pembahasan: v),
+                  ),
+                  Spacing.gapLg,
+                  AppGroupLabel('Keputusan'),
+                  Spacing.gapSm,
+                  _ListEditor(
+                    items: _form.keputusan,
+                    hint: 'Keputusan rapat',
+                    addLabel: 'Tambah keputusan',
+                    onChanged: (items) => setState(
+                      () => _form = _form.copyWith(keputusan: items),
+                    ),
+                  ),
+                  Spacing.gapLg,
+                  AppGroupLabel('Tindak Lanjut'),
+                  Spacing.gapSm,
+                  _TaskEditor(
+                    tasks: _form.tindakLanjut,
+                    onChanged: (tasks) => setState(
+                      () => _form = _form.copyWith(tindakLanjut: tasks),
+                    ),
+                  ),
+                  if (widget.bookmarks.isNotEmpty) ...[
+                    Spacing.gapLg,
+                    Row(
+                      children: [
+                        Icon(
+                          AppIcons.bookmark,
+                          size: IconSizes.sm,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(
+                          child: Text(
+                            '${widget.bookmarks.length} poin penting yang '
+                            'Anda tandai saat rapat akan disertakan.',
+                            style: AppText.caption.c(colors.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  Spacing.gapMd,
+                  AppCheckbox(
+                    value: _form.lampirkanTranskrip,
+                    label: 'Lampirkan transkrip lengkap',
+                    onChanged: (v) => setState(
+                      () => _form = _form.copyWith(lampirkanTranskrip: v),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: Spacing.xxl),
+                    child: Text(
+                      '${widget.session.segmentsCount} baris transkrip '
+                      'ditambahkan di halaman terpisah.',
+                      style: AppText.caption.c(colors.textTertiary),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    Spacing.gapMd,
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        _error!,
+                        style: AppText.caption.c(colors.error),
+                      ),
+                    ),
+                  ],
+                ],
               ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _exporting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
-        ),
-        FilledButton.icon(
-          onPressed: _loading || _exporting ? null : _export,
-          icon: _exporting
-              ? const SizedBox(
-                  width: IconSizes.sm,
-                  height: IconSizes.sm,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.description_outlined, size: IconSizes.md),
-          label: Text(_exporting ? 'Menyusun…' : 'Buat Notulen (DOCX)'),
-        ),
-      ],
     );
   }
 
   Widget _variantPicker(AppColorSet colors) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionLabel('Bentuk notulen', colors),
-          Spacing.gapSm,
-          SegmentedButton<NotulenVariant>(
-            segments: const [
-              ButtonSegment(
-                value: NotulenVariant.dinas,
-                label: Text('Notulen Dinas'),
-                icon: Icon(Icons.account_balance_outlined,
-                    size: IconSizes.md),
-              ),
-              ButtonSegment(
-                value: NotulenVariant.ringkas,
-                label: Text('Notulen Ringkas'),
-                icon: Icon(Icons.short_text, size: IconSizes.md),
-              ),
-            ],
-            selected: {_form.variant},
-            onSelectionChanged: (selection) => setState(
-                () => _form = _form.copyWith(variant: selection.first)),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      AppGroupLabel('Bentuk notulen'),
+      Spacing.gapSm,
+      AppSegmented<NotulenVariant>(
+        expand: true,
+        semanticLabel: 'Bentuk notulen',
+        segments: const [
+          AppSegment(
+            value: NotulenVariant.dinas,
+            label: 'Notulen Dinas',
+            icon: AppIcons.institution,
           ),
-          Spacing.gapSm,
-          Text(
-            _form.variant == NotulenVariant.dinas
-                ? 'Format lengkap tata naskah dinas: kop surat, nomor, '
-                    'daftar peserta bernomor dan blok tanda tangan.'
-                : 'Satu halaman tanpa kop surat dan tanda tangan, untuk '
-                    'dibagikan cepat.',
-            style: TextStyle(
-              fontSize: FontSizes.caption,
-              color: colors.textTertiary,
-              height: 1.3,
-            ),
+          AppSegment(
+            value: NotulenVariant.ringkas,
+            label: 'Notulen Ringkas',
+            icon: AppIcons.shortText,
           ),
         ],
-      );
-
-  Widget _sectionLabel(String text, AppColorSet colors) => Text(
-        text,
-        style: TextStyle(
-          fontSize: FontSizes.caption,
-          fontWeight: FontWeight.w600,
-          color: colors.textTertiary,
-          letterSpacing: 0.5,
-        ),
-      );
+        selected: _form.variant,
+        onChanged: (value) =>
+            setState(() => _form = _form.copyWith(variant: value)),
+      ),
+      Spacing.gapSm,
+      Text(
+        _form.variant == NotulenVariant.dinas
+            ? 'Format lengkap tata naskah dinas: kop surat, nomor, '
+                  'daftar peserta bernomor dan blok tanda tangan.'
+            : 'Satu halaman tanpa kop surat dan tanda tangan, untuk '
+                  'dibagikan cepat.',
+        style: AppText.caption.c(colors.textTertiary),
+      ),
+    ],
+  );
 
   Widget _field(
     String key,
@@ -568,17 +596,13 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     String initial,
     void Function(String) onChanged, {
     String? hint,
-  }) =>
-      TextField(
-        controller: _controller(key, initial),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        onChanged: onChanged,
-      );
+  }) => AppTextField(
+    controller: _controller(key, initial),
+    label: label,
+    placeholder: hint,
+    reserveHelperSpace: false,
+    onChanged: onChanged,
+  );
 }
 
 /// A reorder-free editable list of single-line strings.
@@ -626,12 +650,11 @@ class _ListEditorState extends State<_ListEditor> {
             runSpacing: Spacing.sm,
             children: [
               for (var i = 0; i < widget.items.length; i++)
-                InputChip(
-                  label: Text('${i + 1}. ${widget.items[i]}'),
-                  deleteButtonTooltipMessage: 'Hapus ${widget.items[i]}',
-                  onDeleted: () => widget.onChanged(
-                    [...widget.items]..removeAt(i),
-                  ),
+                AppChip(
+                  label: '${i + 1}. ${widget.items[i]}',
+                  deleteTooltip: 'Hapus ${widget.items[i]}',
+                  onDeleted: () =>
+                      widget.onChanged([...widget.items]..removeAt(i)),
                 ),
             ],
           ),
@@ -639,21 +662,17 @@ class _ListEditorState extends State<_ListEditor> {
         Row(
           children: [
             Expanded(
-              child: TextField(
+              child: AppTextField(
                 controller: _controller,
-                decoration: InputDecoration(
-                  hintText: widget.hint,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
+                placeholder: widget.hint,
+                reserveHelperSpace: false,
                 onSubmitted: (_) => _add(),
               ),
             ),
-            const SizedBox(width: Spacing.sm),
-            IconButton(
+            Spacing.hSm,
+            AppIconButton(
               tooltip: widget.addLabel,
-              constraints: TouchTarget.constraints,
-              icon: const Icon(Icons.add, size: IconSizes.md),
+              icon: AppIcons.add,
               onPressed: _add,
             ),
           ],
@@ -672,7 +691,8 @@ class _TaskEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -683,54 +703,40 @@ class _TaskEditor extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 3,
-                  child: TextFormField(
-                    initialValue: tasks[i].tugas,
-                    decoration: const InputDecoration(
-                      labelText: 'Tugas',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                  child: _TaskField(
+                    label: 'Tugas',
+                    value: tasks[i].tugas,
                     onChanged: (v) => onChanged(
                       [...tasks]..[i] = tasks[i].copyWith(tugas: v),
                     ),
                   ),
                 ),
-                const SizedBox(width: Spacing.sm),
+                Spacing.hSm,
                 Expanded(
                   flex: 2,
-                  child: TextFormField(
-                    initialValue: tasks[i].penanggungJawab,
-                    decoration: const InputDecoration(
-                      labelText: 'Penanggung Jawab',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                  child: _TaskField(
+                    label: 'Penanggung Jawab',
+                    value: tasks[i].penanggungJawab,
                     onChanged: (v) => onChanged(
-                      [...tasks]..[i] =
-                          tasks[i].copyWith(penanggungJawab: v),
+                      [...tasks]..[i] = tasks[i].copyWith(penanggungJawab: v),
                     ),
                   ),
                 ),
-                const SizedBox(width: Spacing.sm),
+                Spacing.hSm,
                 Expanded(
                   flex: 2,
-                  child: TextFormField(
-                    initialValue: tasks[i].tenggat,
-                    decoration: const InputDecoration(
-                      labelText: 'Tenggat',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                  child: _TaskField(
+                    label: 'Tenggat',
+                    value: tasks[i].tenggat,
                     onChanged: (v) => onChanged(
                       [...tasks]..[i] = tasks[i].copyWith(tenggat: v),
                     ),
                   ),
                 ),
-                IconButton(
+                AppIconButton(
                   tooltip: 'Hapus baris tindak lanjut',
-                  constraints: TouchTarget.constraints,
-                  icon: Icon(Icons.delete_outline,
-                      size: IconSizes.md, color: colors.textSecondary),
+                  icon: AppIcons.delete,
+                  color: colors.textSecondary,
                   onPressed: () => onChanged([...tasks]..removeAt(i)),
                 ),
               ],
@@ -738,13 +744,53 @@ class _TaskEditor extends StatelessWidget {
           ),
         Align(
           alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
+          child: AppButton(
             onPressed: () => onChanged([...tasks, const NotulenTask()]),
-            icon: const Icon(Icons.add, size: IconSizes.md),
-            label: const Text('Tambah tindak lanjut'),
+            icon: AppIcons.add,
+            label: 'Tambah tindak lanjut',
           ),
         ),
       ],
     );
   }
+}
+
+/// One cell of the tindak-lanjut table.
+///
+/// [AppTextField] owns its controller, and the table is rebuilt from the
+/// task list on every keystroke, so the cell keeps a controller of its own
+/// rather than being rebuilt from `initialValue` and losing the caret.
+class _TaskField extends StatefulWidget {
+  const _TaskField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_TaskField> createState() => _TaskFieldState();
+}
+
+class _TaskFieldState extends State<_TaskField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppTextField(
+    controller: _controller,
+    label: widget.label,
+    reserveHelperSpace: false,
+    onChanged: widget.onChanged,
+  );
 }

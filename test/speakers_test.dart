@@ -16,23 +16,23 @@ import 'package:transcribe/services/dart_prefs.dart';
 import 'package:transcribe/services/speaker_aliases.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/widgets/speaker_manager_dialog.dart';
+import 'package:transcribe/theme/app_icons.dart';
 
 TranscriptSegment _seg(
   String speaker,
   double timestamp, {
   double duration = 3,
   bool partial = false,
-}) =>
-    TranscriptSegment(
-      source: 'spk',
-      speaker: speaker,
-      text: 'kalimat',
-      timestamp: timestamp,
-      duration: duration,
-      language: 'id',
-      confidence: 0.9,
-      isPartial: partial,
-    );
+}) => TranscriptSegment(
+  source: 'spk',
+  speaker: speaker,
+  text: 'kalimat',
+  timestamp: timestamp,
+  duration: duration,
+  language: 'id',
+  confidence: 0.9,
+  isPartial: partial,
+);
 
 /// Seeds the remembered names *in memory only*.
 ///
@@ -53,18 +53,20 @@ Future<List<SpeakerAction>?> _openManager(
   List<TranscriptSegment> segments,
 ) async {
   List<SpeakerAction>? result;
-  await tester.pumpWidget(MaterialApp(
-    home: Builder(
-      builder: (context) => Scaffold(
-        body: TextButton(
-          onPressed: () async {
-            result = await showSpeakerManager(context, segments: segments);
-          },
-          child: const Text('buka'),
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await showSpeakerManager(context, segments: segments);
+            },
+            child: const Text('buka'),
+          ),
         ),
       ),
     ),
-  ));
+  );
   await tester.tap(find.text('buka'));
   await tester.pumpAndSettle();
   return result;
@@ -109,17 +111,19 @@ void main() {
       await forgetAllSpeakerAliases();
     });
 
-    test('a name is remembered under the engine label, not the new name',
-        () async {
-      await rememberSpeakerAlias('Peserta 2', 'Pak Budi');
-      expect(readSpeakerAliases(), {'Peserta 2': 'Pak Budi'});
-      // Next session: the engine produces "Peserta 2" again, so that is
-      // the only key that can match.
-      expect(suggestionsFor(['Peserta 2', 'Peserta 3']), {
-        'Peserta 2': 'Pak Budi',
-      });
-      expect(suggestionsFor(['Pak Budi']), isEmpty);
-    });
+    test(
+      'a name is remembered under the engine label, not the new name',
+      () async {
+        await rememberSpeakerAlias('Peserta 2', 'Pak Budi');
+        expect(readSpeakerAliases(), {'Peserta 2': 'Pak Budi'});
+        // Next session: the engine produces "Peserta 2" again, so that is
+        // the only key that can match.
+        expect(suggestionsFor(['Peserta 2', 'Peserta 3']), {
+          'Peserta 2': 'Pak Budi',
+        });
+        expect(suggestionsFor(['Pak Budi']), isEmpty);
+      },
+    );
 
     test('remembering a label as itself forgets it', () async {
       await rememberSpeakerAlias('Peserta 2', 'Pak Budi');
@@ -127,8 +131,7 @@ void main() {
       expect(readSpeakerAliases(), isEmpty);
     });
 
-    test('a blank name forgets rather than storing an empty string',
-        () async {
+    test('a blank name forgets rather than storing an empty string', () async {
       await rememberSpeakerAlias('Saya', 'Ibu Sari');
       await rememberSpeakerAlias('Saya', '   ');
       expect(readSpeakerAliases(), isEmpty);
@@ -147,8 +150,9 @@ void main() {
       seedAliases(const {});
     });
 
-    testWidgets('merging two speakers returns one merge action',
-        (tester) async {
+    testWidgets('merging two speakers returns one merge action', (
+      tester,
+    ) async {
       final segments = [
         _seg('Peserta 2', 0, duration: 30),
         _seg('Peserta 4', 30, duration: 10),
@@ -159,9 +163,7 @@ void main() {
       expect(find.text('Peserta 4'), findsOneWidget);
 
       // Merge the smaller one into the larger.
-      await tester.tap(
-        find.widgetWithIcon(IconButton, Icons.merge_outlined).last,
-      );
+      await tester.tap(find.widgetWithIcon(IconButton, AppIcons.merge).last);
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Peserta 2 ('));
       await tester.pumpAndSettle();
@@ -172,21 +174,20 @@ void main() {
       expect(find.textContaining('1 perubahan menunggu'), findsOneWidget);
     });
 
-    testWidgets('merge is unavailable when there is only one speaker',
-        (tester) async {
+    testWidgets('merge is unavailable when there is only one speaker', (
+      tester,
+    ) async {
       await _openManager(tester, [_seg('Saya', 0)]);
       final button = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.merge_outlined),
+        find.widgetWithIcon(IconButton, AppIcons.merge),
       );
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('Terapkan is disabled until something has changed',
-        (tester) async {
-      await _openManager(tester, [
-        _seg('Saya', 0),
-        _seg('Peserta 2', 5),
-      ]);
+    testWidgets('Terapkan is disabled until something has changed', (
+      tester,
+    ) async {
+      await _openManager(tester, [_seg('Saya', 0), _seg('Peserta 2', 5)]);
       final apply = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Terapkan'),
       );
@@ -212,21 +213,23 @@ void main() {
       expect(find.textContaining('1 perubahan menunggu'), findsOneWidget);
     });
 
-    testWidgets('renaming onto an existing name merges instead of duplicating',
-        (tester) async {
-      seedAliases({'Peserta 4': 'Pak Budi'});
-      await _openManager(tester, [
-        _seg('Pak Budi', 0, duration: 20),
-        _seg('Peserta 4', 20, duration: 10),
-      ]);
+    testWidgets(
+      'renaming onto an existing name merges instead of duplicating',
+      (tester) async {
+        seedAliases({'Peserta 4': 'Pak Budi'});
+        await _openManager(tester, [
+          _seg('Pak Budi', 0, duration: 20),
+          _seg('Peserta 4', 20, duration: 10),
+        ]);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Pakai'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Pakai'));
+        await tester.pumpAndSettle();
 
-      // One "Pak Budi", not two.
-      expect(find.text('Pak Budi'), findsOneWidget);
-      expect(find.text('Peserta 4'), findsNothing);
-      expect(find.textContaining('2 segmen'), findsOneWidget);
-    });
+        // One "Pak Budi", not two.
+        expect(find.text('Pak Budi'), findsOneWidget);
+        expect(find.text('Peserta 4'), findsNothing);
+        expect(find.textContaining('2 segmen'), findsOneWidget);
+      },
+    );
   });
 }

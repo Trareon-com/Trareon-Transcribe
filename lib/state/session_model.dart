@@ -118,6 +118,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     super.state = value;
     _notifyLiveChanged();
   }
+
   StreamSubscription<TranscriptSegment>? _transcriptSub;
   Timer? _autoStopTimer;
   Timer? _elapsedTimer;
@@ -581,16 +582,19 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   bool _lastLive = false;
 
   void _notifyLiveChanged() {
-    final live = state.lifecycle == SessionLifecycle.recording ||
+    final live =
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused;
     if (state.lifecycle != _lastLifecycle) {
       // Metadata only: the session id and the two state names. This is the
       // trail a bug report needs and the reason the recorder exists.
-      unawaited(FlightRecorder.instance.logLifecycle(
-        state.sessionId ?? '-',
-        _lastLifecycle.name,
-        state.lifecycle.name,
-      ));
+      unawaited(
+        FlightRecorder.instance.logLifecycle(
+          state.sessionId ?? '-',
+          _lastLifecycle.name,
+          state.lifecycle.name,
+        ),
+      );
       _lastLifecycle = state.lifecycle;
     }
     if (live == _lastLive) return;
@@ -768,12 +772,14 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       settings.defaultModel,
       libraryPath: settings.libraryPath,
     );
-    final refinePath = settings.progressiveEnabled &&
+    final refinePath =
+        settings.progressiveEnabled &&
             settings.defaultModel != 'large-v3-turbo-q5' &&
-            isModelAvailable('large-v3-turbo-q5',
-                libraryPath: settings.libraryPath)
-        ? modelPathForId('large-v3-turbo-q5',
-            libraryPath: settings.libraryPath)
+            isModelAvailable(
+              'large-v3-turbo-q5',
+              libraryPath: settings.libraryPath,
+            )
+        ? modelPathForId('large-v3-turbo-q5', libraryPath: settings.libraryPath)
         : null;
     state = state.copyWith(
       config: SessionConfig(
@@ -788,8 +794,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         gpuEnabled: settings.gpuEnabled,
         gpuDevice: settings.gpuDevice,
         audioToDisk: settings.audioToDisk,
-        glossary: settings.glossary
-            .toConfig(sessionTerms: state.sessionGlossaryTerms),
+        glossary: settings.glossary.toConfig(
+          sessionTerms: state.sessionGlossaryTerms,
+        ),
         // Only meaningful in single-model mode, where the engine
         // benchmarks `quickPath` and swaps this in if it cannot keep up
         // live. In progressive mode adaptive HPT already owns that choice.
@@ -842,8 +849,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   }
 }
 
-final StateNotifierProvider<SessionNotifier, SessionUiState> sessionProvider =
-    StateNotifierProvider<SessionNotifier, SessionUiState>((ref) {
+final StateNotifierProvider<SessionNotifier, SessionUiState>
+sessionProvider = StateNotifierProvider<SessionNotifier, SessionUiState>((ref) {
   // Use ref.read (not watch) — watching would recreate the SessionNotifier on
   // every settings change, destroying the active session (transcript subs,
   // timers, segments).  ref.listen below handles updates reactively.

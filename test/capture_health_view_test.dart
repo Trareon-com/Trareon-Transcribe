@@ -69,7 +69,10 @@ void main() {
       expect(
         allExpectedConfirmed(
           health(
-            channels: [channel(source: 'mic'), channel(source: 'spk')],
+            channels: [
+              channel(source: 'mic'),
+              channel(source: 'spk'),
+            ],
           ),
         ),
         isTrue,
@@ -107,7 +110,10 @@ void main() {
       );
       // An open stream is not a recording — this is the distinction the
       // VU meter cannot make.
-      expect(find.textContaining('Menunggu suara dari Mikrofon'), findsOneWidget);
+      expect(
+        find.textContaining('Menunggu suara dari Mikrofon'),
+        findsOneWidget,
+      );
       expect(find.text('Rekaman terkonfirmasi'), findsNothing);
     });
 
@@ -118,7 +124,10 @@ void main() {
         tester,
         CaptureConfirmationBadge(
           health: health(
-            channels: [channel(source: 'mic'), channel(source: 'spk')],
+            channels: [
+              channel(source: 'mic'),
+              channel(source: 'spk'),
+            ],
           ),
         ),
       );
@@ -164,11 +173,15 @@ void main() {
         find.text('Durasi 1 jam 30 menit · 87 segmen transkrip'),
         findsOneWidget,
       );
-      expect(find.textContaining('Mikrofon: 5 menit terekam, 40% senyap'),
-          findsOneWidget);
+      expect(
+        find.textContaining('Mikrofon: 5 menit terekam, 40% senyap'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('says plainly when a channel delivered nothing', (tester) async {
+    testWidgets('says plainly when a channel delivered nothing', (
+      tester,
+    ) async {
       await pump(
         tester,
         CaptureIntegritySummary(
@@ -181,7 +194,9 @@ void main() {
                 percentSilent: 100,
               ),
             ],
-            warnings: const ['Audio sistem tidak menghasilkan suara sama sekali.'],
+            warnings: const [
+              'Audio sistem tidak menghasilkan suara sama sekali.',
+            ],
           ),
         ),
       );

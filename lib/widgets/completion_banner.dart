@@ -29,14 +29,15 @@ class CompletionBanner extends ConsumerWidget {
         .completionJobsFor(sessionDirPath);
     if (jobs.isEmpty) return const SizedBox.shrink();
 
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final running = jobs
         .where((j) => j.status == EnhanceJobStatus.running)
         .toList();
     final fraction = running.isEmpty
         ? null
         : running.map((j) => j.progress).reduce((a, b) => a + b) /
-            running.length;
+              running.length;
 
     return Material(
       color: colors.primary.withValues(alpha: 0.10),
@@ -61,7 +62,10 @@ class CompletionBanner extends ConsumerWidget {
                 liveRegion: true,
                 child: Text(
                   completionStatusLine(jobs),
-                  style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: FontSizes.caption,
+                  ),
                 ),
               ),
             ),
@@ -93,7 +97,8 @@ class IncompleteBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final percent = fraction == null
         ? null
         : (fraction!.clamp(0.0, 1.0) * 100).round();
@@ -101,7 +106,8 @@ class IncompleteBadge extends StatelessWidget {
         ? 'Belum selesai'
         : 'Belum selesai · $percent%';
     return Tooltip(
-      message: 'Masih ada audio yang belum ditranskripsi. Transkrip akan '
+      message:
+          'Masih ada audio yang belum ditranskripsi. Transkrip akan '
           'dilengkapi otomatis di latar belakang.',
       child: Container(
         padding: const EdgeInsets.symmetric(

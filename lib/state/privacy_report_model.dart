@@ -44,12 +44,14 @@ class PrivacyReportState {
 
 class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   PrivacyReportNotifier()
-    : super(PrivacyReportState(networkCallCount: 0, launchedAt: DateTime.now()));
+    : super(
+        PrivacyReportState(networkCallCount: 0, launchedAt: DateTime.now()),
+      );
 
   void _record(String description) {
     state = state.copyWith(
       networkCallCount: state.networkCallCount + 1,
-      events: [...state.events, '$description — ${DateTime.now()}'],
+      events: [...state.events, '$description, ${DateTime.now()}'],
     );
   }
 

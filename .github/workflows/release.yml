@@ -204,7 +204,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    name: Windows ZIP
+    name: Windows ZIP and installer
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v7
@@ -223,8 +223,16 @@ jobs:
           Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin" -OutFile "models\ggml-base.bin"
           Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin" -OutFile "models\ggml-large-v3-turbo-q5_0.bin"
 
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
       - name: Build Windows ZIP
         run: powershell -ExecutionPolicy Bypass -File scripts/package_windows.ps1 -Version "${GITHUB_REF_NAME#v}"
+
+      # Same installer the beta channel ships (test-builds.yml), so a tagged
+      # release and a beta differ only in where the file ends up.
+      - name: Build Windows installer
+        run: powershell -ExecutionPolicy Bypass -File scripts/package_windows_installer.ps1 -Version "${GITHUB_REF_NAME#v}"
 
       - uses: actions/upload-artifact@v4
         with:

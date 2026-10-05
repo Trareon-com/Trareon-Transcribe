@@ -1,0 +1,14 @@
+# Test tags.
+#
+# `golden` marks the pixel comparisons in test/golden_test.dart. Text
+# rasterisation differs between host platforms and even between Flutter
+# patch releases, so those are a local design gate run deliberately:
+#
+#   flutter test test/golden_test.dart                 # verify
+#   flutter test --update-goldens test/golden_test.dart # after a design change
+#
+# CI runs `flutter test --exclude-tags golden`, which is every other test.
+tags:
+  golden:
+    description: >-
+      Pixel comparison against test/goldens/. Host-dependent; excluded from CI.

@@ -29,10 +29,7 @@ void main() {
   String manifestUrl() => 'http://127.0.0.1:${server.port}/VERSION';
 
   test('defaults to the shipped app version', () {
-    expect(
-      UpdateChecker(onNetworkRequest: (_) {}).currentVersion,
-      kAppVersion,
-    );
+    expect(UpdateChecker(onNetworkRequest: (_) {}).currentVersion, kAppVersion);
   });
 
   test('reports an update when the manifest is newer', () async {
@@ -119,10 +116,8 @@ void main() {
       ).checkForUpdate(),
       throwsA(isA<UpdateCheckException>()),
     );
-    expect(
-      recorded,
-      ['http://127.0.0.1:1/VERSION'],
-      reason: 'a check that failed to connect is still a check that happened',
-    );
+    expect(recorded, [
+      'http://127.0.0.1:1/VERSION',
+    ], reason: 'a check that failed to connect is still a check that happened');
   });
 }

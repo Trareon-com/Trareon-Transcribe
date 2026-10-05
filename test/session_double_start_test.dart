@@ -92,29 +92,32 @@ void main() {
     expect(notifier.state.sessionId, 'recovered-1');
   });
 
-  test('a start and a recovery racing each other produce one session', () async {
-    final bridge = _SlowLaunchBridge();
-    final notifier = SessionNotifier(
-      bridge,
-      SessionMode.online,
-      modelPathForId('tiny'),
-    );
-    addTearDown(notifier.dispose);
+  test(
+    'a start and a recovery racing each other produce one session',
+    () async {
+      final bridge = _SlowLaunchBridge();
+      final notifier = SessionNotifier(
+        bridge,
+        SessionMode.online,
+        modelPathForId('tiny'),
+      );
+      addTearDown(notifier.dispose);
 
-    final start = notifier.start();
-    final recover = notifier.recoverFromSnapshot(recoverySnapshot('crash-1'));
+      final start = notifier.start();
+      final recover = notifier.recoverFromSnapshot(recoverySnapshot('crash-1'));
 
-    bridge.release.complete();
-    await start;
-    expect(await recover, isNull, reason: 'the recovery must stand down');
+      bridge.release.complete();
+      await start;
+      expect(await recover, isNull, reason: 'the recovery must stand down');
 
-    expect(bridge.started.length, 1);
-    expect(
-      bridge.recovered,
-      isEmpty,
-      reason: 'recovering over a starting session orphans its Rust capture',
-    );
-  });
+      expect(bridge.started.length, 1);
+      expect(
+        bridge.recovered,
+        isEmpty,
+        reason: 'recovering over a starting session orphans its Rust capture',
+      );
+    },
+  );
 
   test('a failed start leaves the app able to try again', () async {
     final notifier = SessionNotifier(

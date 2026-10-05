@@ -79,7 +79,9 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     final quickSize = _sizeLabelFor(catalog, _quickModelId);
     final accurateSize = _sizeLabelFor(catalog, _accurateModelId);
     state = OnboardingState(
-      quick: quickSize == null ? state.quick : state.quick.copyWith(size: quickSize),
+      quick: quickSize == null
+          ? state.quick
+          : state.quick.copyWith(size: quickSize),
       accurate: accurateSize == null
           ? state.accurate
           : state.accurate.copyWith(size: accurateSize),

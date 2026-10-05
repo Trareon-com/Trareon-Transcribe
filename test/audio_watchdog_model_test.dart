@@ -19,24 +19,30 @@ class _FakeVuBridge extends NoopBridge {
 }
 
 void main() {
-  test('warns after the delay when no signal arrives on an enabled source', () async {
-    final bridge = _FakeVuBridge();
-    final container = ProviderContainer(
-      overrides: [
-        rustBridgeProvider.overrideWithValue(bridge),
-        audioWatchdogProvider.overrideWith(
-          (ref) => AudioWatchdogNotifier(ref, silenceWarningDelay: const Duration(milliseconds: 30)),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    container.listen(audioWatchdogProvider, (_, _) {}); // force provider init
+  test(
+    'warns after the delay when no signal arrives on an enabled source',
+    () async {
+      final bridge = _FakeVuBridge();
+      final container = ProviderContainer(
+        overrides: [
+          rustBridgeProvider.overrideWithValue(bridge),
+          audioWatchdogProvider.overrideWith(
+            (ref) => AudioWatchdogNotifier(
+              ref,
+              silenceWarningDelay: const Duration(milliseconds: 30),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(audioWatchdogProvider, (_, _) {}); // force provider init
 
-    await container.read(sessionProvider.notifier).start();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+      await container.read(sessionProvider.notifier).start();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
 
-    expect(container.read(audioWatchdogProvider), isNotNull);
-  });
+      expect(container.read(audioWatchdogProvider), isNotNull);
+    },
+  );
 
   test('does not warn once real signal has been seen', () async {
     final bridge = _FakeVuBridge();
@@ -44,7 +50,10 @@ void main() {
       overrides: [
         rustBridgeProvider.overrideWithValue(bridge),
         audioWatchdogProvider.overrideWith(
-          (ref) => AudioWatchdogNotifier(ref, silenceWarningDelay: const Duration(milliseconds: 30)),
+          (ref) => AudioWatchdogNotifier(
+            ref,
+            silenceWarningDelay: const Duration(milliseconds: 30),
+          ),
         ),
       ],
     );
@@ -64,7 +73,10 @@ void main() {
       overrides: [
         rustBridgeProvider.overrideWithValue(bridge),
         audioWatchdogProvider.overrideWith(
-          (ref) => AudioWatchdogNotifier(ref, silenceWarningDelay: const Duration(milliseconds: 30)),
+          (ref) => AudioWatchdogNotifier(
+            ref,
+            silenceWarningDelay: const Duration(milliseconds: 30),
+          ),
         ),
       ],
     );
@@ -84,7 +96,10 @@ void main() {
       overrides: [
         rustBridgeProvider.overrideWithValue(bridge),
         audioWatchdogProvider.overrideWith(
-          (ref) => AudioWatchdogNotifier(ref, silenceWarningDelay: const Duration(milliseconds: 30)),
+          (ref) => AudioWatchdogNotifier(
+            ref,
+            silenceWarningDelay: const Duration(milliseconds: 30),
+          ),
         ),
       ],
     );

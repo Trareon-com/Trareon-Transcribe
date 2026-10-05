@@ -1,10 +1,10 @@
-/// The two control groups the redesign asks for (blueprint §4.3):
-/// **Sesi** (title, mode, per-session options) and **Perangkat** (mic and
-/// speaker, each with the device it will actually use and a live level).
+/// The session and device controls on the main screen.
 ///
-/// The old control bar was nine controls in three undifferentiated rows,
-/// with "⚡ Cepat" glued to the title field and no way to see — let alone
-/// change — which microphone was about to be recorded.
+/// Blueprint §4.3 asks for two groups, *Sesi* and *Perangkat*;
+/// `docs/DESIGN-SYSTEM.md` §7.1 says what they look like. The mode decision
+/// also appears on the idle hero as three explained cards, because a bare
+/// three-way segmented control tells a first-time user nothing about what each
+/// mode actually captures.
 library;
 
 import 'package:flutter/material.dart';
@@ -14,40 +14,39 @@ import '../src/rust/audio/device.dart' as rust_device;
 import '../state/models.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 import '../utils/model_labels.dart';
-import '../widgets/mode_selector.dart';
 import 'model_download_dialog.dart';
+import 'ui/app_button.dart';
+import 'ui/app_controls.dart';
+import 'ui/app_dialog.dart';
+import 'ui/app_feedback.dart';
+import 'ui/app_field.dart';
+import 'ui/app_surface.dart';
+import 'ui/interactive.dart';
 
+/// A labelled group of controls.
 class ControlGroup extends StatelessWidget {
-  const ControlGroup({
-    super.key,
-    required this.title,
-    required this.child,
-  });
+  const ControlGroup({super.key, required this.title, required this.child});
 
   final String title;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 4),
-          child: Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 0.8,
-              fontWeight: FontWeight.w700,
-              color: colors.textTertiary,
-            ),
+          padding: const EdgeInsets.only(
+            left: Spacing.xs / 2,
+            bottom: Spacing.xs + 2,
           ),
+          child: AppGroupLabel(title),
         ),
         child,
       ],
@@ -55,15 +54,20 @@ class ControlGroup extends StatelessWidget {
   }
 }
 
-/// Title, mode, and the per-session options menu that "⚡ Cepat" moved into.
-class SessionGroup extends ConsumerWidget {
-  const SessionGroup({
+/// Title, mode, per-session glossary and the quality menu.
+///
+/// Named `SessionControlGroup` rather than `SessionGroup`: the sidebar owns
+/// `SessionGroup` as the name of a date bucket, and two different meanings of
+/// the same identifier in one screen is how an import ambiguity starts.
+class SessionControlGroup extends ConsumerWidget {
+  const SessionControlGroup({
     super.key,
     required this.titleController,
     required this.onTitleChanged,
     required this.mode,
     required this.onModeChanged,
     required this.modeLocked,
+    this.showMode = true,
   });
 
   final TextEditingController titleController;
@@ -71,55 +75,50 @@ class SessionGroup extends ConsumerWidget {
   final SessionMode mode;
   final ValueChanged<SessionMode> onModeChanged;
 
-  /// Mode cannot change mid-session: the capture threads are already
-  /// running against the previous one.
+  /// Mode cannot change mid-session: the capture threads are already running
+  /// against the previous one.
   final bool modeLocked;
+
+  /// False on the recording strip, where the mode is already decided and the
+  /// space belongs to the timer.
+  final bool showMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return ControlGroup(
       title: 'Sesi',
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: Spacing.sm,
+        runSpacing: Spacing.sm,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           SizedBox(
-            width: 260,
-            height: 36,
-            child: TextField(
+            width: Measure.sidebar,
+            child: AppTextField(
               controller: titleController,
+              placeholder: 'Judul sesi…',
+              prefixIcon: AppIcons.edit,
               onChanged: onTitleChanged,
               onSubmitted: onTitleChanged,
-              style: TextStyle(color: colors.text, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Judul sesi...',
-                hintStyle: TextStyle(color: colors.textTertiary, fontSize: 13),
-                prefixIcon:
-                    Icon(Icons.edit_outlined, size: 16, color: colors.textTertiary),
-                filled: true,
-                fillColor: colors.chipBackground,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: colors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: colors.border),
-                ),
-              ),
+              reserveHelperSpace: false,
             ),
           ),
-          IgnorePointer(
-            ignoring: modeLocked,
-            child: Opacity(
-              opacity: modeLocked ? 0.5 : 1.0,
-              child: ModeSelector(selected: mode, onChanged: onModeChanged),
+          if (showMode)
+            AppSegmented<SessionMode>(
+              semanticLabel: 'Mode sesi',
+              enabled: !modeLocked,
+              selected: mode,
+              onChanged: onModeChanged,
+              segments: [
+                for (final m in kModeOrder)
+                  AppSegment(
+                    value: m,
+                    label: m.label,
+                    icon: modeIcon(m),
+                    semanticLabel: modeSemantics(m),
+                  ),
+              ],
             ),
-          ),
           const SessionOptionsMenu(),
           const SessionGlossaryPill(),
         ],
@@ -128,50 +127,85 @@ class SessionGroup extends ConsumerWidget {
   }
 }
 
+/// The order the three modes are *shown* in, everywhere they appear.
+///
+/// `SessionMode.values` is `webinar, online, offline`, which mirrors the Rust
+/// discriminants and must not be reordered. Presentation goes from the
+/// simplest setup to the most passive one, and puts the default (Rapat Online)
+/// in the middle where the eye lands.
+const List<SessionMode> kModeOrder = [
+  SessionMode.offline,
+  SessionMode.online,
+  SessionMode.webinar,
+];
+
+/// The glyph each capture mode is shown with, everywhere it appears.
+IconData modeIcon(SessionMode mode) => switch (mode) {
+  SessionMode.offline => AppIcons.mic,
+  SessionMode.online => AppIcons.meetingRoom,
+  SessionMode.webinar => AppIcons.systemAudio,
+};
+
+/// A full sentence for a screen reader, where the visible label is two words.
+String modeSemantics(SessionMode mode) => switch (mode) {
+  SessionMode.offline => 'Mode rapat offline: hanya mikrofon',
+  SessionMode.online => 'Mode rapat online: mikrofon dan suara sistem',
+  SessionMode.webinar => 'Mode webinar: hanya suara sistem',
+};
+
+/// One line explaining what a mode captures, shown on the idle hero cards.
+String modeExplanation(SessionMode mode) => switch (mode) {
+  SessionMode.offline => 'Rapat di satu ruangan. Hanya mikrofon yang direkam.',
+  SessionMode.online => 'Zoom, Meet atau Teams. Mikrofon dan suara sistem.',
+  SessionMode.webinar => 'Anda hanya menyimak. Hanya suara sistem.',
+};
+
 /// Per-session kamus istilah (F3): terms that matter for *this* meeting only.
 ///
 /// Separate from the global list in Settings because the two have different
-/// lifetimes and different priorities — the names of today's attendees are not
-/// vocabulary the office always wants, and when Whisper's 224-token prompt
-/// cannot hold everything these are the terms that must survive.
+/// lifetimes and different priorities. When Whisper's 224-token prompt cannot
+/// hold everything, these are the terms that survive.
 class SessionGlossaryPill extends ConsumerWidget {
   const SessionGlossaryPill({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     final terms = ref.watch(sessionProvider).sessionGlossaryTerms;
     final globalCount = ref.watch(settingsProvider).glossary.terms.length;
 
-    return Tooltip(
-      message: 'Istilah khusus rapat ini, di atas $globalCount istilah '
-          'di Pengaturan',
-      child: InkWell(
-        borderRadius: Radii.smAll,
-        onTap: () => _edit(context, ref, terms),
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-          decoration: BoxDecoration(
-            color: colors.chipBackground,
-            borderRadius: Radii.smAll,
-            border: Border.all(color: colors.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.menu_book_outlined,
-                  size: IconSizes.sm, color: colors.textSecondary),
-              const SizedBox(width: Spacing.sm),
-              Text(
-                terms.isEmpty ? 'Istilah rapat' : 'Istilah rapat (${terms.length})',
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: FontSizes.caption,
-                ),
-              ),
-            ],
-          ),
+    return Interactive(
+      onPressed: () => _edit(context, ref, terms),
+      borderRadius: Radii.mdAll,
+      tooltip:
+          'Istilah khusus rapat ini, di atas $globalCount istilah di Pengaturan',
+      semanticLabel: terms.isEmpty
+          ? 'Istilah rapat, belum ada'
+          : 'Istilah rapat, ${terms.length} istilah',
+      builder: (context, state) => Container(
+        height: ControlSizes.lg,
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        decoration: BoxDecoration(
+          color: state.active ? colors.surfaceSunken : Colors.transparent,
+          borderRadius: Radii.mdAll,
+          border: Border.all(color: colors.borderInteractive),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              AppIcons.glossary,
+              size: IconSizes.sm,
+              color: colors.textSecondary,
+            ),
+            Spacing.hSm,
+            Text(
+              terms.isEmpty
+                  ? 'Istilah rapat'
+                  : 'Istilah rapat (${terms.length})',
+              style: AppText.label.c(colors.textSecondary),
+            ),
+          ],
         ),
       ),
     );
@@ -183,57 +217,51 @@ class SessionGlossaryPill extends ConsumerWidget {
     List<String> terms,
   ) async {
     final controller = TextEditingController(text: terms.join('\n'));
-    final saved = await showDialog<String>(
+    final saved = await showAppDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Istilah khusus rapat ini'),
-        content: SizedBox(
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Satu istilah per baris: nama peserta, singkatan, nama '
-                'program. Diutamakan di atas kamus di Pengaturan.',
-              ),
-              Spacing.gapMd,
-              TextField(
-                controller: controller,
-                autofocus: true,
-                minLines: 4,
-                maxLines: 8,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Pak Budi Santoso\nSPBE\nRKAKL',
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (dialogContext) => AppDialog(
+        title: 'Istilah khusus rapat ini',
+        icon: AppIcons.glossary,
+        description:
+            'Satu istilah per baris: nama peserta, singkatan, nama program. '
+            'Diutamakan di atas kamus di Pengaturan.',
         actions: [
-          TextButton(
+          AppButton(
+            label: 'Batal',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Batal'),
           ),
-          FilledButton(
+          AppButton.primary(
+            label: 'Simpan',
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Simpan'),
           ),
         ],
+        child: AppTextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 4,
+          maxLines: 8,
+          placeholder: 'Pak Budi Santoso\nSPBE\nRKAKL',
+          reserveHelperSpace: false,
+        ),
       ),
     );
     controller.dispose();
     if (saved == null) return;
-    ref.read(sessionProvider.notifier).setSessionGlossaryTerms(
+    ref
+        .read(sessionProvider.notifier)
+        .setSessionGlossaryTerms(
           saved.split(RegExp(r'[,\n;]')),
           global: ref.read(settingsProvider).glossary,
         );
   }
 }
 
-/// Per-session options. Holds the quality switch that used to sit next to
-/// the title field competing with it for attention (blueprint §4.2).
+/// Per-session options: the quality switch that used to sit next to the title
+/// field competing with it for attention (blueprint §4.2).
+///
+/// The two quality options used to be labelled with a lightning-bolt and a
+/// dart emoji. Emoji as UI icons is a tell, and neither glyph renders the same
+/// on the three platforms the owner is testing.
 class SessionOptionsMenu extends ConsumerWidget {
   const SessionOptionsMenu({super.key});
 
@@ -244,7 +272,7 @@ class SessionOptionsMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     final isAccurate = settings.defaultModel == _accurateId;
 
     Future<void> chooseModel(String modelId) async {
@@ -261,9 +289,8 @@ class SessionOptionsMenu extends ConsumerWidget {
       await notifier.setDefaultModel(modelId);
     }
 
-    return PopupMenuButton<String>(
+    return AppMenu<String>(
       tooltip: 'Opsi sesi',
-      position: PopupMenuPosition.under,
       onSelected: (value) {
         switch (value) {
           case 'quick':
@@ -274,47 +301,50 @@ class SessionOptionsMenu extends ConsumerWidget {
             notifier.setVadEnabled(!settings.vadEnabled);
         }
       },
-      itemBuilder: (context) => [
-        const PopupMenuItem<String>(
-          enabled: false,
-          child: Text('Kualitas transkripsi'),
-        ),
-        CheckedPopupMenuItem<String>(
+      entries: [
+        const AppMenuEntry.header('Kualitas transkripsi'),
+        AppMenuEntry(
           value: 'quick',
+          label: 'Cepat, muncul lebih dulu',
           checked: !isAccurate,
-          child: const Text('⚡ Cepat — muncul lebih dulu'),
         ),
-        CheckedPopupMenuItem<String>(
+        AppMenuEntry(
           value: 'accurate',
+          label: 'Akurat, lebih teliti dan lebih lambat',
           checked: isAccurate,
-          child: const Text('🎯 Akurat — lebih teliti, lebih lambat'),
         ),
-        const PopupMenuDivider(),
-        CheckedPopupMenuItem<String>(
+        AppMenuEntry(
           value: 'vad',
+          label: 'Lewati jeda sunyi',
           checked: settings.vadEnabled,
-          child: const Text('Lewati jeda sunyi'),
         ),
       ],
       child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        height: ControlSizes.lg,
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
         decoration: BoxDecoration(
-          color: colors.chipBackground,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.border),
+          borderRadius: Radii.mdAll,
+          border: Border.all(color: colors.borderInteractive),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(isAccurate ? '🎯' : '⚡', style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 6),
+            Icon(
+              isAccurate ? AppIcons.accurate : AppIcons.quick,
+              size: IconSizes.sm,
+              color: colors.textSecondary,
+            ),
+            Spacing.hSm,
             Text(
               isAccurate ? 'Akurat' : 'Cepat',
-              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+              style: AppText.label.c(colors.textSecondary),
             ),
-            const SizedBox(width: 4),
-            Icon(Icons.expand_more, size: 16, color: colors.textSecondary),
+            Spacing.hXs,
+            Icon(
+              AppIcons.expandMore,
+              size: IconSizes.sm,
+              color: colors.textTertiary,
+            ),
           ],
         ),
       ),
@@ -322,8 +352,8 @@ class SessionOptionsMenu extends ConsumerWidget {
   }
 }
 
-/// Mic and speaker, each as a pill: on/off, the device that will actually
-/// be recorded, and a live level while the session runs.
+/// Mic and system audio, each as a status chip: on/off, the device that will
+/// actually be recorded, and a live level while the session runs.
 class DeviceGroup extends ConsumerStatefulWidget {
   const DeviceGroup({
     super.key,
@@ -334,6 +364,7 @@ class DeviceGroup extends ConsumerStatefulWidget {
     required this.micLevel,
     required this.speakerLevel,
     required this.live,
+    this.compact = false,
   });
 
   final bool micEnabled;
@@ -343,9 +374,11 @@ class DeviceGroup extends ConsumerStatefulWidget {
   final double micLevel;
   final double speakerLevel;
 
-  /// True while a session is running — the level bars only mean something
-  /// then.
+  /// True while a session is running. The level bars only mean something then.
   final bool live;
+
+  /// Drops the group label, for the recording strip.
+  final bool compact;
 
   @override
   ConsumerState<DeviceGroup> createState() => _DeviceGroupState();
@@ -372,8 +405,8 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
         _outputs = outputs;
       });
     } catch (_) {
-      // No engine (tests) or no audio server: the pills still render and
-      // say "Bawaan sistem" rather than the screen failing to build.
+      // No engine (tests) or no audio server: the chips still render and say
+      // "Bawaan sistem" rather than the screen failing to build.
     }
   }
 
@@ -381,48 +414,52 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final colors =
-        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    return ControlGroup(
-      title: 'Perangkat',
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          DevicePill(
-            icon: Icons.mic_none_outlined,
-            label: 'Mikrofon',
-            enabled: widget.micEnabled,
-            onToggled: widget.onMicToggled,
-            devices: _inputs.map((d) => d.name).toList(),
-            selected: settings.micDeviceId,
-            onDeviceSelected: notifier.setMicDeviceName,
-            level: widget.micLevel,
-            showLevel: widget.live && widget.micEnabled,
-            accent: colors.success,
-            onRefresh: _loadDevices,
-          ),
-          DevicePill(
-            icon: Icons.volume_up_outlined,
-            label: 'Suara sistem',
-            enabled: widget.speakerEnabled,
-            onToggled: widget.onSpeakerToggled,
-            devices: _outputs.map((d) => d.name).toList(),
-            selected: settings.speakerDeviceId,
-            onDeviceSelected: notifier.setSpeakerDeviceName,
-            level: widget.speakerLevel,
-            showLevel: widget.live && widget.speakerEnabled,
-            accent: colors.warning,
-            onRefresh: _loadDevices,
-          ),
-        ],
-      ),
+    final colors = context.colors;
+    final chips = Wrap(
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
+      children: [
+        DeviceStatusChip(
+          icon: AppIcons.mic,
+          label: 'Mikrofon',
+          enabled: widget.micEnabled,
+          onToggled: widget.onMicToggled,
+          devices: _inputs.map((d) => d.name).toList(),
+          selected: settings.micDeviceId,
+          onDeviceSelected: notifier.setMicDeviceName,
+          level: widget.micLevel,
+          showLevel: widget.live && widget.micEnabled,
+          accent: colors.success,
+          onRefresh: _loadDevices,
+        ),
+        DeviceStatusChip(
+          icon: AppIcons.systemAudio,
+          label: 'Suara sistem',
+          enabled: widget.speakerEnabled,
+          onToggled: widget.onSpeakerToggled,
+          devices: _outputs.map((d) => d.name).toList(),
+          selected: settings.speakerDeviceId,
+          onDeviceSelected: notifier.setSpeakerDeviceName,
+          level: widget.speakerLevel,
+          showLevel: widget.live && widget.speakerEnabled,
+          accent: colors.info,
+          onRefresh: _loadDevices,
+        ),
+      ],
     );
+    if (widget.compact) return chips;
+    return ControlGroup(title: 'Perangkat', child: chips);
   }
 }
 
-class DevicePill extends StatelessWidget {
-  const DevicePill({
+/// One capture source: glyph, name, device picker, toggle, live level.
+///
+/// The off state is fully neutral and the on state borrows only a hairline of
+/// the accent. The old pill filled itself with an 8 % accent wash whether or
+/// not anything was recording, which is a large part of why the screen read as
+/// teal everywhere.
+class DeviceStatusChip extends StatelessWidget {
+  const DeviceStatusChip({
     super.key,
     required this.icon,
     required this.label,
@@ -436,6 +473,12 @@ class DevicePill extends StatelessWidget {
     required this.accent,
     required this.onRefresh,
   });
+
+  /// Width of one capture-source chip. Two of them plus the `sm` gap have to
+  /// fit the workspace side by side at the narrowest window the layout still
+  /// supports: 800 px total, minus a 260 px sidebar and 2x24 px of hero
+  /// padding, leaves 492.
+  static const double width = 236;
 
   final IconData icon;
   final String label;
@@ -451,16 +494,21 @@ class DevicePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors = context.colors;
     final deviceLabel = selected ?? 'Bawaan sistem';
     return Container(
-      width: 244,
-      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      width: width,
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.sm,
+        Spacing.sm,
+        Spacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: enabled ? accent.withValues(alpha: 0.08) : colors.chipBackground,
-        borderRadius: BorderRadius.circular(10),
+        color: colors.surface,
+        borderRadius: Radii.mdAll,
         border: Border.all(
-          color: enabled ? accent.withValues(alpha: 0.45) : colors.border,
+          color: enabled ? colors.borderInteractive : colors.hairline,
         ),
       ),
       child: Column(
@@ -469,44 +517,38 @@ class DevicePill extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon,
-                  size: 16, color: enabled ? accent : colors.textTertiary),
-              const SizedBox(width: 6),
+              Icon(
+                icon,
+                size: IconSizes.sm,
+                color: enabled ? accent : colors.textDisabled,
+              ),
+              Spacing.hSm,
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  style: AppText.subheading.c(
+                    enabled ? colors.text : colors.textTertiary,
                   ),
                 ),
               ),
-              Semantics(
-                label: '$label ${enabled ? 'aktif' : 'mati'}',
-                toggled: enabled,
-                child: Switch(
-                  value: enabled,
-                  onChanged: onToggled,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+              AppSwitch(
+                value: enabled,
+                onChanged: onToggled,
+                semanticLabel: '$label ${enabled ? 'aktif' : 'nonaktif'}',
               ),
             ],
           ),
+          Spacing.gapXs,
           Row(
             children: [
               Expanded(
-                child: PopupMenuButton<String>(
+                child: AppMenu<String>(
                   enabled: devices.isNotEmpty,
                   tooltip: 'Pilih perangkat $label',
-                  position: PopupMenuPosition.under,
                   onSelected: onDeviceSelected,
-                  itemBuilder: (context) => [
+                  entries: [
                     for (final device in devices)
-                      PopupMenuItem<String>(
-                        value: device,
-                        child: Text(device, overflow: TextOverflow.ellipsis),
-                      ),
+                      AppMenuEntry(value: device, label: device),
                   ],
                   child: Row(
                     children: [
@@ -515,47 +557,34 @@ class DevicePill extends StatelessWidget {
                           deviceLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 11,
-                          ),
+                          style: AppText.micro.c(colors.textTertiary),
                         ),
                       ),
-                      Icon(Icons.expand_more,
-                          size: 14, color: colors.textTertiary),
+                      Icon(
+                        AppIcons.expandMore,
+                        size: IconSizes.xs,
+                        color: colors.textTertiary,
+                      ),
                     ],
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 14),
-                tooltip: 'Muat ulang daftar perangkat',
+              AppIconButton(
+                icon: AppIcons.refresh,
+                tooltip: 'Muat ulang daftar perangkat $label',
+                size: IconSizes.xs,
                 onPressed: onRefresh,
-                color: colors.textTertiary,
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
               ),
             ],
           ),
-          if (showLevel)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, right: 6),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: level.clamp(0.0, 1.0)),
-                  duration: const Duration(milliseconds: 80),
-                  curve: Curves.easeOut,
-                  builder: (context, value, _) => LinearProgressIndicator(
-                    value: value,
-                    minHeight: 4,
-                    color: accent,
-                    backgroundColor: colors.border.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
+          if (showLevel) ...[
+            Spacing.gapXs,
+            LevelMeter(
+              level: level,
+              color: accent,
+              semanticLabel: 'Level $label',
             ),
+          ],
         ],
       ),
     );

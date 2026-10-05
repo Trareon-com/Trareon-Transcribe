@@ -31,6 +31,7 @@ import '../theme/app_tokens.dart';
 import 'app_toast.dart';
 import 'audit_log_view.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
 
 /// Retention periods offered, in days. `0` is "simpan selamanya" and must
 /// stay the default — the switch that deletes a user's recordings is not
@@ -95,7 +96,8 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
   @override
   Widget build(BuildContext context) {
     final pdp = ref.watch(settingsProvider).pdp;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,7 +105,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
           title: 'Kepatuhan UU PDP',
           children: [
             SettingsSwitch(
-              icon: Icons.verified_user_outlined,
+              icon: AppIcons.verifiedUser,
               label: 'Aktifkan Mode Kepatuhan PDP',
               subtitle:
                   'Penyamaran data pribadi saat ekspor, batas retensi, log '
@@ -135,56 +137,76 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       title: 'Penyamaran saat ekspor',
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            Spacing.md,
+            Spacing.lg,
+            Spacing.xs,
+          ),
           child: Text(
             'Transkrip tersimpan tidak diubah. Penyamaran hanya berlaku pada '
             'salinan yang diekspor, dan selalu bisa dilihat dulu sebelum '
             'file ditulis.',
-            style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.4),
+            style: TextStyle(
+              fontSize: FontSizes.caption,
+              color: colors.textTertiary,
+              height: 1.4,
+            ),
           ),
         ),
-        for (final entry in <(String, String, bool, RedactionConfig Function(bool))>[
-          (
-            'NIK',
-            '16 digit dengan kode provinsi yang sah',
-            redaction.nik,
-            (v) => redaction.copyWith(nik: v),
-          ),
-          (
-            'NPWP',
-            '15 digit, dengan atau tanpa titik',
-            redaction.npwp,
-            (v) => redaction.copyWith(npwp: v),
-          ),
-          (
-            'Nomor telepon',
-            '08…, +62…, dan nomor kantor dengan kode area',
-            redaction.phone,
-            (v) => redaction.copyWith(phone: v),
-          ),
-          (
-            'Alamat email',
-            'nama@instansi.go.id',
-            redaction.email,
-            (v) => redaction.copyWith(email: v),
-          ),
-          (
-            'Nomor rekening',
-            'Hanya bila ada kata "rekening" atau nama bank di dekatnya, '
-                'supaya angka anggaran tidak ikut disamarkan',
-            redaction.bankAccount,
-            (v) => redaction.copyWith(bankAccount: v),
-          ),
-        ])
+        for (final entry
+            in <(String, String, bool, RedactionConfig Function(bool))>[
+              (
+                'NIK',
+                '16 digit dengan kode provinsi yang sah',
+                redaction.nik,
+                (v) => redaction.copyWith(nik: v),
+              ),
+              (
+                'NPWP',
+                '15 digit, dengan atau tanpa titik',
+                redaction.npwp,
+                (v) => redaction.copyWith(npwp: v),
+              ),
+              (
+                'Nomor telepon',
+                '08…, +62…, dan nomor kantor dengan kode area',
+                redaction.phone,
+                (v) => redaction.copyWith(phone: v),
+              ),
+              (
+                'Alamat email',
+                'nama@instansi.go.id',
+                redaction.email,
+                (v) => redaction.copyWith(email: v),
+              ),
+              (
+                'Nomor rekening',
+                'Hanya bila ada kata "rekening" atau nama bank di dekatnya, '
+                    'supaya angka anggaran tidak ikut disamarkan',
+                redaction.bankAccount,
+                (v) => redaction.copyWith(bankAccount: v),
+              ),
+            ])
           CheckboxListTile(
             dense: true,
             value: entry.$3,
             onChanged: (value) =>
                 _update(_pdp.copyWith(redaction: entry.$4(value ?? false))),
-            title: Text(entry.$1,
-                style: TextStyle(fontSize: 14, color: colors.text)),
-            subtitle: Text(entry.$2,
-                style: TextStyle(fontSize: 11, color: colors.textTertiary)),
+            title: Text(
+              entry.$1,
+              style: TextStyle(
+                fontSize: FontSizes.bodyLarge,
+                color: colors.text,
+              ),
+            ),
+            subtitle: Text(
+              entry.$2,
+              style: TextStyle(
+                fontSize: FontSizes.micro,
+                color: colors.textTertiary,
+              ),
+            ),
             controlAffinity: ListTileControlAffinity.leading,
           ),
         const SettingsDivider(),
@@ -196,16 +218,19 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
               Text(
                 'Nama yang disamarkan',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: FontSizes.bodyLarge,
                   fontWeight: FontWeight.w500,
                   color: colors.text,
                 ),
               ),
-              const SizedBox(height: 2),
+              Spacing.gapXs,
               Text(
                 'Hanya Anda yang tahu nama mana yang sensitif di rapat ini. '
                 'Entri kurang dari 3 huruf diabaikan.',
-                style: TextStyle(fontSize: 11, color: colors.textTertiary),
+                style: TextStyle(
+                  fontSize: FontSizes.micro,
+                  color: colors.textTertiary,
+                ),
               ),
               Spacing.gapSm,
               Row(
@@ -222,7 +247,10 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                     ),
                   ),
                   const SizedBox(width: Spacing.sm),
-                  FilledButton(onPressed: _addName, child: const Text('Tambah')),
+                  FilledButton(
+                    onPressed: _addName,
+                    child: const Text('Tambah'),
+                  ),
                 ],
               ),
               if (redaction.names.isNotEmpty) ...[
@@ -279,40 +307,54 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       title: 'Retensi data',
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            Spacing.md,
+            Spacing.lg,
+            Spacing.xs,
+          ),
           child: Text(
             'Audio dan transkrip punya batas sendiri-sendiri: rekaman '
             'biasanya harus dihapus jauh lebih cepat daripada notulennya. '
-            'Tidak ada yang dihapus otomatis — Anda melihat daftarnya dulu.',
-            style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.4),
+            'Tidak ada yang dihapus otomatis. Anda melihat daftarnya dulu.',
+            style: TextStyle(
+              fontSize: FontSizes.caption,
+              color: colors.textTertiary,
+              height: 1.4,
+            ),
           ),
         ),
         _retentionDropdown(
           label: 'Hapus audio setelah',
           value: retention.audioDays,
           colors: colors,
-          onChanged: (days) =>
-              _update(_pdp.copyWith(retention: retention.copyWith(audioDays: days))),
+          onChanged: (days) => _update(
+            _pdp.copyWith(retention: retention.copyWith(audioDays: days)),
+          ),
         ),
         _retentionDropdown(
           label: 'Hapus transkrip (seluruh sesi) setelah',
           value: retention.transcriptDays,
           colors: colors,
           onChanged: (days) => _update(
-            _pdp.copyWith(
-              retention: retention.copyWith(transcriptDays: days),
-            ),
+            _pdp.copyWith(retention: retention.copyWith(transcriptDays: days)),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            0,
+            Spacing.lg,
+            Spacing.lg,
+          ),
           child: Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
-              onPressed: retention.audioDays == 0 && retention.transcriptDays == 0
+              onPressed:
+                  retention.audioDays == 0 && retention.transcriptDays == 0
                   ? null
                   : _previewRetention,
-              icon: const Icon(Icons.fact_check_outlined, size: 18),
+              icon: const Icon(AppIcons.factCheck, size: IconSizes.md),
               label: const Text('Lihat & jalankan sekarang'),
             ),
           ),
@@ -328,17 +370,29 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
     required ValueChanged<int> onChanged,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.lg,
+        vertical: Spacing.sm,
+      ),
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: TextStyle(fontSize: 14, color: colors.text)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: FontSizes.bodyLarge,
+                color: colors.text,
+              ),
+            ),
           ),
           DropdownButton<int>(
             value: kRetentionChoices.contains(value) ? value : 0,
             items: [
               for (final days in kRetentionChoices)
-                DropdownMenuItem(value: days, child: Text(retentionLabel(days))),
+                DropdownMenuItem(
+                  value: days,
+                  child: Text(retentionLabel(days)),
+                ),
             ],
             onChanged: (days) => onChanged(days ?? 0),
           ),
@@ -381,20 +435,22 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                       for (final item in plan.sessionsToDelete)
                         ListTile(
                           dense: true,
-                          leading: const Icon(Icons.folder_delete_outlined, size: 18),
-                          title: Text(item.title),
-                          subtitle: Text(
-                            'Seluruh sesi · ${item.ageDays} hari',
+                          leading: const Icon(
+                            AppIcons.folderDelete,
+                            size: IconSizes.md,
                           ),
+                          title: Text(item.title),
+                          subtitle: Text('Seluruh sesi · ${item.ageDays} hari'),
                         ),
                       for (final item in plan.audioToDelete)
                         ListTile(
                           dense: true,
-                          leading: const Icon(Icons.audiotrack_outlined, size: 18),
-                          title: Text(item.title),
-                          subtitle: Text(
-                            'Audio saja · ${item.ageDays} hari',
+                          leading: const Icon(
+                            AppIcons.audioTrack,
+                            size: IconSizes.md,
                           ),
+                          title: Text(item.title),
+                          subtitle: Text('Audio saja · ${item.ageDays} hari'),
                         ),
                     ],
                   ),
@@ -431,8 +487,11 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       );
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Pratinjau retensi gagal: $e',
-            type: ToastType.error);
+        AppToast.show(
+          context,
+          'Pratinjau retensi gagal: $e',
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -444,7 +503,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       title: 'Pemberitahuan perekaman',
       children: [
         SettingsSwitch(
-          icon: Icons.campaign_outlined,
+          icon: AppIcons.announce,
           label: 'Ingatkan sebelum mulai merekam',
           subtitle:
               'Tampilkan teks pemberitahuan yang bisa disalin ke obrolan '
@@ -453,7 +512,12 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
           onChanged: (value) => _update(_pdp.copyWith(consentReminder: value)),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            0,
+            Spacing.lg,
+            Spacing.lg,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -476,7 +540,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: _copyNotice,
-                  icon: const Icon(Icons.copy_outlined, size: 18),
+                  icon: const Icon(AppIcons.copy, size: IconSizes.md),
                   label: const Text('Salin teks pemberitahuan'),
                 ),
               ),
@@ -511,27 +575,41 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       title: 'Log audit',
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            Spacing.md,
+            Spacing.lg,
+            Spacing.xs,
+          ),
           child: Text(
             'Catatan lokal tentang apa yang terjadi pada data: sesi dibuat, '
             'transkrip diekspor, ringkasan dikirim, data dihapus. Isinya '
-            'hanya metadata — tidak ada kutipan transkrip di dalamnya.',
-            style: TextStyle(fontSize: 12, color: colors.textTertiary, height: 1.4),
+            'hanya metadata, tidak ada kutipan transkrip di dalamnya.',
+            style: TextStyle(
+              fontSize: FontSizes.caption,
+              color: colors.textTertiary,
+              height: 1.4,
+            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.lg,
+            Spacing.xs,
+            Spacing.lg,
+            Spacing.lg,
+          ),
           child: Row(
             children: [
               OutlinedButton.icon(
                 onPressed: () => showAuditLogDialog(context),
-                icon: const Icon(Icons.history_outlined, size: 18),
+                icon: const Icon(AppIcons.history, size: IconSizes.md),
                 label: const Text('Lihat log'),
               ),
               const SizedBox(width: Spacing.sm),
               OutlinedButton.icon(
                 onPressed: _exportAuditLog,
-                icon: const Icon(Icons.download_outlined, size: 18),
+                icon: const Icon(AppIcons.download, size: IconSizes.md),
                 label: const Text('Ekspor CSV'),
               ),
             ],

@@ -15,7 +15,7 @@ void main() {
           body: StreamToggle(
             source: StreamSource.mic,
             enabled: true,
-            accent: AppColors.micAccent,
+            accent: AppColors.light.success,
             onChanged: (_) {},
           ),
         ),
@@ -50,7 +50,7 @@ void main() {
           body: StreamToggle(
             source: StreamSource.speaker,
             enabled: false,
-            accent: AppColors.spkAccent,
+            accent: AppColors.light.info,
             onChanged: (_) {},
           ),
         ),

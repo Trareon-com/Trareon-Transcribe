@@ -10,6 +10,9 @@ import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/model_labels.dart';
 import 'model_download_dialog.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
+import 'app_toast.dart';
 
 /// Extensions the importer accepts, in the order they are advertised.
 const List<String> kImportExtensions = [
@@ -72,8 +75,11 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
     }
     final queue = ref.watch(batchUploadProvider);
     final notifier = ref.read(batchUploadProvider.notifier);
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final pending = queue.where((e) => e.status == BatchFileStatus.queued).length;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final pending = queue
+        .where((e) => e.status == BatchFileStatus.queued)
+        .length;
     final busy = notifier.isRunning;
 
     return Column(
@@ -89,7 +95,7 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
           },
           onPick: _pickFiles,
         ),
-        const SizedBox(height: 12),
+        Spacing.gapMd,
         _ImportOptions(
           language: _language,
           modelId: _modelId ?? kKnownModelIds.first,
@@ -99,7 +105,7 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
           onModelChanged: (v) => setState(() => _modelId = v),
           onSpeakerHintChanged: (v) => setState(() => _speakerHint = v),
         ),
-        const SizedBox(height: 12),
+        Spacing.gapMd,
         Row(
           children: [
             Expanded(
@@ -107,24 +113,28 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
                 queue.isEmpty
                     ? 'Belum ada berkas di antrean.'
                     : '${queue.length} berkas · $pending menunggu',
-                style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ),
             if (queue.isNotEmpty) ...[
               TextButton.icon(
-                onPressed: queue.any((entry) => entry.status == BatchFileStatus.done)
+                onPressed:
+                    queue.any((entry) => entry.status == BatchFileStatus.done)
                     ? notifier.removeDone
                     : null,
-                icon: const Icon(Icons.clear_all),
+                icon: const Icon(AppIcons.clearAll),
                 label: const Text('Hapus selesai'),
               ),
-              const SizedBox(width: 4),
+              Spacing.hXs,
               TextButton.icon(
                 onPressed: notifier.clear,
-                icon: const Icon(Icons.delete_sweep_outlined),
+                icon: const Icon(AppIcons.deleteSweep),
                 label: const Text('Kosongkan'),
               ),
-              const SizedBox(width: 4),
+              Spacing.hXs,
             ],
             FilledButton.icon(
               onPressed: pending == 0 || busy ? null : _process,
@@ -134,13 +144,13 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.play_arrow, size: 18),
+                  : const Icon(AppIcons.play, size: IconSizes.md),
               label: Text(busy ? 'Memproses…' : 'Mulai Transkripsi'),
             ),
           ],
         ),
         if (queue.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          Spacing.gapSm,
           // Scrollable, and lazily built: the queue used to be spread
           // directly into this Column, so it overflowed off the bottom of
           // the window after about five files and the tiles below that
@@ -182,11 +192,14 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
   void _addFiles(List<String> paths) {
     final rejected = ref.read(batchUploadProvider.notifier).addFiles(paths);
     if (rejected.isEmpty || !mounted) return;
-    final detail = rejected.take(3).map((r) => '${r.filename} (${r.message})').join(', ');
-    final more = rejected.length > 3 ? ' dan ${rejected.length - 3} lainnya' : '';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Dilewati: $detail$more.')));
+    final detail = rejected
+        .take(3)
+        .map((r) => '${r.filename} (${r.message})')
+        .join(', ');
+    final more = rejected.length > 3
+        ? ' dan ${rejected.length - 3} lainnya'
+        : '';
+    AppToast.show(context, 'Dilewati: $detail$more.', type: ToastType.warning);
   }
 
   Future<void> _process() async {
@@ -247,24 +260,30 @@ class _DropZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return DropTarget(
       onDragEntered: (_) => onDragEntered(),
       onDragExited: (_) => onDragExited(),
-      onDragDone: (details) => onFilesDropped(details.files.map((f) => f.path).toList()),
+      onDragDone: (details) =>
+          onFilesDropped(details.files.map((f) => f.path).toList()),
       child: Semantics(
-        label: 'Area impor berkas, tarik dan lepas berkas audio atau video ke sini',
+        label:
+            'Area impor berkas, tarik dan lepas berkas audio atau video ke sini',
         // Intrinsic height, not a fixed one: the format list wraps to two
         // lines in a narrow window, and a fixed box clipped it.
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          padding: const EdgeInsets.symmetric(
+            vertical: Spacing.lg,
+            horizontal: Spacing.lg,
+          ),
           decoration: BoxDecoration(
             border: Border.all(
               color: dragging ? colors.primary : colors.border,
               width: dragging ? 2.5 : 1,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.lg),
             color: dragging
                 ? colors.primary.withValues(alpha: 0.10)
                 : colors.surfaceElevated,
@@ -274,11 +293,11 @@ class _DropZone extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  dragging ? Icons.file_download_outlined : Icons.upload_file_outlined,
-                  size: 32,
+                  dragging ? AppIcons.fileDownload : AppIcons.uploadFile,
+                  size: IconSizes.hero,
                   color: dragging ? colors.primary : colors.textSecondary,
                 ),
-                const SizedBox(height: 8),
+                Spacing.gapSm,
                 Text(
                   dragging
                       ? 'Lepaskan untuk menambahkan ke antrean'
@@ -288,17 +307,23 @@ class _DropZone extends StatelessWidget {
                     fontWeight: dragging ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                Spacing.gapSm,
                 Text(
                   'Format: ${kImportExtensions.map((e) => e.toUpperCase()).join(' · ')}',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  style: TextStyle(
+                    color: colors.textTertiary,
+                    fontSize: FontSizes.caption,
+                  ),
                 ),
                 Text(
                   'Maksimum ${formatBytes(kMaxImportBytes)} per berkas',
-                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                  style: TextStyle(
+                    color: colors.textTertiary,
+                    fontSize: FontSizes.caption,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                Spacing.gapSm,
                 Semantics(
                   label: 'Pilih file untuk diupload',
                   button: true,
@@ -337,13 +362,20 @@ class _ImportOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text('Bahasa', style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+        Text(
+          'Bahasa',
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.caption,
+          ),
+        ),
         DropdownButton<String?>(
           value: language,
           onChanged: enabled ? onLanguageChanged : null,
@@ -353,25 +385,37 @@ class _ImportOptions extends StatelessWidget {
             DropdownMenuItem(value: 'en', child: Text('English')),
           ],
         ),
-        const SizedBox(width: 8),
-        Text('Model', style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+        Spacing.hSm,
+        Text(
+          'Model',
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.caption,
+          ),
+        ),
         DropdownButton<String>(
           value: modelId,
-          onChanged: enabled ? (v) => v == null ? null : onModelChanged(v) : null,
+          onChanged: enabled
+              ? (v) => v == null ? null : onModelChanged(v)
+              : null,
           items: [
             for (final id in kKnownModelIds)
               DropdownMenuItem(value: id, child: Text(modelDisplayLabel(id))),
           ],
         ),
-        const SizedBox(width: 8),
+        Spacing.hSm,
         Text(
           'Jumlah pembicara',
-          style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: FontSizes.caption,
+          ),
         ),
         DropdownButton<int>(
           value: speakerHint,
-          onChanged:
-              enabled ? (v) => v == null ? null : onSpeakerHintChanged(v) : null,
+          onChanged: enabled
+              ? (v) => v == null ? null : onSpeakerHintChanged(v)
+              : null,
           items: const [
             DropdownMenuItem(value: 0, child: Text('Deteksi otomatis')),
             DropdownMenuItem(value: 1, child: Text('1 orang')),
@@ -432,11 +476,10 @@ class _QueueTileState extends State<_QueueTile> {
       });
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak bisa memutar berkas ini'),
-            duration: Duration(seconds: 2),
-          ),
+        AppToast.show(
+          context,
+          'Tidak bisa memutar berkas ini.',
+          type: ToastType.error,
         );
       }
     }
@@ -445,22 +488,27 @@ class _QueueTileState extends State<_QueueTile> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final canPreview = entry.status == BatchFileStatus.queued && entry.path.isNotEmpty;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final canPreview =
+        entry.status == BatchFileStatus.queued && entry.path.isNotEmpty;
     final running =
         entry.status == BatchFileStatus.transcribing ||
         entry.status == BatchFileStatus.decoding;
 
     return Semantics(
       label:
-          '${entry.filename} — ${_statusLabel(entry.status)}'
+          '${entry.filename}: ${_statusLabel(entry.status)}'
           '${entry.error != null ? ', error: ${entry.error}' : ''}',
       // A hand-built row rather than a ListTile: the status line plus a
       // progress bar does not fit a dense ListTile's subtitle box, and an
       // overflow warning in the import queue is exactly the bug this
       // sprint is meant to remove.
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.xs,
+          vertical: Spacing.sm,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -473,7 +521,7 @@ class _QueueTileState extends State<_QueueTile> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            Spacing.hSm,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,7 +530,10 @@ class _QueueTileState extends State<_QueueTile> {
                   Text(
                     entry.filename,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.text, fontSize: 13),
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: FontSizes.body,
+                    ),
                   ),
                   Text(
                     [
@@ -494,11 +545,14 @@ class _QueueTileState extends State<_QueueTile> {
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textTertiary, fontSize: 11),
+                    style: TextStyle(
+                      color: colors.textTertiary,
+                      fontSize: FontSizes.micro,
+                    ),
                   ),
                   if (running)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: Spacing.xs),
                       child: LinearProgressIndicator(
                         value: entry.progress > 0 ? entry.progress : null,
                         minHeight: 3,
@@ -510,7 +564,7 @@ class _QueueTileState extends State<_QueueTile> {
             if (canPreview)
               IconButton(
                 icon: Icon(
-                  _playing ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+                  _playing ? AppIcons.stopCircle : AppIcons.playCircle,
                   color: colors.primary,
                 ),
                 onPressed: _togglePreview,
@@ -520,14 +574,14 @@ class _QueueTileState extends State<_QueueTile> {
             if (entry.status == BatchFileStatus.error ||
                 entry.status == BatchFileStatus.cancelled)
               IconButton(
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(AppIcons.refresh),
                 onPressed: widget.onRetry,
                 tooltip: 'Coba lagi',
                 visualDensity: VisualDensity.compact,
               ),
             if (!entry.isFinished)
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(AppIcons.close),
                 onPressed: widget.onCancel,
                 tooltip: 'Batalkan berkas ini',
                 visualDensity: VisualDensity.compact,
@@ -547,16 +601,18 @@ class _QueueTileState extends State<_QueueTile> {
     BatchFileStatus.cancelled => 'Dibatalkan',
   };
 
-  Widget _statusIcon(BatchFileStatus status, AppColorSet colors) =>
-      switch (status) {
-    BatchFileStatus.queued => const Icon(Icons.schedule),
+  Widget _statusIcon(
+    BatchFileStatus status,
+    AppColorSet colors,
+  ) => switch (status) {
+    BatchFileStatus.queued => const Icon(AppIcons.clock),
     BatchFileStatus.decoding || BatchFileStatus.transcribing => const SizedBox(
       width: 20,
       height: 20,
       child: CircularProgressIndicator(strokeWidth: 2),
     ),
-    BatchFileStatus.done => Icon(Icons.check_circle, color: colors.success),
-    BatchFileStatus.error => Icon(Icons.error, color: colors.error),
-    BatchFileStatus.cancelled => const Icon(Icons.block),
+    BatchFileStatus.done => Icon(AppIcons.checkFilled, color: colors.success),
+    BatchFileStatus.error => Icon(AppIcons.errorFilled, color: colors.error),
+    BatchFileStatus.cancelled => const Icon(AppIcons.block),
   };
 }

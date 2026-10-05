@@ -106,7 +106,8 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: 'Indonesian-first means the UI words are Indonesian too '
+      reason:
+          'Indonesian-first means the UI words are Indonesian too '
           '(blueprint §4.4):\n${offenders.join('\n')}',
     );
   });
@@ -128,22 +129,24 @@ void main() {
 /// interpolation-only string, or a single lowercase token.
 List<({String file, int line, String text})> _collectUiStrings(RegExp literal) {
   final out = <({String file, int line, String text})>[];
-  final files = Directory('lib')
-      .listSync(recursive: true)
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.dart'))
-      .where((f) => !f.path.replaceAll(r'\', '/').startsWith('lib/src/rust/'))
-      // Generated localisations: `app_localizations_en.dart` is the English
-      // translation, so of course it contains English. The Indonesian copy is
-      // authored in `lib/l10n/app_id.arb` (not a `.dart` file) and reviewed
-      // there; the generated Dart is machinery.
-      .where(
-        (f) => !f.path
-            .replaceAll(r'\', '/')
-            .startsWith('lib/l10n/generated/'),
-      )
-      .toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final files =
+      Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .where(
+            (f) => !f.path.replaceAll(r'\', '/').startsWith('lib/src/rust/'),
+          )
+          // Generated localisations: `app_localizations_en.dart` is the English
+          // translation, so of course it contains English. The Indonesian copy is
+          // authored in `lib/l10n/app_id.arb` (not a `.dart` file) and reviewed
+          // there; the generated Dart is machinery.
+          .where(
+            (f) =>
+                !f.path.replaceAll(r'\', '/').startsWith('lib/l10n/generated/'),
+          )
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
 
   for (final file in files) {
     final lines = file.readAsLinesSync();
@@ -159,7 +162,11 @@ List<({String file, int line, String text})> _collectUiStrings(RegExp literal) {
         // would otherwise read as the English word "Settings".
         final text = _stripInterpolations(raw.substring(1, raw.length - 1));
         if (!_looksLikeCopy(text)) continue;
-        out.add((file: file.path.replaceAll(r'\', '/'), line: i + 1, text: text));
+        out.add((
+          file: file.path.replaceAll(r'\', '/'),
+          line: i + 1,
+          text: text,
+        ));
       }
     }
   }

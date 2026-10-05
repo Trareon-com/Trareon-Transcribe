@@ -9,8 +9,9 @@ import 'package:transcribe/main.dart' show resolveLocale;
 /// extraction across every screen is the remaining (large) parallel track.
 void main() {
   test('both locales are supported', () {
-    final codes =
-        AppLocalizations.supportedLocales.map((l) => l.languageCode).toList();
+    final codes = AppLocalizations.supportedLocales
+        .map((l) => l.languageCode)
+        .toList();
     expect(codes, contains('id'));
     expect(codes, contains('en'));
   });
@@ -19,7 +20,10 @@ void main() {
     final supported = AppLocalizations.supportedLocales;
 
     test('an unknown system locale falls back to Indonesian, not English', () {
-      expect(resolveLocale([const Locale('fr')], supported), const Locale('id'));
+      expect(
+        resolveLocale([const Locale('fr')], supported),
+        const Locale('id'),
+      );
     });
 
     test('no system preference falls back to Indonesian', () {
@@ -28,16 +32,23 @@ void main() {
     });
 
     test('a supported system locale is honoured', () {
-      expect(resolveLocale([const Locale('en')], supported), const Locale('en'));
-      expect(resolveLocale([const Locale('id')], supported), const Locale('id'));
+      expect(
+        resolveLocale([const Locale('en')], supported),
+        const Locale('en'),
+      );
+      expect(
+        resolveLocale([const Locale('id')], supported),
+        const Locale('id'),
+      );
     });
 
     test('the first matching preference wins', () {
       expect(
-        resolveLocale(
-          [const Locale('fr'), const Locale('en'), const Locale('id')],
-          supported,
-        ),
+        resolveLocale([
+          const Locale('fr'),
+          const Locale('en'),
+          const Locale('id'),
+        ], supported),
         const Locale('en'),
       );
     });

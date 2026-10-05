@@ -1774,3 +1774,163 @@ belum dimulai.
 - WER corpus: GigaSpeech 2 perlu token/manual step
 # Sprint 4 report — branch `sprint/04-differentiators`
 
+
+---
+
+# Sprint 5 report — branch `sprint/05-design`
+
+> Sprint desain: sistem desain, kit komponen, dan enam layar tanda tangan
+> dibangun ulang di atasnya. 11 commit dari `origin/main`.
+>
+> Catatan kejujuran: bagian ini ditulis pada **fix round**, bukan pada sesi
+> sprint itu sendiri — sesi sprint berakhir tanpa sempat menuliskannya, dan
+> `flutter test` saat itu hanya dijalankan dengan `--exclude-tags golden`,
+> sehingga hang di `golden_test.dart` baru ketahuan oleh verifikasi
+> independen. Semua angka gate di bawah berasal dari eksekusi fix round ini.
+
+---
+
+## 1 — Sistem desain, token, tipografi, kit komponen ✅ DONE
+
+`docs/DESIGN-SYSTEM.md` sebagai sumber kebenaran (warna, skala tipe, spasi,
+radius, ikon, motion, §12 untuk golden). Lapisan token tiga tingkat, Inter +
+JetBrains Mono di-*bundle* sehingga aplikasi tidak bergantung font sistem.
+
+- **Berkas**: `lib/theme/app_typography.dart`, `lib/theme/app_icons.dart`,
+  `lib/theme/app_motion.dart`, `lib/theme/app_shortcuts.dart`,
+  `lib/widgets/ui/*` (button, chip, controls, dialog, feedback, field,
+  list_row, surface, interactive, key_hint, speech_timeline),
+  `assets/fonts/`
+- **Tes**: `test/design_lint_test.dart` (tidak ada warna/ukuran hard-coded),
+  `test/copy_lint_test.dart`, `test/theme_tokens_test.dart`,
+  `test/theme_contrast_test.dart`, `test/support/component_gallery.dart`
+
+## 2 — Layar utama, sidebar, pemutar di atas kit ✅ DONE
+
+- **Berkas**: `lib/screens/main_screen.dart`,
+  `lib/screens/transcript_player_screen.dart`, `lib/widgets/record_button.dart`
+- **Tes**: `test/widget_test.dart`, `test/transcript_player_screen_test.dart`,
+  `test/narrow_window_layout_test.dart`, `test/accessibility_test.dart`
+
+## 3 — Geometri jendela, chrome platform, hero onboarding ✅ DONE
+
+Ukuran minimum 900x600 dipaksakan oleh `window_service`, caption button
+digambar sekali di akar (bukan di dalam satu layar).
+
+- **Berkas**: `lib/services/window_service.dart`,
+  `lib/widgets/platform_chrome.dart`, `lib/screens/onboarding_screen.dart`
+- **Tes**: `test/onboarding_model_test.dart`, `test/golden_test.dart`
+
+## 4 — Panel setelan dan pintasan dibatasi lebarnya ✅ DONE
+
+- **Berkas**: `lib/screens/settings_screen.dart`, `lib/theme/app_shortcuts.dart`
+- **Tes**: `test/settings_screen_test.dart`, `test/text_scaling_test.dart`
+
+## 5 — Perbaikan chrome Windows ✅ DONE
+
+Dua bug yang hanya muncul di Windows: caption button tergambar dua kali, dan
+chrome berada di dalam satu layar alih-alih di atas navigator.
+
+- **Berkas**: `lib/widgets/platform_chrome.dart`, `lib/main.dart`
+- **Bukti**: `docs/screenshots/sprint5/windows/before-double-caption-windows.png`,
+  `.../before-no-caption-buttons-windows.png`, `.../main-idle-windows.png`
+
+## 6 — Self-audit desain + verifikasi Windows ✅ DONE
+
+- **Berkas**: `docs/DESIGN-AUDIT-SPRINT5.md` (9 dimensi + anti-slop pass),
+  `docs/screenshots/sprint5/**` (3 ukuran x terang/gelap)
+
+## 7 — Panel notulen dan ringkasan di atas kit ✅ DONE
+
+Layar tanda tangan keenam. `AlertDialog`, `TextFormField`, `SegmentedButton`,
+`CheckboxListTile` dan `InputChip` diganti padanan kit; `AppChip` tumbuh
+afordans hapus yang bisa dicapai keyboard; `AppDialog` memisahkan action bar
+dari isi yang menggulung dengan hairline.
+
+- **Berkas**: `lib/widgets/notulen_dialog.dart`, `lib/widgets/summary_panel.dart`,
+  `lib/widgets/ui/app_chip.dart`, `lib/widgets/ui/app_dialog.dart`
+- **Tes**: `test/notulen_dialog_widget_test.dart` (4 tes, baru — belum
+  ter-commit saat sprint berakhir, di-commit pada fix round),
+  golden `notulen-light` + `notulen-dark`
+
+## 8 — FIX ROUND: `flutter test` hang 12 menit di `golden_test.dart` ✅ DONE
+
+**Gejala**: gate gagal dengan
+`golden_test.dart: (tearDownAll) — TimeoutException after 0:12:00`, padahal
+keempat belas golden lulus dalam 20 detik.
+
+**Akar masalah** (bukan gejala): `setMockStreamHandler` milik `flutter_test`
+membuka sebuah `StreamController` lalu mendaftarkan
+`addTearDown(controller.close)` **di belakang** `addTearDown(sub.cancel)`.
+Plugin `audioplayers` tidak pernah mendengarkan dua nama kanal yang di-stub —
+event channel aslinya membawa UUID per pemutar — sehingga tidak ada yang
+menutup controller selama tes; pada teardown subscription satu-satunya
+dibatalkan lebih dulu, lalu `close()` menunggu event `done` yang tidak bisa
+lagi dikirim. Karena stub dipasang di `setUpAll`, penantian itu mendarat di
+`(tearDownAll)` level suite, yang timeout-nya tetap 12 menit
+(`test_api/.../declarer.dart`).
+
+Dibuktikan dengan bisection per-tes (`--plain-name`) lalu probe minimal: stub
+*method channel* saja → lulus; stub *stream handler* saja → hang, baik dari
+`setUpAll` maupun dari `setUp`.
+
+**Fix**: kanal event dijawab `setMockMethodCallHandler` biasa —
+`listen`/`cancel` mengembalikan null adalah seluruh protokol EventChannel
+untuk stream yang diam — sehingga tidak ada stream yang ditinggal setengah
+tertutup. Tidak ada tes yang dilemahkan dan tidak ada lint yang dimatikan.
+
+- **Berkas**: `test/golden_test.dart`
+- **Hasil**: `flutter test test/golden_test.dart` → `+14 All tests passed!`
+  dalam 22 detik (sebelumnya 12 menit lalu gagal)
+
+---
+
+## Gate verifikasi (semua hijau, dieksekusi pada fix round)
+
+| Step | Hasil |
+|------|-------|
+| `cargo fmt --check` | bersih |
+| `cargo clippy --all-targets -- -D warnings` | `Finished dev profile`, 0 warning |
+| `cargo test --lib` | **608 passed**; 0 failed; 0 ignored |
+| `flutter analyze` | **No issues found!** (13,7 s) |
+| `flutter test` (termasuk tag `golden`) | **597 passed**, 0 failed, 2 m 36 s |
+| `flutter build linux --release` | `✓ Built build/linux/x64/release/bundle/transcribe` |
+
+---
+
+## Smoke test aplikasi nyata (Linux, build rilis dari pohon ini)
+
+Dijalankan sesuai aturan: `DISPLAY=:0`, log dibatasi, `trareon_silent` tetap
+default sink, tanpa suara dan tanpa mikrofon.
+
+1. Aplikasi start, jendela 1280x800, layar "Siap merekam" tampil utuh —
+   sidebar, tiga kartu skenario, dua kartu sumber audio, tombol rekam.
+2. Membuka sesi nyata `Sesi 2026-10-04 12:40` (42 segmen): pemutar, daftar
+   segmen, panel Tindak Lanjut dan footer transport tergambar benar.
+3. Tombol **Notulen Rapat** → dialog hasil rebuild tampil: `AppDialog` dengan
+   hairline di atas action bar, `AppSegmented` bentuk notulen, label grup
+   kapital, field kit, chip peserta dengan afordans hapus.
+   → `docs/screenshots/sprint5/notulen-dialog-1280x660-dark.png`
+4. Menukar ke **Notulen Ringkas**: Nomor Notulen, Instansi dan Unit kerja
+   hilang — perilaku yang sama yang dipatok `notulen_dialog_widget_test.dart`.
+   → `docs/screenshots/sprint5/notulen-ringkas-1280x660-dark.png`
+5. `Batal`, lalu `pkill -9 -x transcribe`. Log aplikasi 320 byte: hanya baris
+   Impeller dan peringatan `libayatana-appindicator` yang sudah lama ada.
+   Tidak ada exception.
+
+---
+
+## Celah yang diketahui
+
+- **Golden bergantung urutan**: menjalankan satu golden sendirian
+  (`--plain-name "transcript player"`) memberi selisih 0,07% (6.475 px)
+  terhadap PNG yang dihasilkan saat seluruh berkas dijalankan; `main screen,
+  recording` serupa. Alur yang didokumentasikan (`flutter test
+  test/golden_test.dart`, seluruh berkas) hijau, dan CI memang menjalankan
+  `--exclude-tags golden`, jadi ini belum menghalangi gate — tetapi
+  determinismenya belum penuh dan perlu ditelusuri di sprint berikutnya.
+- Golden hanya gerbang desain lokal: rasterisasi teks berbeda antar host, jadi
+  CI tetap mengecualikan tag `golden`.
+- **PERLU IZIN OWNER: uji audio Windows** — capture WASAPI (mic/loopback) di
+  win2060 belum pernah dijalankan; uji Windows pada sprint ini terbatas pada
+  build, tes unit, dan screenshot UI.

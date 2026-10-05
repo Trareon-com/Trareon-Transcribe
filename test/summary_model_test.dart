@@ -49,11 +49,7 @@ class _SummaryBridge extends NoopBridge {
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
   }) =>
-      generateSummary(
-        segments: segments,
-        config: config,
-        bookmarks: bookmarks,
-      );
+      generateSummary(segments: segments, config: config, bookmarks: bookmarks);
 }
 
 AppSettings settingsWithSummary({
@@ -177,7 +173,10 @@ void main() {
     final notifier = SummaryNotifier(bridge, dir.path);
     addTearDown(notifier.dispose);
 
-    await notifier.generate(segments: const [], settings: settingsWithSummary());
+    await notifier.generate(
+      segments: const [],
+      settings: settingsWithSummary(),
+    );
 
     expect(bridge.calls, 0);
     expect(notifier.state.error, contains('kosong'));
@@ -210,7 +209,10 @@ void main() {
 
     await notifier.save();
     expect(notifier.state.dirty, isFalse);
-    expect((await readSessionMeta(dir.path)).summary, 'ringkasan tulisan tangan');
+    expect(
+      (await readSessionMeta(dir.path)).summary,
+      'ringkasan tulisan tangan',
+    );
   });
 
   test('clearing the text returns the panel to empty', () {

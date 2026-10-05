@@ -16,8 +16,8 @@ class RecoveryBridge extends NoopBridge {
   final List<String> recovered = [];
 
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      recoveries;
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => recoveries;
 
   @override
   Future<void> deleteRecoverableSession(String sessionId) async {
@@ -43,7 +43,8 @@ class RecoveryBridge extends NoopBridge {
 /// directory, or a bridge that failed to load.
 class _FailingListBridge extends NoopBridge {
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async =>
       throw StateError('recovery directory is unreadable');
 }
 
@@ -67,7 +68,8 @@ rust_session.RecoverableSession recoverable({
         gpuDevice: 0,
         vadEnabled: true,
         audioToDisk: true,
-      glossary: kEmptyGlossary,),
+        glossary: kEmptyGlossary,
+      ),
       startedAtUnixMs: BigInt.from(1700000000000),
       lastSplitAtUnixMs: BigInt.from(1700000000000),
       segmentsCount: segmentCount,
@@ -115,31 +117,32 @@ Future<void> pumpMain(WidgetTester tester, RecoveryBridge bridge) async {
 }
 
 void main() {
-  testWidgets('a bridge that cannot list recoveries still clears the loading bar', (
-    WidgetTester tester,
-  ) async {
-    final bridge = _FailingListBridge();
-    tester.view.physicalSize = const Size(1440, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(
-      buildTestAppWithOverrides(
-        overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-      ),
-    );
-    // Deliberately not pumpAndSettle: an indeterminate LinearProgressIndicator
-    // never settles, which is exactly what the stuck state looked like — a
-    // sidebar permanently loading, with the recovery entry point hidden
-    // behind it, so a crashed meeting could not be reached at all.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+  testWidgets(
+    'a bridge that cannot list recoveries still clears the loading bar',
+    (WidgetTester tester) async {
+      final bridge = _FailingListBridge();
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+        ),
+      );
+      // Deliberately not pumpAndSettle: an indeterminate LinearProgressIndicator
+      // never settles, which is exactly what the stuck state looked like — a
+      // sidebar permanently loading, with the recovery entry point hidden
+      // behind it, so a crashed meeting could not be reached at all.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(
-      find.byType(LinearProgressIndicator),
-      findsNothing,
-      reason: 'the loading state must clear even when the listing throws',
-    );
-  });
+      expect(
+        find.byType(LinearProgressIndicator),
+        findsNothing,
+        reason: 'the loading state must clear even when the listing throws',
+      );
+    },
+  );
 
   testWidgets('the banner says what is recoverable, not just how many', (
     WidgetTester tester,
@@ -153,7 +156,7 @@ void main() {
     // recovering nothing at all.
     expect(find.textContaining('42 segmen transkrip'), findsOneWidget);
     expect(find.textContaining('1 jam 30 menit audio'), findsOneWidget);
-    expect(find.text('Lihat & pulihkan'), findsOneWidget);
+    expect(find.text('Lihat & Pulihkan'), findsOneWidget);
   });
 
   testWidgets('the dialog lists each session with its own contents', (
@@ -172,7 +175,7 @@ void main() {
       ];
 
     await pumpMain(tester, bridge);
-    await tester.tap(find.text('Lihat & pulihkan'));
+    await tester.tap(find.text('Lihat & Pulihkan'));
     await tester.pumpAndSettle();
 
     expect(find.text('Rapat Anggaran'), findsOneWidget);
@@ -196,14 +199,14 @@ void main() {
       ];
 
     await pumpMain(tester, bridge);
-    await tester.tap(find.text('Lihat & pulihkan'));
+    await tester.tap(find.text('Lihat & Pulihkan'));
     await tester.pumpAndSettle();
     // Second tile's delete button.
     await tester.tap(find.text('Hapus').last);
     await tester.pumpAndSettle();
 
     expect(bridge.deleted, ['crash-2']);
-    await tester.tap(find.text('Lihat & pulihkan'));
+    await tester.tap(find.text('Lihat & Pulihkan'));
     await tester.pumpAndSettle();
     expect(find.text('Webinar Sore'), findsNothing);
     expect(find.text('Rapat Anggaran'), findsOneWidget);
@@ -221,7 +224,7 @@ void main() {
       ];
 
     await pumpMain(tester, bridge);
-    await tester.tap(find.text('Lihat & pulihkan'));
+    await tester.tap(find.text('Lihat & Pulihkan'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Pulihkan').last);
     await tester.pump();
@@ -252,7 +255,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Lihat & pulihkan'));
+    await tester.tap(find.text('Lihat & Pulihkan'));
     await tester.pumpAndSettle();
     expect(find.textContaining('transkrip kosong'), findsOneWidget);
     await tester.tap(find.text('Nanti saja'));

@@ -18,6 +18,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import 'app_toast.dart';
 import 'settings_controls.dart';
+import '../theme/app_icons.dart';
 
 class NotulenDefaultsSection extends ConsumerStatefulWidget {
   const NotulenDefaultsSection({super.key});
@@ -55,7 +56,9 @@ class _NotulenDefaultsSectionState
   /// file write per letter typed.
   Future<void> _save() async {
     final current = ref.read(settingsProvider).notulen;
-    await ref.read(settingsProvider.notifier).setNotulenDefaults(
+    await ref
+        .read(settingsProvider.notifier)
+        .setNotulenDefaults(
           current.copyWith(
             unitKerja: _unitKerja.text.trim(),
             tempat: _tempat.text.trim(),
@@ -79,7 +82,8 @@ class _NotulenDefaultsSectionState
     try {
       final head = await File(path).openRead(0, 8).first;
       const pngMagic = [137, 80, 78, 71, 13, 10, 26, 10];
-      final isPng = head.length >= 8 &&
+      final isPng =
+          head.length >= 8 &&
           List.generate(8, (i) => head[i]).toString() == pngMagic.toString();
       if (!isPng) {
         if (mounted) {
@@ -93,8 +97,11 @@ class _NotulenDefaultsSectionState
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Tidak bisa membaca berkas: $e',
-            type: ToastType.error);
+        AppToast.show(
+          context,
+          'Tidak bisa membaca berkas: $e',
+          type: ToastType.error,
+        );
       }
       return;
     }
@@ -108,7 +115,8 @@ class _NotulenDefaultsSectionState
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final notulen = settings.notulen;
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +182,7 @@ class _NotulenDefaultsSectionState
                     alignment: Alignment.centerRight,
                     child: FilledButton.icon(
                       onPressed: _save,
-                      icon: const Icon(Icons.save_outlined, size: IconSizes.md),
+                      icon: const Icon(AppIcons.save, size: IconSizes.md),
                       label: const Text('Simpan'),
                     ),
                   ),
@@ -183,11 +191,11 @@ class _NotulenDefaultsSectionState
             ),
             const SettingsDivider(),
             SettingsTile(
-              icon: Icons.image_outlined,
+              icon: AppIcons.image,
               label: 'Kop surat',
               subtitle: notulen.kopSuratPath.isEmpty
                   ? 'Belum dipilih. Tanpa gambar, kop ditulis sebagai teks '
-                      'dari nama instansi di atas.'
+                        'dari nama instansi di atas.'
                   : notulen.kopSuratPath,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -196,8 +204,7 @@ class _NotulenDefaultsSectionState
                     IconButton(
                       tooltip: 'Hapus kop surat',
                       constraints: TouchTarget.constraints,
-                      icon: const Icon(Icons.delete_outline,
-                          size: IconSizes.md),
+                      icon: const Icon(AppIcons.delete, size: IconSizes.md),
                       onPressed: () => ref
                           .read(settingsProvider.notifier)
                           .setNotulenDefaults(
@@ -207,8 +214,7 @@ class _NotulenDefaultsSectionState
                   IconButton(
                     tooltip: 'Pilih gambar kop surat',
                     constraints: TouchTarget.constraints,
-                    icon: const Icon(Icons.folder_open_outlined,
-                        size: IconSizes.md),
+                    icon: const Icon(AppIcons.folderOpen, size: IconSizes.md),
                     onPressed: _pickKopSurat,
                   ),
                 ],

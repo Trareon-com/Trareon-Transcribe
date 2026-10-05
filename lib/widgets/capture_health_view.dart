@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_tokens.dart';
 
 /// Indonesian label for a capture source id.
 String captureSourceLabel(String source) =>
@@ -28,7 +30,8 @@ class CaptureConfirmationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final health = this.health;
     if (health == null || health.channels.where((c) => c.expected).isEmpty) {
       return const SizedBox.shrink();
@@ -46,17 +49,17 @@ class CaptureConfirmationBadge extends StatelessWidget {
 
     final (icon, color, label) = switch (null) {
       _ when wentQuiet.isNotEmpty => (
-        Icons.warning_amber_rounded,
+        AppIcons.warning,
         colors.error,
         '${wentQuiet.join(' & ')} senyap',
       ),
       _ when confirmed => (
-        Icons.verified_outlined,
+        AppIcons.verified,
         colors.primary,
         'Rekaman terkonfirmasi',
       ),
       _ => (
-        Icons.hourglass_empty,
+        AppIcons.waiting,
         colors.textSecondary,
         'Menunggu suara dari ${unconfirmed.join(' & ')}',
       ),
@@ -73,9 +76,12 @@ class CaptureConfirmationBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 11)),
+            Icon(icon, size: IconSizes.xs, color: color),
+            Spacing.hXs,
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: FontSizes.micro),
+            ),
           ],
         ),
       ),
@@ -93,7 +99,8 @@ class CaptureIntegritySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final expected = health.channels.where((c) => c.expected).toList();
 
     return Column(
@@ -103,33 +110,39 @@ class CaptureIntegritySummary extends StatelessWidget {
         Text(
           'Durasi ${formatDurationId(health.elapsedSecs)} · '
           '${health.segmentCount} segmen transkrip',
-          style: TextStyle(color: colors.text, fontSize: 13),
+          style: TextStyle(color: colors.text, fontSize: FontSizes.body),
         ),
-        const SizedBox(height: 10),
+        Spacing.gapSm,
         if (expected.isEmpty)
           Text(
             'Tidak ada sumber audio yang diminta untuk sesi ini.',
-            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: FontSizes.caption,
+            ),
           )
         else
           for (final channel in expected) ...[
             _ChannelRow(channel: channel),
-            const SizedBox(height: 6),
+            Spacing.gapSm,
           ],
         if (health.warnings.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          Spacing.gapSm,
           for (final warning in health.warnings)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: Spacing.xs),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.error_outline, size: 15, color: colors.error),
-                  const SizedBox(width: 6),
+                  Icon(AppIcons.error, size: IconSizes.sm, color: colors.error),
+                  Spacing.hSm,
                   Expanded(
                     child: Text(
                       warning,
-                      style: TextStyle(color: colors.error, fontSize: 12),
+                      style: TextStyle(
+                        color: colors.error,
+                        fontSize: FontSizes.caption,
+                      ),
                     ),
                   ),
                 ],
@@ -148,17 +161,18 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final delivered = channel.confirmed;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
-          delivered ? Icons.check_circle_outline : Icons.cancel_outlined,
-          size: 16,
+          delivered ? AppIcons.check : AppIcons.cancel,
+          size: IconSizes.sm,
           color: delivered ? colors.primary : colors.error,
         ),
-        const SizedBox(width: 6),
+        Spacing.hSm,
         Expanded(
           child: Text(
             delivered
@@ -169,7 +183,7 @@ class _ChannelRow extends StatelessWidget {
                       'sekali (${formatDurationId(channel.secondsCaptured)} terekam)',
             style: TextStyle(
               color: delivered ? colors.textSecondary : colors.error,
-              fontSize: 12,
+              fontSize: FontSizes.caption,
             ),
           ),
         ),
@@ -189,7 +203,7 @@ Future<void> showCaptureIntegrityDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(
-        health.warnings.isEmpty ? 'Sesi selesai' : 'Sesi selesai — ada masalah',
+        health.warnings.isEmpty ? 'Sesi selesai' : 'Sesi selesai, ada masalah',
       ),
       content: SizedBox(
         width: 420,
@@ -199,7 +213,7 @@ Future<void> showCaptureIntegrityDialog(
           children: [
             CaptureIntegritySummary(health: health),
             if (!saved) ...[
-              const SizedBox(height: 10),
+              Spacing.gapSm,
               const Text('Transkrip belum tersimpan.'),
             ],
           ],

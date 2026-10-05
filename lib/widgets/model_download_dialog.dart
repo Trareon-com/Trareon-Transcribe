@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/bridge_service.dart';
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_tokens.dart';
 
 Future<bool> showModelDownloadDialog({
   required BuildContext context,
@@ -40,12 +41,13 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ModelDownloadDialog> createState() => _ModelDownloadDialogState();
+  ConsumerState<_ModelDownloadDialog> createState() =>
+      _ModelDownloadDialogState();
 }
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  String _status = 'Mengunduh...';
+  String _status = 'Mengunduh…';
   double _progress = 0.0;
   Stream<double>? _progressStream;
   StreamSubscription<double>? _progressSubscription;
@@ -65,7 +67,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
-      _status = 'Mengunduh ${widget.displayName}...';
+      _status = 'Mengunduh ${widget.displayName}…';
     });
 
     try {
@@ -87,7 +89,8 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _progress = progress;
-              _status = 'Mengunduh ${widget.displayName}... ${(progress * 100).toInt()}%';
+              _status =
+                  'Mengunduh ${widget.displayName}… ${(progress * 100).toInt()}%';
             });
           }
         },
@@ -120,7 +123,8 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return AlertDialog(
       backgroundColor: colors.surface,
@@ -136,27 +140,32 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
-            const SizedBox(height: 16),
+            Spacing.gapLg,
             LinearProgressIndicator(
               value: _progress,
               backgroundColor: colors.border,
               valueColor: AlwaysStoppedAnimation(colors.primary),
             ),
-            const SizedBox(height: 8),
-            Text(_status, style: TextStyle(color: colors.textTertiary, fontSize: 12)),
+            Spacing.gapSm,
+            Text(
+              _status,
+              style: TextStyle(
+                color: colors.textTertiary,
+                fontSize: FontSizes.caption,
+              ),
+            ),
           ],
         ],
       ),
       actions: [
         TextButton(
-          onPressed: _downloading ? null : () => Navigator.of(context).pop(false),
+          onPressed: _downloading
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
         ),
         if (!_downloading)
-          FilledButton(
-            onPressed: _startDownload,
-            child: const Text('Unduh'),
-          ),
+          FilledButton(onPressed: _startDownload, child: const Text('Unduh')),
       ],
     );
   }

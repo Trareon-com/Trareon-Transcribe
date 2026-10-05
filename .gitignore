@@ -25,6 +25,11 @@ rust_core/models/*.bin
 rust_core/models/*.gguf
 !models/.gitkeep
 
+# Golden diffs. `flutter test test/golden_test.dart` writes master/test/diff
+# PNGs here for every golden that does not match; they are debugging output for
+# the run that produced them, never a reviewable artefact.
+test/failures/
+
 # Generated test fixtures (regenerate via `cargo run --bin gen_fixtures`)
 test/fixtures/
 rust_core/test/fixtures/

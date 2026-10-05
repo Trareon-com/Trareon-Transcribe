@@ -19,24 +19,28 @@ import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_icons.dart';
+import '../theme/app_typography.dart';
 
 /// The capability table for the current settings.
 ///
 /// A `FutureProvider` keyed on the settings, so flipping a switch in
 /// Pengaturan and coming back here shows the new answer rather than a
 /// cached one.
-final capabilitiesProvider =
-    FutureProvider<List<rust_capabilities.Capability>>((ref) {
-  final settings = ref.watch(settingsProvider);
-  return ref.read(rustBridgeProvider).describeCapabilities(settings);
-});
+final capabilitiesProvider = FutureProvider<List<rust_capabilities.Capability>>(
+  (ref) {
+    final settings = ref.watch(settingsProvider);
+    return ref.read(rustBridgeProvider).describeCapabilities(settings);
+  },
+);
 
 class CapabilitiesScreen extends ConsumerWidget {
   const CapabilitiesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final rows = ref.watch(capabilitiesProvider);
 
     return Scaffold(
@@ -82,10 +86,10 @@ class CapabilitiesScreen extends ConsumerWidget {
 
 /// Indonesian label for where a capability runs.
 String runsAtLabel(rust_capabilities.RunsAt runsAt) => switch (runsAt) {
-      rust_capabilities.RunsAt.local => 'Lokal',
-      rust_capabilities.RunsAt.summaryEndpoint => 'Endpoint Anda',
-      rust_capabilities.RunsAt.internet => 'Internet',
-    };
+  rust_capabilities.RunsAt.local => 'Lokal',
+  rust_capabilities.RunsAt.summaryEndpoint => 'Endpoint Anda',
+  rust_capabilities.RunsAt.internet => 'Internet',
+};
 
 class _Intro extends StatelessWidget {
   const _Intro({required this.colors, required this.capabilities});
@@ -124,9 +128,9 @@ class _Intro extends StatelessWidget {
             networked.isEmpty
                 ? 'Tidak ada kemampuan yang memakai jaringan.'
                 : '${networked.length} kemampuan bisa memakai jaringan; '
-                    '$activeNetworked di antaranya aktif sekarang. '
-                    'Perekaman, transkripsi, dan ekspor tidak termasuk — '
-                    'itu tidak pernah memakai jaringan.',
+                      '$activeNetworked di antaranya aktif sekarang. '
+                      'Perekaman, transkripsi, dan ekspor tidak termasuk, '
+                      'itu tidak pernah memakai jaringan.',
             style: TextStyle(
               fontSize: FontSizes.caption,
               color: colors.textSecondary,
@@ -187,7 +191,7 @@ class _CapabilityRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  local ? Icons.computer_outlined : Icons.cloud_outlined,
+                  local ? AppIcons.computer : AppIcons.cloud,
                   size: IconSizes.md,
                   color: placeColor,
                 ),
@@ -261,7 +265,7 @@ class _CapabilityRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textTertiary,
-                      fontFamily: 'monospace',
+                      fontFamily: AppFonts.mono,
                     ),
                   ),
                 ],
@@ -283,7 +287,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.sm,
+        vertical: Spacing.xs / 2,
+      ),
       decoration: BoxDecoration(
         color: enabled
             ? colors.primary.withValues(alpha: 0.12)

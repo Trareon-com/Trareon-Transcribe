@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'l10n/generated/app_localizations.dart';
 import 'screens/main_screen.dart';
@@ -10,21 +7,28 @@ import 'screens/onboarding_screen.dart';
 import 'services/flight_recorder_service.dart';
 import 'services/rust_library_loader.dart';
 import 'services/tray_service.dart';
+import 'services/window_service.dart';
 import 'src/rust/api.dart' as rust_api;
 import 'src/rust/error.dart' show TranscribeError_InvalidInput;
 import 'src/rust/frb_generated.dart';
 import 'state/models.dart';
 import 'state/onboarding_model.dart';
 import 'state/settings_model.dart';
+import 'theme/app_icons.dart';
+import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_tokens.dart';
+import 'widgets/platform_chrome.dart';
 import 'widgets/setup_overlay.dart';
 
-/// Smallest window the layout is designed to survive. The audit verified
-/// no overflow at 800x600; below that the control bar and the library grid
-/// clip. macOS enforces a minimum from the app bundle, Linux and Windows
-/// had none, so a user could drag the window down to nothing and lose the
-/// record button off the edge.
-const Size kMinimumWindowSize = Size(800, 600);
+/// Smallest window the layout is designed to survive, and the size a first
+/// launch opens at. Both live in `WindowSizes` so the layout tests and the
+/// design system cannot disagree with the runtime about them.
+///
+/// macOS enforces a minimum from the app bundle; Linux and Windows had none,
+/// so a user could drag the window down to nothing and lose the record button
+/// off the edge.
+const Size kMinimumWindowSize = WindowSizes.minimum;
 
 /// Indonesian-first locale resolution. Flutter's default
 /// `basicLocaleListResolution` falls back to `supportedLocales.first`, which
@@ -44,20 +48,12 @@ Locale resolveLocale(List<Locale>? preferred, Iterable<Locale> supported) {
       : (supported.isNotEmpty ? supported.first : fallback);
 }
 
-Future<void> _applyWindowConstraints() async {
-  if (!(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) return;
-  try {
-    await windowManager.ensureInitialized();
-    await windowManager.setMinimumSize(kMinimumWindowSize);
-  } catch (_) {
-    // A window manager that refuses the constraint must not stop the app
-    // from launching — the layout is merely croppable, not broken.
-  }
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _applyWindowConstraints();
+  // Geometry, minimum size and platform chrome, plus the saved size and
+  // position from last launch (see services/window_service.dart).
+  await configureWindow();
+  WindowGeometryRecorder.instance.install();
   await RustLib.init(externalLibrary: tryLoadRustCoreLibrary());
   await rust_api.initLogging();
   // The flight recorder has existed in the engine since the first release
@@ -101,25 +97,22 @@ class _AlreadyRunningApp extends StatelessWidget {
           return Scaffold(
             body: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(Spacing.xl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.info_outline, size: 48),
-                    const SizedBox(height: 16),
+                    const Icon(AppIcons.info, size: IconSizes.hero),
+                    Spacing.gapLg,
                     Text(
                       l10n.alreadyRunningTitle,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: FontSizes.title,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.alreadyRunningBody,
-                      textAlign: TextAlign.center,
-                    ),
+                    Spacing.gapSm,
+                    Text(l10n.alreadyRunningBody, textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -161,8 +154,12 @@ class TranscribeApp extends ConsumerWidget {
         AppThemeMode.light => ThemeMode.light,
         AppThemeMode.system => ThemeMode.system,
       },
-      themeAnimationDuration: const Duration(milliseconds: 300),
-      themeAnimationCurve: Curves.easeInOut,
+      themeAnimationDuration: Motion.slow,
+      themeAnimationCurve: AppEasing.standard,
+      // Every route, not just the main screen: hiding the native title bar
+      // hides it everywhere, so the chrome has to be above the navigator.
+      builder: (context, child) =>
+          WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
       // First-launch routing: when models aren't downloaded yet, show the
       // dedicated onboarding/download screen. SetupWizardScreen is reached
       // from Settings → "Jalankan Ulang Penyiapan".

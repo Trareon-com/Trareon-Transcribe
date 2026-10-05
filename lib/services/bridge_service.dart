@@ -42,6 +42,7 @@ abstract class RustBridge {
   /// not be opened at start, or one that died while recording. Surfaced as a
   /// toast; without it a half-dead session looks identical to a quiet one.
   Stream<SessionNotice> noticeStream(String sessionId);
+
   /// Sessions left behind by a crash, each with what is actually
   /// recoverable for it (segment count, audio seconds per source) rather
   /// than just the configuration the snapshot stored.
@@ -359,7 +360,9 @@ abstract class RustBridge {
 
   /// Section headings a built-in summary template asks for — the starting
   /// point when the user duplicates it (F8).
-  Future<List<String>> summaryTemplateHeadings(rust_summary.SummaryTemplate template);
+  Future<List<String>> summaryTemplateHeadings(
+    rust_summary.SummaryTemplate template,
+  );
 
   /// Composes a user template's instruction from its prose plus its headings.
   Future<String> composeSummaryInstruction({
@@ -381,23 +384,24 @@ abstract class RustBridge {
 
 /// A glossary that changes nothing — the default for every call site that
 /// does not opt in.
-const rust_glossary.GlossaryConfig kEmptyGlossary = rust_glossary.GlossaryConfig(
-  sessionTerms: [],
-  globalTerms: [],
-  postCorrection: false,
-);
+const rust_glossary.GlossaryConfig kEmptyGlossary =
+    rust_glossary.GlossaryConfig(
+      sessionTerms: [],
+      globalTerms: [],
+      postCorrection: false,
+    );
 
 /// "Nothing is missing." Used by every bridge that does no real coverage
 /// check, so a stand-in can never leave the UI stuck at "Menyelesaikan
 /// transkrip…" with nothing able to finish it.
 const rust_coverage.CoverageReport kCompleteCoverage =
     rust_coverage.CoverageReport(
-  coveredSecs: 0,
-  totalSecs: 0,
-  fraction: 1,
-  gaps: [],
-  missingSecs: 0,
-);
+      coveredSecs: 0,
+      totalSecs: 0,
+      fraction: 1,
+      gaps: [],
+      missingSecs: 0,
+    );
 
 /// Shared conversion so every bridge method sends the same Segment shape.
 rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
@@ -493,7 +497,8 @@ TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
 
 class RustBridgeMock implements RustBridge {
   final _random = Random();
-  final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
+  final Map<String, StreamController<TranscriptSegment>>
+  _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
   final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _timers = {};
@@ -502,7 +507,8 @@ class RustBridgeMock implements RustBridge {
   @override
   Future<String> startSession(SessionConfig config) async {
     final id = 'mock-session-${DateTime.now().millisecondsSinceEpoch}';
-    final transcriptController = StreamController<TranscriptSegment>.broadcast();
+    final transcriptController =
+        StreamController<TranscriptSegment>.broadcast();
     final vuController = StreamController<VuLevel>.broadcast();
     _transcriptControllers[id] = transcriptController;
     _vuControllers[id] = vuController;
@@ -512,7 +518,10 @@ class RustBridgeMock implements RustBridge {
     _timers[id] = Timer.periodic(const Duration(milliseconds: 500), (_) {
       elapsed += 0.5;
       vuController.add(
-        VuLevel(micLevel: _random.nextDouble(), speakerLevel: _random.nextDouble()),
+        VuLevel(
+          micLevel: _random.nextDouble(),
+          speakerLevel: _random.nextDouble(),
+        ),
       );
       if (elapsed.toInt() % 3 == 0) {
         transcriptController.add(
@@ -564,8 +573,8 @@ class RustBridgeMock implements RustBridge {
   }
 
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<void> deleteRecoverableSession(String sessionId) async {}
@@ -631,65 +640,70 @@ class RustBridgeMock implements RustBridge {
   Future<void> downloadModel(String modelsDir, String modelId) async {}
 
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [
-        rust_model.ModelInfo(
-          id: 'base',
-          name: 'base (ggml-base.bin)',
-          url: '',
-          sha256: '',
-          sizeBytes: BigInt.from(148897024),
-          minRamGb: 1,
-          isBundled: true,
-        ),
-        rust_model.ModelInfo(
-          id: 'large-v3-turbo-q5',
-          name: 'large-v3-turbo-q5 (ggml-large-v3-turbo-q5_0.bin)',
-          url: '',
-          sha256: '',
-          sizeBytes: BigInt.from(574619648),
-          minRamGb: 4,
-          isBundled: true,
-        ),
-      ];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [
+    rust_model.ModelInfo(
+      id: 'base',
+      name: 'base (ggml-base.bin)',
+      url: '',
+      sha256: '',
+      sizeBytes: BigInt.from(148897024),
+      minRamGb: 1,
+      isBundled: true,
+    ),
+    rust_model.ModelInfo(
+      id: 'large-v3-turbo-q5',
+      name: 'large-v3-turbo-q5 (ggml-large-v3-turbo-q5_0.bin)',
+      url: '',
+      sha256: '',
+      sizeBytes: BigInt.from(574619648),
+      minRamGb: 4,
+      isBundled: true,
+    ),
+  ];
 
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
 
   @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => [
-        rust_device.AudioDeviceInfo(
-          name: 'Built-in Microphone',
-          deviceId: 'mic-1',
-          isDefault: true,
-          channels: 1,
-          sampleRates: Uint32List.fromList([16000, 44100, 48000]),
-        ),
-      ];
+    rust_device.AudioDeviceInfo(
+      name: 'Built-in Microphone',
+      deviceId: 'mic-1',
+      isDefault: true,
+      channels: 1,
+      sampleRates: Uint32List.fromList([16000, 44100, 48000]),
+    ),
+  ];
 
   @override
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => [
-        rust_device.AudioDeviceInfo(
-          name: 'Built-in Speakers',
-          deviceId: 'spk-1',
-          isDefault: true,
-          channels: 2,
-          sampleRates: Uint32List.fromList([16000, 44100, 48000]),
-        ),
-        rust_device.AudioDeviceInfo(
-          name: 'BlackHole 2ch',
-          deviceId: 'spk-2',
-          isDefault: false,
-          channels: 2,
-          sampleRates: Uint32List.fromList([16000, 44100, 48000]),
-        ),
-      ];
+    rust_device.AudioDeviceInfo(
+      name: 'Built-in Speakers',
+      deviceId: 'spk-1',
+      isDefault: true,
+      channels: 2,
+      sampleRates: Uint32List.fromList([16000, 44100, 48000]),
+    ),
+    rust_device.AudioDeviceInfo(
+      name: 'BlackHole 2ch',
+      deviceId: 'spk-2',
+      isDefault: false,
+      channels: 2,
+      sampleRates: Uint32List.fromList([16000, 44100, 48000]),
+    ),
+  ];
 
   @override
   Future<String> detectFrontmostWindowTitle() async => ''; // Mock: no real window detection
 
   @override
-  Stream<double> downloadProgress() =>
-      Stream.periodic(const Duration(milliseconds: 300), (i) => (i + 1) / 10.0).take(10);
+  Stream<double> downloadProgress() => Stream.periodic(
+    const Duration(milliseconds: 300),
+    (i) => (i + 1) / 10.0,
+  ).take(10);
 
   @override
   Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
@@ -845,8 +859,9 @@ class RustBridgeMock implements RustBridge {
     required String libraryPath,
     required String question,
     required rust_summary.SummaryConfig config,
-  }) async =>
-      throw UnsupportedError('RustBridgeMock does not answer archive questions');
+  }) async => throw UnsupportedError(
+    'RustBridgeMock does not answer archive questions',
+  );
 
   /// The mock never performs I/O of any kind — a test that reaches the
   /// summary path must fail loudly rather than silently hit a real endpoint.
@@ -890,9 +905,8 @@ class RustBridgeMock implements RustBridge {
   }) async => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
 
   @override
-  Future<String> actionItemsToCsv(
-    List<rust_actions.ActionItem> items,
-  ) async => '';
+  Future<String> actionItemsToCsv(List<rust_actions.ActionItem> items) async =>
+      '';
 
   @override
   Future<rust_provenance.SummaryProvenance> summaryProvenance({
@@ -928,7 +942,9 @@ class RustBridgeMock implements RustBridge {
   /// Mirrors the Rust parser closely enough for widget tests: the sections the
   /// notulen form prefills from, without a real engine.
   @override
-  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary) async {
+  Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(
+    String summary,
+  ) async {
     final keputusan = <String>[];
     var section = '';
     for (final raw in summary.split('\n')) {
@@ -954,10 +970,10 @@ class RustBridgeMock implements RustBridge {
     required rust_glossary.GlossaryConfig glossary,
     String contextTail = '',
   }) async {
-    final terms = [...glossary.sessionTerms, ...glossary.globalTerms]
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final terms = [
+      ...glossary.sessionTerms,
+      ...glossary.globalTerms,
+    ].map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
     return rust_api.GlossaryPromptInfo(
       prompt: terms.isEmpty ? contextTail : 'Istilah: ${terms.join(', ')}.',
       termsUsed: terms.length,
@@ -973,8 +989,10 @@ class RustBridgeMock implements RustBridge {
       .toList();
 
   @override
-  Future<String> renderGlossaryFile(List<String> terms, {bool csv = false}) async =>
-      '${csv ? 'istilah\n' : ''}${terms.join('\n')}\n';
+  Future<String> renderGlossaryFile(
+    List<String> terms, {
+    bool csv = false,
+  }) async => '${csv ? 'istilah\n' : ''}${terms.join('\n')}\n';
 
   @override
   Future<List<String>> summaryTemplateHeadings(
@@ -1020,7 +1038,8 @@ String _mmss(double seconds) {
 /// `state/models.dart` and the generated types 1:1.
 ///
 class RustEngineBridge implements RustBridge {
-  final Map<String, StreamController<TranscriptSegment>> _transcriptControllers = {};
+  final Map<String, StreamController<TranscriptSegment>>
+  _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
   final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
   final Map<String, Timer> _pollTimers = {};
@@ -1035,8 +1054,8 @@ class RustEngineBridge implements RustBridge {
   /// matters in [stopSession] — the Dart plumbing is torn down even when the
   /// engine call throws — is otherwise unreachable from a unit test.
   @visibleForTesting
-  Future<void> Function(String sessionId) stopEngineSession =
-      (sessionId) => rust_api.stopSession(sessionId: sessionId);
+  Future<void> Function(String sessionId) stopEngineSession = (sessionId) =>
+      rust_api.stopSession(sessionId: sessionId);
 
   /// How many live sessions still hold Dart-side stream controllers.
   /// Exposed so a test can see the leak this file used to have.
@@ -1053,7 +1072,9 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Future<String> startSession(SessionConfig config) async {
-    final id = await rust_api.startSession(config: _toRustSessionConfig(config));
+    final id = await rust_api.startSession(
+      config: _toRustSessionConfig(config),
+    );
     _openSessionStreams(id);
     return id;
   }
@@ -1063,11 +1084,14 @@ class RustEngineBridge implements RustBridge {
   /// session is a running session, and without this it produced no
   /// transcript events at all.
   void _openSessionStreams(String id) {
-    _transcriptControllers[id] = StreamController<TranscriptSegment>.broadcast();
+    _transcriptControllers[id] =
+        StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
     _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
-    _pollTimers[id] =
-        Timer.periodic(const Duration(milliseconds: 200), (_) => _poll(id));
+    _pollTimers[id] = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) => _poll(id),
+    );
   }
 
   @override
@@ -1166,33 +1190,42 @@ class RustEngineBridge implements RustBridge {
       for (final event in events) {
         event.when(
           transcript: (segment) {
-            if (!paused) _transcriptControllers[sessionId]?.add(_fromRustSegment(segment));
+            if (!paused) {
+              _transcriptControllers[sessionId]?.add(_fromRustSegment(segment));
+            }
           },
           vu: (source, level) {
             if (!paused) {
               hasVu = true;
-              if (source == 'mic') { _lastMicLevels[sessionId] = level; }
-              else if (source == 'spk') { _lastSpeakerLevels[sessionId] = level; }
+              if (source == 'mic') {
+                _lastMicLevels[sessionId] = level;
+              } else if (source == 'spk') {
+                _lastSpeakerLevels[sessionId] = level;
+              }
             }
           },
           // Delivered even while paused: a source that just died is news
           // regardless, and unlike a segment it cannot be replayed later.
           notice: (level, source, message) {
-            _noticeControllers[sessionId]?.add(SessionNotice(
-              level: level == rust_session.NoticeLevel.error
-                  ? SessionNoticeLevel.error
-                  : SessionNoticeLevel.warning,
-              source: source,
-              message: message,
-            ));
+            _noticeControllers[sessionId]?.add(
+              SessionNotice(
+                level: level == rust_session.NoticeLevel.error
+                    ? SessionNoticeLevel.error
+                    : SessionNoticeLevel.warning,
+                source: source,
+                message: message,
+              ),
+            );
           },
         );
       }
       if (hasVu) {
-        _vuControllers[sessionId]?.add(VuLevel(
-          micLevel: _lastMicLevels[sessionId] ?? 0.0,
-          speakerLevel: _lastSpeakerLevels[sessionId] ?? 0.0,
-        ));
+        _vuControllers[sessionId]?.add(
+          VuLevel(
+            micLevel: _lastMicLevels[sessionId] ?? 0.0,
+            speakerLevel: _lastSpeakerLevels[sessionId] ?? 0.0,
+          ),
+        );
       }
     } on Object catch (_) {
       // Session shutdown races with the 200ms poll timer are expected.
@@ -1228,7 +1261,8 @@ class RustEngineBridge implements RustBridge {
       rust_api.isModelDownloaded(modelsDir: modelsDir, modelId: modelId);
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() => rust_api.listAudioDevices();
+  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() =>
+      rust_api.listAudioDevices();
 
   /// Playback devices, not capture ones. This used to call
   /// [listAudioDevices], so the "Pengeras Suara" picker offered the user a
@@ -1259,16 +1293,15 @@ class RustEngineBridge implements RustBridge {
     int gpuDevice = 0,
     rust_glossary.GlossaryConfig glossary = kEmptyGlossary,
     int speakerHint = 0,
-  }) =>
-      rust_api.transcribeFilesBatch(
-        modelPath: modelPath,
-        files: files,
-        language: language,
-        gpuEnabled: gpuEnabled,
-        gpuDevice: gpuDevice,
-        glossary: glossary,
-        speakerHint: speakerHint,
-      );
+  }) => rust_api.transcribeFilesBatch(
+    modelPath: modelPath,
+    files: files,
+    language: language,
+    gpuEnabled: gpuEnabled,
+    gpuDevice: gpuDevice,
+    glossary: glossary,
+    speakerHint: speakerHint,
+  );
 
   @override
   Future<List<rust_export.ExportedFile>> exportSession({
@@ -1481,10 +1514,8 @@ class RustEngineBridge implements RustBridge {
   Future<void> archiveForgetSession({
     required String libraryPath,
     required String dirPath,
-  }) => rust_api.archiveForgetSession(
-    libraryPath: libraryPath,
-    dirPath: dirPath,
-  );
+  }) =>
+      rust_api.archiveForgetSession(libraryPath: libraryPath, dirPath: dirPath);
 
   @override
   Future<List<rust_archive.ArchiveHit>> archiveSearch({
@@ -1650,11 +1681,12 @@ class RustEngineBridge implements RustBridge {
     SessionMode.offline => rust_audio.SessionMode.offline,
   };
 
-  SessionMode _fromRustSessionMode(rust_audio.SessionMode mode) => switch (mode) {
-    rust_audio.SessionMode.webinar => SessionMode.webinar,
-    rust_audio.SessionMode.online => SessionMode.online,
-    rust_audio.SessionMode.offline => SessionMode.offline,
-  };
+  SessionMode _fromRustSessionMode(rust_audio.SessionMode mode) =>
+      switch (mode) {
+        rust_audio.SessionMode.webinar => SessionMode.webinar,
+        rust_audio.SessionMode.online => SessionMode.online,
+        rust_audio.SessionMode.offline => SessionMode.offline,
+      };
 
   AppSettings _fromRustSettings(rust_settings.AppSettings settings) {
     return AppSettings(

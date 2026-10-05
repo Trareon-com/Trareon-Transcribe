@@ -30,15 +30,16 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
   @override
-  Stream<TranscriptSegment> transcriptStream(String sessionId) => const Stream.empty();
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      const Stream.empty();
   @override
   Stream<VuLevel> vuMeterStream(String sessionId) => const Stream.empty();
 
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
-  Future<List<rust_session.RecoverableSession>> listRecoverableSessions() async =>
-      const [];
+  Future<List<rust_session.RecoverableSession>>
+  listRecoverableSessions() async => const [];
 
   @override
   Future<rust_session.RecoveredSession> recoverSession(
@@ -77,18 +78,26 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Future<AppSettings> loadSettings() async => savedSettings;
   @override
-  Future<void> saveSettings(AppSettings settings) async { savedSettings = settings; }
+  Future<void> saveSettings(AppSettings settings) async {
+    savedSettings = settings;
+  }
+
   @override
   Future<void> downloadModel(String modelsDir, String modelId) async {}
   @override
-  Future<List<rust_model.ModelInfo>> listAvailableModels(String modelsDir) async => [];
+  Future<List<rust_model.ModelInfo>> listAvailableModels(
+    String modelsDir,
+  ) async => [];
   @override
-  Future<bool> isModelDownloaded(String modelsDir, String modelId) async => false;
+  Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
+      false;
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
+      const [];
 
   @override
-  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async => const [];
+  Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices() async =>
+      const [];
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
 
@@ -140,9 +149,9 @@ class _FailingSaveBridge extends _TestBridge {
 }
 
 Widget _host(RustBridge bridge) => ProviderScope(
-      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
-      child: const MaterialApp(home: SettingsScreen()),
-    );
+  overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+  child: const MaterialApp(home: SettingsScreen()),
+);
 
 void _sizeViewport(WidgetTester tester, Size size) {
   tester.view.physicalSize = size;
@@ -151,44 +160,47 @@ void _sizeViewport(WidgetTester tester, Size size) {
 }
 
 void main() {
-  testWidgets('two panes: a category list on the left, its content on the right',
-      (WidgetTester tester) async {
-    _sizeViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(_host(_TestBridge()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'two panes: a category list on the left, its content on the right',
+    (WidgetTester tester) async {
+      _sizeViewport(tester, const Size(1440, 900));
+      await tester.pumpWidget(_host(_TestBridge()));
+      await tester.pumpAndSettle();
 
-    // Every category is reachable from the rail without scrolling a
-    // single long column.
-    for (final label in [
-      'Tampilan',
-      'Model & Mode',
-      'Audio & Suara',
-      'Penyimpanan',
-      'Ringkasan AI',
-      'Kepatuhan PDP',
-      'Penyiapan & Diagnostik',
-      'Tentang',
-    ]) {
-      expect(find.text(label), findsWidgets, reason: 'rail entry $label');
-    }
+      // Every category is reachable from the rail without scrolling a
+      // single long column.
+      for (final label in [
+        'Tampilan',
+        'Model & Mode',
+        'Audio & Suara',
+        'Penyimpanan',
+        'Ringkasan AI',
+        'Kepatuhan PDP',
+        'Penyiapan & Diagnostik',
+        'Tentang',
+      ]) {
+        expect(find.text(label), findsWidgets, reason: 'rail entry $label');
+      }
 
-    // The default pane is Tampilan; Model & Mode is one click away.
-    expect(find.text('Tema'), findsOneWidget);
-    expect(find.text('Model default'), findsNothing);
+      // The default pane is Tampilan; Model & Mode is one click away.
+      expect(find.text('Tema'), findsOneWidget);
+      expect(find.text('Model default'), findsNothing);
 
-    await tester.tap(find.text('Model & Mode'));
-    await tester.pumpAndSettle();
-    expect(find.text('Model default'), findsOneWidget);
-    expect(find.text('Bahasa'), findsOneWidget);
+      await tester.tap(find.text('Model & Mode'));
+      await tester.pumpAndSettle();
+      expect(find.text('Model default'), findsOneWidget);
+      expect(find.text('Bahasa'), findsOneWidget);
 
-    await tester.tap(find.text('Audio & Suara'));
-    await tester.pumpAndSettle();
-    expect(find.text('Abaikan jeda sunyi'), findsOneWidget);
-    expect(find.text('Hapus suara ganda'), findsOneWidget);
-  });
+      await tester.tap(find.text('Audio & Suara'));
+      await tester.pumpAndSettle();
+      expect(find.text('Abaikan jeda sunyi'), findsOneWidget);
+      expect(find.text('Hapus suara ganda'), findsOneWidget);
+    },
+  );
 
-  testWidgets('both panes still fit at the 800x600 minimum window',
-      (WidgetTester tester) async {
+  testWidgets('both panes still fit at the 800x600 minimum window', (
+    WidgetTester tester,
+  ) async {
     _sizeViewport(tester, const Size(800, 600));
     await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
@@ -203,8 +215,9 @@ void main() {
     expect(tester.takeException(), isNull, reason: 'no overflow at 800x600');
   });
 
-  testWidgets('a very narrow window falls back to a chip strip',
-      (WidgetTester tester) async {
+  testWidgets('a very narrow window falls back to a chip strip', (
+    WidgetTester tester,
+  ) async {
     _sizeViewport(tester, const Size(560, 600));
     await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
@@ -216,8 +229,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the setup wizard and diagnostics are reachable from Settings',
-      (WidgetTester tester) async {
+  testWidgets('the setup wizard and diagnostics are reachable from Settings', (
+    WidgetTester tester,
+  ) async {
     _sizeViewport(tester, const Size(1440, 900));
     await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
@@ -244,8 +258,9 @@ void main() {
     expect(find.text('Jalankan Ulang Penyiapan'), findsOneWidget);
   });
 
-  testWidgets('a failed save rolls back and says so, with a retry',
-      (WidgetTester tester) async {
+  testWidgets('a failed save rolls back and says so, with a retry', (
+    WidgetTester tester,
+  ) async {
     _sizeViewport(tester, const Size(1440, 900));
     final bridge = _FailingSaveBridge();
     await tester.pumpWidget(_host(bridge));
@@ -274,8 +289,9 @@ void main() {
     expect(bridge.savedSettings.vadEnabled, !before);
   });
 
-  testWidgets('the GPU helper describes the machine, not the switch',
-      (WidgetTester tester) async {
+  testWidgets('the GPU helper describes the machine, not the switch', (
+    WidgetTester tester,
+  ) async {
     _sizeViewport(tester, const Size(1440, 900));
     await tester.pumpWidget(_host(_TestBridge()));
     await tester.pumpAndSettle();
@@ -286,8 +302,10 @@ void main() {
     // Without the native engine the capability is unknown, so the text
     // must stay conditional instead of asserting "menggunakan GPU".
     expect(find.textContaining('Transkripsi memakai CPU'), findsOneWidget);
-    expect(find.textContaining('menggunakan GPU (Vulkan/CUDA/Metal)'),
-        findsNothing);
+    expect(
+      find.textContaining('menggunakan GPU (Vulkan/CUDA/Metal)'),
+      findsNothing,
+    );
   });
 
   testWidgets('theme dropdown is present', (WidgetTester tester) async {

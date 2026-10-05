@@ -75,8 +75,9 @@ void main() {
     headings: headings,
   );
 
-  testWidgets('a custom template is listed with its section headings',
-      (tester) async {
+  testWidgets('a custom template is listed with its section headings', (
+    tester,
+  ) async {
     await pumpManager(tester, initial: [template()]);
 
     expect(find.text('Notulen Dinas saya'), findsOneWidget);
@@ -84,14 +85,16 @@ void main() {
     expect(find.text('Belum ada template buatan sendiri.'), findsNothing);
   });
 
-  testWidgets('the empty state says so rather than showing a blank list',
-      (tester) async {
+  testWidgets('the empty state says so rather than showing a blank list', (
+    tester,
+  ) async {
     await pumpManager(tester);
     expect(find.text('Belum ada template buatan sendiri.'), findsOneWidget);
   });
 
-  testWidgets('duplicating adds a second template instead of replacing it',
-      (tester) async {
+  testWidgets('duplicating adds a second template instead of replacing it', (
+    tester,
+  ) async {
     final notifier = await pumpManager(tester, initial: [template()]);
 
     await tester.tap(find.byTooltip('Duplikat Notulen Dinas saya'));
@@ -111,30 +114,32 @@ void main() {
     expect(saved[1].headings, ['Pembahasan', 'Keputusan']);
   });
 
-  testWidgets('editing saves under the same id, so there is still one template',
-      (tester) async {
-    final notifier = await pumpManager(tester, initial: [template()]);
+  testWidgets(
+    'editing saves under the same id, so there is still one template',
+    (tester) async {
+      final notifier = await pumpManager(tester, initial: [template()]);
 
-    await tester.tap(find.byTooltip('Ubah Notulen Dinas saya'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Ubah Notulen Dinas saya'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Nama template'),
-      'Notulen Ringkas saya',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Judul bagian (satu per baris)'),
-      'Pembahasan\nTindak Lanjut',
-    );
-    await tester.tap(find.text('Simpan'));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Nama template'),
+        'Notulen Ringkas saya',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Judul bagian (satu per baris)'),
+        'Pembahasan\nTindak Lanjut',
+      );
+      await tester.tap(find.text('Simpan'));
+      await tester.pumpAndSettle();
 
-    final saved = notifier.state.summaryTemplates;
-    expect(saved.length, 1, reason: 'an edit must not fork the template');
-    expect(saved.single.id, 'tpl-1');
-    expect(saved.single.name, 'Notulen Ringkas saya');
-    expect(saved.single.headings, ['Pembahasan', 'Tindak Lanjut']);
-  });
+      final saved = notifier.state.summaryTemplates;
+      expect(saved.length, 1, reason: 'an edit must not fork the template');
+      expect(saved.single.id, 'tpl-1');
+      expect(saved.single.name, 'Notulen Ringkas saya');
+      expect(saved.single.headings, ['Pembahasan', 'Tindak Lanjut']);
+    },
+  );
 
   testWidgets('cancelling the editor changes nothing', (tester) async {
     final notifier = await pumpManager(tester, initial: [template()]);
@@ -166,8 +171,9 @@ void main() {
     expect(notifier.state.summaryTemplates.map((t) => t.id), ['tpl-2']);
   });
 
-  testWidgets('a built-in can be duplicated into an editable copy',
-      (tester) async {
+  testWidgets('a built-in can be duplicated into an editable copy', (
+    tester,
+  ) async {
     final notifier = await pumpManager(tester);
 
     // "Mulai dari template bawaan" offers one chip per built-in.
@@ -188,14 +194,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notifier.state.summaryTemplates.length, 1);
-    expect(
-      notifier.state.summaryTemplates.single.name,
-      'Notulen Rapat (saya)',
-    );
+    expect(notifier.state.summaryTemplates.single.name, 'Notulen Rapat (saya)');
   });
 
-  testWidgets('a template created from nothing starts with a usable name',
-      (tester) async {
+  testWidgets('a template created from nothing starts with a usable name', (
+    tester,
+  ) async {
     final notifier = await pumpManager(tester);
 
     await tester.tap(find.byTooltip('Buat template dari nol'));

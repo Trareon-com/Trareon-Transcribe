@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/state/models.dart';
-import 'package:transcribe/widgets/mode_selector.dart';
 import 'package:transcribe/widgets/session_sidebar.dart';
 
 import 'test_helpers.dart';
@@ -16,15 +15,16 @@ void main() {
   }
 
   group('MainScreen layout', () {
-    testWidgets('the session sidebar is permanent, with search and Sesi baru',
-        (WidgetTester tester) async {
+    testWidgets('the session sidebar is permanent, with search and Sesi baru', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
       // Session history used to be behind an unlabelled folder icon.
       expect(find.byType(SessionSidebar), findsOneWidget);
-      expect(find.text('Sesi baru'), findsOneWidget);
+      expect(find.text('Sesi Baru'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(SessionSidebar),
@@ -37,8 +37,9 @@ void main() {
       expect(find.text('Kelola perpustakaan'), findsOneWidget);
     });
 
-    testWidgets('the empty workspace offers exactly one primary action',
-        (WidgetTester tester) async {
+    testWidgets('the empty workspace offers exactly one primary action', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -49,35 +50,49 @@ void main() {
       expect(find.text('Ekspor'), findsNothing);
     });
 
-    testWidgets('controls are grouped into Sesi and Perangkat',
-        (WidgetTester tester) async {
+    testWidgets('the idle hero explains each capture mode', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('SESI'), findsOneWidget);
-      expect(find.text('PERANGKAT'), findsOneWidget);
-      expect(find.byType(ModeSelector), findsOneWidget);
+      // Sprint 5: the idle screen is a hero, so the mode decision is three
+      // explained cards rather than a segmented control buried in a nine
+      // control toolbar, and the capture chips sit under them.
+      for (final mode in ['Rapat Offline', 'Rapat Online', 'Webinar']) {
+        expect(find.text(mode), findsOneWidget);
+      }
+      expect(
+        find.text('Zoom, Meet atau Teams. Mikrofon dan suara sistem.'),
+        findsOneWidget,
+        reason: 'each mode card says what it actually captures',
+      );
       expect(find.text('Mikrofon'), findsWidgets);
       expect(find.text('Suara sistem'), findsWidgets);
-      // The quality switch moved out of the title row into session options.
-      expect(find.text('Cepat'), findsOneWidget);
     });
 
-    testWidgets('at the 800x600 minimum window both panes still fit',
-        (WidgetTester tester) async {
-      await tester.binding.setSurfaceSize(const Size(800, 600));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(buildTestApp());
-      await tester.pumpAndSettle();
+    testWidgets(
+      'at 800x600, below the supported minimum, both panes still fit',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(buildTestApp());
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull, reason: 'no overflow at 800x600');
-      expect(find.byType(SessionSidebar), findsOneWidget);
-      expect(find.text('Mulai Rekam'), findsOneWidget);
-    });
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'no overflow at 800x600',
+        );
+        expect(find.byType(SessionSidebar), findsOneWidget);
+        expect(find.text('Mulai Rekam'), findsOneWidget);
+      },
+    );
 
-    testWidgets('below the supported minimum the sidebar becomes a drawer',
-        (WidgetTester tester) async {
+    testWidgets('below the supported minimum the sidebar becomes a drawer', (
+      WidgetTester tester,
+    ) async {
       await tester.binding.setSurfaceSize(const Size(600, 600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(buildTestApp());
@@ -88,11 +103,12 @@ void main() {
 
       await tester.tap(find.byTooltip('Riwayat sesi'));
       await tester.pumpAndSettle();
-      expect(find.text('Sesi baru'), findsOneWidget);
+      expect(find.text('Sesi Baru'), findsOneWidget);
     });
 
-    testWidgets('renders without overflow at 1280x720 and 1920x1080',
-        (WidgetTester tester) async {
+    testWidgets('renders without overflow at 1280x720 and 1920x1080', (
+      WidgetTester tester,
+    ) async {
       for (final size in [const Size(1280, 720), const Size(1920, 1080)]) {
         await tester.binding.setSurfaceSize(size);
         await tester.pumpWidget(buildTestApp());
@@ -105,34 +121,46 @@ void main() {
   });
 
   group('MainScreen widget tests', () {
-    testWidgets('starting a session switches button to Stop', (WidgetTester tester) async {
+    testWidgets('starting a session switches button to Stop', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Mulai'));
+      await tester.tap(find.text('Mulai Rekam'));
       await tester.pump();
 
       expect(find.text('Berhenti'), findsOneWidget);
     });
 
-    testWidgets('settings icon navigates to settings screen', (WidgetTester tester) async {
+    testWidgets('settings icon navigates to settings screen', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Pengaturan (Ctrl+,)'));
+      // Settings is a destination in the sidebar footer now, next to the
+      // other three; it lost its place in the brand row because two icon
+      // buttons there truncated the wordmark.
+      await tester.tap(find.text('Pengaturan'));
       await tester.pumpAndSettle();
 
       expect(find.text('Tema'), findsOneWidget);
     });
 
-    testWidgets('settings screen navigates into Privacy Report', (WidgetTester tester) async {
+    testWidgets('settings screen navigates into Privacy Report', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Pengaturan (Ctrl+,)'));
+      // Settings is a destination in the sidebar footer now, next to the
+      // other three; it lost its place in the brand row because two icon
+      // buttons there truncated the wordmark.
+      await tester.tap(find.text('Pengaturan'));
       await tester.pumpAndSettle();
 
       // Settings is two panes now: the Privacy Report tile lives under
@@ -146,7 +174,9 @@ void main() {
       expect(find.text('Laporan Privasi'), findsOneWidget);
     });
 
-    testWidgets('shortcuts panel toggles with Ctrl+/', (WidgetTester tester) async {
+    testWidgets('shortcuts panel toggles with Ctrl+/', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -160,7 +190,9 @@ void main() {
       expect(find.text('Cari di riwayat sesi'), findsOneWidget);
     });
 
-    testWidgets('Ctrl+L focuses the sidebar search', (WidgetTester tester) async {
+    testWidgets('Ctrl+L focuses the sidebar search', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -179,26 +211,34 @@ void main() {
       expect(field.focusNode?.hasFocus, isTrue);
     });
 
-    testWidgets('stop without segments does not show confirmation dialog', (WidgetTester tester) async {
+    testWidgets('stop without segments does not show confirmation dialog', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Mulai'));
+      await tester.tap(find.text('Mulai Rekam'));
       await tester.pump();
       await tester.tap(find.text('Berhenti'));
       await tester.pumpAndSettle();
 
       expect(find.text('Berhenti merekam?'), findsNothing);
-      expect(find.text('Mulai'), findsOneWidget);
+      expect(find.text('Mulai Rekam'), findsOneWidget);
     });
 
-    testWidgets('the footer offers the shortcut hint when idle', (WidgetTester tester) async {
+    testWidgets('the footer offers the shortcut hint when idle', (
+      WidgetTester tester,
+    ) async {
       sizeViewport(tester);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('Ctrl+/ untuk pintasan'), findsOneWidget);
+      // The hint is the action name plus real keycaps, built from the one
+      // shortcut table, so it cannot name a binding the app does not have.
+      expect(find.text('Pintasan'), findsOneWidget);
+      expect(find.text('Ctrl'), findsWidgets);
+      expect(find.text('/'), findsWidgets);
     });
   });
 

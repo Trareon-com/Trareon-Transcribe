@@ -11,8 +11,16 @@ import '../state/settings_model.dart';
 import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
+import '../theme/app_typography.dart';
 import '../utils/format_time.dart';
 import 'summary_template_editor.dart';
+import '../theme/app_icons.dart';
+import 'app_toast.dart';
+import 'ui/app_button.dart';
+import 'ui/app_feedback.dart';
+import 'ui/app_field.dart';
+import 'ui/app_surface.dart';
+import 'ui/interactive.dart';
 
 /// Editable AI summary for one session.
 ///
@@ -78,7 +86,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     super.initState();
     _controller = TextEditingController(text: widget.initialMeta.summary);
     _expanded = widget.initialMeta.hasSummary;
-    _provider = widget.provider ??
+    _provider =
+        widget.provider ??
         StateNotifierProvider<SummaryNotifier, SummaryUiState>((ref) {
           return SummaryNotifier(
             ref.read(rustBridgeProvider),
@@ -109,7 +118,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
 
   Future<void> _generate() async {
     final settings = ref.read(settingsProvider);
-    await ref.read(_provider.notifier).generate(
+    await ref
+        .read(_provider.notifier)
+        .generate(
           segments: widget.segments(),
           settings: settings,
           bookmarks: widget.bookmarks,
@@ -126,13 +137,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     await ref.read(_provider.notifier).save();
     if (!mounted) return;
     widget.onSummaryChanged?.call(ref.read(_provider).text);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ringkasan tersimpan.'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppToast.show(context, 'Ringkasan tersimpan.', type: ToastType.success);
   }
 
   /// Whether there is a citation-bearing rendering to offer at all.
@@ -146,7 +151,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final state = ref.watch(_provider);
     final settings = ref.watch(settingsProvider);
     final busy = state.status == SummaryStatus.generating;
@@ -159,44 +165,51 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          Interactive(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.zero,
+            semanticLabel: 'Ringkasan AI',
+            toggled: _expanded,
+            builder: (context, interaction) => Container(
+              color: interactionTint(context, interaction),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome_outlined, size: 18, color: colors.primary),
-                  const SizedBox(width: 8),
+                  Icon(
+                    AppIcons.enhance,
+                    size: IconSizes.md,
+                    color: colors.primary,
+                  ),
+                  Spacing.hSm,
                   Text(
                     'Ringkasan AI',
-                    style: TextStyle(
-                      color: colors.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppText.subheading.c(colors.text),
                   ),
                   if (state.status == SummaryStatus.ready) ...[
-                    const SizedBox(width: 8),
-                    Icon(Icons.check_circle, size: 14, color: colors.primary),
+                    Spacing.hSm,
+                    Icon(
+                      AppIcons.checkFilled,
+                      size: IconSizes.xs,
+                      color: colors.primary,
+                    ),
                   ],
                   if (state.dirty) ...[
-                    const SizedBox(width: 6),
+                    Spacing.hSm,
                     Text(
                       'belum disimpan',
-                      style: TextStyle(color: colors.textTertiary, fontSize: 11),
+                      style: AppText.micro.c(colors.textTertiary),
                     ),
                   ],
                   const Spacer(),
                   if (busy)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                    const AppProgressRing(size: IconSizes.md)
                   else
                     Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 20,
+                      _expanded ? AppIcons.expandLess : AppIcons.expandMore,
+                      size: IconSizes.lg,
                       color: colors.textSecondary,
                     ),
                 ],
@@ -205,16 +218,21 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                0,
+                Spacing.lg,
+                Spacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!settings.summary.enabled)
                     _Notice(
-                      icon: Icons.info_outline,
+                      icon: AppIcons.info,
                       message:
                           'Ringkasan AI mati. Fitur ini satu-satunya yang memakai '
-                          'jaringan — nyalakan di Pengaturan → Ringkasan AI bila '
+                          'jaringan, nyalakan di Pengaturan, Ringkasan AI, bila '
                           'ingin memakainya.',
                       color: colors.textSecondary,
                     )
@@ -227,9 +245,10 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                             // id", because a user template is also a choice
                             // in this one picker — two pickers for one
                             // decision is worse than a prefixed key.
-                            initialValue: state.customTemplateId ??
-                                state.template.name,
+                            initialValue:
+                                state.customTemplateId ?? state.template.name,
                             isDense: true,
+                            style: AppText.body.c(colors.text),
                             decoration: InputDecoration(
                               labelText: 'Template',
                               helperText: state.customTemplateId != null
@@ -238,8 +257,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                               helperMaxLines: 2,
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
+                                horizontal: Spacing.sm,
+                                vertical: Spacing.sm,
                               ),
                             ),
                             items: [
@@ -261,8 +280,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                     final builtin = SummaryTemplate.values
                                         .where((t) => t.name == value)
                                         .firstOrNull;
-                                    final notifier =
-                                        ref.read(_provider.notifier);
+                                    final notifier = ref.read(
+                                      _provider.notifier,
+                                    );
                                     if (builtin != null) {
                                       notifier.setTemplate(builtin);
                                     } else {
@@ -271,34 +291,29 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                   },
                           ),
                         ),
-                        const SizedBox(width: Spacing.sm),
-                        IconButton(
+                        Spacing.hSm,
+                        AppIconButton(
                           tooltip: 'Kelola template ringkasan',
-                          constraints: TouchTarget.constraints,
-                          icon: const Icon(Icons.tune, size: IconSizes.md),
+                          icon: AppIcons.tune,
                           onPressed: busy
                               ? null
                               : () => showSummaryTemplateManager(context),
                         ),
-                        const SizedBox(width: Spacing.sm),
-                        FilledButton.icon(
+                        Spacing.hSm,
+                        AppButton.primary(
                           onPressed: busy ? null : _generate,
-                          icon: Icon(
-                            state.status == SummaryStatus.ready
-                                ? Icons.refresh
-                                : Icons.auto_awesome,
-                            size: 16,
-                          ),
-                          label: Text(
-                            state.status == SummaryStatus.ready
-                                ? 'Buat Ulang'
-                                : 'Buat Ringkasan',
-                          ),
+                          loading: busy,
+                          icon: state.status == SummaryStatus.ready
+                              ? AppIcons.refresh
+                              : AppIcons.enhance,
+                          label: state.status == SummaryStatus.ready
+                              ? 'Buat Ulang'
+                              : 'Buat Ringkasan',
                         ),
                       ],
                     ),
                     if (state.progress != null) ...[
-                      const SizedBox(height: 10),
+                      Spacing.gapSm,
                       // F15: a three-hour meeting is many round trips, and
                       // a panel that shows nothing for twenty minutes reads
                       // as a hang rather than as work in progress.
@@ -307,7 +322,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         colors: colors,
                       ),
                     ],
-                    const SizedBox(height: 10),
+                    Spacing.gapSm,
                     if (_showRendered(state))
                       _CitedSummary(
                         provenance: state.provenance!,
@@ -315,29 +330,25 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         onSeekToTimestamp: widget.onSeekToTimestamp,
                       )
                     else
-                      TextField(
+                      AppTextField(
                         controller: _controller,
                         maxLines: 12,
                         minLines: 5,
-                        readOnly: busy,
+                        enabled: !busy,
+                        reserveHelperSpace: false,
                         onChanged: ref.read(_provider.notifier).edit,
-                        style: const TextStyle(fontSize: 13, height: 1.45),
-                        decoration: const InputDecoration(
-                          hintText:
-                              'Ringkasan akan muncul di sini. Anda bisa menyuntingnya '
-                              'sebelum menyimpan.',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.all(12),
-                        ),
+                        placeholder:
+                            'Ringkasan akan muncul di sini. Anda bisa '
+                            'menyuntingnya sebelum menyimpan.',
                       ),
                     if (state.droppedCitations > 0) ...[
-                      const SizedBox(height: 8),
+                      Spacing.gapSm,
                       // Surfaced rather than swallowed: a summary with
                       // many invalid citations came from a model that is
                       // guessing, and that is worth knowing before the
                       // notulen is signed.
                       _Notice(
-                        icon: Icons.report_gmailerrorred_outlined,
+                        icon: AppIcons.report,
                         message:
                             '${state.droppedCitations} rujukan dibuang karena '
                             'tidak cocok dengan transkrip. Periksa ringkasan '
@@ -345,23 +356,18 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         color: colors.textSecondary,
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (_canRender(state))
-                          TextButton.icon(
+                          AppButton.ghost(
                             onPressed: () =>
                                 setState(() => _editing = !_editing),
-                            icon: Icon(
-                              _editing
-                                  ? Icons.visibility_outlined
-                                  : Icons.edit_outlined,
-                              size: 16,
-                            ),
-                            label: Text(_editing ? 'Lihat rujukan' : 'Sunting'),
+                            icon: _editing ? AppIcons.show : AppIcons.edit,
+                            label: _editing ? 'Lihat rujukan' : 'Sunting',
                           ),
-                        TextButton.icon(
+                        AppButton.ghost(
                           onPressed: state.text.trim().isEmpty
                               ? null
                               : () async {
@@ -369,30 +375,28 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                     ClipboardData(text: state.text),
                                   );
                                   if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Ringkasan disalin.'),
-                                      behavior: SnackBarBehavior.floating,
-                                      duration: Duration(seconds: 2),
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    'Ringkasan disalin.',
+                                    type: ToastType.success,
                                   );
                                 },
-                          icon: const Icon(Icons.copy_outlined, size: 16),
-                          label: const Text('Salin'),
+                          icon: AppIcons.copy,
+                          label: 'Salin',
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton.tonalIcon(
+                        Spacing.hSm,
+                        AppButton(
                           onPressed: state.dirty && !busy ? _save : null,
-                          icon: const Icon(Icons.save_outlined, size: 16),
-                          label: const Text('Simpan'),
+                          icon: AppIcons.save,
+                          label: 'Simpan',
                         ),
                       ],
                     ),
                   ],
                   if (state.error != null) ...[
-                    const SizedBox(height: 8),
+                    Spacing.gapSm,
                     _Notice(
-                      icon: Icons.error_outline,
+                      icon: AppIcons.error,
                       message: state.error!,
                       color: colors.error,
                     ),
@@ -422,14 +426,9 @@ class _Notice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: TextStyle(color: color, fontSize: 12, height: 1.35),
-          ),
-        ),
+        Icon(icon, size: IconSizes.sm, color: color),
+        Spacing.hSm,
+        Expanded(child: Text(message, style: AppText.caption.c(color))),
       ],
     );
   }
@@ -453,35 +452,30 @@ class _CitedSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppSurface(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.divider),
-        borderRadius: Radii.smAll,
-      ),
+      padding: const EdgeInsets.all(Spacing.md),
+      radius: Radii.mdAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final line in provenance.lines)
             Padding(
-              padding: EdgeInsets.only(bottom: line.isHeading ? 4 : 6),
+              padding: EdgeInsets.only(
+                bottom: line.isHeading ? Spacing.xs : Spacing.sm - 2,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     line.text,
-                    style: TextStyle(
-                      fontSize: line.isHeading ? 14 : 13,
-                      height: 1.45,
-                      fontWeight:
-                          line.isHeading ? FontWeight.w600 : FontWeight.w400,
-                      color: colors.text,
-                    ),
+                    style: line.isHeading
+                        ? AppText.bodyStrong.c(colors.text)
+                        : AppText.reading.c(colors.text),
                   ),
                   if (line.citations.isNotEmpty && onSeekToTimestamp != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: Spacing.xs),
                       child: Wrap(
                         spacing: Spacing.xs,
                         children: [
@@ -518,22 +512,22 @@ class _CitationChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = formatTimestamp(citation.timestamp);
-    return Semantics(
-      button: true,
-      label: 'Putar segmen ${citation.segmentId} pada $label',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Radii.smAll,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: FontSizes.micro,
-              color: colors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+    return Interactive(
+      onPressed: onTap,
+      borderRadius: Radii.smAll,
+      semanticLabel: 'Putar segmen ${citation.segmentId} pada $label',
+      builder: (context, interaction) => Container(
+        decoration: BoxDecoration(
+          color: interaction.active ? colors.primarySubtle : Colors.transparent,
+          borderRadius: Radii.smAll,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.sm,
+          vertical: Spacing.xs,
+        ),
+        child: Text(
+          label,
+          style: AppText.monoMicro.cw(colors.primary, FontWeight.w600),
         ),
       ),
     );
@@ -553,19 +547,12 @@ class _MapReduceProgress extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          progress.label,
-          style: TextStyle(
-            fontSize: FontSizes.caption,
-            color: colors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(
+        Text(progress.label, style: AppText.caption.c(colors.textSecondary)),
+        Spacing.gapXs,
+        AppLinearProgress(
           // An unknown total must not render as a full bar.
           value: total > 0 ? (progress.done / total).clamp(0.0, 1.0) : null,
-          minHeight: 3,
-          backgroundColor: colors.surface,
+          semanticLabel: progress.label,
         ),
       ],
     );
