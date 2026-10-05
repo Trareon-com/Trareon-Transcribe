@@ -18,7 +18,7 @@ use std::path::Path;
 
 use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
-use crate::stt::WhisperEngine;
+use crate::stt::{DecodeOptions, WhisperEngine};
 
 /// A single HPT segment pair: quick + refined text for the same audio span.
 #[derive(Debug, Clone)]
@@ -67,13 +67,15 @@ impl ProgressiveEngine {
         chunk_start_secs: f64,
         language: Option<&str>,
         initial_prompt: Option<&str>,
+        options: DecodeOptions,
     ) -> TranscribeResult<Vec<Segment>> {
-        let mut segs = self.quick.transcribe_chunk(
+        let mut segs = self.quick.transcribe_chunk_with(
             samples,
             source,
             chunk_start_secs,
             language,
             initial_prompt,
+            options,
         )?;
         for s in segs.iter_mut() {
             s.is_partial = true;
@@ -91,13 +93,15 @@ impl ProgressiveEngine {
         chunk_start_secs: f64,
         language: Option<&str>,
         initial_prompt: Option<&str>,
+        options: DecodeOptions,
     ) -> TranscribeResult<Vec<Segment>> {
-        let mut segs = self.refine.transcribe_chunk(
+        let mut segs = self.refine.transcribe_chunk_with(
             samples,
             source,
             chunk_start_secs,
             language,
             initial_prompt,
+            options,
         )?;
         for s in segs.iter_mut() {
             s.is_partial = false;
@@ -119,12 +123,13 @@ impl ProgressiveEngine {
     where
         F: FnMut(&[Segment]),
     {
+        let options = DecodeOptions::offline();
         let quick_segs =
-            self.transcribe_quick(samples, source, chunk_start_secs, language, None)?;
+            self.transcribe_quick(samples, source, chunk_start_secs, language, None, options)?;
         on_quick(&quick_segs);
 
         let refined_segs =
-            self.transcribe_refine(samples, source, chunk_start_secs, language, None)?;
+            self.transcribe_refine(samples, source, chunk_start_secs, language, None, options)?;
 
         // Merge by (source, timestamp): refined replaces quick for the
         // same span. Quick-only leftovers (rare boundary drift) are kept
@@ -280,6 +285,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }
     }
 

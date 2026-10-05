@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 972725770;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 915234266;
 
 // Section: executor
 
@@ -2258,6 +2258,39 @@ fn wire__crate__api__list_audio_devices_impl(
         },
     )
 }
+fn wire__crate__api__list_auxiliary_assets_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_auxiliary_assets",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_models_dir = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::list_auxiliary_assets(api_models_dir))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__list_available_models_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2461,6 +2494,38 @@ fn wire__crate__api__merge_transcript_segments_impl(
                         api_existing,
                         api_incoming,
                     ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__neural_diarization_status_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "neural_diarization_status",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::neural_diarization_status())?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -3556,6 +3621,38 @@ fn wire__crate__api__transcript_coverage_for_audio_impl(
         },
     )
 }
+fn wire__crate__api__vad_backend_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "vad_backend",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::vad_backend())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__write_audit_entry_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -3675,6 +3772,7 @@ impl SseDecode for crate::settings::AppSettings {
         let mut var_autoRetranscribe = <Option<bool>>::sse_decode(deserializer);
         let mut var_pdp = <crate::pdp::PdpSettings>::sse_decode(deserializer);
         let mut var_noiseReduction = <bool>::sse_decode(deserializer);
+        let mut var_neuralDiarization = <bool>::sse_decode(deserializer);
         return crate::settings::AppSettings {
             theme: var_theme,
             default_model: var_defaultModel,
@@ -3697,6 +3795,7 @@ impl SseDecode for crate::settings::AppSettings {
             auto_retranscribe: var_autoRetranscribe,
             pdp: var_pdp,
             noise_reduction: var_noiseReduction,
+            neural_diarization: var_neuralDiarization,
         };
     }
 }
@@ -3745,6 +3844,19 @@ impl SseDecode for crate::archive::ArchiveStats {
             sessions: var_sessions,
             passages: var_passages,
             bytes: var_bytes,
+        };
+    }
+}
+
+impl SseDecode for crate::model::AssetKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::model::AssetKind::Transcription,
+            1 => crate::model::AssetKind::Vad,
+            2 => crate::model::AssetKind::Diarization,
+            _ => unreachable!("Invalid variant for AssetKind: {}", inner),
         };
     }
 }
@@ -4159,10 +4271,13 @@ impl SseDecode for crate::glossary::GlossaryConfig {
         let mut var_sessionTerms = <Vec<String>>::sse_decode(deserializer);
         let mut var_globalTerms = <Vec<String>>::sse_decode(deserializer);
         let mut var_postCorrection = <bool>::sse_decode(deserializer);
+        let mut var_replacements =
+            <Vec<crate::glossary::ReplacementRule>>::sse_decode(deserializer);
         return crate::glossary::GlossaryConfig {
             session_terms: var_sessionTerms,
             global_terms: var_globalTerms,
             post_correction: var_postCorrection,
+            replacements: var_replacements,
         };
     }
 }
@@ -4187,10 +4302,13 @@ impl SseDecode for crate::settings::GlossarySettings {
         let mut var_enabled = <bool>::sse_decode(deserializer);
         let mut var_terms = <Vec<String>>::sse_decode(deserializer);
         let mut var_postCorrection = <bool>::sse_decode(deserializer);
+        let mut var_replacements =
+            <Vec<crate::glossary::ReplacementRule>>::sse_decode(deserializer);
         return crate::settings::GlossarySettings {
             enabled: var_enabled,
             terms: var_terms,
             post_correction: var_postCorrection,
+            replacements: var_replacements,
         };
     }
 }
@@ -4496,6 +4614,18 @@ impl SseDecode for Vec<crate::session::RecoverableSession> {
     }
 }
 
+impl SseDecode for Vec<crate::glossary::ReplacementRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::glossary::ReplacementRule>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::pdp::retention::RetentionItem> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4586,6 +4716,18 @@ impl SseDecode for Vec<crate::export::notulen::TindakLanjut> {
     }
 }
 
+impl SseDecode for Vec<crate::export::WordTimestamp> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::export::WordTimestamp>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for crate::mapreduce::MapReduceProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4610,6 +4752,7 @@ impl SseDecode for crate::model::ModelInfo {
         let mut var_sizeBytes = <u64>::sse_decode(deserializer);
         let mut var_minRamGb = <u32>::sse_decode(deserializer);
         let mut var_isBundled = <bool>::sse_decode(deserializer);
+        let mut var_kind = <crate::model::AssetKind>::sse_decode(deserializer);
         return crate::model::ModelInfo {
             id: var_id,
             name: var_name,
@@ -4618,6 +4761,19 @@ impl SseDecode for crate::model::ModelInfo {
             size_bytes: var_sizeBytes,
             min_ram_gb: var_minRamGb,
             is_bundled: var_isBundled,
+            kind: var_kind,
+        };
+    }
+}
+
+impl SseDecode for crate::api::NeuralDiarizationStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_compiledIn = <bool>::sse_decode(deserializer);
+        let mut var_active = <bool>::sse_decode(deserializer);
+        return crate::api::NeuralDiarizationStatus {
+            compiled_in: var_compiledIn,
+            active: var_active,
         };
     }
 }
@@ -4981,6 +5137,18 @@ impl SseDecode for crate::pdp::redaction::RedactionConfig {
     }
 }
 
+impl SseDecode for crate::glossary::ReplacementRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_from = <String>::sse_decode(deserializer);
+        let mut var_to = <String>::sse_decode(deserializer);
+        return crate::glossary::ReplacementRule {
+            from: var_from,
+            to: var_to,
+        };
+    }
+}
+
 impl SseDecode for crate::pdp::retention::RetentionItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5063,6 +5231,7 @@ impl SseDecode for crate::export::Segment {
         let mut var_avgLogProb = <f32>::sse_decode(deserializer);
         let mut var_isPartial = <bool>::sse_decode(deserializer);
         let mut var_lowConfidence = <bool>::sse_decode(deserializer);
+        let mut var_words = <Vec<crate::export::WordTimestamp>>::sse_decode(deserializer);
         return crate::export::Segment {
             source: var_source,
             speaker: var_speaker,
@@ -5074,6 +5243,7 @@ impl SseDecode for crate::export::Segment {
             avg_log_prob: var_avgLogProb,
             is_partial: var_isPartial,
             low_confidence: var_lowConfidence,
+            words: var_words,
         };
     }
 }
@@ -5150,6 +5320,14 @@ impl SseDecode for crate::session::SessionEvent {
                 };
             }
             2 => {
+                let mut var_source = <String>::sse_decode(deserializer);
+                let mut var_text = <String>::sse_decode(deserializer);
+                return crate::session::SessionEvent::Tentative {
+                    source: var_source,
+                    text: var_text,
+                };
+            }
+            3 => {
                 let mut var_level = <crate::session::NoticeLevel>::sse_decode(deserializer);
                 let mut var_source = <String>::sse_decode(deserializer);
                 let mut var_message = <String>::sse_decode(deserializer);
@@ -5477,6 +5655,22 @@ impl SseDecode for usize {
     }
 }
 
+impl SseDecode for crate::export::WordTimestamp {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_word = <String>::sse_decode(deserializer);
+        let mut var_start = <f64>::sse_decode(deserializer);
+        let mut var_end = <f64>::sse_decode(deserializer);
+        let mut var_prob = <f32>::sse_decode(deserializer);
+        return crate::export::WordTimestamp {
+            word: var_word,
+            start: var_start,
+            end: var_end,
+            prob: var_prob,
+        };
+    }
+}
+
 fn pde_ffi_dispatcher_primary_impl(
     func_id: i32,
     port: flutter_rust_bridge::for_generated::MessagePort,
@@ -5548,51 +5742,54 @@ fn pde_ffi_dispatcher_primary_impl(
         60 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
         61 => wire__crate__api__is_non_speech_text_impl(port, ptr, rust_vec_len, data_len),
         62 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__merge_transcript_segments_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__notulen_draft_from_summary_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__parse_action_items_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__parse_glossary_file_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__parse_summary_provenance_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__parse_summary_provenance_verified_impl(
+        63 => wire__crate__api__list_auxiliary_assets_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__merge_transcript_segments_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__neural_diarization_status_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__notulen_draft_from_summary_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__parse_action_items_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__parse_glossary_file_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__parse_summary_provenance_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__parse_summary_provenance_verified_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        74 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__preview_redaction_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__preview_redaction_segments_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__preview_retention_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__read_audit_log_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__read_completion_progress_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__read_summary_progress_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
-        94 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
-        95 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        96 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        97 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
-        98 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
-        99 => {
+        76 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__preview_redaction_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__preview_redaction_segments_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__preview_retention_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__read_audit_log_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__read_completion_progress_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__read_summary_progress_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        99 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        100 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
+        101 => {
             wire__crate__api__transcript_coverage_for_audio_impl(port, ptr, rust_vec_len, data_len)
         }
-        100 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
+        102 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
+        103 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -5676,6 +5873,7 @@ impl flutter_rust_bridge::IntoDart for crate::settings::AppSettings {
             self.auto_retranscribe.into_into_dart().into_dart(),
             self.pdp.into_into_dart().into_dart(),
             self.noise_reduction.into_into_dart().into_dart(),
+            self.neural_diarization.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5743,6 +5941,23 @@ impl flutter_rust_bridge::IntoIntoDart<crate::archive::ArchiveStats>
     for crate::archive::ArchiveStats
 {
     fn into_into_dart(self) -> crate::archive::ArchiveStats {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::model::AssetKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Transcription => 0.into_dart(),
+            Self::Vad => 1.into_dart(),
+            Self::Diarization => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::model::AssetKind {}
+impl flutter_rust_bridge::IntoIntoDart<crate::model::AssetKind> for crate::model::AssetKind {
+    fn into_into_dart(self) -> crate::model::AssetKind {
         self
     }
 }
@@ -6249,6 +6464,7 @@ impl flutter_rust_bridge::IntoDart for crate::glossary::GlossaryConfig {
             self.session_terms.into_into_dart().into_dart(),
             self.global_terms.into_into_dart().into_dart(),
             self.post_correction.into_into_dart().into_dart(),
+            self.replacements.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6293,6 +6509,7 @@ impl flutter_rust_bridge::IntoDart for crate::settings::GlossarySettings {
             self.enabled.into_into_dart().into_dart(),
             self.terms.into_into_dart().into_dart(),
             self.post_correction.into_into_dart().into_dart(),
+            self.replacements.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6374,6 +6591,7 @@ impl flutter_rust_bridge::IntoDart for crate::model::ModelInfo {
             self.size_bytes.into_into_dart().into_dart(),
             self.min_ram_gb.into_into_dart().into_dart(),
             self.is_bundled.into_into_dart().into_dart(),
+            self.kind.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6381,6 +6599,27 @@ impl flutter_rust_bridge::IntoDart for crate::model::ModelInfo {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::model::ModelInfo {}
 impl flutter_rust_bridge::IntoIntoDart<crate::model::ModelInfo> for crate::model::ModelInfo {
     fn into_into_dart(self) -> crate::model::ModelInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::NeuralDiarizationStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.compiled_in.into_into_dart().into_dart(),
+            self.active.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::NeuralDiarizationStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::NeuralDiarizationStatus>
+    for crate::api::NeuralDiarizationStatus
+{
+    fn into_into_dart(self) -> crate::api::NeuralDiarizationStatus {
         self
     }
 }
@@ -6675,6 +6914,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::pdp::redaction::RedactionConfig>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::glossary::ReplacementRule {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.from.into_into_dart().into_dart(),
+            self.to.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::glossary::ReplacementRule
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::glossary::ReplacementRule>
+    for crate::glossary::ReplacementRule
+{
+    fn into_into_dart(self) -> crate::glossary::ReplacementRule {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::pdp::retention::RetentionItem {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -6794,6 +7054,7 @@ impl flutter_rust_bridge::IntoDart for crate::export::Segment {
             self.avg_log_prob.into_into_dart().into_dart(),
             self.is_partial.into_into_dart().into_dart(),
             self.low_confidence.into_into_dart().into_dart(),
+            self.words.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6871,12 +7132,18 @@ impl flutter_rust_bridge::IntoDart for crate::session::SessionEvent {
                 level.into_into_dart().into_dart(),
             ]
             .into_dart(),
+            crate::session::SessionEvent::Tentative { source, text } => [
+                2.into_dart(),
+                source.into_into_dart().into_dart(),
+                text.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
             crate::session::SessionEvent::Notice {
                 level,
                 source,
                 message,
             } => [
-                2.into_dart(),
+                3.into_dart(),
                 level.into_into_dart().into_dart(),
                 source.into_into_dart().into_dart(),
                 message.into_into_dart().into_dart(),
@@ -7229,6 +7496,26 @@ impl flutter_rust_bridge::IntoIntoDart<crate::stt::file::TranscribeFileResult>
         self
     }
 }
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::export::WordTimestamp {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.word.into_into_dart().into_dart(),
+            self.start.into_into_dart().into_dart(),
+            self.end.into_into_dart().into_dart(),
+            self.prob.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::export::WordTimestamp {}
+impl flutter_rust_bridge::IntoIntoDart<crate::export::WordTimestamp>
+    for crate::export::WordTimestamp
+{
+    fn into_into_dart(self) -> crate::export::WordTimestamp {
+        self
+    }
+}
 
 impl SseEncode for std::collections::HashMap<String, String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7301,6 +7588,7 @@ impl SseEncode for crate::settings::AppSettings {
         <Option<bool>>::sse_encode(self.auto_retranscribe, serializer);
         <crate::pdp::PdpSettings>::sse_encode(self.pdp, serializer);
         <bool>::sse_encode(self.noise_reduction, serializer);
+        <bool>::sse_encode(self.neural_diarization, serializer);
     }
 }
 
@@ -7331,6 +7619,23 @@ impl SseEncode for crate::archive::ArchiveStats {
         <u32>::sse_encode(self.sessions, serializer);
         <u32>::sse_encode(self.passages, serializer);
         <u64>::sse_encode(self.bytes, serializer);
+    }
+}
+
+impl SseEncode for crate::model::AssetKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::model::AssetKind::Transcription => 0,
+                crate::model::AssetKind::Vad => 1,
+                crate::model::AssetKind::Diarization => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
@@ -7646,6 +7951,7 @@ impl SseEncode for crate::glossary::GlossaryConfig {
         <Vec<String>>::sse_encode(self.session_terms, serializer);
         <Vec<String>>::sse_encode(self.global_terms, serializer);
         <bool>::sse_encode(self.post_correction, serializer);
+        <Vec<crate::glossary::ReplacementRule>>::sse_encode(self.replacements, serializer);
     }
 }
 
@@ -7664,6 +7970,7 @@ impl SseEncode for crate::settings::GlossarySettings {
         <bool>::sse_encode(self.enabled, serializer);
         <Vec<String>>::sse_encode(self.terms, serializer);
         <bool>::sse_encode(self.post_correction, serializer);
+        <Vec<crate::glossary::ReplacementRule>>::sse_encode(self.replacements, serializer);
     }
 }
 
@@ -7916,6 +8223,16 @@ impl SseEncode for Vec<crate::session::RecoverableSession> {
     }
 }
 
+impl SseEncode for Vec<crate::glossary::ReplacementRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::glossary::ReplacementRule>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::pdp::retention::RetentionItem> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7986,6 +8303,16 @@ impl SseEncode for Vec<crate::export::notulen::TindakLanjut> {
     }
 }
 
+impl SseEncode for Vec<crate::export::WordTimestamp> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::export::WordTimestamp>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::mapreduce::MapReduceProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8005,6 +8332,15 @@ impl SseEncode for crate::model::ModelInfo {
         <u64>::sse_encode(self.size_bytes, serializer);
         <u32>::sse_encode(self.min_ram_gb, serializer);
         <bool>::sse_encode(self.is_bundled, serializer);
+        <crate::model::AssetKind>::sse_encode(self.kind, serializer);
+    }
+}
+
+impl SseEncode for crate::api::NeuralDiarizationStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.compiled_in, serializer);
+        <bool>::sse_encode(self.active, serializer);
     }
 }
 
@@ -8280,6 +8616,14 @@ impl SseEncode for crate::pdp::redaction::RedactionConfig {
     }
 }
 
+impl SseEncode for crate::glossary::ReplacementRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.from, serializer);
+        <String>::sse_encode(self.to, serializer);
+    }
+}
+
 impl SseEncode for crate::pdp::retention::RetentionItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8348,6 +8692,7 @@ impl SseEncode for crate::export::Segment {
         <f32>::sse_encode(self.avg_log_prob, serializer);
         <bool>::sse_encode(self.is_partial, serializer);
         <bool>::sse_encode(self.low_confidence, serializer);
+        <Vec<crate::export::WordTimestamp>>::sse_encode(self.words, serializer);
     }
 }
 
@@ -8395,12 +8740,17 @@ impl SseEncode for crate::session::SessionEvent {
                 <String>::sse_encode(source, serializer);
                 <f32>::sse_encode(level, serializer);
             }
+            crate::session::SessionEvent::Tentative { source, text } => {
+                <i32>::sse_encode(2, serializer);
+                <String>::sse_encode(source, serializer);
+                <String>::sse_encode(text, serializer);
+            }
             crate::session::SessionEvent::Notice {
                 level,
                 source,
                 message,
             } => {
-                <i32>::sse_encode(2, serializer);
+                <i32>::sse_encode(3, serializer);
                 <crate::session::NoticeLevel>::sse_encode(level, serializer);
                 <String>::sse_encode(source, serializer);
                 <String>::sse_encode(message, serializer);
@@ -8671,6 +9021,16 @@ impl SseEncode for usize {
             .cursor
             .write_u64::<NativeEndian>(self as _)
             .unwrap();
+    }
+}
+
+impl SseEncode for crate::export::WordTimestamp {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.word, serializer);
+        <f64>::sse_encode(self.start, serializer);
+        <f64>::sse_encode(self.end, serializer);
+        <f32>::sse_encode(self.prob, serializer);
     }
 }
 

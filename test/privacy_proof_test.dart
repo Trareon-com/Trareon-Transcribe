@@ -78,6 +78,11 @@ void main() {
             h.startsWith(
               'state/onboarding_model',
             ) || // first-launch download flow
+            // Sprint 4b: the Silero VAD gate and the two speaker-
+            // diarization models. Same contract as every other entry here
+            // — a button the user presses, recorded in the Privacy Report
+            // before the request leaves (see the `initiators` test below).
+            h.startsWith('widgets/engine_assets_section') ||
             h.startsWith('src/rust/'), // generated FRB bindings — allowed
         isTrue,
         reason: 'unexpected downloadModel call site: $h',

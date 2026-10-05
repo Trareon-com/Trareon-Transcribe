@@ -70,6 +70,7 @@ pub fn bench_segments(count: usize, total_secs: f64) -> Vec<Segment> {
                 avg_log_prob: -0.1 - (r % 50) as f32 / 100.0,
                 is_partial: false,
                 low_confidence: r.is_multiple_of(23),
+                words: Vec::new(),
             }
         })
         .collect()

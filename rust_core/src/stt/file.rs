@@ -14,10 +14,66 @@ use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
-use crate::stt::WhisperEngine;
+use crate::stt::{DecodeOptions, WhisperEngine};
 
 /// Chunk duration for large-file transcription: 30 seconds of audio at 16 kHz.
 const CHUNK_DURATION_SECS: f64 = 30.0;
+
+/// Threads for the VAD pass. Four, not `available_parallelism()`: the VAD
+/// is ~1 ms per 30 ms of audio, so it finishes long before the ASR model
+/// that is about to want every core.
+pub(crate) const VAD_THREADS: i32 = 4;
+
+/// Which parts of the hallucination stack run on a file pass.
+///
+/// All three on is the only configuration the app ever uses. They are
+/// switchable because "what does this stack cost me on *my* recording?" is
+/// a question you answer by transcribing the same file both ways and
+/// reading the two transcripts — the same reason `--denoise` is a CLI flag
+/// (`src/bin/cli_shared.rs`). The sprint report's before/after figures are
+/// produced exactly this way.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FileOptions {
+    /// Carve the speech out with the VAD before any inference. Off means
+    /// the whole file is transcribed, silence included — which is what
+    /// produces `[MENGENI]`.
+    pub vad_gate: bool,
+    /// Drop whole segments that [`crate::hallucination`] recognises as
+    /// subtitle captions rather than speech.
+    pub text_filter: bool,
+    /// Decoder settings, including the no-speech and log-probability
+    /// thresholds.
+    pub decode: DecodeOptions,
+}
+
+impl Default for FileOptions {
+    fn default() -> Self {
+        Self {
+            vad_gate: true,
+            text_filter: true,
+            decode: DecodeOptions::offline(),
+        }
+    }
+}
+
+impl FileOptions {
+    /// Every guard off: the pre-Sprint-4 behaviour, for measuring against.
+    pub fn unguarded() -> Self {
+        Self {
+            vad_gate: false,
+            text_filter: false,
+            decode: DecodeOptions {
+                // Permissive rather than absent: whisper.cpp has no "off"
+                // for these, so the measurement uses values no real
+                // segment can fail.
+                no_speech_thold: 1.1,
+                logprob_thold: -1000.0,
+                suppress_nst: false,
+                ..DecodeOptions::offline()
+            },
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscribeFileResult {
@@ -51,6 +107,28 @@ pub fn transcribe_file_reporting(
     language: Option<&str>,
     glossary: &GlossaryConfig,
     speaker_hint: u32,
+    on_progress: impl FnMut(f32),
+) -> TranscribeResult<TranscribeFileResult> {
+    transcribe_file_with(
+        engine,
+        path,
+        language,
+        glossary,
+        speaker_hint,
+        FileOptions::default(),
+        on_progress,
+    )
+}
+
+/// [`transcribe_file_reporting`] with the hallucination stack configurable.
+#[allow(clippy::too_many_arguments)]
+pub fn transcribe_file_with(
+    engine: &WhisperEngine,
+    path: &Path,
+    language: Option<&str>,
+    glossary: &GlossaryConfig,
+    speaker_hint: u32,
+    options: FileOptions,
     mut on_progress: impl FnMut(f32),
 ) -> TranscribeResult<TranscribeFileResult> {
     let audio = decode_audio_file(path)?;
@@ -68,7 +146,11 @@ pub fn transcribe_file_reporting(
     //
     // `speech_regions` returning nothing means the file is silent, which is
     // a legitimate answer: an empty transcript, not an invented one.
-    let regions = speech_regions_or_whole_file(&audio.samples, audio.duration_secs);
+    let regions = if options.vad_gate {
+        speech_regions_or_whole_file(&audio.samples, audio.duration_secs)
+    } else {
+        vec![(0.0, audio.duration_secs)]
+    };
 
     // ADR-10 CHUNKED PROCESSING: each speech region is split into 30-second
     // chunks. This bounds peak memory usage (whisper.cpp holds the full
@@ -84,12 +166,13 @@ pub fn transcribe_file_reporting(
             let chunk_end = (chunk_start + CHUNK_DURATION_SECS).min(*region_end);
             let chunk = slice_secs(&audio.samples, chunk_start, chunk_end);
             if !chunk.is_empty() {
-                all_segments.extend(engine.transcribe_chunk(
+                all_segments.extend(engine.transcribe_chunk_with(
                     chunk,
                     "file",
                     chunk_start,
                     language,
                     initial_prompt,
+                    options.decode,
                 )?);
             }
             done_work += chunk_end - chunk_start;
@@ -105,7 +188,9 @@ pub fn transcribe_file_reporting(
 
     // Whatever slipped past the VAD — a region of room tone loud enough to
     // trip the detector — is caught here on the text instead.
-    crate::hallucination::filter_segments(&mut all_segments);
+    if options.text_filter {
+        crate::hallucination::filter_segments(&mut all_segments);
+    }
 
     // Speaker labels. Live capture gets these from the per-source pipeline
     // (`pipeline::LivePipeline`); imported files used to come back with the
@@ -115,7 +200,11 @@ pub fn transcribe_file_reporting(
     label_segments(&mut diarizer, &audio.samples, &mut all_segments);
 
     if glossary.post_correction {
-        crate::glossary::correct_segments(&mut all_segments, &glossary.prioritised_terms());
+        crate::glossary::correct_segments(
+            &mut all_segments,
+            &glossary.prioritised_terms(),
+            &glossary.replacements,
+        );
     }
 
     Ok(TranscribeFileResult {
@@ -136,9 +225,11 @@ pub fn transcribe_file_reporting(
 /// "transcribe everything" (today's behaviour, hallucinations included),
 /// never to "transcribe nothing", which would silently lose a recording.
 fn speech_regions_or_whole_file(samples: &[f32], duration_secs: f64) -> Vec<(f64, f64)> {
-    let regions = crate::vad::DualVad::new(crate::vad::VadConfig::default()).and_then(|mut vad| {
-        crate::vad::speech_regions(&mut vad, samples, crate::vad::SegmentationConfig::default())
-    });
+    let regions = crate::vad::detect_speech_regions(
+        samples,
+        crate::vad::SegmentationConfig::default(),
+        VAD_THREADS,
+    );
     match regions {
         Ok(regions) => regions,
         Err(e) => {
@@ -264,6 +355,28 @@ pub fn transcribe_files_batch(
     language: Option<&str>,
     glossary: &GlossaryConfig,
     speaker_hint: u32,
+    on_progress: impl FnMut(BatchFileProgress),
+) {
+    transcribe_files_batch_with(
+        engine,
+        files,
+        language,
+        glossary,
+        speaker_hint,
+        FileOptions::default(),
+        on_progress,
+    )
+}
+
+/// [`transcribe_files_batch`] with the hallucination stack configurable.
+#[allow(clippy::too_many_arguments)]
+pub fn transcribe_files_batch_with(
+    engine: &WhisperEngine,
+    files: &[std::path::PathBuf],
+    language: Option<&str>,
+    glossary: &GlossaryConfig,
+    speaker_hint: u32,
+    options: FileOptions,
     mut on_progress: impl FnMut(BatchFileProgress),
 ) {
     let total_files = files.len();
@@ -294,12 +407,13 @@ pub fn transcribe_files_batch(
             error: None,
         });
 
-        match transcribe_file_reporting(
+        match transcribe_file_with(
             engine,
             path,
             language,
             glossary,
             speaker_hint,
+            options,
             |fraction| {
                 publish(BatchFileStatus::Transcribing, fraction);
             },

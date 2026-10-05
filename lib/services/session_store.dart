@@ -623,8 +623,20 @@ List<TranscriptSegment> parseTranscriptJson(String raw) {
       isPartial: m['is_partial'] as bool? ?? false,
       lowConfidence: m['low_confidence'] as bool? ?? false,
       avgLogProb: (m['avg_log_prob'] as num?)?.toDouble() ?? 0.0,
+      // Absent from every transcript written before Sprint 4b, which is
+      // why it degrades to an empty list rather than throwing: the player
+      // falls back to seeking by segment.
+      words: _parseWords(m['words']),
     );
   }).toList();
+}
+
+List<TranscriptWord> _parseWords(Object? raw) {
+  if (raw is! List) return const [];
+  return raw
+      .map(TranscriptWord.fromJson)
+      .whereType<TranscriptWord>()
+      .toList(growable: false);
 }
 
 /// Serialises segments back into the exporter's JSON shape, so an edited or
@@ -643,6 +655,7 @@ String encodeTranscriptJson(List<TranscriptSegment> segments) {
         'avg_log_prob': s.avgLogProb,
         'is_partial': s.isPartial,
         'low_confidence': s.lowConfidence,
+        if (s.words.isNotEmpty) 'words': [for (final w in s.words) w.toJson()],
       },
   ]);
 }

@@ -144,6 +144,7 @@ void main() {
           confidence: 0.87,
           isPartial: false,
           lowConfidence: true,
+          words: [],
           avgLogProb: -0.42,
         ),
       ];

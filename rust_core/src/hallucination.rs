@@ -102,6 +102,14 @@ pub fn is_non_speech(text: &str) -> bool {
             return true;
         }
     }
+    // A single "word" that is one short unit repeated — "MENENENENEN…",
+    // "aaaaaaaaaa", "hahahahaha" — is the decoder stuck in a loop, not
+    // speech. Observed in a live session: four seconds of room tone before
+    // the meeting started came back as one 59-character segment, at
+    // confidence 0.75, which is far too high for any threshold to reject.
+    if is_degenerate_repeat(trimmed) {
+        return true;
+    }
     let normalised = normalise(trimmed);
     if normalised.is_empty() {
         return true;
@@ -116,6 +124,50 @@ pub fn is_non_speech(text: &str) -> bool {
         normalised
             .strip_prefix(prefix)
             .is_some_and(|tail| !tail.is_empty() && tail.split_whitespace().count() <= 4)
+    })
+}
+
+/// Shortest repeating unit a degenerate run is built from. `"NE"` in
+/// `"MENENENE…"`, `"a"` in `"aaaa"`. Longer units than this start being
+/// real words a person might stammer.
+const MAX_REPEAT_UNIT: usize = 4;
+
+/// How many characters a run must reach before it is unmistakably a loop.
+///
+/// Deliberately long. `"hahaha"` (6) is laughter somebody actually
+/// produced; `"MENENENENENENENENENENENENENENENENENENENENENENENENENENENENEN"`
+/// (59) is not language. 20 sits well clear of every Indonesian word and
+/// of ordinary reduplication — `"berlari-lari"`, `"kupu-kupu"` — which
+/// this must never touch.
+const MIN_REPEAT_LEN: usize = 20;
+
+/// Whether `text` is a single token made of one short unit repeated.
+///
+/// Only fires on a *whole segment that is one word*: a loop inside a
+/// sentence is left alone, for the same reason a bracketed token inside a
+/// sentence is — rewriting speech is worse than leaving an oddity in it.
+fn is_degenerate_repeat(text: &str) -> bool {
+    let token = text.trim();
+    if token.split_whitespace().count() != 1 {
+        return false;
+    }
+    let chars: Vec<char> = token
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect();
+    if chars.len() < MIN_REPEAT_LEN {
+        return false;
+    }
+    // The cycle need not start at the first character: the observed case
+    // is `M` + `ENENEN…`, where the leading consonant is outside the loop.
+    // So each unit length is tried at every offset inside one period.
+    (1..=MAX_REPEAT_UNIT).any(|unit| {
+        (0..unit).any(|offset| {
+            let tail = &chars[offset.min(chars.len())..];
+            // At least four whole repeats, and every one of them equal.
+            tail.len() >= unit * 4 && tail.chunks(unit).all(|c| c == &tail[..c.len()])
+        })
     })
 }
 
@@ -181,6 +233,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }
     }
 
@@ -227,6 +280,56 @@ mod tests {
         ] {
             assert!(is_non_speech(text), "{text} must be rejected");
         }
+    }
+
+    #[test]
+    fn a_decoder_stuck_in_a_loop_is_rejected() {
+        // The exact segment a live session produced over four seconds of
+        // room tone, at confidence 0.75 — too high for any probability
+        // threshold to catch.
+        assert!(is_non_speech(
+            "MENENENENENENENENENENENENENENENENENENENENENENENENENENENENEN"
+        ));
+        assert!(is_non_speech("aaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(is_non_speech("hahahahahahahahahahahahahaha"));
+        assert!(is_non_speech("abcabcabcabcabcabcabcabcabc"));
+    }
+
+    #[test]
+    fn indonesian_reduplication_is_not_a_loop() {
+        // The words this rule must never touch. Indonesian builds plurals
+        // and intensifiers by repeating a whole word, and a rule that
+        // cannot tell those from a decoder loop would delete real speech.
+        for text in [
+            "kupu-kupu",
+            "berlari-lari",
+            "kura-kura",
+            "undang-undang",
+            "sehari-hari",
+            "tiba-tiba",
+            "masing-masing",
+            "sebaik-baiknya",
+            "hahaha",
+            "Terima-kasih-banyak-sekali-Pak",
+        ] {
+            assert!(!is_non_speech(text), "{text} must be kept");
+        }
+    }
+
+    #[test]
+    fn a_loop_inside_a_sentence_is_left_alone() {
+        // Same rule as the bracketed tokens: rewriting speech is worse
+        // than leaving an oddity in it.
+        assert!(!is_non_speech(
+            "Jadi anggarannya MENENENENENENENENENENENENENEN naik."
+        ));
+    }
+
+    #[test]
+    fn a_short_repeat_is_not_long_enough_to_judge() {
+        // Under the length floor nothing is rejected, whatever its shape.
+        assert!(!is_non_speech("nananana"));
+        assert!(!is_non_speech("blablabla"));
     }
 
     #[test]

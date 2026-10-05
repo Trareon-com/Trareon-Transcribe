@@ -8,13 +8,19 @@ use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use std::sync::OnceLock;
 
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{
+    DtwMode, DtwModelPreset, DtwParameters, FullParams, SamplingStrategy, WhisperContext,
+    WhisperContextParameters,
+};
 
 use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
 
 pub mod file;
 pub mod whisper_cd;
+pub mod words;
+
+use words::TokenSpan;
 
 /// Returns the best inference backend for the current platform.
 ///
@@ -82,10 +88,143 @@ pub fn detect_backend() -> String {
     best_backend().to_string()
 }
 
+/// Decoder settings that decide how hard the engine works at *not*
+/// inventing speech, and whether it reports per-word times.
+///
+/// Every field here is a lever Research Round 2 §2.2 names. They are
+/// deliberately a value type rather than engine state: the same loaded
+/// engine serves the live preview (which wants `no_context`, because a
+/// chunk's prompt is the previous chunk's guesses) and the post-stop pass
+/// (which wants context and word timestamps).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DecodeOptions {
+    /// Segments whose no-speech probability is at least this are dropped.
+    /// Also handed to whisper.cpp as `no_speech_thold`.
+    pub no_speech_thold: f32,
+    /// Segments whose mean token log-probability is below this are dropped.
+    /// Also handed to whisper.cpp as `logprob_thold`.
+    pub logprob_thold: f32,
+    /// `condition_on_previous_text = false`. On chunked live inference the
+    /// previous chunk's text is the model's own output, so conditioning on
+    /// it lets one hallucination seed the next.
+    pub no_context: bool,
+    /// Suppress non-speech tokens (`-sns`): the `[Musik]`/`(applause)`
+    /// family, cut off at the decoder rather than filtered out of the text.
+    pub suppress_nst: bool,
+    /// Ask whisper for per-token timestamps and aggregate them into words.
+    pub word_timestamps: bool,
+}
+
+impl DecodeOptions {
+    /// Settings for the live preview: no context carried between chunks,
+    /// and per-token timestamps, which LocalAgreement-2 needs in order to
+    /// know *where* each word of a hypothesis sits (see
+    /// [`crate::streaming`]).
+    ///
+    /// Token timestamps are nearly free — the decoder has the numbers
+    /// either way. What the live path does not pay for is DTW alignment,
+    /// which is an engine-level choice ([`EngineOptions::dtw_alignment`])
+    /// costing ~128 MB of context memory; the post-stop pass turns that on
+    /// and re-times the words accurately.
+    pub const fn live() -> Self {
+        Self {
+            no_speech_thold: NO_SPEECH_THOLD,
+            logprob_thold: LOGPROB_THOLD,
+            no_context: true,
+            suppress_nst: true,
+            word_timestamps: true,
+        }
+    }
+
+    /// Settings for a file import, a re-transcribe, or the post-stop
+    /// completion pass: full context, word timestamps on.
+    pub const fn offline() -> Self {
+        Self {
+            no_speech_thold: NO_SPEECH_THOLD,
+            logprob_thold: LOGPROB_THOLD,
+            no_context: false,
+            suppress_nst: true,
+            word_timestamps: true,
+        }
+    }
+}
+
+impl Default for DecodeOptions {
+    fn default() -> Self {
+        Self::offline()
+    }
+}
+
+/// No-speech probability at or above which a segment is not speech.
+///
+/// whisper.cpp's own default is 0.6. Research Round 2 §2.2.7 recommends
+/// 0.6 as a *secondary* filter behind VAD gating, which is how it is used
+/// here: by the time a segment reaches this check, the VAD already decided
+/// the audio under it held speech, so the only segments this drops are the
+/// ones the decoder itself is telling us it made up.
+pub const NO_SPEECH_THOLD: f32 = 0.6;
+
+/// Mean token log-probability below which a segment is discarded.
+///
+/// whisper.cpp's CLI default is -1.0. Hallucinated boilerplate is often
+/// *high*-probability (§2.2.3), so this catches the other failure: the
+/// decoder guessing at noise. Measured on `rapat_id.mp3`, real Indonesian
+/// speech segments sit between -0.6 and -0.2, well clear of this.
+pub const LOGPROB_THOLD: f32 = -1.0;
+
+/// The DTW alignment-head preset matching a ggml model file.
+///
+/// whisper.cpp's dynamic-time-warping token timestamps need to know which
+/// attention heads of *this* architecture align text to audio; there is no
+/// way to read that out of the file, so it is keyed off the name the
+/// catalog gives it. An unrecognised name returns `None` and the engine
+/// falls back to whisper's heuristic token times, which are good to about
+/// ±200 ms (§2.4.4) — enough for click-to-seek, which is what asked for
+/// them.
+fn dtw_preset_for(model_path: &Path) -> Option<DtwModelPreset> {
+    let name = model_path.file_name()?.to_str()?.to_ascii_lowercase();
+    // Order matters: "large-v3-turbo" also contains "large-v3".
+    for (needle, preset) in [
+        ("large-v3-turbo", DtwModelPreset::LargeV3Turbo),
+        ("large-v3", DtwModelPreset::LargeV3),
+        ("large-v2", DtwModelPreset::LargeV2),
+        ("large-v1", DtwModelPreset::LargeV1),
+        ("medium.en", DtwModelPreset::MediumEn),
+        ("medium", DtwModelPreset::Medium),
+        ("small.en", DtwModelPreset::SmallEn),
+        ("small", DtwModelPreset::Small),
+        ("base.en", DtwModelPreset::BaseEn),
+        ("base", DtwModelPreset::Base),
+        ("tiny.en", DtwModelPreset::TinyEn),
+        ("tiny", DtwModelPreset::Tiny),
+    ] {
+        if name.contains(needle) {
+            return Some(preset);
+        }
+    }
+    None
+}
+
+/// How a [`WhisperEngine`] is loaded. Separate from [`DecodeOptions`]
+/// because these cannot change without reloading the model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EngineOptions {
+    pub use_gpu: bool,
+    pub gpu_device: i32,
+    /// Allocate whisper.cpp's DTW alignment buffers, giving token
+    /// timestamps aligned by dynamic time warping instead of the heuristic.
+    /// Costs ~128 MB of context memory, so the live path leaves it off.
+    pub dtw_alignment: bool,
+}
+
 pub struct WhisperEngine {
     context: Mutex<WhisperContext>,
     model_path: String,
     use_gpu: bool,
+    /// Whether this context was built with DTW alignment heads. Reported in
+    /// the provenance block so a transcript says how its word times were
+    /// produced.
+    dtw_alignment: bool,
 }
 
 impl WhisperEngine {
@@ -103,6 +242,23 @@ impl WhisperEngine {
         use_gpu: bool,
         gpu_device: i32,
     ) -> TranscribeResult<Self> {
+        Self::load_with_options(
+            model_path,
+            EngineOptions {
+                use_gpu,
+                gpu_device,
+                dtw_alignment: false,
+            },
+        )
+    }
+
+    /// [`Self::load_with_gpu`] plus the choice of DTW word alignment.
+    pub fn load_with_options(model_path: &Path, options: EngineOptions) -> TranscribeResult<Self> {
+        let EngineOptions {
+            use_gpu,
+            gpu_device,
+            dtw_alignment,
+        } = options;
         if !model_path.exists() {
             return Err(TranscribeError::Model(format!(
                 "model file not found: {}",
@@ -114,8 +270,20 @@ impl WhisperEngine {
             .to_str()
             .ok_or_else(|| TranscribeError::Model("model path is not valid UTF-8".into()))?;
 
+        // Only claim DTW when the model is one whisper.cpp has alignment
+        // heads for. Enabling it with the wrong preset does not produce
+        // worse timestamps, it aborts inside whisper.cpp.
+        let dtw_preset = dtw_alignment.then(|| dtw_preset_for(model_path)).flatten();
+        let dtw_alignment = dtw_preset.is_some();
+
         let mut params = WhisperContextParameters::new();
         params.use_gpu(use_gpu).gpu_device(gpu_device);
+        if let Some(model_preset) = dtw_preset {
+            params.dtw_parameters(DtwParameters {
+                mode: DtwMode::ModelPreset { model_preset },
+                ..DtwParameters::default()
+            });
+        }
 
         let context = WhisperContext::new_with_params(path_str, params)
             .map_err(|e| TranscribeError::Model(format!("failed to load model: {e}")))?;
@@ -127,6 +295,7 @@ impl WhisperEngine {
             backend = detect_backend(),
             gpu = use_gpu,
             device = gpu_device,
+            dtw = dtw_alignment,
             "whisper engine initialized with auto-detected backend"
         );
 
@@ -134,11 +303,18 @@ impl WhisperEngine {
             context: Mutex::new(context),
             model_path: path_str.to_string(),
             use_gpu,
+            dtw_alignment,
         })
     }
 
     pub fn model_path(&self) -> &str {
         &self.model_path
+    }
+
+    /// Whether word timestamps from this engine are DTW-aligned (±50 ms)
+    /// rather than whisper's heuristic token times (±200 ms).
+    pub fn dtw_alignment(&self) -> bool {
+        self.dtw_alignment
     }
 
     /// Whether this engine was loaded with GPU acceleration requested
@@ -159,6 +335,31 @@ impl WhisperEngine {
         chunk_start_secs: f64,
         language: Option<&str>,
         initial_prompt: Option<&str>,
+    ) -> TranscribeResult<Vec<Segment>> {
+        self.transcribe_chunk_with(
+            samples,
+            source,
+            chunk_start_secs,
+            language,
+            initial_prompt,
+            DecodeOptions::default(),
+        )
+    }
+
+    /// [`Self::transcribe_chunk`] with explicit decoder settings.
+    ///
+    /// The hallucination stack lives here rather than in each caller so the
+    /// live, import, re-transcribe and post-stop paths cannot drift apart —
+    /// which is exactly what had happened: the thresholds were set in none
+    /// of them.
+    pub fn transcribe_chunk_with(
+        &self,
+        samples: &[f32],
+        source: &str,
+        chunk_start_secs: f64,
+        language: Option<&str>,
+        initial_prompt: Option<&str>,
+        options: DecodeOptions,
     ) -> TranscribeResult<Vec<Segment>> {
         if samples.is_empty() {
             return Err(TranscribeError::InvalidInput(
@@ -198,7 +399,17 @@ impl WhisperEngine {
         if let Some(prompt) = initial_prompt {
             params.set_initial_prompt(prompt);
         }
-        // params.token_timestamps(true);  // disabled until FRB regen
+        // The hallucination stack (Research Round 2 §2.2). VAD gating
+        // upstream is the primary defence; these are the decoder-side
+        // backstops for whatever audio gets through it.
+        params.set_no_speech_thold(options.no_speech_thold);
+        params.set_logprob_thold(options.logprob_thold);
+        params.set_no_context(options.no_context);
+        params.set_suppress_nst(options.suppress_nst);
+        params.set_suppress_blank(true);
+        if options.word_timestamps {
+            params.set_token_timestamps(true);
+        }
 
         state
             .full(params, &processed)
@@ -217,13 +428,40 @@ impl WhisperEngine {
             let t0 = seg.start_timestamp() as f64 / 100.0;
             let t1 = seg.end_timestamp() as f64 / 100.0;
 
-            // Compute average log probability from token data for confidence routing.
+            // One pass over the tokens serves both the segment-level
+            // confidence (mean log probability) and, when asked for, the
+            // per-word spans.
             let n_tokens = seg.n_tokens();
             let mut log_probs = Vec::with_capacity(n_tokens.max(0) as usize);
-            for tok in 0..n_tokens {
-                if let Some(token) = seg.get_token(tok) {
-                    log_probs.push(token.token_data().plog);
+            let mut token_spans: Vec<TokenSpan> = if options.word_timestamps {
+                Vec::with_capacity(n_tokens.max(0) as usize)
+            } else {
+                Vec::new()
+            };
+            for index in 0..n_tokens {
+                let Some(token) = seg.get_token(index) else {
+                    continue;
+                };
+                let data = token.token_data();
+                log_probs.push(data.plog);
+                if !options.word_timestamps {
+                    continue;
                 }
+                // `to_str_lossy` rather than `to_str`: whisper routinely
+                // splits a multi-byte character across two tokens, so a
+                // single token's bytes are often not valid UTF-8 on their
+                // own. A replacement character in one piece is survivable;
+                // losing the whole segment's word timings to an `Err` is
+                // not.
+                let Ok(token_text) = token.to_str_lossy() else {
+                    continue;
+                };
+                token_spans.push(TokenSpan {
+                    text: token_text.into_owned(),
+                    start: chunk_start_secs + data.t0 as f64 / 100.0,
+                    end: chunk_start_secs + data.t1 as f64 / 100.0,
+                    prob: data.p.clamp(0.0, 1.0),
+                });
             }
             let avg_log_prob = if log_probs.is_empty() {
                 0.0_f32
@@ -235,17 +473,52 @@ impl WhisperEngine {
             let confidence = (1.0 + avg_log_prob).clamp(0.0, 1.0);
             let low_confidence = confidence < 0.5;
 
+            // Decoder-side hallucination gate: the model's own verdict on
+            // whether there was speech here at all, plus how sure it was of
+            // what it wrote. VAD gating upstream means most silence never
+            // reaches this point; what this catches is room tone loud
+            // enough to pass the detector.
+            let no_speech_prob = seg.no_speech_probability();
+            if no_speech_prob >= options.no_speech_thold
+                || (!log_probs.is_empty() && avg_log_prob < options.logprob_thold)
+            {
+                tracing::debug!(
+                    text = %text.trim(),
+                    no_speech_prob,
+                    avg_log_prob,
+                    "dropped a segment the decoder itself reports as non-speech"
+                );
+                continue;
+            }
+
+            let trimmed = text.trim().to_string();
+            let start = chunk_start_secs + t0;
+            let duration = (t1 - t0).max(0.0);
+            let words = if !options.word_timestamps {
+                Vec::new()
+            } else {
+                let aggregated = words::aggregate_words(&token_spans);
+                // A build or model that reports no usable token times at
+                // all must still give the player something to seek on.
+                if aggregated.is_empty() {
+                    words::interpolate_words(&trimmed, start, duration)
+                } else {
+                    aggregated
+                }
+            };
+
             out.push(Segment {
                 source: source.to_string(),
                 speaker: source.to_uppercase(),
-                text: text.trim().to_string(),
-                timestamp: chunk_start_secs + t0,
-                duration: (t1 - t0).max(0.0),
+                text: trimmed,
+                timestamp: start,
+                duration,
                 language: segment_language(text, language).to_string(),
                 confidence,
                 avg_log_prob,
                 is_partial: false,
                 low_confidence,
+                words,
             });
         }
 
@@ -288,7 +561,7 @@ impl WhisperEngine {
 ///   - else → `"id"`
 ///
 /// This runs cheap after inference; it does not re-encode audio.
-fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
+pub(crate) fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
     if let Some(l) = explicit {
         match l {
             "en" => return "en",
@@ -343,6 +616,81 @@ fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_live_path_carries_no_context_between_chunks() {
+        // Research Round 2 §2.2.5: on chunked live inference the previous
+        // chunk's text is the model's own output, so conditioning on it
+        // lets one hallucination seed the next.
+        let live = DecodeOptions::live();
+        assert!(
+            live.no_context,
+            "live inference must not condition on previous text"
+        );
+        assert!(
+            live.word_timestamps,
+            "LocalAgreement-2 compares hypotheses word by word"
+        );
+        assert!(live.suppress_nst);
+    }
+
+    #[test]
+    fn the_offline_path_keeps_context_and_word_timestamps() {
+        let offline = DecodeOptions::offline();
+        assert!(!offline.no_context);
+        assert!(offline.word_timestamps);
+        assert!(offline.suppress_nst);
+        // The default must be the accurate one: a caller that does not
+        // think about this is an import or a re-transcribe, not the live
+        // worker (which names `live()` explicitly).
+        assert_eq!(DecodeOptions::default(), offline);
+    }
+
+    #[test]
+    fn both_paths_share_the_hallucination_thresholds() {
+        for options in [DecodeOptions::live(), DecodeOptions::offline()] {
+            assert_eq!(options.no_speech_thold, NO_SPEECH_THOLD);
+            assert_eq!(options.logprob_thold, LOGPROB_THOLD);
+        }
+        assert_eq!(NO_SPEECH_THOLD, 0.6);
+        assert_eq!(LOGPROB_THOLD, -1.0);
+    }
+
+    #[test]
+    fn dtw_presets_match_the_catalog_filenames() {
+        // Every id in `model::KNOWN_MODELS` must resolve, or word
+        // timestamps silently fall back to the heuristic for that model.
+        for (filename, expected) in [
+            ("ggml-tiny.bin", "Tiny"),
+            ("ggml-base.bin", "Base"),
+            ("ggml-small.bin", "Small"),
+            ("ggml-medium.bin", "Medium"),
+            ("ggml-large-v3-turbo.bin", "LargeV3Turbo"),
+            ("ggml-large-v3-turbo-q5_0.bin", "LargeV3Turbo"),
+        ] {
+            let preset = dtw_preset_for(Path::new(filename))
+                .unwrap_or_else(|| panic!("{filename} has no DTW preset"));
+            assert_eq!(format!("{preset:?}"), expected, "{filename}");
+        }
+    }
+
+    #[test]
+    fn turbo_is_not_mistaken_for_plain_large_v3() {
+        // "large-v3-turbo" contains "large-v3"; the wrong preset does not
+        // degrade the timestamps, it aborts inside whisper.cpp.
+        let preset = dtw_preset_for(Path::new("/x/ggml-large-v3-turbo-q5_0.bin")).unwrap();
+        assert_eq!(format!("{preset:?}"), "LargeV3Turbo");
+        let plain = dtw_preset_for(Path::new("/x/ggml-large-v3.bin")).unwrap();
+        assert_eq!(format!("{plain:?}"), "LargeV3");
+    }
+
+    #[test]
+    fn an_unknown_model_name_has_no_dtw_preset() {
+        // The fallback path: heuristic token timestamps, not a crash.
+        assert!(dtw_preset_for(Path::new("ggml-medium-id.bin")).is_some());
+        assert!(dtw_preset_for(Path::new("something-else.bin")).is_none());
+        assert!(dtw_preset_for(Path::new("/")).is_none());
+    }
 
     #[test]
     fn load_missing_model_errors_not_panics() {

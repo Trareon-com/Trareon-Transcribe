@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use rust_core::export::{export_segments, ExportFormat};
 use rust_core::glossary::{parse_glossary, GlossaryConfig};
-use rust_core::stt::file::{transcribe_files_batch, BatchFileStatus};
+use rust_core::stt::file::{transcribe_files_batch_with, BatchFileStatus, FileOptions};
 use rust_core::stt::WhisperEngine;
 
 #[derive(Parser, Debug)]
@@ -60,6 +60,43 @@ pub struct Args {
     /// it both ways and reading the two transcripts.
     #[arg(long, default_value_t = false)]
     pub denoise: bool,
+
+    /// Transcribe the whole file instead of only the stretches the VAD
+    /// finds speech in.
+    ///
+    /// For measuring what the gate is worth, not for using. Fed silence,
+    /// Whisper does not return nothing — it returns the most common
+    /// caption in its training data, which on Indonesian audio is
+    /// `[MENGENI]`. See docs/SPRINT-REPORTS.md for the figures this flag
+    /// produced on a five-minute mostly-silent recording.
+    #[arg(long, default_value_t = false)]
+    pub no_vad: bool,
+
+    /// Keep segments the non-speech filter would have dropped.
+    #[arg(long, default_value_t = false)]
+    pub no_hallucination_filter: bool,
+
+    /// Set the decoder's no-speech and log-probability thresholds so
+    /// permissively that nothing can fail them.
+    #[arg(long, default_value_t = false)]
+    pub no_decoder_thresholds: bool,
+}
+
+impl Args {
+    /// The hallucination stack this invocation asked for.
+    pub fn file_options(&self) -> FileOptions {
+        let defaults = FileOptions::default();
+        let unguarded = FileOptions::unguarded();
+        FileOptions {
+            vad_gate: !self.no_vad,
+            text_filter: !self.no_hallucination_filter,
+            decode: if self.no_decoder_thresholds {
+                unguarded.decode
+            } else {
+                defaults.decode
+            },
+        }
+    }
 }
 
 pub fn parse_formats(raw: &str) -> Vec<ExportFormat> {
@@ -125,6 +162,9 @@ pub fn run(args: Args) -> i32 {
                     session_terms: Vec::new(),
                     global_terms: terms,
                     post_correction: !args.no_glossary_correction,
+                    // The CLI has no transcript editor, so there is
+                    // nowhere for a learned replacement to come from.
+                    replacements: Vec::new(),
                 }
             }
             Err(e) => {
@@ -138,13 +178,23 @@ pub fn run(args: Args) -> i32 {
     let total = files.len();
     let mut failures = 0usize;
 
-    transcribe_files_batch(
+    let file_options = args.file_options();
+    if file_options != FileOptions::default() {
+        eprintln!(
+            "PERINGATAN: sebagian penjaga halusinasi dimatikan \
+             (vad_gate={}, text_filter={}). Hasilnya untuk pengukuran, \
+             bukan untuk dipakai.",
+            file_options.vad_gate, file_options.text_filter
+        );
+    }
+    transcribe_files_batch_with(
         &engine,
         &files,
         args.language.as_deref(),
         &glossary,
         // The CLI has no way to ask, so it lets the clustering decide.
         0,
+        file_options,
         |progress| match progress.status {
             BatchFileStatus::Done => {
                 println!(

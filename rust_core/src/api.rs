@@ -417,6 +417,7 @@ pub fn progressive_transcribe_file(
             0.0,
             language.as_deref(),
             initial_prompt,
+            crate::stt::DecodeOptions::offline(),
         )?;
         report(crate::stt::file::BatchFileStatus::Transcribing, 0.5);
         refined_segments = engine.transcribe_refine(
@@ -425,6 +426,7 @@ pub fn progressive_transcribe_file(
             0.0,
             language.as_deref(),
             initial_prompt,
+            crate::stt::DecodeOptions::offline(),
         )?;
         report(crate::stt::file::BatchFileStatus::Transcribing, 1.0);
     } else {
@@ -441,6 +443,7 @@ pub fn progressive_transcribe_file(
                 start,
                 language.as_deref(),
                 initial_prompt,
+                crate::stt::DecodeOptions::offline(),
             )?);
             done += 1.0;
             report(
@@ -453,6 +456,7 @@ pub fn progressive_transcribe_file(
                 start,
                 language.as_deref(),
                 initial_prompt,
+                crate::stt::DecodeOptions::offline(),
             )?);
             done += 1.0;
             report(
@@ -468,8 +472,8 @@ pub fn progressive_transcribe_file(
 
     if glossary.post_correction {
         let terms = glossary.prioritised_terms();
-        crate::glossary::correct_segments(&mut quick_segments, &terms);
-        crate::glossary::correct_segments(&mut refined_segments, &terms);
+        crate::glossary::correct_segments(&mut quick_segments, &terms, &glossary.replacements);
+        crate::glossary::correct_segments(&mut refined_segments, &terms, &glossary.replacements);
     }
 
     // Speaker labels, same as the single-model file path. Both passes are
@@ -1134,15 +1138,102 @@ pub fn describe_capabilities(settings: AppSettings) -> Vec<crate::capabilities::
 
 pub fn load_settings() -> AppSettings {
     let settings = crate::settings::load_settings();
-    // The ASR path reads this from a process global rather than being
-    // handed settings it has no other use for (F17).
-    crate::denoise::set_enabled(settings.noise_reduction);
+    apply_engine_settings(&settings);
     settings
 }
 
 pub fn save_settings(settings: AppSettings) -> Result<(), TranscribeError> {
-    crate::denoise::set_enabled(settings.noise_reduction);
+    apply_engine_settings(&settings);
     crate::settings::save_settings(&settings)
+}
+
+/// Pushes the settings the engine reads from process globals rather than
+/// from a parameter: noise reduction (F17), the Silero VAD gate and the
+/// optional neural diarizer.
+///
+/// They are globals because the code that reads them — `stt`, `pipeline`,
+/// `completion`, `diarization` — sits under three layers that have no
+/// other use for `AppSettings` and should not start taking it. Applied on
+/// both load and save so a change takes effect on the next chunk rather
+/// than the next launch.
+fn apply_engine_settings(settings: &AppSettings) {
+    crate::denoise::set_enabled(settings.noise_reduction);
+
+    let library = PathBuf::from(expand_home(&settings.library_path));
+    crate::vad::whisper_silero::set_model_path(crate::model::find_model_file(
+        &library,
+        crate::vad::whisper_silero::MODEL_ID,
+    ));
+
+    let models =
+        crate::model::find_model_file(&library, crate::diarization::neural::SEGMENTATION_MODEL_ID)
+            .zip(crate::model::find_model_file(
+                &library,
+                crate::diarization::neural::EMBEDDING_MODEL_ID,
+            ))
+            .map(
+                |(segmentation, embedding)| crate::diarization::neural::DiarizationModels {
+                    segmentation,
+                    embedding,
+                },
+            );
+    crate::diarization::neural::configure(settings.neural_diarization, models);
+}
+
+/// Resolves a leading `~` the way Dart's `resolveTilde` does.
+///
+/// `library_path` is stored tilde-form (`~/Documents/TrareonTranscribe`),
+/// and `model_search_dirs` joins it verbatim — so without this the library
+/// folder is simply never searched and the app concludes the VAD model is
+/// missing on a machine where it is plainly there. (`model_search_dirs`
+/// also checks the OS cache directory, which is where downloads land, so
+/// the bug was invisible until someone pointed the library elsewhere.)
+fn expand_home(path: &str) -> String {
+    match path.strip_prefix("~/") {
+        Some(rest) => match dirs::home_dir() {
+            Some(home) => home.join(rest).to_string_lossy().into_owned(),
+            None => path.to_string(),
+        },
+        None => path.to_string(),
+    }
+}
+
+/// Which voice-activity detector the engine will use for the next pass.
+///
+/// `"silero"` when whisper.cpp's neural VAD model is installed,
+/// `"webrtc+energy"` when it is not. Shown in Diagnostics and in the "Apa
+/// Jalan di Mana" table, because it is the single biggest determinant of
+/// whether a quiet recording comes back with invented captions in it.
+pub fn vad_backend() -> String {
+    if crate::vad::whisper_silero::is_available() {
+        "silero".to_string()
+    } else {
+        "webrtc+energy".to_string()
+    }
+}
+
+/// Whether neural diarization will run: the setting, the models and the
+/// build feature all have to line up.
+pub fn neural_diarization_status() -> NeuralDiarizationStatus {
+    NeuralDiarizationStatus {
+        compiled_in: crate::diarization::neural::compiled_in(),
+        active: crate::diarization::neural::is_active(),
+    }
+}
+
+/// Reportable state of the optional diarizer.
+#[derive(Debug, Clone, Copy)]
+pub struct NeuralDiarizationStatus {
+    /// Built with the `neural-diarization` cargo feature.
+    pub compiled_in: bool,
+    /// Switched on, models installed, feature compiled in.
+    pub active: bool,
+}
+
+/// The non-transcription model files the app can download: the Silero VAD
+/// gate and the two diarization models.
+pub fn list_auxiliary_assets(models_dir: String) -> Vec<ModelInfo> {
+    crate::model::list_auxiliary_assets(&PathBuf::from(models_dir))
 }
 
 // --- Flight recorder -----------------------------------------------------

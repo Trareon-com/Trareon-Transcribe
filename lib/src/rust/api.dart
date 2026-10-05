@@ -30,8 +30,8 @@ import 'settings.dart';
 import 'stt/file.dart';
 import 'summary.dart';
 
-// These functions are ignored because they are not marked as `pub`: `summarise_matches`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `apply_engine_settings`, `expand_home`, `summarise_matches`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 Future<List<Check>> runPreflightChecks() =>
     RustLib.instance.api.crateApiRunPreflightChecks();
@@ -743,6 +743,24 @@ Future<AppSettings> loadSettings() =>
 Future<void> saveSettings({required AppSettings settings}) =>
     RustLib.instance.api.crateApiSaveSettings(settings: settings);
 
+/// Which voice-activity detector the engine will use for the next pass.
+///
+/// `"silero"` when whisper.cpp's neural VAD model is installed,
+/// `"webrtc+energy"` when it is not. Shown in Diagnostics and in the "Apa
+/// Jalan di Mana" table, because it is the single biggest determinant of
+/// whether a quiet recording comes back with invented captions in it.
+Future<String> vadBackend() => RustLib.instance.api.crateApiVadBackend();
+
+/// Whether neural diarization will run: the setting, the models and the
+/// build feature all have to line up.
+Future<NeuralDiarizationStatus> neuralDiarizationStatus() =>
+    RustLib.instance.api.crateApiNeuralDiarizationStatus();
+
+/// The non-transcription model files the app can download: the Silero VAD
+/// gate and the two diarization models.
+Future<List<ModelInfo>> listAuxiliaryAssets({required String modelsDir}) =>
+    RustLib.instance.api.crateApiListAuxiliaryAssets(modelsDir: modelsDir);
+
 /// Points the recorder at the app-support directory. Call once at startup
 /// (right after `RustLib.init()`); creates the directory if missing.
 Future<void> initFlightRecorder({required String appSupportDir}) => RustLib
@@ -892,6 +910,31 @@ class GpuCapability {
           runtimeType == other.runtimeType &&
           available == other.available &&
           backend == other.backend;
+}
+
+/// Reportable state of the optional diarizer.
+class NeuralDiarizationStatus {
+  /// Built with the `neural-diarization` cargo feature.
+  final bool compiledIn;
+
+  /// Switched on, models installed, feature compiled in.
+  final bool active;
+
+  const NeuralDiarizationStatus({
+    required this.compiledIn,
+    required this.active,
+  });
+
+  @override
+  int get hashCode => compiledIn.hashCode ^ active.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NeuralDiarizationStatus &&
+          runtimeType == other.runtimeType &&
+          compiledIn == other.compiledIn &&
+          active == other.active;
 }
 
 /// Result of an HPT (dual-model) file transcription: the quick pass from

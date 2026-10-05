@@ -16,6 +16,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
 import '../widgets/glossary_settings_section.dart';
 import '../widgets/notulen_settings_section.dart';
+import '../widgets/engine_assets_section.dart';
 import '../widgets/pdp_settings_section.dart';
 import '../widgets/settings_controls.dart';
 import '../widgets/summary_settings_section.dart';
@@ -561,6 +562,9 @@ class _CategoryContent extends ConsumerWidget {
   }
 
   List<Widget> _audio(AppSettings settings, SettingsNotifier notifier) => [
+    // The downloadable engine assets go first: whether the neural VAD is
+    // installed decides what "Abaikan jeda sunyi" below actually does.
+    const EngineAssetsSection(),
     SettingsSection(
       title: 'Audio & Suara',
       children: [

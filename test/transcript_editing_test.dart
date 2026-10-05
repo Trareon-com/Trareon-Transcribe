@@ -36,6 +36,7 @@ TranscriptSegment _seg(
   confidence: lowConfidence ? 0.4 : 0.95,
   isPartial: false,
   lowConfidence: lowConfidence,
+  words: const [],
 );
 
 /// Records what the view asked the host screen to do.

@@ -38,6 +38,15 @@ abstract class RustBridge {
   Stream<TranscriptSegment> transcriptStream(String sessionId);
   Stream<VuLevel> vuMeterStream(String sessionId);
 
+  /// The live hypothesis' uncommitted tail, for the greyed "sementara"
+  /// line. Replaces itself on every decode; an empty string clears it.
+  ///
+  /// Separate from [transcriptStream] because it is not a transcript
+  /// segment: it has no timestamp, no speaker, is never journalled, and
+  /// LocalAgreement-2 is free to change it on the next decode (see
+  /// `rust_core/src/streaming.rs`).
+  Stream<String> tentativeStream(String sessionId);
+
   /// Capture problems the engine reports mid-session — a source that could
   /// not be opened at start, or one that died while recording. Surfaced as a
   /// toast; without it a half-dead session looks identical to a quiet one.
@@ -389,6 +398,7 @@ const rust_glossary.GlossaryConfig kEmptyGlossary =
       sessionTerms: [],
       globalTerms: [],
       postCorrection: false,
+      replacements: [],
     );
 
 /// "Nothing is missing." Used by every bridge that does no real coverage
@@ -415,6 +425,15 @@ rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
   isPartial: s.isPartial,
   lowConfidence: s.lowConfidence,
   avgLogProb: s.avgLogProb,
+  words: [
+    for (final w in s.words)
+      rust_export.WordTimestamp(
+        word: w.word,
+        start: w.start,
+        end: w.end,
+        prob: w.prob,
+      ),
+  ],
 );
 
 /// Appearance preference, Dart -> Rust.
@@ -493,6 +512,10 @@ TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
   isPartial: s.isPartial,
   lowConfidence: s.lowConfidence,
   avgLogProb: s.avgLogProb,
+  words: [
+    for (final w in s.words)
+      TranscriptWord(word: w.word, start: w.start, end: w.end, prob: w.prob),
+  ],
 );
 
 class RustBridgeMock implements RustBridge {
@@ -501,6 +524,7 @@ class RustBridgeMock implements RustBridge {
   _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
   final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
+  final Map<String, StreamController<String>> _tentativeControllers = {};
   final Map<String, Timer> _timers = {};
   AppSettings _settings = AppSettings.defaults();
 
@@ -513,6 +537,7 @@ class RustBridgeMock implements RustBridge {
     _transcriptControllers[id] = transcriptController;
     _vuControllers[id] = vuController;
     _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
+    _tentativeControllers[id] = StreamController<String>.broadcast();
 
     var elapsed = 0.0;
     _timers[id] = Timer.periodic(const Duration(milliseconds: 500), (_) {
@@ -549,6 +574,7 @@ class RustBridgeMock implements RustBridge {
     await _transcriptControllers.remove(sessionId)?.close();
     await _vuControllers.remove(sessionId)?.close();
     await _noticeControllers.remove(sessionId)?.close();
+    await _tentativeControllers.remove(sessionId)?.close();
   }
 
   @override
@@ -570,6 +596,11 @@ class RustBridgeMock implements RustBridge {
   @override
   Stream<SessionNotice> noticeStream(String sessionId) {
     return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
+  Stream<String> tentativeStream(String sessionId) {
+    return _tentativeControllers[sessionId]?.stream ?? const Stream.empty();
   }
 
   @override
@@ -651,6 +682,7 @@ class RustBridgeMock implements RustBridge {
       sizeBytes: BigInt.from(148897024),
       minRamGb: 1,
       isBundled: true,
+      kind: rust_model.AssetKind.transcription,
     ),
     rust_model.ModelInfo(
       id: 'large-v3-turbo-q5',
@@ -660,6 +692,7 @@ class RustBridgeMock implements RustBridge {
       sizeBytes: BigInt.from(574619648),
       minRamGb: 4,
       isBundled: true,
+      kind: rust_model.AssetKind.transcription,
     ),
   ];
 
@@ -1042,6 +1075,7 @@ class RustEngineBridge implements RustBridge {
   _transcriptControllers = {};
   final Map<String, StreamController<VuLevel>> _vuControllers = {};
   final Map<String, StreamController<SessionNotice>> _noticeControllers = {};
+  final Map<String, StreamController<String>> _tentativeControllers = {};
   final Map<String, Timer> _pollTimers = {};
   final Set<String> _polling = {};
   final Set<String> _pausedSessions = {};
@@ -1088,6 +1122,7 @@ class RustEngineBridge implements RustBridge {
         StreamController<TranscriptSegment>.broadcast();
     _vuControllers[id] = StreamController<VuLevel>.broadcast();
     _noticeControllers[id] = StreamController<SessionNotice>.broadcast();
+    _tentativeControllers[id] = StreamController<String>.broadcast();
     _pollTimers[id] = Timer.periodic(
       const Duration(milliseconds: 200),
       (_) => _poll(id),
@@ -1111,6 +1146,7 @@ class RustEngineBridge implements RustBridge {
       await _transcriptControllers.remove(sessionId)?.close();
       await _vuControllers.remove(sessionId)?.close();
       await _noticeControllers.remove(sessionId)?.close();
+      await _tentativeControllers.remove(sessionId)?.close();
       _lastMicLevels.remove(sessionId);
       _lastSpeakerLevels.remove(sessionId);
     }
@@ -1147,6 +1183,11 @@ class RustEngineBridge implements RustBridge {
   @override
   Stream<SessionNotice> noticeStream(String sessionId) {
     return _noticeControllers[sessionId]?.stream ?? const Stream.empty();
+  }
+
+  @override
+  Stream<String> tentativeStream(String sessionId) {
+    return _tentativeControllers[sessionId]?.stream ?? const Stream.empty();
   }
 
   @override
@@ -1206,6 +1247,11 @@ class RustEngineBridge implements RustBridge {
           },
           // Delivered even while paused: a source that just died is news
           // regardless, and unlike a segment it cannot be replayed later.
+          // Dropped while paused along with the segments: it is a
+          // preview of text the user has asked not to see.
+          tentative: (source, text) {
+            if (!paused) _tentativeControllers[sessionId]?.add(text);
+          },
           notice: (level, source, message) {
             _noticeControllers[sessionId]?.add(
               SessionNotice(
@@ -1708,6 +1754,7 @@ class RustEngineBridge implements RustBridge {
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
+      neuralDiarization: settings.neuralDiarization,
     );
   }
 
@@ -1735,6 +1782,7 @@ class RustEngineBridge implements RustBridge {
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
+      neuralDiarization: settings.neuralDiarization,
     );
   }
 }

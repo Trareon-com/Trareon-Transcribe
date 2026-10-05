@@ -55,6 +55,7 @@ rust_export.Segment rustSeg({
   avgLogProb: -0.3,
   isPartial: false,
   lowConfidence: false,
+  words: const [],
 );
 
 /// A bridge that reports a gap and then fills it.

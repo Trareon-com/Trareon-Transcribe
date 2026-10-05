@@ -69,6 +69,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ArchiveStats dco_decode_archive_stats(dynamic raw);
 
   @protected
+  AssetKind dco_decode_asset_kind(dynamic raw);
+
+  @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
 
   @protected
@@ -287,6 +290,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RecoverableSession> dco_decode_list_recoverable_session(dynamic raw);
 
   @protected
+  List<ReplacementRule> dco_decode_list_replacement_rule(dynamic raw);
+
+  @protected
   List<RetentionItem> dco_decode_list_retention_item(dynamic raw);
 
   @protected
@@ -308,10 +314,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TindakLanjut> dco_decode_list_tindak_lanjut(dynamic raw);
 
   @protected
+  List<WordTimestamp> dco_decode_list_word_timestamp(dynamic raw);
+
+  @protected
   MapReduceProgress dco_decode_map_reduce_progress(dynamic raw);
 
   @protected
   ModelInfo dco_decode_model_info(dynamic raw);
+
+  @protected
+  NeuralDiarizationStatus dco_decode_neural_diarization_status(dynamic raw);
 
   @protected
   NoticeLevel dco_decode_notice_level(dynamic raw);
@@ -387,6 +399,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RedactionConfig dco_decode_redaction_config(dynamic raw);
+
+  @protected
+  ReplacementRule dco_decode_replacement_rule(dynamic raw);
 
   @protected
   RetentionItem dco_decode_retention_item(dynamic raw);
@@ -476,6 +491,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  WordTimestamp dco_decode_word_timestamp(dynamic raw);
+
+  @protected
   Map<String, String> sse_decode_Map_String_String_None(
     SseDeserializer deserializer,
   );
@@ -500,6 +518,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ArchiveStats sse_decode_archive_stats(SseDeserializer deserializer);
+
+  @protected
+  AssetKind sse_decode_asset_kind(SseDeserializer deserializer);
 
   @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
@@ -760,6 +781,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReplacementRule> sse_decode_list_replacement_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<RetentionItem> sse_decode_list_retention_item(
     SseDeserializer deserializer,
   );
@@ -787,12 +813,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<WordTimestamp> sse_decode_list_word_timestamp(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MapReduceProgress sse_decode_map_reduce_progress(
     SseDeserializer deserializer,
   );
 
   @protected
   ModelInfo sse_decode_model_info(SseDeserializer deserializer);
+
+  @protected
+  NeuralDiarizationStatus sse_decode_neural_diarization_status(
+    SseDeserializer deserializer,
+  );
 
   @protected
   NoticeLevel sse_decode_notice_level(SseDeserializer deserializer);
@@ -878,6 +914,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RedactionConfig sse_decode_redaction_config(SseDeserializer deserializer);
+
+  @protected
+  ReplacementRule sse_decode_replacement_rule(SseDeserializer deserializer);
 
   @protected
   RetentionItem sse_decode_retention_item(SseDeserializer deserializer);
@@ -971,6 +1010,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
+  WordTimestamp sse_decode_word_timestamp(SseDeserializer deserializer);
+
+  @protected
   void sse_encode_Map_String_String_None(
     Map<String, String> self,
     SseSerializer serializer,
@@ -996,6 +1038,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_archive_stats(ArchiveStats self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_asset_kind(AssetKind self, SseSerializer serializer);
 
   @protected
   void sse_encode_audio_device_info(
@@ -1340,6 +1385,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_replacement_rule(
+    List<ReplacementRule> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_retention_item(
     List<RetentionItem> self,
     SseSerializer serializer,
@@ -1379,6 +1430,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_word_timestamp(
+    List<WordTimestamp> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_map_reduce_progress(
     MapReduceProgress self,
     SseSerializer serializer,
@@ -1386,6 +1443,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_model_info(ModelInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_neural_diarization_status(
+    NeuralDiarizationStatus self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_notice_level(NoticeLevel self, SseSerializer serializer);
@@ -1492,6 +1555,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_redaction_config(
     RedactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_replacement_rule(
+    ReplacementRule self,
     SseSerializer serializer,
   );
 
@@ -1608,6 +1677,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_word_timestamp(WordTimestamp self, SseSerializer serializer);
 }
 
 // Section: wire_class

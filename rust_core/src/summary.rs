@@ -796,6 +796,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: partial,
             low_confidence: false,
+            words: Vec::new(),
         }
     }
 

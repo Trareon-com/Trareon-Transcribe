@@ -6,6 +6,27 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// The three kinds of thing the model manager downloads.
+///
+/// Before Sprint 4b the catalog held only Whisper models, so "model" and
+/// "downloadable asset" were the same word. The Silero VAD gate and the
+/// optional neural diarization both need files on disk with the same
+/// resume + checksum + Privacy Report treatment, and nothing else about
+/// them resembles a transcription model: they are not selectable, they
+/// have no RAM floor worth showing, and listing them in the Settings
+/// dropdown would offer the user a 28 MB speaker-embedding network as a
+/// choice of transcriber.
+enum AssetKind {
+  /// A Whisper GGML model.
+  transcription,
+
+  /// whisper.cpp's Silero voice-activity model.
+  vad,
+
+  /// A sherpa-onnx speaker-diarization model.
+  diarization,
+}
+
 class ModelInfo {
   final String id;
   final String name;
@@ -15,6 +36,12 @@ class ModelInfo {
   final int minRamGb;
   final bool isBundled;
 
+  /// What this asset is *for*. The model picker only ever offers
+  /// [`AssetKind::Transcription`]; the VAD and diarization assets are
+  /// downloaded because a feature was switched on, not chosen from a
+  /// list.
+  final AssetKind kind;
+
   const ModelInfo({
     required this.id,
     required this.name,
@@ -23,6 +50,7 @@ class ModelInfo {
     required this.sizeBytes,
     required this.minRamGb,
     required this.isBundled,
+    required this.kind,
   });
 
   @override
@@ -33,7 +61,8 @@ class ModelInfo {
       sha256.hashCode ^
       sizeBytes.hashCode ^
       minRamGb.hashCode ^
-      isBundled.hashCode;
+      isBundled.hashCode ^
+      kind.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -46,5 +75,6 @@ class ModelInfo {
           sha256 == other.sha256 &&
           sizeBytes == other.sizeBytes &&
           minRamGb == other.minRamGb &&
-          isBundled == other.isBundled;
+          isBundled == other.isBundled &&
+          kind == other.kind;
 }

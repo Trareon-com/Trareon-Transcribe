@@ -42,13 +42,45 @@ pub struct Segment {
     pub avg_log_prob: f32,
     pub is_partial: bool,
     pub low_confidence: bool,
+    /// Per-word spans from whisper's token timestamps, aggregated by
+    /// [`crate::stt::words`]. Empty when the segment was produced without
+    /// word timestamps (every transcript written before Sprint 4b, and the
+    /// live preview's uncommitted tail), which is why it is
+    /// `#[serde(default)]`: an old `transcript.json` must still load.
+    #[serde(default)]
+    pub words: Vec<WordTimestamp>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// One word of a segment, with the span the player highlights and the
+/// probability the "Tinjau" filter underlines on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WordTimestamp {
     pub word: String,
     pub start: f64,
     pub end: f64,
+    /// Mean of the probabilities whisper gave this word's tokens, in
+    /// `0.0..=1.0`. `0.0` means "not measured" (an interpolated word), not
+    /// "certainly wrong" — see [`crate::stt::words::interpolate_words`].
+    #[serde(default)]
+    pub prob: f32,
+}
+
+/// Below this per-word probability the player underlines the word as one
+/// worth checking.
+///
+/// Picked from the same place `confidence.rs` picks its segment threshold:
+/// whisper's token probabilities on clean Indonesian speech sit well above
+/// 0.6, and the words it actually gets wrong cluster under it. Deliberately
+/// not lower — an underline under every third word is decoration, not a
+/// signal.
+pub const LOW_WORD_PROB: f32 = 0.6;
+
+impl WordTimestamp {
+    /// Whether this word is worth the user's attention. Interpolated words
+    /// (`prob == 0.0`) are excluded: there is no measurement to doubt.
+    pub fn is_low_confidence(&self) -> bool {
+        self.prob > 0.0 && self.prob < LOW_WORD_PROB
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -617,6 +649,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }]
     }
 
@@ -697,6 +730,7 @@ mod tests {
             avg_log_prob: -0.3,
             is_partial: false,
             low_confidence: false,
+            words: Vec::new(),
         }];
         let html = to_html(&segments, "Rapat <Q3>", "", &[]);
         assert!(!html.contains("<script>alert"));

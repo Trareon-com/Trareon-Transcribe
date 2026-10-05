@@ -98,18 +98,46 @@ pub fn available_bytes(path: &Path) -> Option<u64> {
 }
 
 fn nearest_existing(path: &Path) -> Option<std::path::PathBuf> {
-    let canonical = path.canonicalize().ok();
-    if let Some(canonical) = canonical {
-        return Some(canonical);
+    if let Ok(canonical) = path.canonicalize() {
+        return Some(strip_verbatim(canonical));
     }
     let mut current = path;
     while let Some(parent) = current.parent() {
         if let Ok(canonical) = parent.canonicalize() {
-            return Some(canonical);
+            return Some(strip_verbatim(canonical));
         }
         current = parent;
     }
     None
+}
+
+/// Removes Windows' extended-length prefix from a canonicalised path.
+///
+/// `canonicalize` on Windows always returns one: `C:\Users\x` comes back
+/// as `\\?\C:\Users\x`. `sysinfo` reports mount points in the ordinary
+/// form (`C:\`), so the `starts_with` in [`available_bytes`] matched no
+/// disk at all and every lookup returned `None` — meaning the free-space
+/// guard, the thing that stops a three-hour meeting from failing to save,
+/// has never once fired on Windows. Found by running `cargo test --lib` on
+/// the Windows machine rather than only on Linux.
+///
+/// A no-op on every other platform.
+fn strip_verbatim(path: std::path::PathBuf) -> std::path::PathBuf {
+    if !cfg!(windows) {
+        return path;
+    }
+    let Some(text) = path.to_str() else {
+        return path;
+    };
+    // A verbatim UNC path's ordinary form drops `?\UNC\` and keeps the
+    // two leading separators; a verbatim local path just drops the prefix.
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return std::path::PathBuf::from(format!(r"\\{rest}"));
+    }
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) => std::path::PathBuf::from(rest),
+        None => path,
+    }
 }
 
 /// [`available_bytes`] plus the policy and the sentence to show.
@@ -175,6 +203,24 @@ mod tests {
     fn a_path_that_does_not_exist_yet_resolves_via_its_parent() {
         let missing = std::env::temp_dir().join("trareon-not-created-yet-xyz");
         assert!(available_bytes(&missing).is_some());
+    }
+
+    #[test]
+    fn the_windows_extended_length_prefix_is_removed() {
+        // The whole bug: `sysinfo` reports `C:\` as the mount point, so a
+        // `\\?\C:\...` target matched nothing and every Windows lookup
+        // returned "unknown". Asserted on all platforms — the function is
+        // a no-op elsewhere, and that is worth pinning too.
+        let local = strip_verbatim(std::path::PathBuf::from(r"\\?\C:\Users\kepatuhan"));
+        let unc = strip_verbatim(std::path::PathBuf::from(r"\\?\UNC\server\share\dir"));
+        let plain = strip_verbatim(std::path::PathBuf::from(r"C:\Users\kepatuhan"));
+        if cfg!(windows) {
+            assert_eq!(local, std::path::PathBuf::from(r"C:\Users\kepatuhan"));
+            assert_eq!(unc, std::path::PathBuf::from(r"\\server\share\dir"));
+        } else {
+            assert_eq!(local, std::path::PathBuf::from(r"\\?\C:\Users\kepatuhan"));
+        }
+        assert_eq!(plain, std::path::PathBuf::from(r"C:\Users\kepatuhan"));
     }
 
     #[test]

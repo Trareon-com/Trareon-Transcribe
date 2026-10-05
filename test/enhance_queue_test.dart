@@ -45,6 +45,7 @@ rust_export.Segment rustSegment({
   avgLogProb: -0.3,
   isPartial: false,
   lowConfidence: false,
+  words: const [],
 );
 
 /// A bridge whose accurate pass returns a fixed transcript.
@@ -334,6 +335,7 @@ void main() {
                 enabled: true,
                 terms: ['PPBJ'],
                 postCorrection: true,
+                replacements: [],
               ),
             ),
           );

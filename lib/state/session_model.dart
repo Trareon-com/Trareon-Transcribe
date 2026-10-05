@@ -63,6 +63,14 @@ class SessionUiState {
   /// everything.
   final List<String> sessionGlossaryTerms;
 
+  /// The live hypothesis' uncommitted tail, shown greyed under the
+  /// transcript. Empty when there is nothing provisional.
+  ///
+  /// Not part of [segments] and never counted in [revision]: it is one
+  /// changing string, not a transcript row, and LocalAgreement-2 may
+  /// replace it on the next decode.
+  final String tentativeText;
+
   const SessionUiState({
     required this.lifecycle,
     required this.config,
@@ -73,6 +81,7 @@ class SessionUiState {
     this.elapsedSeconds = 0,
     this.bookmarks = const [],
     this.sessionGlossaryTerms = const [],
+    this.tentativeText = '',
   });
 
   /// Average confidence across current segments, or null if there are none
@@ -93,6 +102,7 @@ class SessionUiState {
     double? elapsedSeconds,
     List<Bookmark>? bookmarks,
     List<String>? sessionGlossaryTerms,
+    String? tentativeText,
   }) {
     return SessionUiState(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -104,6 +114,7 @@ class SessionUiState {
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
       bookmarks: bookmarks ?? this.bookmarks,
       sessionGlossaryTerms: sessionGlossaryTerms ?? this.sessionGlossaryTerms,
+      tentativeText: tentativeText ?? this.tentativeText,
     );
   }
 }
@@ -120,6 +131,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   }
 
   StreamSubscription<TranscriptSegment>? _transcriptSub;
+  StreamSubscription<String>? _tentativeSub;
   Timer? _autoStopTimer;
   Timer? _elapsedTimer;
   DateTime? _recordingStartedAt;
@@ -236,6 +248,10 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     _transcriptSub = _bridge
         .transcriptStream(sessionId)
         .listen(_onTranscriptSegment);
+    _tentativeSub = _bridge.tentativeStream(sessionId).listen((text) {
+      if (state.tentativeText == text) return;
+      state = state.copyWith(tentativeText: text);
+    });
     _recordingStartedAt ??= DateTime.now();
     _elapsedTimer?.cancel();
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -254,6 +270,13 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   void _cancelLiveStreams() {
     _transcriptSub?.cancel();
     _transcriptSub = null;
+    _tentativeSub?.cancel();
+    _tentativeSub = null;
+    // Nothing is provisional once the stream is gone, and leaving the last
+    // tail on screen would read as transcript.
+    if (state.tentativeText.isNotEmpty) {
+      state = state.copyWith(tentativeText: '');
+    }
     _elapsedTimer?.cancel();
     _elapsedTimer = null;
   }

@@ -21,6 +21,7 @@ mixin _$SessionEvent {
   TResult when<TResult extends Object?>({
     required TResult Function(Segment field0) transcript,
     required TResult Function(String source, double level) vu,
+    required TResult Function(String source, String text) tentative,
     required TResult Function(NoticeLevel level, String source, String message)
     notice,
   }) => throw _privateConstructorUsedError;
@@ -28,12 +29,14 @@ mixin _$SessionEvent {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function(Segment field0)? transcript,
     TResult? Function(String source, double level)? vu,
+    TResult? Function(String source, String text)? tentative,
     TResult? Function(NoticeLevel level, String source, String message)? notice,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
     TResult Function(Segment field0)? transcript,
     TResult Function(String source, double level)? vu,
+    TResult Function(String source, String text)? tentative,
     TResult Function(NoticeLevel level, String source, String message)? notice,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
@@ -41,18 +44,21 @@ mixin _$SessionEvent {
   TResult map<TResult extends Object?>({
     required TResult Function(SessionEvent_Transcript value) transcript,
     required TResult Function(SessionEvent_Vu value) vu,
+    required TResult Function(SessionEvent_Tentative value) tentative,
     required TResult Function(SessionEvent_Notice value) notice,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
     TResult? Function(SessionEvent_Transcript value)? transcript,
     TResult? Function(SessionEvent_Vu value)? vu,
+    TResult? Function(SessionEvent_Tentative value)? tentative,
     TResult? Function(SessionEvent_Notice value)? notice,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
     TResult Function(SessionEvent_Transcript value)? transcript,
     TResult Function(SessionEvent_Vu value)? vu,
+    TResult Function(SessionEvent_Tentative value)? tentative,
     TResult Function(SessionEvent_Notice value)? notice,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
@@ -155,6 +161,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult when<TResult extends Object?>({
     required TResult Function(Segment field0) transcript,
     required TResult Function(String source, double level) vu,
+    required TResult Function(String source, String text) tentative,
     required TResult Function(NoticeLevel level, String source, String message)
     notice,
   }) {
@@ -166,6 +173,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function(Segment field0)? transcript,
     TResult? Function(String source, double level)? vu,
+    TResult? Function(String source, String text)? tentative,
     TResult? Function(NoticeLevel level, String source, String message)? notice,
   }) {
     return transcript?.call(field0);
@@ -176,6 +184,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function(Segment field0)? transcript,
     TResult Function(String source, double level)? vu,
+    TResult Function(String source, String text)? tentative,
     TResult Function(NoticeLevel level, String source, String message)? notice,
     required TResult orElse(),
   }) {
@@ -190,6 +199,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult map<TResult extends Object?>({
     required TResult Function(SessionEvent_Transcript value) transcript,
     required TResult Function(SessionEvent_Vu value) vu,
+    required TResult Function(SessionEvent_Tentative value) tentative,
     required TResult Function(SessionEvent_Notice value) notice,
   }) {
     return transcript(this);
@@ -200,6 +210,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult? mapOrNull<TResult extends Object?>({
     TResult? Function(SessionEvent_Transcript value)? transcript,
     TResult? Function(SessionEvent_Vu value)? vu,
+    TResult? Function(SessionEvent_Tentative value)? tentative,
     TResult? Function(SessionEvent_Notice value)? notice,
   }) {
     return transcript?.call(this);
@@ -210,6 +221,7 @@ class _$SessionEvent_TranscriptImpl extends SessionEvent_Transcript {
   TResult maybeMap<TResult extends Object?>({
     TResult Function(SessionEvent_Transcript value)? transcript,
     TResult Function(SessionEvent_Vu value)? vu,
+    TResult Function(SessionEvent_Tentative value)? tentative,
     TResult Function(SessionEvent_Notice value)? notice,
     required TResult orElse(),
   }) {
@@ -317,6 +329,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult when<TResult extends Object?>({
     required TResult Function(Segment field0) transcript,
     required TResult Function(String source, double level) vu,
+    required TResult Function(String source, String text) tentative,
     required TResult Function(NoticeLevel level, String source, String message)
     notice,
   }) {
@@ -328,6 +341,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function(Segment field0)? transcript,
     TResult? Function(String source, double level)? vu,
+    TResult? Function(String source, String text)? tentative,
     TResult? Function(NoticeLevel level, String source, String message)? notice,
   }) {
     return vu?.call(source, level);
@@ -338,6 +352,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function(Segment field0)? transcript,
     TResult Function(String source, double level)? vu,
+    TResult Function(String source, String text)? tentative,
     TResult Function(NoticeLevel level, String source, String message)? notice,
     required TResult orElse(),
   }) {
@@ -352,6 +367,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult map<TResult extends Object?>({
     required TResult Function(SessionEvent_Transcript value) transcript,
     required TResult Function(SessionEvent_Vu value) vu,
+    required TResult Function(SessionEvent_Tentative value) tentative,
     required TResult Function(SessionEvent_Notice value) notice,
   }) {
     return vu(this);
@@ -362,6 +378,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult? mapOrNull<TResult extends Object?>({
     TResult? Function(SessionEvent_Transcript value)? transcript,
     TResult? Function(SessionEvent_Vu value)? vu,
+    TResult? Function(SessionEvent_Tentative value)? tentative,
     TResult? Function(SessionEvent_Notice value)? notice,
   }) {
     return vu?.call(this);
@@ -372,6 +389,7 @@ class _$SessionEvent_VuImpl extends SessionEvent_Vu {
   TResult maybeMap<TResult extends Object?>({
     TResult Function(SessionEvent_Transcript value)? transcript,
     TResult Function(SessionEvent_Vu value)? vu,
+    TResult Function(SessionEvent_Tentative value)? tentative,
     TResult Function(SessionEvent_Notice value)? notice,
     required TResult orElse(),
   }) {
@@ -397,6 +415,178 @@ abstract class SessionEvent_Vu extends SessionEvent {
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SessionEvent_VuImplCopyWith<_$SessionEvent_VuImpl> get copyWith =>
       throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$SessionEvent_TentativeImplCopyWith<$Res> {
+  factory _$$SessionEvent_TentativeImplCopyWith(
+    _$SessionEvent_TentativeImpl value,
+    $Res Function(_$SessionEvent_TentativeImpl) then,
+  ) = __$$SessionEvent_TentativeImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({String source, String text});
+}
+
+/// @nodoc
+class __$$SessionEvent_TentativeImplCopyWithImpl<$Res>
+    extends _$SessionEventCopyWithImpl<$Res, _$SessionEvent_TentativeImpl>
+    implements _$$SessionEvent_TentativeImplCopyWith<$Res> {
+  __$$SessionEvent_TentativeImplCopyWithImpl(
+    _$SessionEvent_TentativeImpl _value,
+    $Res Function(_$SessionEvent_TentativeImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of SessionEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? source = null, Object? text = null}) {
+    return _then(
+      _$SessionEvent_TentativeImpl(
+        source: null == source
+            ? _value.source
+            : source // ignore: cast_nullable_to_non_nullable
+                  as String,
+        text: null == text
+            ? _value.text
+            : text // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$SessionEvent_TentativeImpl extends SessionEvent_Tentative {
+  const _$SessionEvent_TentativeImpl({required this.source, required this.text})
+    : super._();
+
+  @override
+  final String source;
+  @override
+  final String text;
+
+  @override
+  String toString() {
+    return 'SessionEvent.tentative(source: $source, text: $text)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$SessionEvent_TentativeImpl &&
+            (identical(other.source, source) || other.source == source) &&
+            (identical(other.text, text) || other.text == text));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, source, text);
+
+  /// Create a copy of SessionEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$SessionEvent_TentativeImplCopyWith<_$SessionEvent_TentativeImpl>
+  get copyWith =>
+      __$$SessionEvent_TentativeImplCopyWithImpl<_$SessionEvent_TentativeImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(Segment field0) transcript,
+    required TResult Function(String source, double level) vu,
+    required TResult Function(String source, String text) tentative,
+    required TResult Function(NoticeLevel level, String source, String message)
+    notice,
+  }) {
+    return tentative(source, text);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(Segment field0)? transcript,
+    TResult? Function(String source, double level)? vu,
+    TResult? Function(String source, String text)? tentative,
+    TResult? Function(NoticeLevel level, String source, String message)? notice,
+  }) {
+    return tentative?.call(source, text);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(Segment field0)? transcript,
+    TResult Function(String source, double level)? vu,
+    TResult Function(String source, String text)? tentative,
+    TResult Function(NoticeLevel level, String source, String message)? notice,
+    required TResult orElse(),
+  }) {
+    if (tentative != null) {
+      return tentative(source, text);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(SessionEvent_Transcript value) transcript,
+    required TResult Function(SessionEvent_Vu value) vu,
+    required TResult Function(SessionEvent_Tentative value) tentative,
+    required TResult Function(SessionEvent_Notice value) notice,
+  }) {
+    return tentative(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(SessionEvent_Transcript value)? transcript,
+    TResult? Function(SessionEvent_Vu value)? vu,
+    TResult? Function(SessionEvent_Tentative value)? tentative,
+    TResult? Function(SessionEvent_Notice value)? notice,
+  }) {
+    return tentative?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(SessionEvent_Transcript value)? transcript,
+    TResult Function(SessionEvent_Vu value)? vu,
+    TResult Function(SessionEvent_Tentative value)? tentative,
+    TResult Function(SessionEvent_Notice value)? notice,
+    required TResult orElse(),
+  }) {
+    if (tentative != null) {
+      return tentative(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class SessionEvent_Tentative extends SessionEvent {
+  const factory SessionEvent_Tentative({
+    required final String source,
+    required final String text,
+  }) = _$SessionEvent_TentativeImpl;
+  const SessionEvent_Tentative._() : super._();
+
+  String get source;
+  String get text;
+
+  /// Create a copy of SessionEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$SessionEvent_TentativeImplCopyWith<_$SessionEvent_TentativeImpl>
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -496,6 +686,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult when<TResult extends Object?>({
     required TResult Function(Segment field0) transcript,
     required TResult Function(String source, double level) vu,
+    required TResult Function(String source, String text) tentative,
     required TResult Function(NoticeLevel level, String source, String message)
     notice,
   }) {
@@ -507,6 +698,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function(Segment field0)? transcript,
     TResult? Function(String source, double level)? vu,
+    TResult? Function(String source, String text)? tentative,
     TResult? Function(NoticeLevel level, String source, String message)? notice,
   }) {
     return notice?.call(level, source, message);
@@ -517,6 +709,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult maybeWhen<TResult extends Object?>({
     TResult Function(Segment field0)? transcript,
     TResult Function(String source, double level)? vu,
+    TResult Function(String source, String text)? tentative,
     TResult Function(NoticeLevel level, String source, String message)? notice,
     required TResult orElse(),
   }) {
@@ -531,6 +724,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult map<TResult extends Object?>({
     required TResult Function(SessionEvent_Transcript value) transcript,
     required TResult Function(SessionEvent_Vu value) vu,
+    required TResult Function(SessionEvent_Tentative value) tentative,
     required TResult Function(SessionEvent_Notice value) notice,
   }) {
     return notice(this);
@@ -541,6 +735,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult? mapOrNull<TResult extends Object?>({
     TResult? Function(SessionEvent_Transcript value)? transcript,
     TResult? Function(SessionEvent_Vu value)? vu,
+    TResult? Function(SessionEvent_Tentative value)? tentative,
     TResult? Function(SessionEvent_Notice value)? notice,
   }) {
     return notice?.call(this);
@@ -551,6 +746,7 @@ class _$SessionEvent_NoticeImpl extends SessionEvent_Notice {
   TResult maybeMap<TResult extends Object?>({
     TResult Function(SessionEvent_Transcript value)? transcript,
     TResult Function(SessionEvent_Vu value)? vu,
+    TResult Function(SessionEvent_Tentative value)? tentative,
     TResult Function(SessionEvent_Notice value)? notice,
     required TResult orElse(),
   }) {
