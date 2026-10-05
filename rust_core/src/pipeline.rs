@@ -68,8 +68,20 @@ pub struct LivePipeline<'a> {
     /// RMS threshold, and room tone at -64 dBFS gets past it — measured in
     /// a live session, where four seconds of it before the meeting started
     /// came back as `MENENENEN…` at confidence 0.75. Silero runs once per
-    /// decode over the whole window instead, which costs ~10 ms and
-    /// settles the question properly.
+    /// decode over the whole window instead and settles the question
+    /// properly.
+    ///
+    /// It pays for itself by keeping the decoder out of silence rather than
+    /// by being free. Measured with `live_bench` on the weak-CPU target
+    /// over a five-minute recording holding 15 s of speech, `fixed_chunk`
+    /// spent 58.6 s of CPU in the decoder with the gate off and 35.4 s with
+    /// it on — 40% less, because the windows the gate rejects never reach
+    /// Whisper. The window is capped (5 s for `fixed_chunk`, 18 s for
+    /// LocalAgreement-2), so scanning all of it each time is bounded work;
+    /// an "incremental" gate that only scans newly arrived audio was tried
+    /// and measured *worse* (77.3 s), because remembering that the window
+    /// still holds speech skips the gate and hands silence-adjacent windows
+    /// straight to the decoder, which costs far more than the scan saved.
     silero: Option<SileroGate>,
     vad_enabled: bool,
     diarizer: Diarizer,

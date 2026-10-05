@@ -86,11 +86,20 @@ pub const PRE_ROLL_SECS: f64 = 0.5;
 /// The policy decodes every second of audio at least twice — that is what
 /// "two consecutive hypotheses must agree" means — so a device needs about
 /// 2× realtime headroom on the live model before the second decode is free.
-/// Below that it is not a quality improvement, it is a latency regression:
-/// measured with `live_bench` on this project's weak-CPU target (2 cores,
-/// `ggml-tiny` at RTF ≈ 0.43), LocalAgreement-2 took 65 s of CPU for 15 s
-/// of audio against fixed chunking's 34 s, and median commit latency went
-/// from 21 s to 51 s. Both are unusable there; one is twice as unusable.
+/// Below that it is not a quality improvement, it is a latency regression.
+///
+/// Measured with `live_bench` on this project's weak-CPU target (2 cores, no
+/// GPU, Silero gate on) over the 14.8 s `rapat_id.mp3` — median commit
+/// latency, and seconds of CPU inside the decoder:
+///
+/// | Model | fixed chunking | LocalAgreement-2 |
+/// |---|---|---|
+/// | `ggml-tiny` | 21.4 s / 28.5 s CPU | 45.8 s / 54.8 s CPU |
+/// | `ggml-base` | 13.2 s / 22.2 s CPU | 36.0 s / 48.1 s CPU |
+///
+/// Both are unusable there; one is twice as unusable. Neither model clears
+/// this floor on that machine, so it runs fixed chunking. The figures are
+/// reproduced in `docs/SPRINT-REPORTS.md` (Sprint 4b) along with the command.
 ///
 /// So the policy is chosen from the same cached benchmark the HPT route
 /// already uses, and a device that cannot afford agreement gets the fixed

@@ -79,6 +79,15 @@ struct Args {
     /// the noise lands in the measurement.
     #[arg(long, default_value = "id")]
     language: String,
+
+    /// Silero VAD model for the live gate, as the app configures it.
+    ///
+    /// Without this the gate is simply absent and every window reaches the
+    /// decoder — which is a configuration the app only runs before the
+    /// model has been downloaded. Pass it to measure what a finished
+    /// install actually does.
+    #[arg(long)]
+    vad_model: Option<PathBuf>,
 }
 
 /// One policy's result.
@@ -96,6 +105,12 @@ struct Measurement {
     /// that keeps up finishes at the length of the clip however little
     /// work it did. Read [`Self::decode_secs`] for the cost.
     wall_secs: f64,
+    /// Every committed line, timestamped.
+    ///
+    /// Printed so the silence claim can be checked rather than believed: on
+    /// a mostly-silent recording the counts alone cannot tell five real
+    /// lines from five invented ones.
+    lines: Vec<String>,
     /// Seconds actually spent inside the decoder.
     ///
     /// This is the number that separates the policies. LocalAgreement-2
@@ -142,6 +157,16 @@ fn percentile(values: &[f64], fraction: f64) -> f64 {
 
 fn main() {
     let args = Args::parse();
+    // Same global the app sets from `AppSettings` on load and save. Set
+    // before any pipeline is built: `LivePipeline` reads it once, in its
+    // constructor.
+    if let Some(path) = args.vad_model.as_deref() {
+        if !path.exists() {
+            eprintln!("model VAD tidak ada: {}", path.display());
+            std::process::exit(1);
+        }
+        rust_core::vad::whisper_silero::set_model_path(Some(path.to_path_buf()));
+    }
     let audio_path = PathBuf::from(&args.audio);
     let audio = match decode_audio_file(&audio_path) {
         Ok(audio) => audio,
@@ -169,7 +194,14 @@ fn main() {
         "- Bicara menurut VAD: {speech_secs:.1} s ({:.0}%)",
         100.0 * speech_secs / audio.duration_secs.max(f64::EPSILON)
     );
-    println!("- Model: `{}`\n", args.model);
+    println!("- Model: `{}`", args.model);
+    println!(
+        "- Gerbang Silero: {}\n",
+        match args.vad_model.as_deref() {
+            Some(path) => format!("`{}`", path.display()),
+            None => "tidak dipakai (--vad-model tidak diberikan)".to_string(),
+        }
+    );
 
     let all = args.policy == "all";
     let legacy = (all || args.policy == "legacy").then(|| {
@@ -216,6 +248,24 @@ fn main() {
             m.decode_secs,
             m.rtf(audio.duration_secs),
         );
+    }
+
+    for (name, measurement) in [
+        ("Lama sebelum 4b (5 s)", &legacy),
+        ("fixed_chunk", &fixed),
+        ("LocalAgreement-2", &la2),
+    ] {
+        let Some(m) = measurement else { continue };
+        println!("\n## Baris yang di-commit — {name}\n");
+        if m.lines.is_empty() {
+            println!("(tidak ada)");
+            continue;
+        }
+        println!("```");
+        for line in &m.lines {
+            println!("{line}");
+        }
+        println!("```");
     }
 }
 
@@ -335,5 +385,11 @@ fn record(
         measurement.covered_secs += segment.duration.max(0.0);
         let segment_end = segment.timestamp + segment.duration;
         measurement.latencies.push((elapsed - segment_end).max(0.0));
+        measurement.lines.push(format!(
+            "[{:>7.2}–{:>7.2}] {}",
+            segment.timestamp,
+            segment_end,
+            segment.text.trim()
+        ));
     }
 }
