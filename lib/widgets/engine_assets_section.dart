@@ -45,7 +45,7 @@ const _vadAsset = _Asset(
   subtitle:
       'Memutuskan bagian mana dari rekaman yang berisi suara manusia. '
       'Tanpa ini Trareon memakai detektor energi sederhana, yang kadang '
-      'meloloskan derau ruangan — dan Whisper menjawab derau dengan '
+      'meloloskan derau ruangan, dan Whisper menjawab derau dengan '
       'kalimat karangan. 0,9 MB.',
   icon: AppIcons.waveform,
 );
@@ -207,7 +207,7 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
           'pada berkas impor.';
     }
     if (!ready) {
-      return 'Aktif, tetapi modelnya belum lengkap diunduh — sementara ini '
+      return 'Aktif, tetapi modelnya belum lengkap diunduh. Sementara ini '
           'masih memakai pengelompokan akustik sederhana.';
     }
     return 'Segmentasi pyannote + sidik suara CAM++, seluruhnya di komputer '
