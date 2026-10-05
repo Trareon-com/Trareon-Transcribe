@@ -4271,10 +4271,13 @@ impl SseDecode for crate::glossary::GlossaryConfig {
         let mut var_sessionTerms = <Vec<String>>::sse_decode(deserializer);
         let mut var_globalTerms = <Vec<String>>::sse_decode(deserializer);
         let mut var_postCorrection = <bool>::sse_decode(deserializer);
+        let mut var_replacements =
+            <Vec<crate::glossary::ReplacementRule>>::sse_decode(deserializer);
         return crate::glossary::GlossaryConfig {
             session_terms: var_sessionTerms,
             global_terms: var_globalTerms,
             post_correction: var_postCorrection,
+            replacements: var_replacements,
         };
     }
 }
@@ -4299,10 +4302,13 @@ impl SseDecode for crate::settings::GlossarySettings {
         let mut var_enabled = <bool>::sse_decode(deserializer);
         let mut var_terms = <Vec<String>>::sse_decode(deserializer);
         let mut var_postCorrection = <bool>::sse_decode(deserializer);
+        let mut var_replacements =
+            <Vec<crate::glossary::ReplacementRule>>::sse_decode(deserializer);
         return crate::settings::GlossarySettings {
             enabled: var_enabled,
             terms: var_terms,
             post_correction: var_postCorrection,
+            replacements: var_replacements,
         };
     }
 }
@@ -4603,6 +4609,18 @@ impl SseDecode for Vec<crate::session::RecoverableSession> {
             ans_.push(<crate::session::RecoverableSession>::sse_decode(
                 deserializer,
             ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::glossary::ReplacementRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::glossary::ReplacementRule>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -5119,6 +5137,18 @@ impl SseDecode for crate::pdp::redaction::RedactionConfig {
     }
 }
 
+impl SseDecode for crate::glossary::ReplacementRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_from = <String>::sse_decode(deserializer);
+        let mut var_to = <String>::sse_decode(deserializer);
+        return crate::glossary::ReplacementRule {
+            from: var_from,
+            to: var_to,
+        };
+    }
+}
+
 impl SseDecode for crate::pdp::retention::RetentionItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5290,6 +5320,14 @@ impl SseDecode for crate::session::SessionEvent {
                 };
             }
             2 => {
+                let mut var_source = <String>::sse_decode(deserializer);
+                let mut var_text = <String>::sse_decode(deserializer);
+                return crate::session::SessionEvent::Tentative {
+                    source: var_source,
+                    text: var_text,
+                };
+            }
+            3 => {
                 let mut var_level = <crate::session::NoticeLevel>::sse_decode(deserializer);
                 let mut var_source = <String>::sse_decode(deserializer);
                 let mut var_message = <String>::sse_decode(deserializer);
@@ -6426,6 +6464,7 @@ impl flutter_rust_bridge::IntoDart for crate::glossary::GlossaryConfig {
             self.session_terms.into_into_dart().into_dart(),
             self.global_terms.into_into_dart().into_dart(),
             self.post_correction.into_into_dart().into_dart(),
+            self.replacements.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6470,6 +6509,7 @@ impl flutter_rust_bridge::IntoDart for crate::settings::GlossarySettings {
             self.enabled.into_into_dart().into_dart(),
             self.terms.into_into_dart().into_dart(),
             self.post_correction.into_into_dart().into_dart(),
+            self.replacements.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6874,6 +6914,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::pdp::redaction::RedactionConfig>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::glossary::ReplacementRule {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.from.into_into_dart().into_dart(),
+            self.to.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::glossary::ReplacementRule
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::glossary::ReplacementRule>
+    for crate::glossary::ReplacementRule
+{
+    fn into_into_dart(self) -> crate::glossary::ReplacementRule {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::pdp::retention::RetentionItem {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -7071,12 +7132,18 @@ impl flutter_rust_bridge::IntoDart for crate::session::SessionEvent {
                 level.into_into_dart().into_dart(),
             ]
             .into_dart(),
+            crate::session::SessionEvent::Tentative { source, text } => [
+                2.into_dart(),
+                source.into_into_dart().into_dart(),
+                text.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
             crate::session::SessionEvent::Notice {
                 level,
                 source,
                 message,
             } => [
-                2.into_dart(),
+                3.into_dart(),
                 level.into_into_dart().into_dart(),
                 source.into_into_dart().into_dart(),
                 message.into_into_dart().into_dart(),
@@ -7884,6 +7951,7 @@ impl SseEncode for crate::glossary::GlossaryConfig {
         <Vec<String>>::sse_encode(self.session_terms, serializer);
         <Vec<String>>::sse_encode(self.global_terms, serializer);
         <bool>::sse_encode(self.post_correction, serializer);
+        <Vec<crate::glossary::ReplacementRule>>::sse_encode(self.replacements, serializer);
     }
 }
 
@@ -7902,6 +7970,7 @@ impl SseEncode for crate::settings::GlossarySettings {
         <bool>::sse_encode(self.enabled, serializer);
         <Vec<String>>::sse_encode(self.terms, serializer);
         <bool>::sse_encode(self.post_correction, serializer);
+        <Vec<crate::glossary::ReplacementRule>>::sse_encode(self.replacements, serializer);
     }
 }
 
@@ -8150,6 +8219,16 @@ impl SseEncode for Vec<crate::session::RecoverableSession> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::session::RecoverableSession>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::glossary::ReplacementRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::glossary::ReplacementRule>::sse_encode(item, serializer);
         }
     }
 }
@@ -8537,6 +8616,14 @@ impl SseEncode for crate::pdp::redaction::RedactionConfig {
     }
 }
 
+impl SseEncode for crate::glossary::ReplacementRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.from, serializer);
+        <String>::sse_encode(self.to, serializer);
+    }
+}
+
 impl SseEncode for crate::pdp::retention::RetentionItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8653,12 +8740,17 @@ impl SseEncode for crate::session::SessionEvent {
                 <String>::sse_encode(source, serializer);
                 <f32>::sse_encode(level, serializer);
             }
+            crate::session::SessionEvent::Tentative { source, text } => {
+                <i32>::sse_encode(2, serializer);
+                <String>::sse_encode(source, serializer);
+                <String>::sse_encode(text, serializer);
+            }
             crate::session::SessionEvent::Notice {
                 level,
                 source,
                 message,
             } => {
-                <i32>::sse_encode(2, serializer);
+                <i32>::sse_encode(3, serializer);
                 <crate::session::NoticeLevel>::sse_encode(level, serializer);
                 <String>::sse_encode(source, serializer);
                 <String>::sse_encode(message, serializer);

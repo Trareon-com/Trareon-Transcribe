@@ -18,6 +18,12 @@ path = "src/bin/gen_fixtures.rs"
 name = "wer_bench"
 path = "src/bin/wer_bench.rs"
 
+# Live-path measurement: commit latency and live coverage, old chunking
+# policy vs LocalAgreement-2.
+[[bin]]
+name = "live_bench"
+path = "src/bin/live_bench.rs"
+
 [[bin]]
 name = "trareon-transcribe"
 path = "src/bin/transcribe.rs"

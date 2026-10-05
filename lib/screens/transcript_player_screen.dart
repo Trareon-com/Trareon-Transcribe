@@ -740,6 +740,13 @@ class _TranscriptPlayerScreenState
     unawaited(_seekTo(segment.timestamp));
   }
 
+  /// Seeks to one word. The ordinary way to re-listen to a phrase you are
+  /// not sure the engine heard right: seeking to the start of the segment
+  /// means listening to twenty words to check one.
+  void _seekToWord(TranscriptWord word) {
+    unawaited(_seekTo(word.start));
+  }
+
   /// Jumps to a segment by index, for a citation that names a line
   /// number rather than a time (F6). Out-of-range indices are ignored:
   /// the transcript is editable, so a stored citation can outlive the
@@ -974,6 +981,12 @@ class _TranscriptPlayerScreenState
                       onSplitSegment: _splitSegment,
                       activeSegmentIndex: _activeIndex,
                       onSeekToSegment: hasAudio ? _seekToSegment : null,
+                      // Karaoke highlight and click-a-word-to-seek. Both
+                      // need audio to be useful, so neither is offered
+                      // for a transcript whose recording has gone.
+                      playheadSecs: hasAudio ? _position : null,
+                      onSeekToWord: hasAudio ? _seekToWord : null,
+                      onWordCorrected: _offerDictionaryEntry,
                     ),
                   ),
                 ),

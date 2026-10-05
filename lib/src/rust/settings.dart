@@ -5,6 +5,7 @@
 
 import 'audio.dart';
 import 'frb_generated.dart';
+import 'glossary.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'pdp.dart';
 import 'pdp/redaction.dart';
@@ -217,15 +218,24 @@ class GlossarySettings {
   /// Also run the conservative fuzzy post-correction pass.
   final bool postCorrection;
 
+  /// Word replacements the user taught the app by correcting the
+  /// transcript ("Ganti otomatis selanjutnya"). See
+  /// [`crate::glossary::ReplacementRule`].
+  final List<ReplacementRule> replacements;
+
   const GlossarySettings({
     required this.enabled,
     required this.terms,
     required this.postCorrection,
+    required this.replacements,
   });
 
   @override
   int get hashCode =>
-      enabled.hashCode ^ terms.hashCode ^ postCorrection.hashCode;
+      enabled.hashCode ^
+      terms.hashCode ^
+      postCorrection.hashCode ^
+      replacements.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -234,7 +244,8 @@ class GlossarySettings {
           runtimeType == other.runtimeType &&
           enabled == other.enabled &&
           terms == other.terms &&
-          postCorrection == other.postCorrection;
+          postCorrection == other.postCorrection &&
+          replacements == other.replacements;
 }
 
 /// Fields of the official notulen that belong to the office, not the meeting.

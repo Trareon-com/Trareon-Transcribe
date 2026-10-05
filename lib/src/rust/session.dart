@@ -259,6 +259,19 @@ sealed class SessionEvent with _$SessionEvent {
     required double level,
   }) = SessionEvent_Vu;
 
+  /// The live hypothesis' uncommitted tail, for the greyed "sementara"
+  /// line under the transcript.
+  ///
+  /// LocalAgreement-2 only finalises words two consecutive decodes agree
+  /// on (see [`crate::streaming`]); this is everything after that
+  /// prefix. It replaces itself on every decode and an empty string
+  /// clears it, so it is never appended to the transcript and never
+  /// written to the journal.
+  const factory SessionEvent.tentative({
+    required String source,
+    required String text,
+  }) = SessionEvent_Tentative;
+
   /// Something the user has to be told mid-session: a capture source that
   /// couldn't be opened, or one that died while recording. Previously these
   /// were only `tracing::warn!`ed, so a session that recorded nothing at all

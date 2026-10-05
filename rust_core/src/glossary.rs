@@ -40,6 +40,56 @@ pub struct GlossaryConfig {
     /// Run [`apply_corrections`] over each segment after inference.
     #[serde(default)]
     pub post_correction: bool,
+    /// Exact word replacements the user taught the app by correcting the
+    /// transcript. Applied before the fuzzy pass — see
+    /// [`apply_replacements`].
+    #[serde(default)]
+    pub replacements: Vec<ReplacementRule>,
+}
+
+/// "Ganti otomatis selanjutnya": one word the engine keeps getting wrong,
+/// and what it should be.
+///
+/// Learned, not configured. When the user corrects a single word in the
+/// transcript editor the app offers to remember the pair, which is the
+/// pattern Spokenly and VoiceInk both use ("word replacement"). It is
+/// deliberately a *separate* mechanism from the fuzzy glossary correction:
+/// the fuzzy pass needs the engine's output to be within an edit distance
+/// of the right answer, and the cases a user actually corrects twice are
+/// usually the ones where it is not — a name heard as a different word
+/// entirely.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ReplacementRule {
+    /// What the engine writes. Matched whole-word, case-insensitively.
+    pub from: String,
+    /// What it should have written. Substituted verbatim.
+    pub to: String,
+}
+
+impl ReplacementRule {
+    /// A usable rule, or `None`. Rejects blanks and a rule that would
+    /// replace a word with itself, and — importantly — a rule whose `from`
+    /// is more than one word: a multi-word `from` would need the window
+    /// machinery [`apply_corrections`] has, and the feature exists for
+    /// single-word corrections.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn parse(from: &str, to: &str) -> Option<Self> {
+        let from = from.trim();
+        let to = to.trim();
+        if from.is_empty() || to.is_empty() {
+            return None;
+        }
+        if from.split_whitespace().count() != 1 {
+            return None;
+        }
+        if from.eq_ignore_ascii_case(to) {
+            return None;
+        }
+        Some(Self {
+            from: from.to_string(),
+            to: to.to_string(),
+        })
+    }
 }
 
 impl GlossaryConfig {
@@ -418,16 +468,71 @@ pub fn apply_corrections(text: &str, terms: &[String]) -> String {
 
 /// Applies [`apply_corrections`] to every segment's text in place.
 #[flutter_rust_bridge::frb(ignore)]
-pub fn correct_segments(segments: &mut [crate::export::Segment], terms: &[String]) {
-    if terms.is_empty() {
+pub fn correct_segments(
+    segments: &mut [crate::export::Segment],
+    terms: &[String],
+    replacements: &[ReplacementRule],
+) {
+    if terms.is_empty() && replacements.is_empty() {
         return;
     }
     for segment in segments.iter_mut() {
-        let fixed = apply_corrections(&segment.text, terms);
+        // Learned replacements first: they are exact and the user asked
+        // for them by name, so the fuzzy pass must not get a chance to
+        // rewrite the word into something else before they run.
+        let mut fixed = apply_replacements(&segment.text, replacements);
+        if !terms.is_empty() {
+            fixed = apply_corrections(&fixed, terms);
+        }
         if fixed != segment.text {
             segment.text = fixed;
         }
     }
+}
+
+/// Applies the user's learned word replacements to `text`.
+///
+/// Whole-word and case-insensitive on the way in; verbatim on the way out.
+/// Three things it deliberately does not do:
+///
+/// * It does not match inside a word. A rule `PDP → UU PDP` must not turn
+///   "terupdate" into "terupUU PDPate".
+/// * It does not re-examine what it just wrote. One pass, left to right,
+///   so a pair of rules that point at each other cannot loop.
+/// * It does not try to preserve the engine's capitalisation. The
+///   replacement is what the user typed, and for the case this exists for
+///   — a name or an acronym — the user's capitalisation is the point.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn apply_replacements(text: &str, rules: &[ReplacementRule]) -> String {
+    if rules.is_empty() || text.is_empty() {
+        return text.to_string();
+    }
+    let mut out = String::with_capacity(text.len());
+    for token in tokenize(text) {
+        match token {
+            Token::Word(word) => {
+                let rule = rules
+                    .iter()
+                    .find(|rule| !rule.from.is_empty() && unicode_eq_ignore_case(&rule.from, word));
+                match rule {
+                    Some(rule) => out.push_str(&rule.to),
+                    None => out.push_str(word),
+                }
+            }
+            Token::Gap(gap) => out.push_str(gap),
+        }
+    }
+    out
+}
+
+/// Case-insensitive comparison that works beyond ASCII.
+///
+/// `eq_ignore_ascii_case` would treat "Álvaro" and "álvaro" as different,
+/// and Indonesian transcripts carry plenty of non-ASCII names.
+fn unicode_eq_ignore_case(a: &str, b: &str) -> bool {
+    a.chars()
+        .flat_map(char::to_lowercase)
+        .eq(b.chars().flat_map(char::to_lowercase))
 }
 
 // ---------------------------------------------------------------------------
@@ -547,7 +652,116 @@ mod tests {
             session_terms: session.iter().map(|s| s.to_string()).collect(),
             global_terms: global.iter().map(|s| s.to_string()).collect(),
             post_correction: true,
+            replacements: Vec::new(),
         }
+    }
+
+    fn rules(pairs: &[(&str, &str)]) -> Vec<ReplacementRule> {
+        pairs
+            .iter()
+            .filter_map(|(from, to)| ReplacementRule::parse(from, to))
+            .collect()
+    }
+
+    // --- learned word replacements ---------------------------------------
+
+    #[test]
+    fn a_learned_replacement_rewrites_the_whole_word() {
+        let rules = rules(&[("peka", "PPBJ")]);
+        assert_eq!(
+            apply_replacements("Tim Peka sudah menandatangani kontrak.", &rules),
+            "Tim PPBJ sudah menandatangani kontrak."
+        );
+    }
+
+    #[test]
+    fn a_replacement_never_matches_inside_a_word() {
+        // `PDP -> UU PDP` must not turn "terupdate" into gibberish.
+        let rules = rules(&[("pdp", "UU PDP")]);
+        assert_eq!(
+            apply_replacements("Dokumen terupdate soal PDP itu", &rules),
+            "Dokumen terupdate soal UU PDP itu"
+        );
+    }
+
+    #[test]
+    fn a_replacement_is_case_insensitive_on_the_way_in() {
+        let rules = rules(&[("kemenku", "Kemenkeu")]);
+        for input in ["kemenku", "Kemenku", "KEMENKU"] {
+            assert_eq!(apply_replacements(input, &rules), "Kemenkeu", "{input}");
+        }
+    }
+
+    #[test]
+    fn a_replacement_preserves_the_surrounding_punctuation_and_spacing() {
+        let rules = rules(&[("peka", "PPBJ")]);
+        assert_eq!(
+            apply_replacements("  (Peka),\n  peka!  ", &rules),
+            "  (PPBJ),\n  PPBJ!  "
+        );
+    }
+
+    #[test]
+    fn rules_do_not_cascade_into_each_other() {
+        // `a -> b` and `b -> c` applied in one pass must give "b", not "c":
+        // a single left-to-right pass is what makes a pair of rules that
+        // point at each other terminate.
+        let rules = rules(&[("a", "b"), ("b", "c")]);
+        assert_eq!(apply_replacements("a", &rules), "b");
+    }
+
+    #[test]
+    fn the_first_matching_rule_wins() {
+        let rules = rules(&[("peka", "PPBJ"), ("peka", "Pokja")]);
+        assert_eq!(apply_replacements("peka", &rules), "PPBJ");
+    }
+
+    #[test]
+    fn no_rules_leaves_the_text_untouched() {
+        assert_eq!(apply_replacements("apa adanya", &[]), "apa adanya");
+        assert_eq!(apply_replacements("", &rules(&[("a", "b")])), "");
+    }
+
+    #[test]
+    fn a_rule_is_rejected_when_it_could_not_do_any_good() {
+        assert!(ReplacementRule::parse("", "PPBJ").is_none());
+        assert!(ReplacementRule::parse("peka", "").is_none());
+        assert!(ReplacementRule::parse("  ", " ").is_none());
+        // Replacing a word with itself (any case) is not a rule.
+        assert!(ReplacementRule::parse("PPBJ", "ppbj").is_none());
+        // Multi-word `from` needs the window machinery `apply_corrections`
+        // has; the feature is for single-word corrections.
+        assert!(ReplacementRule::parse("tim peka", "tim PPBJ").is_none());
+        // And a good one is accepted, trimmed.
+        let rule = ReplacementRule::parse(" peka ", " PPBJ ").unwrap();
+        assert_eq!(rule.from, "peka");
+        assert_eq!(rule.to, "PPBJ");
+    }
+
+    #[test]
+    fn replacements_run_before_the_fuzzy_pass() {
+        // `apply_corrections` is within an edit distance of "Pokja" here,
+        // and would rewrite "Peka" to it. The user's explicit rule has to
+        // win, which is only true if it runs first.
+        let mut segments = vec![crate::export::Segment {
+            source: "file".into(),
+            speaker: "Pembicara 1".into(),
+            text: "Tim Peka rapat".into(),
+            timestamp: 0.0,
+            duration: 1.0,
+            language: "id".into(),
+            confidence: 0.9,
+            avg_log_prob: -0.3,
+            is_partial: false,
+            low_confidence: false,
+            words: Vec::new(),
+        }];
+        correct_segments(
+            &mut segments,
+            &terms(&["Pokja"]),
+            &rules(&[("peka", "PPBJ")]),
+        );
+        assert_eq!(segments[0].text, "Tim PPBJ rapat");
     }
 
     fn terms(list: &[&str]) -> Vec<String> {
@@ -605,6 +819,7 @@ mod tests {
             session_terms: vec!["PPBJ".to_string()],
             global_terms: many,
             post_correction: false,
+            replacements: Vec::new(),
         };
         let prompt = build_initial_prompt(&cfg, "");
         assert!(estimate_tokens(&prompt.text) <= MAX_PROMPT_TOKENS);
@@ -735,7 +950,7 @@ mod tests {
             low_confidence: false,
             words: Vec::new(),
         }];
-        correct_segments(&mut segments, &terms(&["Kemenkeu"]));
+        correct_segments(&mut segments, &terms(&["Kemenkeu"]), &[]);
         assert_eq!(segments[0].text, "anggaran Kemenkeu disetujui");
     }
 

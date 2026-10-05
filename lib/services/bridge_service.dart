@@ -415,6 +415,15 @@ rust_export.Segment toRustSegment(TranscriptSegment s) => rust_export.Segment(
   isPartial: s.isPartial,
   lowConfidence: s.lowConfidence,
   avgLogProb: s.avgLogProb,
+  words: [
+    for (final w in s.words)
+      rust_export.WordTimestamp(
+        word: w.word,
+        start: w.start,
+        end: w.end,
+        prob: w.prob,
+      ),
+  ],
 );
 
 /// Appearance preference, Dart -> Rust.
@@ -493,6 +502,10 @@ TranscriptSegment fromRustSegment(rust_export.Segment s) => TranscriptSegment(
   isPartial: s.isPartial,
   lowConfidence: s.lowConfidence,
   avgLogProb: s.avgLogProb,
+  words: [
+    for (final w in s.words)
+      TranscriptWord(word: w.word, start: w.start, end: w.end, prob: w.prob),
+  ],
 );
 
 class RustBridgeMock implements RustBridge {

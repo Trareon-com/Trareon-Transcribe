@@ -182,7 +182,11 @@ pub fn complete_transcript(
     let mut diarizer = Diarizer::new();
     label_segments(&mut diarizer, &audio.samples, &mut fresh);
     if request.glossary.post_correction {
-        crate::glossary::correct_segments(&mut fresh, &request.glossary.prioritised_terms());
+        crate::glossary::correct_segments(
+            &mut fresh,
+            &request.glossary.prioritised_terms(),
+            &request.glossary.replacements,
+        );
     }
     crate::confidence::apply_confidence_routing(&mut fresh);
 

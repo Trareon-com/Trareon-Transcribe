@@ -11,6 +11,7 @@ import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
 import '../utils/speaker_color.dart';
 import '../widgets/empty_state.dart';
+import 'karaoke_text.dart';
 import 'speaker_avatar.dart';
 import '../theme/app_icons.dart';
 import 'app_toast.dart';
@@ -92,6 +93,33 @@ class TranscriptView extends StatefulWidget {
   /// (Ctrl+Shift+S, while editing).
   final void Function(int index, int cursorOffset)? onSplitSegment;
 
+  /// Playhead position in recording seconds, for the karaoke highlight.
+  ///
+  /// A listenable, and read only by the row that is actually playing: at
+  /// 5 000 segments rebuilding the list on every position tick is what
+  /// audit A.3-6 was about.
+  final ValueListenable<double>? playheadSecs;
+
+  /// Seek to one word's start (click a word to re-listen to it). Null
+  /// leaves the per-word spans rendered but inert, which is the live view.
+  final void Function(TranscriptWord word)? onSeekToWord;
+
+  /// The uncommitted tail of the live hypothesis, shown greyed under the
+  /// last row.
+  ///
+  /// LocalAgreement-2 only finalises words two consecutive decodes agree
+  /// on, so during a live session there is always a clause or two that has
+  /// been heard but not confirmed. Showing it greyed is the honest
+  /// rendering: before this it was either published as final (and then
+  /// silently contradicted) or not shown at all.
+  final String tentativeText;
+
+  /// Offer "Tambahkan ke kamus" after an inline edit changed one word.
+  ///
+  /// `(before, after)` are the two words. Null hides the offer — the
+  /// live-recording view has no glossary to add to mid-session.
+  final void Function(String before, String after)? onWordCorrected;
+
   const TranscriptView({
     super.key,
     required this.segments,
@@ -104,6 +132,10 @@ class TranscriptView extends StatefulWidget {
     this.onMoveSegment,
     this.onMergeWithPrevious,
     this.onSplitSegment,
+    this.playheadSecs,
+    this.onSeekToWord,
+    this.tentativeText = '',
+    this.onWordCorrected,
   });
 
   @override
@@ -570,6 +602,10 @@ class _TranscriptViewState extends State<TranscriptView> {
           ? () => _startEditing(originalIndex)
           : null,
       searchQuery: _searchQuery,
+      // Only the playing row follows the playhead. Handing every row the
+      // notifier would rebuild 5 000 of them on every position tick.
+      playheadSecs: isActive ? widget.playheadSecs : null,
+      onSeekToWord: widget.onSeekToWord,
       onSeek: widget.onSeekToSegment == null
           ? null
           : () => widget.onSeekToSegment!(originalIndex, seg),
@@ -784,10 +820,21 @@ class _TranscriptViewState extends State<TranscriptView> {
             // Transcript list
             Expanded(
               child: itemCount == 0
-                  ? const EmptyState(
-                      icon: AppIcons.searchOff,
-                      title: 'Tidak ada segmen cocok',
-                    )
+                  ? (widget.tentativeText.isEmpty
+                        ? const EmptyState(
+                            icon: AppIcons.searchOff,
+                            title: 'Tidak ada segmen cocok',
+                          )
+                        // Nothing final yet, but the engine has heard
+                        // something. An empty state here would read as
+                        // "this is not working".
+                        : Padding(
+                            padding: const EdgeInsets.all(Spacing.md),
+                            child: _TentativeLine(
+                              text: widget.tentativeText,
+                              colors: colors,
+                            ),
+                          ))
                   : NotificationListener<UserScrollNotification>(
                       // A hand-scroll during playback means "stop dragging me
                       // back to the playhead" — the same contract the live
@@ -840,6 +887,21 @@ class _TranscriptViewState extends State<TranscriptView> {
                       ),
                     ),
             ),
+            // The uncommitted tail, under the list rather than inside it:
+            // it is not a transcript row, it has no timestamp and no
+            // speaker, and it replaces itself every couple of seconds.
+            if (widget.tentativeText.isNotEmpty && itemCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: Spacing.md,
+                  right: Spacing.md,
+                  bottom: Spacing.sm,
+                ),
+                child: _TentativeLine(
+                  text: widget.tentativeText,
+                  colors: colors,
+                ),
+              ),
             if (_keyboardEditing && widget.onEdit != null && itemCount > 0)
               _ShortcutHint(colors: colors, editing: _editingIndex != null),
           ],
@@ -898,41 +960,6 @@ class _ShortcutHint extends StatelessWidget {
 
 /// Highlight [query] in [text] using the given [style] for matches.
 /// Returns a list of TextSpans.
-List<TextSpan> _highlightText(
-  String text,
-  String query,
-  TextStyle baseStyle,
-  Color highlightColor,
-) {
-  if (query.isEmpty) return [TextSpan(text: text, style: baseStyle)];
-
-  final lower = text.toLowerCase();
-  final results = <TextSpan>[];
-  int start = 0;
-
-  while (true) {
-    final idx = lower.indexOf(query, start);
-    if (idx == -1) {
-      results.add(TextSpan(text: text.substring(start), style: baseStyle));
-      break;
-    }
-    if (idx > start) {
-      results.add(TextSpan(text: text.substring(start, idx), style: baseStyle));
-    }
-    results.add(
-      TextSpan(
-        text: text.substring(idx, idx + query.length),
-        style: baseStyle.copyWith(
-          backgroundColor: highlightColor.withValues(alpha: 0.4),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-    start = idx + query.length;
-  }
-  return results;
-}
-
 /// One transcript row. Public so the 5 000-segment benchmark can assert
 /// that only the visible handful is ever materialised.
 class TranscriptSegmentTile extends StatelessWidget {
@@ -967,6 +994,13 @@ class TranscriptSegmentTile extends StatelessWidget {
   /// passes null and keeps the dialog.
   final VoidCallback? onStartInlineEdit;
 
+  /// Playhead position, for the karaoke highlight. Non-null only on the
+  /// row that is playing.
+  final ValueListenable<double>? playheadSecs;
+
+  /// Seek to one word's start.
+  final void Function(TranscriptWord word)? onSeekToWord;
+
   const TranscriptSegmentTile({
     super.key,
     required this.segment,
@@ -983,9 +1017,43 @@ class TranscriptSegmentTile extends StatelessWidget {
     this.editFocusNode,
     this.onSelect,
     this.onStartInlineEdit,
+    this.playheadSecs,
+    this.onSeekToWord,
   });
 
   bool get _isEditing => editController != null;
+
+  /// The transcript line itself.
+  ///
+  /// Rebuilt on every playhead tick when this is the playing row and the
+  /// segment has word timings — which is the only case where the output
+  /// actually changes with position. Everywhere else it is built once.
+  Widget _body(AppColorSet colors) {
+    final style = AppText.reading.c(colors.text);
+    final listenable = playheadSecs;
+    if (listenable == null || !segment.hasWordTimings) {
+      return KaraokeText(
+        words: segment.words,
+        fallbackText: segment.text,
+        searchQuery: searchQuery,
+        baseStyle: style,
+        searchHighlight: speakerColor,
+        onTapWord: onSeekToWord,
+      );
+    }
+    return ValueListenableBuilder<double>(
+      valueListenable: listenable,
+      builder: (context, position, _) => KaraokeText(
+        words: segment.words,
+        fallbackText: segment.text,
+        searchQuery: searchQuery,
+        baseStyle: style,
+        searchHighlight: speakerColor,
+        positionSecs: position,
+        onTapWord: onSeekToWord,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1125,21 +1193,17 @@ class TranscriptSegmentTile extends StatelessWidget {
                             ),
                           )
                         else
-                          // `Text.rich`, not `RichText`: RichText does not
-                          // merge DefaultTextStyle, so this text (the most
-                          // read text in the whole app) was rendering in the
+                          // `KaraokeText` renders word by word when the
+                          // segment carries word timestamps, and falls
+                          // back to one span of plain text when it does
+                          // not (every transcript written before Sprint
+                          // 4b). It uses `Text.rich` rather than
+                          // `RichText` either way: RichText does not merge
+                          // DefaultTextStyle, so this text — the most read
+                          // text in the whole app — rendered in the
                           // platform fallback face instead of the bundled
-                          // Inter. The golden is what caught it.
-                          Text.rich(
-                            TextSpan(
-                              children: _highlightText(
-                                segment.text,
-                                searchQuery,
-                                AppText.reading.c(colors.text),
-                                speakerColor,
-                              ),
-                            ),
-                          ),
+                          // Inter until a golden caught it.
+                          _body(colors),
                         if (segment.isPartial) ...[
                           Spacing.gapXs,
                           Row(
@@ -1368,5 +1432,54 @@ class TranscriptSegmentTile extends StatelessWidget {
         onRename?.call(newName.trim());
       }
     });
+  }
+}
+
+/// The greyed "sementara" line: words the engine has heard but has not
+/// confirmed.
+///
+/// LocalAgreement-2 commits a word only once two consecutive decodes agree
+/// on it (see `rust_core/src/streaming.rs`). Everything after that prefix
+/// is genuinely provisional, and the honest thing to do with it is show it
+/// and say so. Before this it was published as final and then silently
+/// contradicted by the post-meeting pass.
+class _TentativeLine extends StatelessWidget {
+  final String text;
+  final AppColorSet colors;
+
+  const _TentativeLine({required this.text, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: false,
+      label: 'Sementara, belum final: $text',
+      excludeSemantics: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: kSpeakerColumnWidth, child: SizedBox.shrink()),
+          Spacing.hSm,
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'sementara · ',
+                    style: AppText.overline.c(colors.textTertiary),
+                  ),
+                  TextSpan(
+                    text: text,
+                    style: AppText.reading.c(colors.textTertiary).copyWith(
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

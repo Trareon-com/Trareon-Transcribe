@@ -117,15 +117,22 @@ pub struct DecodeOptions {
 
 impl DecodeOptions {
     /// Settings for the live preview: no context carried between chunks,
-    /// no word timestamps (they cost DTW memory and time the live path has
-    /// no budget for — the post-stop pass adds them).
+    /// and per-token timestamps, which LocalAgreement-2 needs in order to
+    /// know *where* each word of a hypothesis sits (see
+    /// [`crate::streaming`]).
+    ///
+    /// Token timestamps are nearly free — the decoder has the numbers
+    /// either way. What the live path does not pay for is DTW alignment,
+    /// which is an engine-level choice ([`EngineOptions::dtw_alignment`])
+    /// costing ~128 MB of context memory; the post-stop pass turns that on
+    /// and re-times the words accurately.
     pub const fn live() -> Self {
         Self {
             no_speech_thold: NO_SPEECH_THOLD,
             logprob_thold: LOGPROB_THOLD,
             no_context: true,
             suppress_nst: true,
-            word_timestamps: false,
+            word_timestamps: true,
         }
     }
 
@@ -554,7 +561,7 @@ impl WhisperEngine {
 ///   - else → `"id"`
 ///
 /// This runs cheap after inference; it does not re-encode audio.
-fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
+pub(crate) fn segment_language(text: &str, explicit: Option<&str>) -> &'static str {
     if let Some(l) = explicit {
         match l {
             "en" => return "en",
@@ -620,7 +627,10 @@ mod tests {
             live.no_context,
             "live inference must not condition on previous text"
         );
-        assert!(!live.word_timestamps, "live has no DTW budget");
+        assert!(
+            live.word_timestamps,
+            "LocalAgreement-2 compares hypotheses word by word"
+        );
         assert!(live.suppress_nst);
     }
 

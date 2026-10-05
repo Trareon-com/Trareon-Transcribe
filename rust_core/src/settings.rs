@@ -115,6 +115,11 @@ pub struct GlossarySettings {
     pub terms: Vec<String>,
     /// Also run the conservative fuzzy post-correction pass.
     pub post_correction: bool,
+    /// Word replacements the user taught the app by correcting the
+    /// transcript ("Ganti otomatis selanjutnya"). See
+    /// [`crate::glossary::ReplacementRule`].
+    #[serde(default)]
+    pub replacements: Vec<crate::glossary::ReplacementRule>,
 }
 
 impl Default for GlossarySettings {
@@ -123,6 +128,7 @@ impl Default for GlossarySettings {
             enabled: true,
             terms: Vec::new(),
             post_correction: true,
+            replacements: Vec::new(),
         }
     }
 }
@@ -140,6 +146,7 @@ impl GlossarySettings {
             session_terms,
             global_terms: self.terms.clone(),
             post_correction: self.post_correction,
+            replacements: self.replacements.clone(),
         }
     }
 }
@@ -497,6 +504,10 @@ mod tests {
                 enabled: true,
                 terms: vec!["PPBJ".into(), "Kemenkeu".into()],
                 post_correction: false,
+                replacements: vec![crate::glossary::ReplacementRule {
+                    from: "Peka".into(),
+                    to: "PPBJ".into(),
+                }],
             },
             summary_templates: vec![CustomSummaryTemplate {
                 id: "tpl-1".into(),
@@ -518,6 +529,12 @@ mod tests {
         let loaded = load_settings_from(&Some(path));
         assert_eq!(loaded.glossary.terms, vec!["PPBJ", "Kemenkeu"]);
         assert!(!loaded.glossary.post_correction);
+        // The learned word replacements survive a restart. They are the one
+        // part of the glossary the user never typed into Settings, so
+        // losing them silently would look like the feature not working.
+        assert_eq!(loaded.glossary.replacements.len(), 1);
+        assert_eq!(loaded.glossary.replacements[0].from, "Peka");
+        assert_eq!(loaded.glossary.replacements[0].to, "PPBJ");
         assert_eq!(loaded.summary_templates.len(), 1);
         assert_eq!(loaded.summary_templates[0].name, "Notulen + Risiko");
         assert_eq!(loaded.notulen.unit_kerja, "DJA");
@@ -543,10 +560,18 @@ mod tests {
             enabled: false,
             terms: vec!["PPBJ".into()],
             post_correction: true,
+            replacements: vec![crate::glossary::ReplacementRule {
+                from: "Peka".into(),
+                to: "PPBJ".into(),
+            }],
         };
         let config = off.to_config(vec!["SPBE".into()]);
         assert!(config.is_empty());
         assert!(!config.post_correction);
+        // The master switch turns off the learned replacements too. A user
+        // who switched the kamus off does not expect their transcript to
+        // keep being rewritten.
+        assert!(config.replacements.is_empty());
     }
 
     #[test]
@@ -555,6 +580,7 @@ mod tests {
             enabled: true,
             terms: vec!["Kemenkeu".into()],
             post_correction: true,
+            replacements: Vec::new(),
         };
         let config = settings.to_config(vec!["Musrenbang".into()]);
         assert_eq!(

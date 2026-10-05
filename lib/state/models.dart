@@ -370,6 +370,60 @@ String? fastestInstalledModelPath({
   return null;
 }
 
+/// One word of a segment, with the span the player highlights.
+///
+/// Mirrors rust_core's `export::WordTimestamp`. Produced from Whisper's
+/// token timestamps, so the boundaries are the model's, not an
+/// interpolation — except when [prob] is zero, which marks a word whose
+/// position was interpolated because the engine reported no usable token
+/// times (see `stt::words::interpolate_words`).
+class TranscriptWord {
+  final String word;
+  final double start;
+  final double end;
+
+  /// Mean probability Whisper gave this word's tokens, `0.0`–`1.0`.
+  /// `0.0` means "not measured", not "certainly wrong".
+  final double prob;
+
+  const TranscriptWord({
+    required this.word,
+    required this.start,
+    required this.end,
+    this.prob = 0.0,
+  });
+
+  /// Whether the word is worth the reader's attention in "Tinjau".
+  /// Interpolated words are excluded: there is no measurement to doubt.
+  bool get isLowConfidence => prob > 0 && prob < kLowWordProb;
+
+  /// Whether [seconds] falls inside this word, for the karaoke highlight.
+  bool contains(double seconds) => seconds >= start && seconds < end;
+
+  Map<String, dynamic> toJson() => {
+    'word': word,
+    'start': start,
+    'end': end,
+    'prob': prob,
+  };
+
+  static TranscriptWord? fromJson(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final word = raw['word'] as String?;
+    if (word == null) return null;
+    return TranscriptWord(
+      word: word,
+      start: (raw['start'] as num?)?.toDouble() ?? 0,
+      end: (raw['end'] as num?)?.toDouble() ?? 0,
+      prob: (raw['prob'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// Below this per-word probability the player underlines a word as one
+/// worth checking. Mirrors `export::LOW_WORD_PROB` in rust_core.
+const double kLowWordProb = 0.6;
+
 class TranscriptSegment {
   final String source;
   final String speaker;
@@ -386,6 +440,11 @@ class TranscriptSegment {
   /// but carried through so export round-trips don't silently drop it.
   final double avgLogProb;
 
+  /// Per-word spans, when the engine produced them. Empty for every
+  /// transcript written before Sprint 4b, and for a segment the user has
+  /// edited by hand — see [copyWith].
+  final List<TranscriptWord> words;
+
   const TranscriptSegment({
     required this.source,
     required this.speaker,
@@ -397,8 +456,25 @@ class TranscriptSegment {
     required this.isPartial,
     this.lowConfidence = false,
     this.avgLogProb = 0.0,
+    this.words = const [],
   });
 
+  /// Whether this segment can drive the karaoke highlight and
+  /// click-a-word-to-seek.
+  bool get hasWordTimings => words.isNotEmpty;
+
+  /// The word being spoken at [seconds], or `null` outside the segment.
+  TranscriptWord? wordAt(double seconds) {
+    for (final word in words) {
+      if (word.contains(seconds)) return word;
+    }
+    return null;
+  }
+
+  /// [text] edits invalidate the word spans: the words the user typed were
+  /// never aligned to the audio, and keeping the old spans would highlight
+  /// the wrong word and seek to the wrong place. Changing only the speaker
+  /// keeps them.
   TranscriptSegment copyWith({String? speaker, String? text}) {
     return TranscriptSegment(
       source: source,
@@ -411,6 +487,7 @@ class TranscriptSegment {
       isPartial: isPartial,
       lowConfidence: lowConfidence,
       avgLogProb: avgLogProb,
+      words: (text == null || text == this.text) ? words : const [],
     );
   }
 

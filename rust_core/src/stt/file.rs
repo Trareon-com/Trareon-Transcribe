@@ -121,7 +121,11 @@ pub fn transcribe_file_reporting(
     label_segments(&mut diarizer, &audio.samples, &mut all_segments);
 
     if glossary.post_correction {
-        crate::glossary::correct_segments(&mut all_segments, &glossary.prioritised_terms());
+        crate::glossary::correct_segments(
+            &mut all_segments,
+            &glossary.prioritised_terms(),
+            &glossary.replacements,
+        );
     }
 
     Ok(TranscribeFileResult {

@@ -52,6 +52,9 @@ pub mod provenance;
 pub mod session;
 pub mod settings;
 pub mod singleton;
+/// LocalAgreement-2: which words of a live hypothesis are safe to show as
+/// final. Pure policy; the engine side is in `pipeline`.
+pub mod streaming;
 pub mod stt;
 pub mod summary;
 pub mod vad;

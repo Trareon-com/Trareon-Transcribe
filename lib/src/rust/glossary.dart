@@ -22,15 +22,24 @@ class GlossaryConfig {
   /// Run [`apply_corrections`] over each segment after inference.
   final bool postCorrection;
 
+  /// Exact word replacements the user taught the app by correcting the
+  /// transcript. Applied before the fuzzy pass — see
+  /// [`apply_replacements`].
+  final List<ReplacementRule> replacements;
+
   const GlossaryConfig({
     required this.sessionTerms,
     required this.globalTerms,
     required this.postCorrection,
+    required this.replacements,
   });
 
   @override
   int get hashCode =>
-      sessionTerms.hashCode ^ globalTerms.hashCode ^ postCorrection.hashCode;
+      sessionTerms.hashCode ^
+      globalTerms.hashCode ^
+      postCorrection.hashCode ^
+      replacements.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -39,5 +48,38 @@ class GlossaryConfig {
           runtimeType == other.runtimeType &&
           sessionTerms == other.sessionTerms &&
           globalTerms == other.globalTerms &&
-          postCorrection == other.postCorrection;
+          postCorrection == other.postCorrection &&
+          replacements == other.replacements;
+}
+
+/// "Ganti otomatis selanjutnya": one word the engine keeps getting wrong,
+/// and what it should be.
+///
+/// Learned, not configured. When the user corrects a single word in the
+/// transcript editor the app offers to remember the pair, which is the
+/// pattern Spokenly and VoiceInk both use ("word replacement"). It is
+/// deliberately a *separate* mechanism from the fuzzy glossary correction:
+/// the fuzzy pass needs the engine's output to be within an edit distance
+/// of the right answer, and the cases a user actually corrects twice are
+/// usually the ones where it is not — a name heard as a different word
+/// entirely.
+class ReplacementRule {
+  /// What the engine writes. Matched whole-word, case-insensitively.
+  final String from;
+
+  /// What it should have written. Substituted verbatim.
+  final String to;
+
+  const ReplacementRule({required this.from, required this.to});
+
+  @override
+  int get hashCode => from.hashCode ^ to.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReplacementRule &&
+          runtimeType == other.runtimeType &&
+          from == other.from &&
+          to == other.to;
 }

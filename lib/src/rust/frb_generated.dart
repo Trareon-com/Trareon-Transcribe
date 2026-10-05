@@ -4470,12 +4470,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   GlossaryConfig dco_decode_glossary_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return GlossaryConfig(
       sessionTerms: dco_decode_list_String(arr[0]),
       globalTerms: dco_decode_list_String(arr[1]),
       postCorrection: dco_decode_bool(arr[2]),
+      replacements: dco_decode_list_replacement_rule(arr[3]),
     );
   }
 
@@ -4496,12 +4497,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   GlossarySettings dco_decode_glossary_settings(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return GlossarySettings(
       enabled: dco_decode_bool(arr[0]),
       terms: dco_decode_list_String(arr[1]),
       postCorrection: dco_decode_bool(arr[2]),
+      replacements: dco_decode_list_replacement_rule(arr[3]),
     );
   }
 
@@ -4663,6 +4665,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<RecoverableSession> dco_decode_list_recoverable_session(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_recoverable_session).toList();
+  }
+
+  @protected
+  List<ReplacementRule> dco_decode_list_replacement_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_replacement_rule).toList();
   }
 
   @protected
@@ -5009,6 +5017,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ReplacementRule dco_decode_replacement_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ReplacementRule(
+      from: dco_decode_String(arr[0]),
+      to: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
   RetentionItem dco_decode_retention_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -5137,6 +5157,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           level: dco_decode_f_32(raw[2]),
         );
       case 2:
+        return SessionEvent_Tentative(
+          source: dco_decode_String(raw[1]),
+          text: dco_decode_String(raw[2]),
+        );
+      case 3:
         return SessionEvent_Notice(
           level: dco_decode_notice_level(raw[1]),
           source: dco_decode_String(raw[2]),
@@ -6009,10 +6034,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sessionTerms = sse_decode_list_String(deserializer);
     var var_globalTerms = sse_decode_list_String(deserializer);
     var var_postCorrection = sse_decode_bool(deserializer);
+    var var_replacements = sse_decode_list_replacement_rule(deserializer);
     return GlossaryConfig(
       sessionTerms: var_sessionTerms,
       globalTerms: var_globalTerms,
       postCorrection: var_postCorrection,
+      replacements: var_replacements,
     );
   }
 
@@ -6037,10 +6064,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_enabled = sse_decode_bool(deserializer);
     var var_terms = sse_decode_list_String(deserializer);
     var var_postCorrection = sse_decode_bool(deserializer);
+    var var_replacements = sse_decode_list_replacement_rule(deserializer);
     return GlossarySettings(
       enabled: var_enabled,
       terms: var_terms,
       postCorrection: var_postCorrection,
+      replacements: var_replacements,
     );
   }
 
@@ -6327,6 +6356,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <RecoverableSession>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_recoverable_session(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ReplacementRule> sse_decode_list_replacement_rule(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ReplacementRule>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_replacement_rule(deserializer));
     }
     return ans_;
   }
@@ -6822,6 +6865,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ReplacementRule sse_decode_replacement_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_from = sse_decode_String(deserializer);
+    var var_to = sse_decode_String(deserializer);
+    return ReplacementRule(from: var_from, to: var_to);
+  }
+
+  @protected
   RetentionItem sse_decode_retention_item(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_path = sse_decode_String(deserializer);
@@ -6970,6 +7021,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_level = sse_decode_f_32(deserializer);
         return SessionEvent_Vu(source: var_source, level: var_level);
       case 2:
+        var var_source = sse_decode_String(deserializer);
+        var var_text = sse_decode_String(deserializer);
+        return SessionEvent_Tentative(source: var_source, text: var_text);
+      case 3:
         var var_level = sse_decode_notice_level(deserializer);
         var var_source = sse_decode_String(deserializer);
         var var_message = sse_decode_String(deserializer);
@@ -7761,6 +7816,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_String(self.sessionTerms, serializer);
     sse_encode_list_String(self.globalTerms, serializer);
     sse_encode_bool(self.postCorrection, serializer);
+    sse_encode_list_replacement_rule(self.replacements, serializer);
   }
 
   @protected
@@ -7783,6 +7839,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.enabled, serializer);
     sse_encode_list_String(self.terms, serializer);
     sse_encode_bool(self.postCorrection, serializer);
+    sse_encode_list_replacement_rule(self.replacements, serializer);
   }
 
   @protected
@@ -8043,6 +8100,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_recoverable_session(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_replacement_rule(
+    List<ReplacementRule> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_replacement_rule(item, serializer);
     }
   }
 
@@ -8440,6 +8509,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_replacement_rule(
+    ReplacementRule self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.from, serializer);
+    sse_encode_String(self.to, serializer);
+  }
+
+  @protected
   void sse_encode_retention_item(RetentionItem self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.path, serializer);
@@ -8538,12 +8617,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_32(1, serializer);
         sse_encode_String(source, serializer);
         sse_encode_f_32(level, serializer);
+      case SessionEvent_Tentative(source: final source, text: final text):
+        sse_encode_i_32(2, serializer);
+        sse_encode_String(source, serializer);
+        sse_encode_String(text, serializer);
       case SessionEvent_Notice(
         level: final level,
         source: final source,
         message: final message,
       ):
-        sse_encode_i_32(2, serializer);
+        sse_encode_i_32(3, serializer);
         sse_encode_notice_level(level, serializer);
         sse_encode_String(source, serializer);
         sse_encode_String(message, serializer);

@@ -472,8 +472,8 @@ pub fn progressive_transcribe_file(
 
     if glossary.post_correction {
         let terms = glossary.prioritised_terms();
-        crate::glossary::correct_segments(&mut quick_segments, &terms);
-        crate::glossary::correct_segments(&mut refined_segments, &terms);
+        crate::glossary::correct_segments(&mut quick_segments, &terms, &glossary.replacements);
+        crate::glossary::correct_segments(&mut refined_segments, &terms, &glossary.replacements);
     }
 
     // Speaker labels, same as the single-model file path. Both passes are

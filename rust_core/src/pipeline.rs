@@ -40,23 +40,58 @@ use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
 use crate::progressive::ProgressiveEngine;
+use crate::streaming::{
+    join_words, HypoWord, HypothesisBuffer, LineBuilder, StreamingBuffer, MAX_WINDOW_SECS,
+    MIN_CHUNK_SECS, PRE_ROLL_SECS, UTTERANCE_END_SECS,
+};
 use crate::stt::{DecodeOptions, WhisperEngine};
 use crate::vad::{DualVad, VadConfig, FRAME_SAMPLES_10MS};
 
+/// Per-source live transcription over a LocalAgreement-2 commit policy.
+///
+/// Replaces the fixed 5-second chunking this used to do. See
+/// [`crate::streaming`] for why: a chunk boundary falls mid-word, Whisper
+/// has no right context for the end of a chunk, and treating those words
+/// as final is what made the live transcript disagree with the
+/// post-meeting one.
 pub struct LivePipeline<'a> {
     engine: &'a WhisperEngine,
-    ring: RingBuffer,
+    /// The growing, overlapping decode window.
+    window: StreamingBuffer,
     vad: DualVad,
     vad_enabled: bool,
     diarizer: Diarizer,
     source: String,
     language: Option<String>,
     samples_seen: u64,
-    last_transcript_tail: String,
     glossary: GlossaryConfig,
     /// `glossary.prioritised_terms()`, computed once per session rather than
     /// per chunk — post-correction runs on every segment.
     glossary_terms: Vec<String>,
+    /// The commit policy.
+    agreement: HypothesisBuffer,
+    /// Committed words waiting to become a transcript line.
+    lines: LineBuilder,
+    /// Absolute time of the last buffer that held speech.
+    last_speech_secs: f64,
+    /// Absolute time at which the window was last decoded.
+    last_decode_secs: f64,
+    /// Spans the window had to drop without transcribing, because the
+    /// decoder could not keep up. Reported so the post-stop completion
+    /// pass has something to point at — the audio itself is on disk and is
+    /// recovered from there.
+    dropped: Vec<(f64, f64)>,
+}
+
+/// What one [`LivePipeline::ingest`] produced.
+#[derive(Debug, Default)]
+pub struct LiveOutcome {
+    /// Lines the policy has committed. Final; never revised.
+    pub segments: Vec<Segment>,
+    /// The uncommitted tail of the latest hypothesis, as the UI should
+    /// show it in grey. `None` means "unchanged"; `Some("")` means "clear
+    /// it".
+    pub tentative: Option<String>,
 }
 
 /// Everything a [`LiveWorker`] needs to transcribe one source.
@@ -97,8 +132,23 @@ pub struct LiveWorkerConfig {
 
 #[derive(Debug, Clone)]
 pub enum LiveEvent {
-    Vu { source: String, level: f32 },
+    Vu {
+        source: String,
+        level: f32,
+    },
     Segment(Segment),
+    /// The uncommitted tail of the live hypothesis — the greyed
+    /// "sementara" text.
+    ///
+    /// A separate event rather than a `Segment` with `is_partial`: it is
+    /// not a transcript line, it is one changing string that replaces
+    /// itself, and giving it a timestamp key would leave a trail of stale
+    /// provisional rows behind as words were committed out of it. An
+    /// empty string clears it.
+    Tentative {
+        source: String,
+        text: String,
+    },
 }
 
 pub struct LiveWorker {
@@ -295,15 +345,32 @@ impl LiveWorker {
                 });
                 let ingested = samples.len() as u64;
                 match pipeline.ingest(&samples) {
-                    Ok(segments) => {
-                        for segment in segments {
+                    Ok(outcome) => {
+                        for segment in outcome.segments {
                             let _ = events_tx.send(LiveEvent::Segment(segment));
+                        }
+                        if let Some(text) = outcome.tentative {
+                            let _ = events_tx.send(LiveEvent::Tentative {
+                                source: source.clone(),
+                                text,
+                            });
                         }
                     }
                     Err(error) => tracing::error!(source = %source, %error, "live pipeline failed"),
                 }
                 processed_thread.fetch_add(ingested, Ordering::Relaxed);
             }
+            // Words the policy had already agreed on but had not yet turned
+            // into a line. Without this they would be lost at Stop — and
+            // unlike the audio still in the window, there is no second
+            // chance to recover them from the WAV.
+            for segment in pipeline.finish() {
+                let _ = events_tx.send(LiveEvent::Segment(segment));
+            }
+            let _ = events_tx.send(LiveEvent::Tentative {
+                source: source.clone(),
+                text: String::new(),
+            });
             finished_thread.store(true, Ordering::SeqCst);
             finished_cvar_thread.notify_one();
         });
@@ -799,85 +866,246 @@ impl<'a> LivePipeline<'a> {
         };
         Ok(Self {
             engine,
-            ring: RingBuffer::default(),
+            window: StreamingBuffer::new(crate::decode::TARGET_SAMPLE_RATE),
             vad: DualVad::new(vad_config)?,
             vad_enabled,
             diarizer: Diarizer::new(),
             source: source.into(),
             language,
             samples_seen: 0,
-            last_transcript_tail: String::new(),
             glossary,
             glossary_terms,
+            agreement: HypothesisBuffer::new(),
+            lines: LineBuilder::default(),
+            last_speech_secs: 0.0,
+            last_decode_secs: 0.0,
+            dropped: Vec::new(),
         })
     }
 
-    /// Updates the rolling prompt context with the last transcript tail (up to
-    /// 200 characters) to improve continuity in subsequent transcription chunks.
-    pub fn update_prompt_context(&mut self, transcript_tail: &str) {
-        const MAX_TAIL: usize = 200;
-        if transcript_tail.len() > MAX_TAIL {
-            self.last_transcript_tail =
-                transcript_tail[transcript_tail.len() - MAX_TAIL..].to_string();
-        } else {
-            self.last_transcript_tail = transcript_tail.to_string();
-        }
+    /// Spans the live path dropped untranscribed. Empty on any machine
+    /// whose live model keeps up.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn dropped_spans(&self) -> &[(f64, f64)] {
+        &self.dropped
     }
 
     /// Ingest one or more 16 kHz mono f32 samples.
     ///
-    /// Chunks are only sent to Whisper after at least one 10 ms frame in the
-    /// input is confirmed as speech. Returned segments are *not* yet
-    /// echo-filtered — this pipeline only ever sees its own source, so
-    /// cross-source dedupe happens where mic and speaker segments actually
-    /// meet (see the module doc comment).
-    pub fn ingest(&mut self, samples: &[f32]) -> TranscribeResult<Vec<Segment>> {
+    /// The window is decoded when [`MIN_CHUNK_SECS`] of new audio has
+    /// arrived, or when the speaker has stopped — and only ever if the
+    /// window holds speech at all, which is what keeps Whisper from being
+    /// asked what the silence said.
+    ///
+    /// Returned segments are *not* yet echo-filtered: this pipeline only
+    /// ever sees its own source, so cross-source dedupe happens where mic
+    /// and speaker segments actually meet (see the module doc comment).
+    pub fn ingest(&mut self, samples: &[f32]) -> TranscribeResult<LiveOutcome> {
         if samples.is_empty() {
-            return Ok(Vec::new());
+            return Ok(LiveOutcome::default());
         }
 
         let has_speech = detect_speech(&mut self.vad, self.vad_enabled, samples)?;
-        self.ring.push(samples);
+        self.window.push(samples);
         self.samples_seen = self.samples_seen.saturating_add(samples.len() as u64);
-
-        if !has_speech {
-            return Ok(Vec::new());
+        let now = self.samples_seen as f64 / crate::decode::TARGET_SAMPLE_RATE as f64;
+        if has_speech {
+            self.last_speech_secs = now;
         }
 
-        let mut fresh = Vec::new();
-        while let Some(chunk) = self.ring.take_chunk() {
-            let chunk_start = self
-                .samples_seen
-                .saturating_sub(self.ring.buffered_samples() as u64 + chunk.len() as u64)
-                as f64
-                / 16_000.0;
-            let prompt =
-                crate::glossary::build_initial_prompt(&self.glossary, &self.last_transcript_tail);
-            let segments = self.engine.transcribe_chunk_with(
-                &chunk,
-                &self.source,
-                chunk_start,
-                self.language.as_deref(),
-                Some(&prompt.text),
-                DecodeOptions::live(),
-            )?;
-            for mut segment in segments {
-                segment.speaker = self.diarizer.identify_speaker(&self.source, &chunk);
-                fresh.push(segment);
-            }
+        // The speaker has stopped and something is still provisional. No
+        // more right context is coming, so waiting for agreement would
+        // wait forever — see `streaming::UTTERANCE_END_SECS`.
+        let utterance_ended = now - self.last_speech_secs >= UTTERANCE_END_SECS
+            && (self.agreement.has_tentative() || !self.lines.is_empty());
+
+        // A window whose last speech predates its own start holds nothing
+        // but room tone. Keep it short and never decode it.
+        if self.last_speech_secs < self.window.start_secs() {
+            self.window.trim_to(now - PRE_ROLL_SECS);
+            self.last_decode_secs = now;
+            return Ok(self.finish_utterance());
         }
-        crate::progressive::filter_loops(&mut fresh);
+
+        if now - self.last_decode_secs < MIN_CHUNK_SECS && !utterance_ended {
+            return Ok(LiveOutcome::default());
+        }
+        self.last_decode_secs = now;
+
+        let hypothesis = self.decode_window()?;
+        let commit = self.agreement.insert(hypothesis);
+        let tentative = Some(join_words(&commit.tentative));
+        let mut words = commit.committed;
+        if utterance_ended {
+            words.extend(self.agreement.flush());
+        }
+
+        let mut lines = self.lines.push(words);
+        if utterance_ended {
+            lines.extend(self.lines.take());
+        }
+        let segments = self.segments_from_lines(lines);
+
+        // Trim *after* building the segments: the speaker labels are read
+        // off the audio under each line.
+        self.trim_window(utterance_ended, now);
+
+        Ok(LiveOutcome {
+            segments,
+            tentative: if utterance_ended {
+                Some(String::new())
+            } else {
+                tentative
+            },
+        })
+    }
+
+    /// Everything still held back, for Stop.
+    ///
+    /// Unlike the mid-session path this does not decode: whatever audio the
+    /// window still holds is on disk, and `crate::completion` transcribes
+    /// it afterwards with the accurate model and no deadline. What this
+    /// recovers is the words already *agreed* but not yet turned into a
+    /// line, which would otherwise never reach the transcript.
+    pub fn finish(&mut self) -> Vec<Segment> {
+        let mut lines: Vec<Vec<HypoWord>> = Vec::new();
+        let flushed = self.agreement.flush();
+        lines.extend(self.lines.push(flushed));
+        lines.extend(self.lines.take());
+        self.segments_from_lines(lines)
+    }
+
+    /// Flushes the line in progress at an utterance end, without decoding.
+    fn finish_utterance(&mut self) -> LiveOutcome {
+        let mut lines: Vec<Vec<HypoWord>> = Vec::new();
+        let flushed = self.agreement.flush();
+        lines.extend(self.lines.push(flushed));
+        lines.extend(self.lines.take());
+        if lines.is_empty() {
+            return LiveOutcome::default();
+        }
+        LiveOutcome {
+            segments: self.segments_from_lines(lines),
+            tentative: Some(String::new()),
+        }
+    }
+
+    /// One decode of the whole window, as a flat word sequence.
+    ///
+    /// The per-segment filters run here rather than on the committed lines
+    /// because a hallucinated segment must never contribute *words* to the
+    /// agreement buffer: once a made-up word is in there it can agree with
+    /// itself on the next decode and be committed.
+    fn decode_window(&mut self) -> TranscribeResult<Vec<HypoWord>> {
+        // No rolling transcript tail. On chunked live inference the
+        // previous text is the model's own output, so conditioning on it
+        // lets one hallucination seed the next (Research Round 2 §2.2.5) —
+        // and the overlapping window already carries the acoustic context
+        // that tail was standing in for.
+        let prompt = crate::glossary::build_initial_prompt(&self.glossary, "");
+        let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
+        let mut segments = self.engine.transcribe_chunk_with(
+            self.window.samples(),
+            &self.source,
+            self.window.start_secs(),
+            self.language.as_deref(),
+            initial_prompt,
+            DecodeOptions::live(),
+        )?;
+        crate::progressive::filter_loops(&mut segments);
         // Room tone loud enough to pass the VAD still reads as silence to
         // Whisper, which answers with a subtitle caption rather than an
         // empty string. Dropping those here keeps `[MENGENI]` out of the
         // live transcript as well as the file one.
-        crate::hallucination::filter_segments(&mut fresh);
-        crate::glossary::correct_segments(&mut fresh, &self.glossary_terms);
-        crate::confidence::apply_confidence_routing(&mut fresh);
-        if let Some(last) = fresh.last() {
-            self.update_prompt_context(&last.text);
+        crate::hallucination::filter_segments(&mut segments);
+        Ok(segments
+            .into_iter()
+            .flat_map(|segment| segment.words)
+            .map(HypoWord::from)
+            .collect())
+    }
+
+    /// Turns committed word runs into transcript segments.
+    fn segments_from_lines(&mut self, lines: Vec<Vec<HypoWord>>) -> Vec<Segment> {
+        let mut segments: Vec<Segment> = lines
+            .into_iter()
+            .filter_map(|line| self.segment_from_line(line))
+            .collect();
+        crate::hallucination::filter_segments(&mut segments);
+        crate::glossary::correct_segments(
+            &mut segments,
+            &self.glossary_terms,
+            &self.glossary.replacements,
+        );
+        crate::confidence::apply_confidence_routing(&mut segments);
+        segments
+    }
+
+    fn segment_from_line(&mut self, words: Vec<HypoWord>) -> Option<Segment> {
+        let first = words.first()?;
+        let last = words.last()?;
+        let (start, end) = (first.start, last.end.max(first.start));
+        let text = join_words(&words);
+        // Mean per-word probability, which is what `stt::words` aggregated
+        // the token probabilities into. Converted back to a log for
+        // `avg_log_prob` so `confidence.rs` sees the same scale it does on
+        // the file path.
+        let mean_prob = (words.iter().map(|word| word.prob).sum::<f32>()
+            / words.len().max(1) as f32)
+            .clamp(0.0, 1.0);
+        let window = self.window_slice(start, end).to_vec();
+        let speaker = self.diarizer.identify_speaker(&self.source, &window);
+        Some(Segment {
+            source: self.source.clone(),
+            speaker,
+            language: crate::stt::segment_language(&text, self.language.as_deref()).to_string(),
+            text,
+            timestamp: start,
+            duration: end - start,
+            confidence: mean_prob,
+            avg_log_prob: if mean_prob > 0.0 { mean_prob.ln() } else { 0.0 },
+            is_partial: false,
+            low_confidence: mean_prob < 0.5,
+            words: words.into_iter().map(Into::into).collect(),
+        })
+    }
+
+    /// The window's samples between two absolute times, clamped.
+    fn window_slice(&self, start_secs: f64, end_secs: f64) -> &[f32] {
+        let rate = crate::decode::TARGET_SAMPLE_RATE as f64;
+        let samples = self.window.samples();
+        let offset = |secs: f64| {
+            (((secs - self.window.start_secs()) * rate).max(0.0) as usize).min(samples.len())
+        };
+        let start = offset(start_secs);
+        let end = offset(end_secs).max(start);
+        &samples[start..end]
+    }
+
+    fn trim_window(&mut self, utterance_ended: bool, now: f64) {
+        if let Some((from, to)) = self
+            .window
+            .trim_window(self.agreement.committed_through(), MAX_WINDOW_SECS)
+        {
+            tracing::warn!(
+                source = %self.source,
+                from,
+                to,
+                "live decode window overflowed with nothing committed; these \
+                 seconds are recovered from the WAV after Stop"
+            );
+            self.dropped.push((from, to));
         }
-        Ok(fresh)
+        if utterance_ended {
+            // Keep only the pre-roll: the next utterance's onset arrives
+            // in the same buffer the silence does.
+            let keep_from = self
+                .agreement
+                .committed_through()
+                .max(now - PRE_ROLL_SECS)
+                .min(now);
+            self.window.trim_to(keep_from);
+        }
     }
 }
 
@@ -990,8 +1218,16 @@ impl<'a> LivePipelineHpt<'a> {
         crate::progressive::filter_loops(&mut refined);
         crate::hallucination::filter_segments(&mut quick);
         crate::hallucination::filter_segments(&mut refined);
-        crate::glossary::correct_segments(&mut quick, &self.glossary_terms);
-        crate::glossary::correct_segments(&mut refined, &self.glossary_terms);
+        crate::glossary::correct_segments(
+            &mut quick,
+            &self.glossary_terms,
+            &self.glossary.replacements,
+        );
+        crate::glossary::correct_segments(
+            &mut refined,
+            &self.glossary_terms,
+            &self.glossary.replacements,
+        );
         crate::confidence::apply_confidence_routing(&mut quick);
         crate::confidence::apply_confidence_routing(&mut refined);
         Ok((quick, refined))

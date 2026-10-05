@@ -125,6 +125,9 @@ pub fn run(args: Args) -> i32 {
                     session_terms: Vec::new(),
                     global_terms: terms,
                     post_correction: !args.no_glossary_correction,
+                    // The CLI has no transcript editor, so there is
+                    // nowhere for a learned replacement to come from.
+                    replacements: Vec::new(),
                 }
             }
             Err(e) => {
