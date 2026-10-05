@@ -2971,8 +2971,8 @@ itu **tidak punya `pip`**; pemasangan ke dalamnya harus lewat
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `uv sync` + `ruff check` + `ruff format --check` di `ml/` | **lolos**, 53 berkas sudah terformat |
-| `pytest` di `ml/` | **247 lolos** (identik dengan Linux) |
+| `uv sync` + `ruff check` + `ruff format --check` di `ml/` | **lolos** |
+| `pytest` di `ml/` | **255 lolos, 7 dilewati** — identik dengan Linux, dijalankan ulang pada commit akhir |
 | `torch` + CUDA | `2.6.0+cu124`, `cuda True`, `NVIDIA GeForce RTX 2060` |
 | `transformers` / `peft` / `bitsandbytes` | `4.57.6` / `0.21.2` / `0.50.2`, ketiganya terimpor |
 | `train.dry_run_memory` (turbo 4-bit) | **MUAT**: puncak **0,92 GiB** dari 6,00 GiB |
