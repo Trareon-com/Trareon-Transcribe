@@ -21,7 +21,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from eval.harness import TestSet, render_markdown, run_benchmark, write_report
+from eval.harness import (
+    TestSet,
+    merge_reports,
+    render_markdown,
+    run_benchmark,
+    write_report,
+)
 from eval.normalize import preset
 from eval.runners import GgmlRunner, Runner, TransformersRunner
 
@@ -156,6 +162,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--policy", default="id_meeting", help="preset normalisasi")
     parser.add_argument("--gpu", action="store_true", help="pakai GPU untuk wer_bench")
     parser.add_argument("--list", action="store_true", help="tampilkan apa yang tersedia")
+    parser.add_argument(
+        "--merge",
+        nargs="+",
+        default=None,
+        metavar="JSON",
+        help="gabungkan beberapa hasil JSON menjadi satu laporan, tanpa menjalankan model",
+    )
     parser.add_argument("--markdown", default=str(ML_ROOT / "BENCHMARK.md"))
     parser.add_argument("--json", default=str(ML_ROOT / "out/benchmark.json"))
     return parser
@@ -183,6 +196,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     config = preset(args.policy)
+
+    if args.merge:
+        result = merge_reports(args.merge)
+        chosen = [TEST_SETS[name] for name in TEST_SETS]
+        write_report(result, chosen, markdown_path=args.markdown, json_path=args.json)
+        print(render_markdown(result, chosen))
+        print(f"\nDigabung dari {len(args.merge)} berkas -> {args.markdown}, {args.json}")
+        return 0
 
     runners: list[Runner] = []
     wanted = [name.strip() for name in args.ggml.split(",") if name.strip()]

@@ -30,7 +30,7 @@ from pathlib import Path
 from common.atomic import write_json, write_text
 from eval.normalize import ID_MEETING, POLICY_VERSION, NormalizerConfig
 from eval.runners import Runner, RunnerFailed, parse_manifest_tsv
-from eval.wer import ClipScore, SetScore, char_errors, word_errors
+from eval.wer import ClipScore, Errors, SetScore, char_errors, word_errors
 
 
 @dataclass(frozen=True)
@@ -272,7 +272,7 @@ def render_markdown(result: BenchmarkResult, test_sets: list[TestSet]) -> str:
         for name in measured:
             test_set = by_name[name]
             scores = sorted(result.for_set(name), key=lambda score: score.words.rate)
-            clips = len(scores[0].clips)
+            clips = scores[0].clip_count
             lines += [
                 f"### {name}",
                 "",
@@ -338,3 +338,91 @@ def write_report(
 
 def load_report(path: str | Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _errors(payload: dict) -> Errors:
+    return Errors(
+        substitutions=payload["substitutions"],
+        deletions=payload["deletions"],
+        insertions=payload["insertions"],
+        reference_length=payload["reference_length"],
+    )
+
+
+def merge_reports(paths: list[str | Path]) -> BenchmarkResult:
+    """Combine several benchmark JSONs into one report.
+
+    Scoring is already separate from decoding here, and this is the other
+    half of that: a set measured in a later run can be folded into the
+    published table without re-running the models that were measured in
+    an earlier one. On this machine `large-v3-turbo-q5` runs at 0.09x
+    real time, so re-running a full matrix to add one test set would cost
+    an afternoon for nothing.
+
+    Scores are rebuilt from the per-clip detail where a file has it, so
+    the merged table is computed by the same code as a single-run one;
+    where it does not, the report's own totals are carried across. A
+    later file wins for a given (model, test set) pair, which makes a
+    re-measurement replace rather than duplicate.
+
+    Do not pass the same path as both an input and the output: the
+    inputs are read before the output is written, but a mistake there
+    destroys the data being merged.
+    """
+    merged = BenchmarkResult()
+    by_key: dict[tuple[str, str], SetScore] = {}
+    errors: dict[tuple[str, str], dict] = {}
+
+    for path in paths:
+        payload = load_report(path)
+        # The newest file's provenance describes the merged report; all
+        # runs must come from the same machine and commit for the RTF
+        # column to mean anything, which `--merge` cannot enforce but
+        # the header makes visible.
+        merged.machine = payload.get("machine", merged.machine)
+        merged.commit = payload.get("commit", merged.commit)
+        merged.created_at = payload.get("created_at", merged.created_at)
+        merged.policy = payload.get("normalisation_policy", merged.policy)
+
+        for score in payload.get("scores", []):
+            key = (score["model"], score["test_set"])
+            detail = score.get("clip_detail") or []
+            clips = [
+                ClipScore(
+                    clip=clip.get("clip", ""),
+                    reference="",
+                    hypothesis="",
+                    words=_errors(clip["words"]),
+                    chars=_errors(clip["chars"]),
+                    audio_secs=clip.get("audio_secs", 0.0),
+                    elapsed_secs=clip.get("elapsed_secs", 0.0),
+                    failed=clip.get("failed", False),
+                )
+                for clip in detail
+            ]
+            by_key[key] = SetScore(
+                model=score["model"],
+                test_set=score["test_set"],
+                policy=score.get("policy", ""),
+                clips=clips,
+                # Carried straight from the report when the per-clip
+                # detail is absent, which is the case for any file
+                # written before `clip_detail` existed.
+                loaded_words=None if detail else _errors(score["word_errors"]),
+                loaded_chars=None if detail else _errors(score["char_errors"]),
+                loaded_clips=None if detail else score.get("clips"),
+                loaded_failures=None if detail else score.get("failed_clips"),
+                loaded_audio_secs=None if detail else score.get("audio_secs"),
+                loaded_elapsed_secs=None if detail else score.get("elapsed_secs"),
+            )
+            # A set that now has a score is no longer an error.
+            errors.pop(key, None)
+
+        for error in payload.get("errors", []):
+            key = (error.get("model", "*"), error.get("test_set", ""))
+            if key not in by_key:
+                errors[key] = error
+
+    merged.scores = list(by_key.values())
+    merged.errors = list(errors.values())
+    return merged

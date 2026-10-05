@@ -165,8 +165,26 @@ class SetScore:
     policy: str
     clips: list[ClipScore] = field(default_factory=list)
 
+    # Set only when the score was *loaded* from a published report whose
+    # per-clip detail is absent — an older file, written before
+    # `clip_detail` existed. Re-running an afternoon of models to recover
+    # numbers the report already states would be absurd, so the loaded
+    # totals are carried directly and every accessor prefers them.
+    loaded_words: Errors | None = None
+    loaded_chars: Errors | None = None
+    loaded_clips: int | None = None
+    loaded_failures: int | None = None
+    loaded_audio_secs: float | None = None
+    loaded_elapsed_secs: float | None = None
+
+    @property
+    def from_report(self) -> bool:
+        return self.loaded_words is not None
+
     @property
     def words(self) -> Errors:
+        if self.loaded_words is not None:
+            return self.loaded_words
         total = Errors()
         for clip in self.clips:
             total = total + clip.words
@@ -174,17 +192,27 @@ class SetScore:
 
     @property
     def chars(self) -> Errors:
+        if self.loaded_chars is not None:
+            return self.loaded_chars
         total = Errors()
         for clip in self.clips:
             total = total + clip.chars
         return total
 
     @property
+    def clip_count(self) -> int:
+        return self.loaded_clips if self.loaded_clips is not None else len(self.clips)
+
+    @property
     def audio_secs(self) -> float:
+        if self.loaded_audio_secs is not None:
+            return self.loaded_audio_secs
         return sum(clip.audio_secs for clip in self.clips)
 
     @property
     def elapsed_secs(self) -> float:
+        if self.loaded_elapsed_secs is not None:
+            return self.loaded_elapsed_secs
         return sum(clip.elapsed_secs for clip in self.clips)
 
     @property
@@ -193,6 +221,8 @@ class SetScore:
 
     @property
     def failures(self) -> int:
+        if self.loaded_failures is not None:
+            return self.loaded_failures
         return sum(1 for clip in self.clips if clip.failed)
 
     def as_dict(self) -> dict:
@@ -200,7 +230,7 @@ class SetScore:
             "model": self.model,
             "test_set": self.test_set,
             "policy": self.policy,
-            "clips": len(self.clips),
+            "clips": self.clip_count,
             "failed_clips": self.failures,
             "audio_secs": round(self.audio_secs, 2),
             "elapsed_secs": round(self.elapsed_secs, 2),
@@ -209,6 +239,31 @@ class SetScore:
             "cer": round(self.chars.rate, 5),
             "word_errors": self.words.as_dict(),
             "char_errors": self.chars.as_dict(),
+            # Per-clip edit counts, so a published table can be rebuilt
+            # or merged with another run's without re-decoding anything.
+            # Deliberately not the hypothesis text: that would put a
+            # third party's transcript into a committed JSON file.
+            "clip_detail": [
+                {
+                    "clip": clip.clip,
+                    "words": {
+                        "substitutions": clip.words.substitutions,
+                        "deletions": clip.words.deletions,
+                        "insertions": clip.words.insertions,
+                        "reference_length": clip.words.reference_length,
+                    },
+                    "chars": {
+                        "substitutions": clip.chars.substitutions,
+                        "deletions": clip.chars.deletions,
+                        "insertions": clip.chars.insertions,
+                        "reference_length": clip.chars.reference_length,
+                    },
+                    "audio_secs": round(clip.audio_secs, 3),
+                    "elapsed_secs": round(clip.elapsed_secs, 3),
+                    "failed": clip.failed,
+                }
+                for clip in self.clips
+            ],
         }
 
 

@@ -194,6 +194,10 @@ def build_silence(
     audio_dir.mkdir(parents=True, exist_ok=True)
     writer = ManifestWriter(target / "manifest.jsonl")
     tsv_lines = [
+        # The directive rust_core's parse_manifest needs before it will
+        # accept a blank reference. Without it an empty reference is an
+        # error, which is the right default for an ordinary corpus.
+        "# allow-empty-reference",
         "# silence: klip hening buatan sendiri.",
         f"# {clips} klip x {seconds}s @ {sample_rate} Hz (satu jendela Whisper).",
         "# Acuan KOSONG: setiap kata yang keluar adalah sisipan.",
