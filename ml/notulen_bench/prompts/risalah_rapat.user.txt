@@ -1,0 +1,16 @@
+Susun RISALAH RAPAT dari transkrip di bawah ini.
+
+Bentuk naskah: risalah rapat (verbatim-ringkas). Isi "jalannya_rapat" harus BERURUTAN sesuai transkrip, satu entri per pembicara setiap kali ia menyampaikan pokok baru. Ringkas kalimatnya, tetapi jangan menggabungkan dua pembicara menjadi satu entri dan jangan mengubah urutannya.
+
+KERANGKA JSON:
+{
+  "peserta": ["nama atau jabatan peserta yang muncul di transkrip (WAJIB)"],
+  "agenda": ["pokok acara rapat (opsional)"],
+  "jalannya_rapat": [{"pembicara": "nama atau jabatan (WAJIB)", "pokok": "pokok yang disampaikan, berurutan sesuai transkrip", "segmen": [1, 2]}],
+  "keputusan": [{"isi": "satu keputusan, satu kalimat (WAJIB)", "segmen": [5]}],
+  "tindak_lanjut": [{"tugas": "tugas yang disepakati (WAJIB)", "penanggung_jawab": "nama atau jabatan; kosongkan bila tidak disebutkan", "tenggat": "tenggat seperti disebutkan; kosongkan bila tidak ada", "segmen": [6]}]
+}
+
+--- TRANSKRIP (bernomor segmen) ---
+<<TRANSKRIP>>
+--- AKHIR TRANSKRIP ---

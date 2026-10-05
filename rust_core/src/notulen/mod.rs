@@ -39,7 +39,10 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod angka;
 pub mod factcheck;
+#[cfg(test)]
+mod parity;
 pub mod prompt;
 pub mod register;
 pub mod schema;

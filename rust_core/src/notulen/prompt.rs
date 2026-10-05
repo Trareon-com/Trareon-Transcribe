@@ -431,6 +431,14 @@ mod tests {
         dir.is_dir().then_some(dir)
     }
 
+    /// Placeholder the benchmark substitutes the transcript into.
+    ///
+    /// The whole user prompt is mirrored, not just its parts: the
+    /// sentence that wraps them ("Susun NOTULA RAPAT dari transkrip di
+    /// bawah ini") is prompt text too, and a benchmark that reassembled
+    /// it from the parts would be free to reassemble it differently.
+    const TRANSCRIPT_SLOT: &str = "<<TRANSKRIP>>";
+
     /// `(filename, contents)` for every prompt the benchmark mirrors.
     fn prompt_files() -> Vec<(String, String)> {
         let mut out = Vec::new();
@@ -439,11 +447,24 @@ mod tests {
                 ("system", system_prompt(*template)),
                 ("notes", template_notes(*template).to_string()),
                 ("schema", schema_block(*template)),
+                ("user", user_prompt(*template, TRANSCRIPT_SLOT, &[])),
             ] {
                 out.push((format!("{}.{suffix}.txt", template.id()), text));
             }
         }
         out
+    }
+
+    #[test]
+    fn the_mirrored_user_prompt_has_exactly_one_transcript_slot() {
+        for template in NotulenTemplate::all() {
+            let prompt = user_prompt(*template, TRANSCRIPT_SLOT, &[]);
+            assert_eq!(
+                prompt.matches(TRANSCRIPT_SLOT).count(),
+                1,
+                "{template:?}: the benchmark substitutes this placeholder once"
+            );
+        }
     }
 
     /// Writes the benchmark's copy of the prompts when

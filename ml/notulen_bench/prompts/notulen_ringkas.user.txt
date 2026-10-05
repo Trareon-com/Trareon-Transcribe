@@ -1,0 +1,15 @@
+Susun NOTULEN RINGKAS dari transkrip di bawah ini.
+
+Bentuk naskah: notulen ringkas satu halaman. Maksimal 5 topik pembahasan dan masing-masing paling banyak 2 kalimat. Jangan memanjangkan uraian.
+
+KERANGKA JSON:
+{
+  "ringkasan": "2-3 kalimat inti rapat (opsional)",
+  "pembahasan": [{"topik": "judul topik (WAJIB)", "uraian": "uraian pembahasan topik itu", "segmen": [3, 4]}],
+  "keputusan": [{"isi": "satu keputusan, satu kalimat (WAJIB)", "segmen": [5]}],
+  "tindak_lanjut": [{"tugas": "tugas yang disepakati (WAJIB)", "penanggung_jawab": "nama atau jabatan; kosongkan bila tidak disebutkan", "tenggat": "tenggat seperti disebutkan; kosongkan bila tidak ada", "segmen": [6]}]
+}
+
+--- TRANSKRIP (bernomor segmen) ---
+<<TRANSKRIP>>
+--- AKHIR TRANSKRIP ---

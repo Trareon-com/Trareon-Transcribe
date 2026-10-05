@@ -16,17 +16,24 @@
 //!
 //! # What "supported" means
 //!
-//! Three independent checks, each catching a different kind of
+//! Four independent checks, each catching a different kind of
 //! invention — from `naskah-dinas` QA practice, where "fakta harus
 //! terverifikasi" is the rule a telaahan staf lives or dies by:
 //!
 //! 1. **Provenance.** A claim should cite the segments it came from. A
 //!    citation outside the transcript's range is a fabrication the model
 //!    dressed as proof ([`FaktaMasalah::RujukanTidakSah`]).
-//! 2. **Lexical support.** The claim's content words must actually occur
-//!    in the cited segments, or — for an uncited claim — somewhere in the
-//!    transcript ([`FaktaMasalah::DukunganLemah`]).
-//! 3. **Entities.** Numbers and proper names are what a notulen is read
+//! 2. **Lexical support.** The claim's content words must occur
+//!    somewhere in the transcript ([`FaktaMasalah::DukunganLemah`]).
+//!    This is the invention signal, and it is asked of the *whole*
+//!    transcript: a keputusan that distils a five-minute exchange shares
+//!    few words with any single segment of it.
+//! 3. **Citation aim.** For a claim that *is* supported, the segments it
+//!    cited should be the ones it came from
+//!    ([`FaktaMasalah::RujukanMeleset`]). A real but misaimed pointer is
+//!    a documentation defect, not a fabrication, and is reported as the
+//!    lesser finding it is.
+//! 4. **Entities.** Numbers and proper names are what a notulen is read
 //!    for and what a model invents most confidently: a deadline nobody
 //!    said, a percentage off by a factor of ten, a penanggung jawab who
 //!    was not in the room ([`FaktaMasalah::AngkaTidakAda`],
@@ -52,8 +59,12 @@ pub enum FaktaMasalah {
     TanpaRujukan,
     /// A cited segment number does not exist in this transcript.
     RujukanTidakSah,
-    /// Too few of the statement's content words occur in its evidence.
+    /// Too few of the statement's content words occur anywhere in the
+    /// transcript. This is the invention signal.
     DukunganLemah,
+    /// The statement is supported by the transcript, but not by the
+    /// segments it cited — the citation points somewhere else.
+    RujukanMeleset,
     /// A number in the statement is nowhere in the transcript.
     AngkaTidakAda,
     /// A proper name in the statement is nowhere in the transcript.
@@ -68,6 +79,7 @@ impl FaktaMasalah {
             Self::TanpaRujukan => "Tanpa rujukan segmen",
             Self::RujukanTidakSah => "Rujukan segmen tidak ada",
             Self::DukunganLemah => "Dukungan transkrip lemah",
+            Self::RujukanMeleset => "Rujukan segmen tidak cocok",
             Self::AngkaTidakAda => "Angka tidak ada di transkrip",
             Self::NamaTidakAda => "Nama tidak ada di transkrip",
         }
@@ -75,13 +87,15 @@ impl FaktaMasalah {
 
     /// Whether this finding should block an unreviewed export.
     ///
-    /// An invented number or name, and a citation that points nowhere,
-    /// are factual errors. A missing citation is a documentation gap.
+    /// An invented number or name, an unsupported statement, and a
+    /// citation that points nowhere are factual errors. A missing or
+    /// misaimed citation is a documentation gap: the statement is true,
+    /// the pointer is not useful.
     #[flutter_rust_bridge::frb(ignore)]
     pub fn berat(self) -> bool {
         matches!(
             self,
-            Self::RujukanTidakSah | Self::AngkaTidakAda | Self::NamaTidakAda
+            Self::RujukanTidakSah | Self::DukunganLemah | Self::AngkaTidakAda | Self::NamaTidakAda
         )
     }
 }
@@ -134,6 +148,17 @@ impl LaporanFakta {
 /// ones. Measured against the `ml/notulen_bench` set, see
 /// `ml/NOTULEN-BENCHMARK.md`.
 pub const MIN_DUKUNGAN: f64 = 0.35;
+
+/// Minimum overlap between a claim and the segments it cited before the
+/// citation is called misaimed.
+///
+/// Lower than [`MIN_DUKUNGAN`] because a correct citation is allowed to
+/// be partial — the claim may synthesise the cited segment with context
+/// from elsewhere — and because this finding is advisory. It only fires
+/// for statements that *are* supported by the transcript, so the cost of
+/// a false positive is a note the notulis dismisses, not a correct
+/// decision accused of being invented.
+pub const MIN_RUJUKAN: f64 = 0.2;
 
 /// Indonesian function words. Counting them would make every statement
 /// look supported, since a transcript contains all of them.
@@ -256,50 +281,26 @@ fn numbers(text: &str) -> Vec<String> {
     out
 }
 
-/// Indonesian spellings of the digits a transcript is likely to contain
-/// as words where the notulen writes them as figures.
-///
-/// A speaker says "empat persen"; a competent notulen writes "4 persen".
-/// Flagging that as an invented number would make the check useless, so
-/// the word form counts as support for the figure.
-const ANGKA_KATA: &[(&str, &str)] = &[
-    ("0", "nol"),
-    ("1", "satu"),
-    ("2", "dua"),
-    ("3", "tiga"),
-    ("4", "empat"),
-    ("5", "lima"),
-    ("6", "enam"),
-    ("7", "tujuh"),
-    ("8", "delapan"),
-    ("9", "sembilan"),
-    ("10", "sepuluh"),
-    ("11", "sebelas"),
-    ("12", "dua belas"),
-    ("15", "lima belas"),
-    ("20", "dua puluh"),
-    ("30", "tiga puluh"),
-    ("50", "lima puluh"),
-    ("100", "seratus"),
-    ("1000", "seribu"),
-];
-
 /// Whether `number` as written, or its Indonesian word form, occurs in
 /// the transcript.
+///
+/// A speaker says "empat persen" and "dua ribu dua puluh enam"; a
+/// competent notulen writes "4 persen" and "2026". Flagging those as
+/// invented numbers would make the whole check useless, so the figure is
+/// spelled out ([`super::angka::spoken_forms`]) and the spelling is
+/// searched for too.
 fn number_supported(number: &str, haystack_lower: &str) -> bool {
     if haystack_lower.contains(number) {
         return true;
     }
-    // "8.500.000" spoken as "delapan setengah juta" is not recoverable,
-    // but "8500000" written without separators is.
+    // "8.500.000" written without separators in the transcript.
     let bare: String = number.chars().filter(char::is_ascii_digit).collect();
     if !bare.is_empty() && bare != number && haystack_lower.contains(&bare) {
         return true;
     }
-    ANGKA_KATA
+    super::angka::spoken_forms(number)
         .iter()
-        .find(|(digit, _)| *digit == number)
-        .is_some_and(|(_, word)| haystack_lower.contains(word))
+        .any(|words| haystack_lower.contains(words))
 }
 
 /// Name-shaped tokens: capitalised words that are not the first word of
@@ -436,6 +437,25 @@ fn proper_names(text: &str) -> Vec<String> {
     names
 }
 
+// The three helpers the Python mirror has to agree with, exposed for
+// `super::parity`. Test-only: they are implementation detail of
+// `periksa`, and widening them to the crate would invite a second caller
+// that then constrains the stemmer's behaviour.
+#[cfg(test)]
+pub(super) fn stem_for_parity(word: &str) -> String {
+    stem(word)
+}
+
+#[cfg(test)]
+pub(super) fn numbers_for_parity(text: &str) -> Vec<String> {
+    numbers(text)
+}
+
+#[cfg(test)]
+pub(super) fn proper_names_for_parity(text: &str) -> Vec<String> {
+    proper_names(text)
+}
+
 /// One statement to check, with the section it belongs to.
 struct Pernyataan<'a> {
     bagian: &'static str,
@@ -451,9 +471,13 @@ struct Pernyataan<'a> {
 #[flutter_rust_bridge::frb(ignore)]
 pub fn periksa(notulen: &NotulenJson, segments: &[Segment]) -> LaporanFakta {
     let usable: Vec<&Segment> = segments.iter().filter(|s| !s.is_partial).collect();
+    // Speaker labels are part of the transcript, not metadata around
+    // it. Leaving them out made every penanggung jawab who was named
+    // only by their speaker label — which is most of them — look
+    // invented.
     let transcript: String = usable
         .iter()
-        .map(|s| s.text.trim())
+        .map(|s| format!("{} {}", s.speaker.trim(), s.text.trim()))
         .collect::<Vec<_>>()
         .join(" ");
     let transcript_lower = transcript.to_lowercase();
@@ -542,31 +566,49 @@ pub fn periksa(notulen: &NotulenJson, segments: &[Segment]) -> LaporanFakta {
         }
 
         // --- lexical support ----------------------------------------------
-        let evidence: Vec<String> = if valid_ids.is_empty() {
-            transcript_words.clone()
-        } else {
-            valid_ids
-                .iter()
-                .filter_map(|&id| usable.get((id - 1) as usize))
-                .flat_map(|segment| content_words(&segment.text))
-                .collect()
-        };
-        let score = overlap(&statement.teks, &evidence);
-        if score < MIN_DUKUNGAN {
+        //
+        // Two different questions, which the first version of this pass
+        // conflated into one and so answered neither:
+        //
+        // * "Did anyone say this?" — asked of the *whole* transcript. A
+        //   keputusan that distils a five-minute exchange legitimately
+        //   shares few words with any single segment of it, so scoring
+        //   it against its citation alone reported correct decisions as
+        //   invented. This is the finding that matters.
+        // * "Does the citation point at the right place?" — asked of the
+        //   cited segments. A real but misaimed pointer is a
+        //   documentation defect, not a fabrication, and is reported as
+        //   such.
+        let whole = overlap(&statement.teks, &transcript_words);
+        if whole < MIN_DUKUNGAN {
             temuan.push(TemuanFakta {
                 bagian: statement.bagian.to_string(),
                 pernyataan: statement.teks.clone(),
                 masalah: FaktaMasalah::DukunganLemah,
                 rincian: format!(
-                    "hanya {:.0}% kata kunci pernyataan ini muncul di {}",
-                    score * 100.0,
-                    if valid_ids.is_empty() {
-                        "transkrip".to_string()
-                    } else {
-                        format!("segmen yang dirujuk ({valid_ids:?})")
-                    }
+                    "hanya {:.0}% kata kunci pernyataan ini muncul di transkrip",
+                    whole * 100.0
                 ),
             });
+        } else if !valid_ids.is_empty() {
+            let cited: Vec<String> = valid_ids
+                .iter()
+                .filter_map(|&id| usable.get((id - 1) as usize))
+                .flat_map(|segment| content_words(&segment.text))
+                .collect();
+            let aimed = overlap(&statement.teks, &cited);
+            if aimed < MIN_RUJUKAN {
+                temuan.push(TemuanFakta {
+                    bagian: statement.bagian.to_string(),
+                    pernyataan: statement.teks.clone(),
+                    masalah: FaktaMasalah::RujukanMeleset,
+                    rincian: format!(
+                        "pernyataan ada di transkrip, tetapi hanya {:.0}% kata kuncinya \
+                         muncul di segmen yang dirujuk ({valid_ids:?})",
+                        aimed * 100.0
+                    ),
+                });
+            }
         }
 
         // --- entities ------------------------------------------------------
