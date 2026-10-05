@@ -1,0 +1,50 @@
+# Final accuracy model on ONE RTX 2060 (6 GB). The tight one.
+#
+# large-v3-turbo is ~809M parameters: ~1.6 GB in fp16 before any
+# activations or optimiser state, which does not leave room on 6 GB.
+# Three things make it fit, and all three are needed:
+#
+#   1. 4-bit NF4 base weights with double quantisation (~0.5 GB).
+#   2. Gradient checkpointing (activations are the largest term, and
+#      Whisper always encodes a padded 30 s window so they do not
+#      shrink with shorter clips).
+#   3. Batch size 1, with accumulation to reach a useful effective batch.
+#
+# The adapter covers the decoder plus the top 4 encoder layers: the
+# encoder computes acoustic features that transfer across languages,
+# while the decoder holds the vocabulary and style a fine-tune is for.
+#
+# Run train/dry_run_memory.py FIRST. It reports peak VRAM for this exact
+# config and tells you whether to fall back to the Kaggle 2xT4 variant.
+name: whisper-turbo-id-6gb
+base_model: openai/whisper-large-v3-turbo
+language: indonesian
+task: transcribe
+
+train_sets:
+  - data/shards/mk
+  - data/shards/dpr
+eval_sets:
+  - data/fleurs-id
+
+fp16: true
+load_in_4bit: true
+gradient_checkpointing: true
+per_device_batch_size: 1
+gradient_accumulation_steps: 16  # effective batch 16
+
+max_clip_secs: 25.0
+min_anchor_rate: 0.7
+
+lora_r: 16                       # halved vs small: adapter state costs VRAM too
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: [q_proj, v_proj]
+encoder_top_layers: 4
+
+spec_augment: true
+learning_rate: 5.0e-4            # lower than base/small: 4-bit is noisier
+warmup_steps: 100
+max_steps: 3000
+optim: adamw_bnb_8bit
+output_dir: out/train/whisper-turbo-id-6gb

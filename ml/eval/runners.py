@@ -22,10 +22,11 @@ from __future__ import annotations
 import json
 import subprocess
 import time
-import wave
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+
+from common.audio import duration as audio_duration
 
 
 @dataclass
@@ -73,18 +74,13 @@ def parse_manifest_tsv(path: str | Path) -> list[tuple[str, str]]:
 
 
 def wav_duration(path: str | Path) -> float:
-    """Duration of a WAV file, or 0.0 when it cannot be read.
+    """Clip duration for the transformers runner.
 
-    Used only for the transformers runner; the GGML runner reports the
-    duration the engine itself decoded, which is the honest number for
-    a non-WAV input.
+    The GGML runner reports the duration the engine itself decoded,
+    which is the honest number there; this is for the PyTorch path,
+    which only gets a file path back.
     """
-    try:
-        with wave.open(str(path), "rb") as handle:
-            rate = handle.getframerate()
-            return handle.getnframes() / rate if rate else 0.0
-    except (OSError, wave.Error):
-        return 0.0
+    return audio_duration(path)
 
 
 # -- the app's own engine ----------------------------------------------
