@@ -67,6 +67,10 @@ class BenchmarkResult:
     commit: str = ""
     created_at: str = ""
     policy: str = ""
+    #: Every distinct commit the merged runs came from. More than one
+    #: means the RTF column mixes builds, which is worth saying out loud
+    #: rather than hiding behind whichever file was read last.
+    commits: list[str] = field(default_factory=list)
 
     def for_set(self, name: str) -> list[SetScore]:
         return [score for score in self.scores if score.test_set == name]
@@ -78,6 +82,7 @@ class BenchmarkResult:
             "machine": self.machine,
             "commit": self.commit,
             "normalisation_policy": self.policy,
+            "commits": self.commits or ([self.commit] if self.commit else []),
             "scores": [score.as_dict() for score in self.scores],
             "errors": self.errors,
         }
@@ -241,11 +246,23 @@ def render_markdown(result: BenchmarkResult, test_sets: list[TestSet]) -> str:
         "",
         f"- Dibuat: {result.created_at}",
         f"- Mesin: {result.machine}",
-        f"- Commit: `{result.commit or 'tidak diketahui'}`",
+        (
+            f"- Commit: `{result.commit or 'tidak diketahui'}`"
+            if len(result.commits) <= 1
+            else "- Commit: "
+            + ", ".join(f"`{commit}`" for commit in result.commits)
+            + " ⚠️ beberapa build - kolom RTF mencampur keduanya"
+        ),
         f"- Normalisasi: `{result.policy}` (lihat `ml/eval/normalize.py`)",
         "",
         "RTF = detik audio per detik jam dinding. Di bawah 1,0 berarti model "
         "tidak bisa mengikuti rapat langsung di mesin ini.",
+        "",
+        "**RTF juga bergantung pada apa lagi yang berjalan saat pengukuran.** "
+        "Angka di bawah diambil di mesin yang sedang dipakai mengerjakan hal "
+        "lain, jadi perlakukan RTF sebagai urutan besaran (apakah model ini "
+        "bisa real-time di kelas mesin ini?) dan bukan sebagai tolok ukur "
+        "yang presisi. WER dan CER tidak terpengaruh beban.",
         "",
     ]
 
@@ -383,6 +400,9 @@ def merge_reports(paths: list[str | Path]) -> BenchmarkResult:
         merged.commit = payload.get("commit", merged.commit)
         merged.created_at = payload.get("created_at", merged.created_at)
         merged.policy = payload.get("normalisation_policy", merged.policy)
+        for commit in payload.get("commits") or [payload.get("commit", "")]:
+            if commit and commit not in merged.commits:
+                merged.commits.append(commit)
 
         for score in payload.get("scores", []):
             key = (score["model"], score["test_set"])
