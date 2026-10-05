@@ -491,10 +491,8 @@ mod tests {
     fn the_directive_only_counts_in_the_header() {
         // Otherwise a stray mention in a reference would silently relax
         // the whole manifest.
-        let error = parse_manifest(
-            "audio/0.wav\tteks biasa\n# allow-empty-reference\naudio/1.wav\t\n",
-        )
-        .unwrap_err();
+        let manifest = "audio/0.wav\tteks biasa\n# allow-empty-reference\naudio/1.wav\t\n";
+        let error = parse_manifest(manifest).unwrap_err();
         assert!(error.contains("teks acuan"), "got: {error}");
     }
 

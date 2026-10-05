@@ -3063,3 +3063,44 @@ Bukti pemakaian mesin aplikasi yang sebenarnya:
 10. **Jendela aplikasi Windows masih kosong** (terdokumentasi Sprint
     4b, bukan regresi). Verifikasi UI Windows karena itu tetap belum
     mungkin.
+
+## Perbaikan pasca-verifikasi (putaran perbaikan Sprint 6a)
+
+Verifikasi independen / CI gagal pada gerbang format Rust:
+`rustfmt` 1.98 (CI) dan 1.96 (lokal) tidak sepakat soal pembungkusan
+baris di `rust_core/src/wer.rs:491`, tes
+`the_directive_only_counts_in_the_header`. Argumen literalnya cukup
+pendek (95 kolom bila disatukan) sehingga rustfmt baru memadatkannya,
+sedangkan rustfmt lama memecahnya — jadi berkas yang "sudah terformat"
+secara lokal tetap ditolak CI.
+
+Akar masalah diperbaiki, bukan ditutup: literal manifest dipindahkan ke
+pengikat `let manifest = …`, sehingga kedua barisnya pendek dan tidak
+ada lagi keputusan pembungkusan yang bisa berbeda antarversi. Tidak ada
+lint yang dimatikan dan tidak ada tes yang dilemahkan (tes tetap
+menguji perilaku yang sama).
+
+Agar hal ini tidak terulang, toolchain `1.98.0` (rustfmt + clippy)
+dipasang di mesin ini, lalu seluruh crate diperiksa dengan versi CI:
+hanya satu lokasi yang berbeda, dan setelah perbaikan `cargo +1.98.0
+fmt --check` serta `cargo +1.98.0 clippy --all-targets -- -D warnings`
+dua-duanya bersih.
+
+- Berkas disentuh: `rust_core/src/wer.rs` (hanya tes), `docs/SPRINT-REPORTS.md`.
+- Tes ditambahkan: tidak ada (perbaikan bentuk, cakupan tetap sama).
+
+Keluaran gerbang verifikasi (semua hijau):
+
+```
+cargo fmt --check                              → bersih (1.96 lokal)
+cargo +1.98.0 fmt --check                      → bersih (versi CI)
+cargo clippy --all-targets -- -D warnings      → bersih (1.96 lokal)
+cargo +1.98.0 clippy --all-targets -- -D warnings → bersih (versi CI)
+cargo test --lib                               → 693 passed; 0 failed
+flutter analyze                                → No issues found!
+flutter test                                   → 618 tests, All tests passed!
+flutter build linux --release                  → ✓ build/linux/x64/release/bundle/transcribe
+```
+
+Uji asap aplikasi tidak diulang: perubahan hanya menyentuh kode tes
+Rust, tidak ada jalur UI maupun penangkapan audio yang berubah.
