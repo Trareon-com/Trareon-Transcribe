@@ -160,9 +160,8 @@ def _resolve_targets(model: Any, config: TrainConfig) -> list[str]:
         # Freeze the encoder entirely: decoder-only adapter.
         return [name for name in names if ".encoder." not in name] or list(config.target_modules)
 
-    encoder_depth = len(getattr(model.config, "encoder_layers", []) or []) or int(
-        getattr(model.config, "encoder_layers", 0) or 0
-    )
+    # `encoder_layers` is a count, not a list.
+    encoder_depth = int(getattr(model.config, "encoder_layers", 0) or 0)
     keep_from = max(0, encoder_depth - config.encoder_top_layers)
     selected: list[str] = []
     for name in names:

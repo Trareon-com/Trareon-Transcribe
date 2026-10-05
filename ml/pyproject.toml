@@ -39,6 +39,10 @@ train = [
     "soundfile>=0.12",
     "librosa>=0.10",
     "numpy>=1.26",
+    # `datasets` delegates audio decoding to torchcodec and raises
+    # ImportError without it, so an audiofolder shard cannot be loaded at
+    # all. Needed by training and by the transformers eval runner.
+    "torchcodec>=0.2",
 ]
 # GPU-only; bitsandbytes has no working CPU backend. Installed on the
 # RTX 2060 box and on Kaggle, never on Kali.
@@ -69,6 +73,13 @@ ignore = [
     "RUF002",
     "RUF003",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# A notebook is read top to bottom by a human, so an import belongs in
+# the cell that first needs it rather than hoisted to the top of that
+# cell or into cell 1. Real checks (undefined names, unused imports)
+# still apply.
+"*.ipynb" = ["E401", "E402", "E501", "I001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

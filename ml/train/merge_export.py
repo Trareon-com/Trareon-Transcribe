@@ -97,9 +97,38 @@ def merge(adapter_dir: str | Path, out_dir: str | Path, *, base_model: str | Non
         str(adapter) if (adapter / "preprocessor_config.json").exists() else base
     )
     processor.save_pretrained(str(target))
+    _write_legacy_vocab(processor, target)
 
     print(f"==> model gabungan: {target}", flush=True)
     return target
+
+
+def _write_legacy_vocab(processor: object, target: Path) -> None:
+    """Emit `vocab.json` and `merges.txt` next to the model.
+
+    `save_pretrained` writes only the fast tokenizer's single
+    `tokenizer.json`, but whisper.cpp's `convert-h5-to-ggml.py` reads the
+    *legacy* pair and dies with `FileNotFoundError: vocab.json`. Without
+    this the whole GGML export fails after the merge has already
+    succeeded, which is a confusing place to fail.
+
+    The BPE model behind the fast tokenizer can write the pair itself, so
+    no second download and no slow-tokenizer class is needed.
+    """
+    if (target / "vocab.json").exists() and (target / "merges.txt").exists():
+        return
+    tokenizer = getattr(processor, "tokenizer", None)
+    backend = getattr(tokenizer, "backend_tokenizer", None)
+    model = getattr(backend, "model", None)
+    if model is None or not hasattr(model, "save"):
+        print(
+            "  peringatan: tidak bisa menulis vocab.json/merges.txt; "
+            "konversi GGML kemungkinan gagal",
+            file=sys.stderr,
+        )
+        return
+    # `model.save` writes `vocab.json` and `merges.txt` into the dir.
+    model.save(str(target))
 
 
 def to_ggml(

@@ -1,0 +1,68 @@
+name: ML
+
+# The `ml/` directory is a separate Python project: nothing in it is
+# imported by the Flutter or Rust build, and the app ships without it.
+# So it gets its own job rather than a step inside CI, and it only runs
+# when something under `ml/` changes.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "ml/**"
+      - ".github/workflows/ml.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ml/**"
+      - ".github/workflows/ml.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ml:
+    name: ml (ruff, pytest)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: ml/pyproject.toml
+
+      - name: Install
+        # No `--extra train`: that is torch, and CI has no business
+        # downloading 2 GB to lint a data pipeline. The modules that
+        # need it guard their imports and the tests that need it are
+        # marked `gpu`/`slow` and excluded by default.
+        run: uv sync --extra dev --extra data --extra pdf
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Test
+        # Hermetic by default: `addopts` in pyproject deselects the
+        # `network`, `slow` and `gpu` marks. A test that silently stops
+        # testing because mkri.id changed is worse than no test.
+        run: uv run pytest -q
+
+      - name: Check the configs parse
+        # A typo in a training config is only discovered hours into a
+        # run otherwise, because `load_config` rejects unknown keys.
+        run: |
+          for config in train/configs/*.yaml; do
+            echo "== $config"
+            uv run python -c "
+          import sys
+          from train.config import load_config
+          load_config(sys.argv[1])
+          print('ok')
+          " "$config"
+          done

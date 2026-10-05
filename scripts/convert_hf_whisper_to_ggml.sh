@@ -104,9 +104,14 @@ pip install --quiet --upgrade pip
 # `torch` CPU-only: the conversion reads the weights and writes them out,
 # it never runs the model, so a CUDA build would be a 2 GB download for
 # nothing.
-pip install --quiet \
-    "torch --index-url https://download.pytorch.org/whl/cpu" \
-    transformers numpy
+#
+# Two `pip install` calls, not one: `--index-url` is an option, so it has
+# to be its own argument. Passing `"torch --index-url ..."` as a single
+# quoted string makes pip read the whole thing as one requirement name
+# and fail with `Invalid requirement`, which under `set -e` aborted the
+# script before it converted anything.
+pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+pip install --quiet transformers numpy
 
 echo "==> mengunduh $REPO"
 python3 - "$REPO" <<'PY'
