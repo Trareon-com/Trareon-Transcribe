@@ -56,6 +56,10 @@ pub mod journal;
 pub mod mapreduce;
 pub mod memory;
 pub mod model;
+/// Mesin notulen: templat naskah dinas, skema JSON ketat, periksa fakta,
+/// dan pemeriksa ragam bahasa baku. Local-only — the model round trip
+/// itself belongs to `summary`.
+pub mod notulen;
 /// Mode Kepatuhan UU PDP: redaction, retention, audit log, consent.
 pub mod pdp;
 pub mod pipeline;

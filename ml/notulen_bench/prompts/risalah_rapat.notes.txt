@@ -1,0 +1,1 @@
+Bentuk naskah: risalah rapat (verbatim-ringkas). Isi "jalannya_rapat" harus BERURUTAN sesuai transkrip, satu entri per pembicara setiap kali ia menyampaikan pokok baru. Ringkas kalimatnya, tetapi jangan menggabungkan dua pembicara menjadi satu entri dan jangan mengubah urutannya.

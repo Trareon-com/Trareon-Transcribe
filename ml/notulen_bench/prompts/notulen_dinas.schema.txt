@@ -1,0 +1,9 @@
+{
+  "ringkasan": "2-3 kalimat inti rapat (opsional)",
+  "peserta": ["nama atau jabatan peserta yang muncul di transkrip (WAJIB)"],
+  "agenda": ["pokok acara rapat (opsional)"],
+  "jalannya_rapat": [{"pembicara": "nama atau jabatan (opsional)", "pokok": "pokok yang disampaikan, berurutan sesuai transkrip", "segmen": [1, 2]}],
+  "pembahasan": [{"topik": "judul topik (WAJIB)", "uraian": "uraian pembahasan topik itu", "segmen": [3, 4]}],
+  "keputusan": [{"isi": "satu keputusan, satu kalimat (WAJIB)", "segmen": [5]}],
+  "tindak_lanjut": [{"tugas": "tugas yang disepakati (WAJIB)", "penanggung_jawab": "nama atau jabatan; kosongkan bila tidak disebutkan", "tenggat": "tenggat seperti disebutkan; kosongkan bila tidak ada", "segmen": [6]}]
+}

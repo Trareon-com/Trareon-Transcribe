@@ -1,0 +1,6 @@
+{
+  "pihak": ["nama dan jabatan pihak yang membuat berita acara (WAJIB)"],
+  "pembahasan": [{"topik": "judul topik (WAJIB)", "uraian": "uraian pembahasan topik itu", "segmen": [3, 4]}],
+  "keputusan": [{"isi": "satu keputusan, satu kalimat (WAJIB)", "segmen": [5]}],
+  "tindak_lanjut": [{"tugas": "tugas yang disepakati (WAJIB)", "penanggung_jawab": "nama atau jabatan; kosongkan bila tidak disebutkan", "tenggat": "tenggat seperti disebutkan; kosongkan bila tidak ada", "segmen": [6]}]
+}
