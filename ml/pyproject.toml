@@ -1,0 +1,83 @@
+[project]
+name = "trareon-ml"
+version = "0.1.0"
+description = "Data pipeline, benchmark and training kit for Indonesian meeting ASR (Trareon Transcribe)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+# Deliberately tiny. Everything here must run on the maintainer's Kali
+# box, which has a weak CPU and little free disk; the heavy wheels live
+# in extras so that `uv sync` on a laptop does not pull 3 GB of CUDA.
+dependencies = [
+    "requests>=2.32",
+    "tqdm>=4.66",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Reading HF-hosted test sets (FLEURS, Common Voice, GigaSpeech 2).
+data = [
+    "datasets>=3.0",
+    "soundfile>=0.12",
+    "numpy>=1.26",
+    "huggingface-hub>=0.25",
+]
+# Parsing risalah PDFs.
+pdf = [
+    "pypdf>=5.0",
+]
+# Running HF ASR models (cahya/whisper-medium-id) and LoRA training.
+# torch is pinned to the CPU wheel index below unless overridden.
+train = [
+    "torch>=2.4",
+    "transformers>=4.44",
+    "peft>=0.13",
+    "accelerate>=0.34",
+    "evaluate>=0.4",
+    "datasets>=3.0",
+    "soundfile>=0.12",
+    "librosa>=0.10",
+    "numpy>=1.26",
+]
+# GPU-only; bitsandbytes has no working CPU backend. Installed on the
+# RTX 2060 box and on Kaggle, never on Kali.
+gpu = [
+    "bitsandbytes>=0.43",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["common", "collect", "align", "eval", "train", "record_kit"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    # Indonesian strings in user-facing output are intentional.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Network-dependent and multi-gigabyte tests are opt-in: CI must stay
+# hermetic, and a test that silently needs mkri.id is a test that
+# silently stops testing.
+markers = [
+    "network: needs outbound network access",
+    "slow: takes more than ~10 s",
+    "gpu: needs a CUDA device",
+]
+addopts = "-m 'not network and not slow and not gpu'"

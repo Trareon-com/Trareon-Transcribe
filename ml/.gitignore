@@ -1,0 +1,18 @@
+# Virtualenv and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Collected data, model checkpoints and benchmark audio are never
+# committed: they are someone else's, they are large, and a corpus in
+# git drifts from the published one.
+data/
+out/
+checkpoints/
+*.bin
+*.safetensors
+*.wav
+*.mp3
+*.pdf
