@@ -68,6 +68,19 @@ FLEURS_ID = HfTestSet(
     domain="ucapan baca, satu penutur, mikrofon dekat - bukan rapat",
 )
 
+#: Only used as raw material for the synthetic code-switching set; not
+#: a test set of this benchmark on its own.
+FLEURS_EN = HfTestSet(
+    name="fleurs-en",
+    repo="google/fleurs",
+    config="en_us",
+    split="test",
+    text_column="transcription",
+    licence_note="CC-BY 4.0 (Google FLEURS)",
+    gated=False,
+    domain="ucapan baca bahasa Inggris - bahan untuk set code-switching sintetis",
+)
+
 COMMON_VOICE_ID = HfTestSet(
     name="cv-id",
     repo="mozilla-foundation/common_voice_17_0",
@@ -128,7 +141,7 @@ GIGASPEECH2_ID_DEV = HfTestSet(
 
 TEST_SETS = {
     item.name: item
-    for item in (FLEURS_ID, COMMON_VOICE_ID, GIGASPEECH2_ID_TEST, GIGASPEECH2_ID_DEV)
+    for item in (FLEURS_ID, FLEURS_EN, COMMON_VOICE_ID, GIGASPEECH2_ID_TEST, GIGASPEECH2_ID_DEV)
 }
 
 
