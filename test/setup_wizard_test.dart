@@ -48,6 +48,8 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
+  @override
+  Stream<String> tentativeStream(String sessionId) => const Stream.empty();
 
   @override
   Future<List<rust_session.RecoverableSession>>

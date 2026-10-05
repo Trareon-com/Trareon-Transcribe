@@ -447,7 +447,12 @@ class _TranscriptViewState extends State<TranscriptView> {
     // Committed even when unchanged is wasteful; committed when changed
     // is the whole point.
     if (index < widget.segments.length && text != widget.segments[index].text) {
+      final before = widget.segments[index].text;
       widget.onEdit?.call(index, text);
+      final correction = singleWordCorrection(before, text);
+      if (correction != null) {
+        widget.onWordCorrected?.call(correction.$1, correction.$2);
+      }
     }
   }
 
@@ -1470,9 +1475,9 @@ class _TentativeLine extends StatelessWidget {
                   ),
                   TextSpan(
                     text: text,
-                    style: AppText.reading.c(colors.textTertiary).copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
+                    style: AppText.reading
+                        .c(colors.textTertiary)
+                        .copyWith(fontStyle: FontStyle.italic),
                   ),
                 ],
               ),
@@ -1483,3 +1488,39 @@ class _TentativeLine extends StatelessWidget {
     );
   }
 }
+
+/// The one word an edit changed, or `null` when the edit was anything else.
+///
+/// This is what turns a correction into something the app can learn from
+/// ("Tambahkan ke kamus" / "Ganti otomatis selanjutnya"). Deliberately
+/// narrow: only an edit that leaves the word count unchanged and differs in
+/// exactly one position counts. A user who rewrote a sentence did not teach
+/// us a vocabulary item, and offering to add half of it to the kamus would
+/// train them to dismiss the offer.
+///
+/// Returns `(before, after)`.
+(String, String)? singleWordCorrection(String before, String after) {
+  final from = before.trim().split(RegExp(r'\s+'));
+  final to = after.trim().split(RegExp(r'\s+'));
+  if (from.length != to.length || from.isEmpty) return null;
+  int? changed;
+  for (var i = 0; i < from.length; i++) {
+    if (from[i] == to[i]) continue;
+    if (changed != null) return null;
+    changed = i;
+  }
+  if (changed == null) return null;
+  // Punctuation is not a word. "anggaran" -> "anggaran." taught nothing,
+  // and a rule keyed on the comma would fire on the wrong word later.
+  final strippedFrom = _wordCore(from[changed]);
+  final strippedTo = _wordCore(to[changed]);
+  if (strippedFrom.isEmpty || strippedTo.isEmpty) return null;
+  if (strippedFrom.toLowerCase() == strippedTo.toLowerCase()) return null;
+  return (strippedFrom, strippedTo);
+}
+
+/// A word without its surrounding punctuation.
+String _wordCore(String word) => word.replaceAll(
+  RegExp(r'^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$', unicode: true),
+  '',
+);

@@ -34,6 +34,7 @@ void main() {
         enabled: true,
         terms: ['Kemenkeu', 'SPBE'],
         postCorrection: true,
+        replacements: [],
       );
       final config = settings.toConfig(sessionTerms: ['Pak Budi']);
       expect(config.sessionTerms, ['Pak Budi']);
@@ -46,6 +47,7 @@ void main() {
         enabled: false,
         terms: ['Kemenkeu'],
         postCorrection: true,
+        replacements: [],
       );
       final config = settings.toConfig(sessionTerms: ['Pak Budi']);
       expect(config.sessionTerms, isEmpty);

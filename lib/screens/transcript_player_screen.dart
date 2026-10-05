@@ -23,6 +23,7 @@ import '../widgets/action_items_panel.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
 import '../widgets/completion_banner.dart';
+import '../widgets/dictionary_learning_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/notulen_dialog.dart';
 import '../widgets/retranscribe_dialog.dart';
@@ -745,6 +746,53 @@ class _TranscriptPlayerScreenState
   /// means listening to twenty words to check one.
   void _seekToWord(TranscriptWord word) {
     unawaited(_seekTo(word.start));
+  }
+
+  /// Offers to remember a one-word correction the user just made.
+  ///
+  /// Both outcomes land in the global kamus istilah (Sprint 3), which is
+  /// where the transcription path already reads vocabulary from — so the
+  /// next recording benefits without the user visiting Settings. Saving is
+  /// fire-and-forget on purpose: the correction itself has already been
+  /// applied to the transcript, and a failed *settings* write must not
+  /// look like a failed edit.
+  void _offerDictionaryEntry(String before, String after) {
+    unawaited(_learnCorrection(before, after));
+  }
+
+  Future<void> _learnCorrection(String before, String after) async {
+    final choice = await showDictionaryLearningDialog(
+      context,
+      before: before,
+      after: after,
+    );
+    if (choice == null || choice.isEmpty || !mounted) return;
+
+    final settings = ref.read(settingsProvider.notifier);
+    final glossary = ref.read(settingsProvider).glossary;
+    var updated = glossary;
+    if (choice.addToGlossary) {
+      updated = updated.copyWith(terms: [...updated.terms, after]);
+    }
+    if (choice.autoReplace) {
+      // Last writer wins per `from`, so correcting the same word twice
+      // replaces the rule instead of stacking two that disagree.
+      final rules = [
+        for (final rule in updated.replacements)
+          if (rule.from.toLowerCase() != before.toLowerCase()) rule,
+        ReplacementRule(from: before, to: after),
+      ];
+      updated = updated.copyWith(replacements: rules);
+    }
+    await settings.setGlossary(updated);
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      choice.autoReplace
+          ? 'Disimpan. "$before" akan ditulis "$after" selanjutnya.'
+          : '"$after" ditambahkan ke kamus istilah.',
+      type: ToastType.success,
+    );
   }
 
   /// Jumps to a segment by index, for a citation that names a line

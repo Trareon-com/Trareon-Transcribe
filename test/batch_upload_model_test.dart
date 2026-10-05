@@ -275,6 +275,9 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
   @override
+  Stream<String> tentativeStream(String sessionId) => const Stream.empty();
+
+  @override
   Future<List<rust_session.RecoverableSession>>
   listRecoverableSessions() async => const [];
 
@@ -396,6 +399,7 @@ class _TestBridge extends _NoopBridge {
               confidence: 0.9,
               isPartial: false,
               lowConfidence: false,
+              words: const [],
               avgLogProb: -0.2,
             ),
           ],
@@ -487,6 +491,7 @@ class _ProgressiveBridge extends _NoopBridge {
           confidence: 0.9,
           isPartial: false,
           lowConfidence: false,
+          words: const [],
           avgLogProb: -0.2,
         ),
       ],

@@ -104,6 +104,7 @@ TranscriptSegment segment(String text) => TranscriptSegment(
   confidence: 0.9,
   isPartial: false,
   lowConfidence: false,
+  words: const [],
 );
 
 Future<void> stopWithSegments(

@@ -29,6 +29,7 @@ void main() {
         confidence: 0.9,
         isPartial: false,
         lowConfidence: false,
+        words: const [],
       ),
   ];
 

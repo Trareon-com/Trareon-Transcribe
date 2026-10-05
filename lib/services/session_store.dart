@@ -655,8 +655,7 @@ String encodeTranscriptJson(List<TranscriptSegment> segments) {
         'avg_log_prob': s.avgLogProb,
         'is_partial': s.isPartial,
         'low_confidence': s.lowConfidence,
-        if (s.words.isNotEmpty)
-          'words': [for (final w in s.words) w.toJson()],
+        if (s.words.isNotEmpty) 'words': [for (final w in s.words) w.toJson()],
       },
   ]);
 }

@@ -1171,6 +1171,7 @@ class _Workspace extends StatelessWidget {
                   segments: session.segments,
                   revision: session.revision,
                   onRenameSpeaker: notifier.renameSpeaker,
+                  tentativeText: session.tentativeText,
                 ),
               if (showShortcuts)
                 Positioned(

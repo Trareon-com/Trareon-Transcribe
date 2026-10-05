@@ -46,6 +46,8 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Stream<SessionNotice> noticeStream(String sessionId) => const Stream.empty();
+  @override
+  Stream<String> tentativeStream(String sessionId) => const Stream.empty();
 
   @override
   Future<List<rust_session.RecoverableSession>>
@@ -512,6 +514,7 @@ rust_export.Segment _rustSegment(String text, double timestamp) =>
       avgLogProb: -0.3,
       isPartial: false,
       lowConfidence: false,
+      words: const [],
     );
 
 /// Returns a recovered session carrying a real transcript, and records the

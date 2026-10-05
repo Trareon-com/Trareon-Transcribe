@@ -108,6 +108,7 @@ List<TranscriptSegment> buildBenchmarkSegments({
       confidence: 0.6 + (r % 40) / 100.0,
       isPartial: false,
       lowConfidence: r % 23 == 0,
+      words: const [],
       avgLogProb: -0.1 - (r % 50) / 100.0,
     );
   }, growable: false);

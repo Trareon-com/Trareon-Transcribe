@@ -5,7 +5,7 @@ library;
 
 import 'dart:io';
 
-import '../src/rust/glossary.dart' show GlossaryConfig;
+import '../src/rust/glossary.dart' show GlossaryConfig, ReplacementRule;
 import '../src/rust/pdp.dart' show PdpSettings;
 import '../src/rust/pdp/redaction.dart' show RedactionConfig;
 import '../src/rust/pdp/retention.dart' show RetentionPolicy;
@@ -22,7 +22,7 @@ export '../src/rust/actions.dart' show ActionItem, ActionStatus;
 export '../src/rust/export.dart' show Bookmark;
 export '../src/rust/export/notulen.dart'
     show NotulenDraft, NotulenForm, NotulenVariant, TindakLanjut;
-export '../src/rust/glossary.dart' show GlossaryConfig;
+export '../src/rust/glossary.dart' show GlossaryConfig, ReplacementRule;
 export '../src/rust/mapreduce.dart' show MapReduceProgress;
 export '../src/rust/pdp.dart' show PdpSettings;
 export '../src/rust/pdp/audit.dart' show AuditAction, AuditEntry;
@@ -65,6 +65,7 @@ const GlossarySettings kDefaultGlossarySettings = GlossarySettings(
   enabled: true,
   terms: [],
   postCorrection: true,
+  replacements: [],
 );
 
 /// Office-level notulen defaults, all blank on a fresh install.
@@ -299,6 +300,7 @@ class SessionConfig {
       sessionTerms: [],
       globalTerms: [],
       postCorrection: false,
+      replacements: [],
     ),
     this.fallbackModelPath,
   });
@@ -606,6 +608,16 @@ class AppSettings {
   /// default; see rust_core/src/denoise.rs for the trade-off.
   final bool noiseReduction;
 
+  /// "Pemisahan pembicara akurat": sherpa-onnx neural diarization on the
+  /// import, re-transcribe and post-stop paths instead of the lightweight
+  /// acoustic clustering.
+  ///
+  /// Off by default — it needs ~34 MB of models the user has to agree to
+  /// download, and the lightweight clustering is adequate for the
+  /// two-source live case most sessions are. Mirrors
+  /// `AppSettings::neural_diarization` in Rust.
+  final bool neuralDiarization;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -630,6 +642,7 @@ class AppSettings {
     this.autoRetranscribe,
     this.pdp = kDefaultPdpSettings,
     this.noiseReduction = false,
+    this.neuralDiarization = false,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -667,6 +680,7 @@ class AppSettings {
     Object? autoRetranscribe = _sentinel,
     PdpSettings? pdp,
     bool? noiseReduction,
+    bool? neuralDiarization,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -700,6 +714,7 @@ class AppSettings {
           : autoRetranscribe as bool?,
       pdp: pdp ?? this.pdp,
       noiseReduction: noiseReduction ?? this.noiseReduction,
+      neuralDiarization: neuralDiarization ?? this.neuralDiarization,
     );
   }
 }
@@ -795,11 +810,13 @@ extension GlossarySettingsCopy on GlossarySettings {
     bool? enabled,
     List<String>? terms,
     bool? postCorrection,
+    List<ReplacementRule>? replacements,
   }) {
     return GlossarySettings(
       enabled: enabled ?? this.enabled,
       terms: terms ?? this.terms,
       postCorrection: postCorrection ?? this.postCorrection,
+      replacements: replacements ?? this.replacements,
     );
   }
 
@@ -812,12 +829,14 @@ extension GlossarySettingsCopy on GlossarySettings {
         sessionTerms: [],
         globalTerms: [],
         postCorrection: false,
+        replacements: [],
       );
     }
     return GlossaryConfig(
       sessionTerms: sessionTerms,
       globalTerms: terms,
       postCorrection: postCorrection,
+      replacements: replacements,
     );
   }
 }
