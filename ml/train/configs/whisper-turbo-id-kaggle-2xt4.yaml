@@ -1,0 +1,39 @@
+# Fallback for free Kaggle 2xT4 (16 GB each) when the 6 GB config does
+# not fit or is too slow. More memory buys back the things the 2060
+# config had to give up: 8-bit instead of 4-bit base weights, a larger
+# adapter, a real batch size, and the full encoder.
+#
+# T4 is Turing and has no bf16, so fp16 stays.
+name: whisper-turbo-id-kaggle
+base_model: openai/whisper-large-v3-turbo
+language: indonesian
+task: transcribe
+
+train_sets:
+  - data/shards/mk
+  - data/shards/dpr
+eval_sets:
+  - data/fleurs-id
+
+fp16: true
+bf16: false
+load_in_4bit: false
+load_in_8bit: true
+gradient_checkpointing: true
+per_device_batch_size: 4
+gradient_accumulation_steps: 4   # effective batch 16 per device
+
+max_clip_secs: 25.0
+min_anchor_rate: 0.7
+
+lora_r: 32
+lora_alpha: 64
+target_modules: [q_proj, v_proj]
+encoder_top_layers: 8
+
+spec_augment: true
+learning_rate: 1.0e-3
+warmup_steps: 100
+max_steps: 4000
+optim: adamw_bnb_8bit
+output_dir: /kaggle/working/out/whisper-turbo-id

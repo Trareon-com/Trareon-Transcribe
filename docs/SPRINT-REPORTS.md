@@ -2284,3 +2284,823 @@ Bukti: `docs/screenshots/sprint4b/`.
 - **PERLU IZIN OWNER: uji audio Windows** — capture WASAPI (mic/loopback) di
   win2060 belum pernah dijalankan. Uji Windows pada sprint ini terbatas pada
   build, tes, transkripsi impor berkas, dan screenshot.
+
+---
+
+# Laporan Sprint 6a — Data, benchmark, baseline, dan kit pelatihan ASR rapat Indonesia
+
+Cabang `sprint/06a-data`. Semua angka di laporan ini **diukur**, bukan
+diperkirakan; sumber tiap angka disebutkan. Yang tidak dikerjakan
+dinyatakan tidak dikerjakan.
+
+Direktori baru `ml/` adalah proyek Python terpisah: tidak ada satu pun
+isinya yang diimpor Flutter atau Rust, dan aplikasi tetap dibangun tanpa
+`ml/`. Kaitannya satu arah — benchmark **memanggil** biner `wer_bench`
+dan `transcribe_cli` dari `rust_core`, supaya yang diukur adalah mesin
+yang benar-benar dikirim ke pengguna.
+
+## Ringkasan status
+
+| Item | Status | Inti |
+|---|---|---|
+| 1. Kolektor sumber | **PARTIAL** | Kode lengkap & teruji; pilot MK/DPR **0 jam** — kedua situs menolak akses otomatis (terukur) |
+| 2. Alignment | **DONE** | Pipeline jalan ujung-ke-ujung; divalidasi pada *hearing* sintetis karena risalah nyata belum ada |
+| 3. Normalisasi WER | **DONE** | Dua preset bernama + berversi, 91 tes |
+| 4. Benchmark v0 | **DONE** | 4 model × 3 set uji terukur; 4 set lain terblokir/belum ada |
+| 5. Kit pelatihan | **DONE** | Rantai latih→gabung→GGML→ukur terbukti di CPU; dry-run VRAM + LoRA nyata terbukti di RTX 2060 |
+| 6. Kit rekaman | **DONE** (perangkat), rekaman **belum** | Dokumen + ingest + tes siap; sesi perlu relawan & izin pemilik |
+| 7. Dokumen hukum/etika | **DONE** | `ml/DATA_CARD.md`, `ml/MODEL_CARD_TEMPLATE.md` |
+
+Dokumen riset otoritatif disalin ke `docs/research/RESEARCH-DECISION-FINAL.md`.
+
+---
+
+## Item 1 — Kolektor sumber: PARTIAL
+
+### Yang dibangun (lengkap dan teruji)
+
+| Berkas | Isi |
+|---|---|
+| `ml/common/fetch.py` | Klien HTTP sopan: ber-identitas, sadar robots.txt, dibatasi laju, resumable, **berhenti** di hadapan tantangan anti-bot |
+| `ml/common/manifest.py` | Manifest JSONL `{id, source, url, audio_path, transcript_path, duration, licence_note, retrieved_at}`, append-only & resumable |
+| `ml/common/atomic.py` | Tulis atomik (temp + rename, satu direktori) |
+| `ml/common/audio.py` | Durasi audio; `wave` lalu ffprobe |
+| `ml/collect/access.py` | `Probe` — diagnosis akses yang bisa ditindaklanjuti, bukan *stack trace* |
+| `ml/collect/gov_sources.py` | MK & DPR: `probe()`, `discover()`, `load_index()` |
+| `ml/collect/gov_index.py` | **Penjodohan risalah ↔ rekaman**: MK pakai nomor perkara + tanggal; DPR pakai komisi + tanggal + kemiripan agenda |
+| `ml/collect/risalah.py` | Pengurai risalah → giliran bicara + nama penutur (MK bernomor, DPR berlabel fraksi) |
+| `ml/collect/youtube.py` | Rekaman kanal resmi via `yt-dlp`, 16 kHz mono |
+| `ml/collect/hf_sets.py` | FLEURS, Common Voice, GigaSpeech 2 (+ langkah akses & catatan lisensi) |
+| `ml/eval/fetch_sets.py` | `--status`: apa yang siap, apa yang terkunci, dan apa yang harus dilakukan manusia |
+
+### Hasil pilot: 0 jam dari MK dan DPR
+
+Target brief: 10 sidang MK + 10 rapat DPR. **Diperoleh: nol.** Sebabnya
+diukur pada 5 Oktober 2026 dari mesin pengembang dan tercatat di
+`ml/DATA_CARD.md` §4:
+
+| Sumber | Hasil terukur |
+|---|---|
+| `www.mkri.id` (indeks risalah) | **HTTP 403 + tantangan anti-bot Cloudflare** ("Just a moment..."). Semua jalur dicoba: `/`, `/index.php?page=web.RisalahSidang`, `/public/`, `jdih.mkri.id`. |
+| `www.dpr.go.id` (indeks risalah) | **HTTP 200, 559 KB, nol tautan PDF** — daftar risalah dirender di sisi klien. |
+
+**Keputusan yang diambil, dan alasannya:**
+
+1. **Tantangan anti-bot tidak dilewati.** `common/fetch.py` mendeteksi
+   halaman tantangan lalu **berhenti** (`ChallengeDetected`, teruji di
+   `tests/test_fetch.py`). Menembus kontrol anti-bot bukan "kesopanan".
+
+2. **`Disallow` yang salah tempat tidak dibaca sebagai izin.**
+   `www.dpr.go.id/robots.txt` menaruh blok `Disallow: /api/` **setelah**
+   baris `User-agent` terakhir, sehingga menurut standar blok itu milik
+   rekaman YandexBot dan `Allow: /` sebelumnya menang untuk semua agen —
+   `can_fetch()` mengembalikan `True` untuk `/api/` bahkan bagi
+   Googlebot. Komentar di atasnya ("# Disallow admin and private areas")
+   menyatakan maksudnya dengan jelas. `common/fetch.py::INTENT_DISALLOW`
+   tetap melarang jalur itu. Akibat nyata: daftar risalah DPR (dimuat
+   front-end Next.js dari `/api/`) **tidak** dikumpulkan otomatis.
+
+3. **`User-Agent` sengaja tanpa URL.** Terukur: WAF DPR menjawab **403
+   untuk setiap** `User-Agent` yang memuat URL dan **200** untuk string
+   yang sama tanpa URL (lima varian diuji). Konvensi menulis alamat
+   kontak sebagai URL karena itu menghilangkan **seluruh** akses tanpa
+   menambah identifikasi apa pun di atas nama repositori. `User-Agent`
+   tetap menyebut proyek, tujuan, dan jalur kontak — ini **bukan**
+   penyamaran. Diuji di `tests/test_fetch.py`.
+
+**Sisi audio sebenarnya terbuka.** Kanal resmi kedua lembaga terverifikasi
+dapat diakses (`@mahkamahkonstitusi`, `@DPRRIOfficial`), dan judul video MK
+memuat tanggal sidang yang langsung bisa dijodohkan. Yang hilang adalah
+**teks risalah**, dan tanpa teks tidak ada label. Jadi hambatannya bukan
+teknis di sisi kami.
+
+**Jalan ke depan:** permintaan data resmi lewat **PPID** masing-masing
+lembaga (atau kerja sama via Komdigi). Setelah data diterima,
+`collect/gov_sources.py::load_index` mengambil alih dan separuh pipeline
+(unduh → jodohkan → manifest → align) jalan tanpa perubahan.
+
+### Dataset pihak ketiga
+
+| Set | Hasil |
+|---|---|
+| FLEURS `id_id` | **60 klip terunduh** (CC-BY 4.0) |
+| FLEURS `en_us` | **40 klip terunduh** — bahan set code-switching sintetis |
+| Common Voice `id` | **GAGAL**, bukan karena lisensi (CC0) tetapi teknis: repo HF tidak lagi menyajikan berkas data secara anonim (`EmptyDatasetError — doesn't contain any data files`), dan pemuat berbasis skrip mati sejak `datasets` 3.x. Langkah manual terdokumentasi. |
+| GigaSpeech 2 `id` DEV/TEST | **TERKUNCI** — butuh persetujuan akses + `HF_TOKEN`. Langkah terdokumentasi; pengunduh jalan begitu token ada. |
+| `indonesian-nlp/librivox-indonesia` | Dicoba sebagai set baca ketiga; **gagal** karena alasan yang sama (pemuat skrip). |
+
+### Tes
+
+`tests/test_fetch.py` (25), `tests/test_gov_index.py` (46),
+`tests/test_risalah.py` (19). Semuanya hermetik — `requests.Session.get`
+diganti, tidak ada jaringan.
+
+Temuan yang layak dicatat dari tes penjodohan: kemiripan agenda **harus**
+mengabaikan kata-kata rutin. Diukur pada judul nyata, dua rapat yang
+sama sekali berbeda ("Komisi VIII dengan Menteri Agama tentang haji"
+vs. "Komisi I dengan Panglima TNI tentang alutsista") mendapat skor
+**0,50** hanya dari kata bersama seperti *rapat*, *komisi*, *dengan*,
+*tentang* — di atas ambang apa pun yang cukup longgar untuk menerima
+pasangan yang benar. Setelah hanya kata-isi yang dibandingkan: 0,80 untuk
+pasangan benar, **0,00** untuk pasangan salah.
+
+---
+
+## Item 2 — Alignment: DONE (divalidasi pada fixture sintetis)
+
+### Pipeline
+
+`ml/align/`: hipotesis dari CLI aplikasi sendiri (`transcribe_cli`, jadi
+penyelarasan memakai mesin yang dikirim ke pengguna) → **anchor** pada
+runtun kesepakatan panjang antara aliran token risalah dan hipotesis yang
+sudah dinormalisasi → interpolasi waktu **hanya di antara** anchor →
+pemotongan ujaran 2–25 s dengan **teks risalah sebagai label** → shard
+HF `audiofolder` + lembar periksa.
+
+Dua keputusan yang menentukan:
+
+- **`autojunk=False` pada `difflib.SequenceMatcher`.** Heuristik bawaan
+  membuang elemen yang muncul di lebih dari 1% urutan sepanjang >200
+  item. Pada risalah itu berarti *yang*, *dan*, *itu*, *tidak* — justru
+  bahan yang paling bisa dicocokkan — dan anchoring **runtuh tanpa
+  pesan apa pun**. Ada tes khusus untuk ini
+  (`test_common_function_words_are_not_junked_on_a_long_document`).
+- **Teks sebelum anchor pertama tidak diberi waktu sama sekali.**
+  Ekstrapolasi akan mengarang waktu untuk formula pembuka yang dipunyai
+  risalah tetapi tidak ada di audio — lalu rentang karangan itu akan
+  dipotong dan dilabeli.
+
+### Masalah: risalah nyata tidak ada, jadi apa yang divalidasi?
+
+Karena Item 1 terblokir, pipeline tidak bisa diuji pada data yang
+menjadi tujuannya. Pilihan lainnya adalah tidak memvalidasi sama sekali.
+
+`ml/align/synthetic.py` membangun pengganti: 24 klip FLEURS `id_id`
+dirangkai menjadi satu "sidang" panjang yang **waktu benarnya diketahui
+persis**, plus dokumen berbentuk risalah dengan kesulitan yang memang
+dimiliki risalah sungguhan — halaman sampul, daftar hadir, header
+halaman berulang, giliran bicara bernama, parafrase ringan (bukan
+verbatim), angka ditulis sebagai digit, dan penanda ketuk palu tanpa
+audio. `ml/align/validate.py` lalu menilai pemulihannya terhadap
+kebenaran yang diketahui — klaim yang lebih kuat daripada yang bisa
+diberikan lembar periksa manual.
+
+### Angka terukur
+
+Fixture: 301 detik, 24 giliran, hipotesis `ggml-base`.
+Sumber: `ml/data/shards/sintetis/report-sintetis-0001.json` dan
+`ml/out/align-validate-sintetis.json`.
+
+| Besaran | Nilai |
+|---|---|
+| Jam masuk | 0,0817 jam (294 s ucapan) |
+| **Jam disimpan** | **0,0179 jam (64,6 s) = 21,9%** |
+| Anchor rate dokumen | 36,5% (29 anchor, terpanjang 18 token) |
+| Token yang dapat waktu | 86,7% |
+| Kandidat ujaran | 24 → **6 disimpan** |
+| Dibuang: anchor rendah | 15 |
+| Dibuang: tanpa waktu | 2 |
+| Dibuang: terlalu pendek | 1 |
+| **WER teks label vs kebenaran** | **11,5%** |
+| WER label + batas | 31,7% |
+| IoU waktu rata-rata | 0,50 (median 0,55) |
+| Label penutur benar | 80% |
+| Ujaran salah total (WER teks > 80%) | 1 dari 6 (16,7%) |
+
+**Cara membacanya.** `11,5%` adalah angka "apakah teksnya benar", dan
+nilai sekecil itu memang **diharapkan**: risalah di fixture sengaja
+dibuat mendekati-verbatim, bukan verbatim, jadi sebagian besar selisih
+itu adalah penyuntingan juru catat — persis seperti risalah sungguhan.
+Selisih 20 poin antara `11,5%` dan `31,7%` adalah **kelonggaran batas
+potong**: ujaran yang audionya memuat satu setengah ujaran sebenarnya
+tetap dinilai buruk walaupun teksnya salinan sempurna dari salah
+satunya. Jadi teksnya benar, batasnya longgar.
+
+**Keep rate dibatasi oleh mutu model hipotesis.** Anchor hanya terbentuk
+di tempat model dan risalah sepakat ≥4 token berturut-turut. `ggml-base`
+mencetak 34,0% WER pada FLEURS (lihat Item 4), sehingga hanya 36,5% token
+yang ter-anchor dan 15 dari 24 kandidat gugur. Memakai `turbo-q5` sebagai
+model hipotesis hampir pasti menaikkan keep rate secara berarti —
+**belum diukur**, karena pada CPU ini `turbo-q5` berjalan 0,09× waktu
+nyata sehingga satu fixture 5 menit menghabiskan ~55 menit.
+
+### Lembar periksa: 6 ujaran, bukan 30
+
+Brief meminta pemeriksaan manual 30 ujaran acak. Pipeline hanya
+menghasilkan **6** ujaran dari fixture ini, jadi lembar
+`ml/data/shards/sintetis/review-sintetis-0001.tsv` memuat 6 baris —
+seluruh populasi, bukan sampel. `review_sheet.py` mengambil 30 secara
+acak dengan seed tetap begitu bahannya cukup. Kolom putusan memakai
+kosakata tertutup (`ok`/`geser`/`salah`/`potong`/`ragu`) supaya hasilnya
+bisa dihitung, dan `tally()` menghitungnya.
+
+### Keterbatasan fixture yang harus disebut
+
+FLEURS adalah **ucapan dibaca**: satu penutur, mikrofon dekat, tanpa
+tumpang tindih suara, tanpa disfluensi spontan, tanpa mikrofon medan
+jauh. Keep rate 21,9% dari fixture ini karena itu adalah **batas atas**,
+bukan perkiraan, dari angka pada rapat sungguhan.
+
+### Berkas & tes
+
+`align/hypothesis.py`, `align/textalign.py`, `align/cut.py`,
+`align/shards.py`, `align/review_sheet.py`, `align/pipeline.py`,
+`align/synthetic.py`, `align/validate.py`.
+Tes: `tests/test_textalign.py` (19), `tests/test_cut.py` (16).
+
+---
+
+## Item 3 — Normalisasi teks untuk WER Indonesia: DONE
+
+`ml/eval/normalize.py` + `ml/eval/numbers_id.py`.
+
+`docs/WER-BENCH.md` benar ketika memperingatkan bahwa harness dengan
+preferensi **tersembunyi** lebih buruk daripada tanpa harness. Jawabannya
+bukan menghindari normalisasi — risalah menulis "Pasal 42" dan Whisper
+mengucap "pasal empat puluh dua", dan menilainya dua kesalahan berarti
+mengukur ortografi — melainkan membuat preferensi itu **eksplisit,
+bernama, berversi, dan diterapkan sama ke kedua sisi**.
+
+Dua preset:
+
+- **`minimal`** mereproduksi perilaku `rust_core/src/bin/wer_bench.rs`
+  (lipat huruf, buang tanda baca, rapatkan spasi, tanda hubung dan
+  apostrof di dalam kata dipertahankan) supaya angka yang **sudah**
+  dipublikasikan repositori ini tetap sebanding.
+- **`id_meeting`** = `minimal` + tanggal, digit dibaca sebagai kata,
+  singkatan tulisan dibentangkan, bunyi ragu dibuang, tanda hubung
+  reduplikasi dipecah.
+
+Setiap hasil benchmark mencantumkan nama preset **dan**
+`POLICY_VERSION` (`id-norm-1`). WER tanpa keduanya tidak dapat
+direproduksi.
+
+**Yang sengaja tidak dilakukan**, karena masing-masing akan menguntungkan
+satu konvensi: akronim **tidak** dibentangkan ("DPR" tetap "dpr"; tidak
+ada yang membacanya "dewan perwakilan rakyat", jadi membentangkannya
+mengarang tiga kata — hanya titiknya yang dibuang supaya "A.P.B.N." dan
+"APBN" sama); urutan kata **tidak pernah** diubah; sinonim **tidak**
+disatukan ("tidak" dan "nggak" tetap kata berbeda); dan halusinasi
+"terima kasih telah menonton" **tidak** disaring di sini — itu tugas
+filter halusinasi, dan membuangnya di sini akan menyembunyikan kegagalan
+nyata dari WER.
+
+Arah konversi angka adalah **digit → kata**, karena membangkitkan kata
+dari digit bersifat deterministik sedangkan mengurai "dua ribu dua puluh
+empat" kembali menjadi 2024 memerlukan tata bahasa, dan setiap bug di
+tata bahasa itu menjadi kesalahan senyap di angka WER yang
+dipublikasikan.
+
+Tes: `tests/test_normalize.py` (43), `tests/test_numbers_id.py` (48),
+`tests/test_wer.py` (18). Bentuk tak beraturan diuji eksplisit (11 =
+*sebelas*, 100 = *seratus*, 1000 = *seribu*, tetapi 10⁶ = *satu juta*),
+begitu juga pemisah ribuan vs titik akhir kalimat, dan idempotensi.
+
+---
+
+## Item 4 — Benchmark "Indonesian Meeting ASR" v0: DONE
+
+Tabel lengkap: **`ml/BENCHMARK.md`**; JSON: `ml/out/benchmark.json`.
+
+Harness (`ml/eval/`) memisahkan **dekode** dari **penilaian**: runner
+menghasilkan hipotesis, penilaian dilakukan `eval/normalize.py` +
+`eval/wer.py`. Akibat yang berguna: menilai ulang dengan kebijakan
+normalisasi yang berubah **tidak menjalankan model apa pun lagi**, dan
+semua model pada semua set dinilai oleh kode yang sama persis.
+
+Runner utama menjalankan `rust_core`'s `wer_bench` — `WhisperEngine`
+milik aplikasi sendiri — sehingga WER **dan** RTF-nya adalah yang didapat
+pengguna. `TransformersRunner` ada untuk model yang belum dikonversi ke
+GGML dan untuk menilai adapter LoRA sebelum digabung.
+
+### Set uji
+
+| Set | Status | Catatan |
+|---|---|---|
+| `fleurs-id` | **terukur** | CC-BY 4.0, ucapan baca |
+| `codeswitch-synth-id-en` | **terukur** | **Dibangun sendiri**: FLEURS id+en dirangkai, arah peralihan bergantian |
+| `silence` | **terukur** | **Dibangun sendiri**: acuan kosong, setiap kata = sisipan |
+| `cv-id` | tidak terukur | Repo HF tidak menyajikan berkas (lihat Item 1) |
+| `gs2-id-test` | tidak terukur | Terkunci; butuh persetujuan + token |
+| `mk-holdout`, `dpr-holdout` | tidak terukur | Terblokir (Item 1) |
+| `codeswitch-id-en` (alami) | tidak terukur | Belum direkam (Item 6) |
+
+Set `codeswitch-synth-id-en` dibangun karena celah terpenting proyek ini
+—*code-switching* ID–EN— tidak punya korpus berlisensi terbuka, dan
+benchmark yang sekadar menghilangkan sumbunya yang paling penting tidak
+melaporkan apa pun tentangnya. **Ini sintetis**: dua ujaran baca
+dirangkai, menguji kegagalan terdokumentasi Whisper memilih satu token
+bahasa per jendela 30 detik. *Code-switching* **alami** intra-kalimat
+jauh lebih sulit (riset terverifikasi: CER di atas 80%), jadi angka
+sintetis **tidak boleh** dikutip sebagai kemampuan code-switching.
+
+### Batas klip per set, bukan satu batas global
+
+Diukur di mesin ini 5 Okt 2026: `tiny` berjalan **3,4×** waktu nyata,
+`small` **0,37×**, `large-v3-turbo-q5` **0,09×** — selisih biaya empat
+puluh kali. Satu batas global karena itu tidak bisa melayani keduanya,
+jadi tiap set punya `default_limit` sendiri yang berlaku **sama untuk
+semua model**, supaya satu kolom tetap sebanding.
+
+### Hasil terukur
+
+Mesin: Linux x86_64, Intel i3-7100T @ 3.40 GHz, 4 thread.
+Normalisasi: `id_meeting/id-norm-1`. Commit `77a46fb`.
+
+**Ucapan baca — `fleurs-id`** (10 klip, CC-BY 4.0):
+
+| Model | WER | CER | RTF | Subst | Hapus | Sisip |
+|---|---:|---:|---:|---:|---:|---:|
+| turbo-q5 | **6,9%** | 2,6% | 0,10× | 7 | 1 | 3 |
+| small | 17,0% | 4,8% | 0,38× | 21 | 3 | 3 |
+| base | 34,0% | 12,6% | 1,17× | 48 | 2 | 4 |
+| tiny | 50,3% | 17,5% | 1,62× | 65 | 6 | 9 |
+
+**Ucapan rapat/spontan — `codeswitch-synth-id-en`** (8 klip, SINTETIS):
+
+| Model | WER | CER | RTF | Subst | Hapus | Sisip |
+|---|---:|---:|---:|---:|---:|---:|
+| turbo-q5 | **30,8%** | 25,0% | 0,13× | 7 | **96** | 2 |
+| small | 45,2% | 34,6% | 0,57× | 42 | **102** | 10 |
+| base | 58,1% | 39,0% | 1,47× | 75 | **114** | 9 |
+| tiny | 65,7% | 43,2% | 0,56× | 91 | **127** | 6 |
+
+**Halusinasi — `silence`** (4 klip × 30 detik, acuan kosong):
+
+| Model | WER | Sisip | RTF |
+|---|---:|---:|---:|
+| tiny | **0,0%** | **0** | 45,3× |
+| base | **0,0%** | **0** | 137,9× |
+| small | **0,0%** | **0** | 235,3× |
+| turbo-q5 | **0,0%** | **0** | 230,8× |
+
+### Tiga hal yang angka-angka ini katakan
+
+**1. Harness-nya benar.** Angka `fleurs-id` kami (tiny 50,3 · base 34,0 ·
+small 17,0) hampir berimpit dengan angka terbitan makalah Whisper untuk
+FLEURS-id (tiny 51,7 · base 33,1 · small 16,3 — lihat
+`docs/research/RESEARCH-DECISION-FINAL.md` §B). Kesesuaian itu bukan
+tujuan; ia adalah bukti bahwa pipa ukur ini mengukur hal yang benar.
+
+**2. Celah code-switching terlihat, dan modusnya adalah PENGHILANGAN.**
+Kolom Subst/Hapus/Sisip menjelaskan *bagaimana* model gagal, bukan
+sekadar seberapa besar. Pada set code-switching, **penghapusan
+mendominasi** di semua model — turbo-q5 hanya salah dengar 7 kata tetapi
+**menghilangkan 96**. Itu persis kegagalan yang terdokumentasi: Whisper
+memilih **satu** token bahasa per jendela 30 detik, lalu menjatuhkan
+paruh bahasa yang lain hampir seluruhnya, bukan menyalahdengarkannya.
+Bagi pengguna itu jauh lebih buruk daripada WER-nya terdengar: separuh
+kalimat lenyap tanpa jejak, bukan muncul salah.
+
+Catatan jujur: ini masih set **sintetis**, yaitu kasus termudah. Riset
+terverifikasi memperkirakan code-switching alami jauh lebih buruk lagi
+(CER di atas 80%).
+
+**3. Tumpukan anti-halusinasi Sprint 4b bertahan.** Keempat model
+mengeluarkan **nol kata** pada keheningan 30 detik — nol sisipan, 0,0%
+WER. RTF 45–235× menunjukkan sebabnya: gerbang VAD aplikasi membuat
+Whisper **tidak pernah dijalankan** pada keheningan itu. Jadi yang
+terukur di sini adalah **gerbangnya**, bukan perilaku Whisper pada
+keheningan — dan itu memang yang dialami pengguna, sehingga itulah yang
+pantas diukur.
+
+### Peringatan yang menyertai tabel ini
+
+- **10 dan 8 klip adalah uji asap, bukan WER model.** Harness menandai
+  sendiri setiap korpus di bawah 25 klip. Batas ini dipilih karena
+  `turbo-q5` berjalan 0,09–0,13× waktu nyata di mesin ini: tabel ini
+  saja memakan ±2,5 jam CPU. Jalankan `--limit 60` di mesin yang lebih
+  cepat untuk angka yang layak dikutip.
+- **RTF di tabel ini tercemar beban lain.** Pengukuran berjalan di mesin
+  yang sekaligus menjalankan `flutter build` dan `cargo clippy`;
+  `tiny` pada set code-switching terbaca 0,56× di sini padahal 1,57× di
+  jalannya yang pertama. Perlakukan RTF sebagai **urutan besaran**, bukan
+  tolok ukur presisi. WER dan CER tidak terpengaruh beban.
+- **Blok "baca" dan blok "rapat" tidak boleh dirata-ratakan.** Harness
+  merendernya terpisah secara struktural, bukan sebagai pilihan tata
+  letak.
+
+---
+
+## Item 5 — Kit pelatihan untuk RTX 2060 6 GB: DONE
+
+| Berkas | Isi |
+|---|---|
+| `ml/train/config.py` | Dataclass + YAML; kunci tak dikenal = **error**, bukan diabaikan |
+| `ml/train/data.py` | Pemuatan shard, gerbang panjang & anchor, collator, `check_licences` |
+| `ml/train/lora.py` | Pelatihan LoRA (PEFT), 4/8-bit, fp16, gradient checkpointing, SpecAugment, resumable |
+| `ml/train/dry_run_memory.py` | Uji VRAM: beberapa langkah nyata pada batch sintetis, lapor **puncak** |
+| `ml/train/merge_export.py` | Gabung adapter → HF → GGML → kuantisasi → *model card* |
+| `ml/train/configs/*.yaml` | 5 config: `dry-run-cpu`, `whisper-base-id`, `whisper-small-id`, `whisper-turbo-id-6gb`, `whisper-turbo-id-kaggle-2xt4` |
+| `ml/train/train.sh`, `train.ps1` | Satu titik masuk: uji memori → latih → gabung → GGML → ukur |
+| `ml/train/kaggle_whisper_lora.ipynb` | Notebook Kaggle 2×T4 (24 sel) yang **memanggil kode yang sama**, tidak menyalinnya |
+| `ml/train/WINDOWS.md` | Instruksi PowerShell + CUDA + uv untuk mesin 2060 |
+
+### Rantai ujung-ke-ujung terbukti di CPU (kriteria keluar)
+
+`train/configs/dry-run-cpu.yaml`, `whisper-tiny`, shard sintetis:
+
+1. **Latih** — 6 langkah, 6 contoh, `train_loss` 2,761, adapter
+   tersimpan. Pemeriksaan lisensi berjalan dan melaporkan
+   `apache-2.0` (tidak ada sumber non-komersial).
+2. **Gabung** — adapter digabung ke basis fp32, disimpan fp16
+   (75 MB `model.safetensors`), `MODEL_CARD.md` dihasilkan terisi.
+3. **GGML** — `ggml-dry-run-cpu.bin` **75 MB f16 dihasilkan**.
+4. **Kuantisasi + ukur** — lihat "Celah yang diketahui".
+
+### Terbukti di GPU nyata (RTX 2060 6 GB, via `ssh win2060`)
+
+**Uji memori VRAM**, `whisper-turbo-id-6gb` (4-bit NF4 + gradient
+checkpointing), `large-v3-turbo` 809 M parameter:
+
+```
+MUAT: puncak 0.92 GiB dari 6.00 GiB (sisa 5.08 GiB)
+trainable params: 983,040 || all params: 809,861,120 || trainable%: 0.1214
+```
+
+**Sapuan ukuran batch** (config sama, hanya batch diubah):
+
+| batch | puncak VRAM | muat? |
+|---:|---:|---|
+| 1 | 0,92 GiB | ya |
+| 2 | 1,56 GiB | ya |
+| 4 | **2,05 GiB** | ya |
+| 8 | 2,87 GiB | ya |
+
+Config semula memakai batch 1 karena kehati-hatian. Pengukuran
+menunjukkan itu terlalu konservatif, jadi `whisper-turbo-id-6gb.yaml`
+diubah ke **batch 4** (efektif 16 dengan akumulasi) — kira-kira 4× lebih
+cepat — sambil menyisakan ruang untuk *compositor* desktop Windows yang
+memakai kartu yang sama, dan untuk label yang lebih panjang daripada 96
+token sintetis milik dry run.
+
+**Pelatihan LoRA nyata di GPU**, `large-v3-turbo` 4-bit, 8 langkah:
+
+```
+loss 1,2261 → 0,9105 → 0,8158 → 0,7035     (train_loss 0,914)
+train_runtime 5,96 s
+```
+
+### Lima bug nyata yang hanya muncul karena dijalankan sungguhan
+
+Ini bagian yang tidak akan ditemukan oleh tes unit, dan semuanya kini
+diperbaiki:
+
+1. **`scripts/convert_hf_whisper_to_ggml.sh` belum pernah berhasil.**
+   Baris `pip install "torch --index-url https://..."` mengirim seluruh
+   string sebagai **satu** nama requirement; pip menolaknya
+   (`Invalid requirement`), dan dengan `set -e` skrip berhenti sebelum
+   mengonversi apa pun. Dipecah menjadi dua pemanggilan pip.
+2. **Berkas tokenizer lama hilang.** `save_pretrained` menulis satu
+   `tokenizer.json` — pada `transformers` sekarang bahkan tokenizer
+   "lambat" pun begitu — sedangkan `convert-h5-to-ggml.py` membaca trio
+   lama `vocab.json`, `merges.txt`, `added_tokens.json` dan mati dengan
+   `FileNotFoundError` **setelah** penggabungan berhasil. Kini diambil
+   dari repo basis, dengan rekonstruksi lokal sebagai cadangan.
+3. **Target kuantisasi berganti nama.** Skrip meminta `--target
+   quantize`; whisper.cpp sekarang menamainya `whisper-quantize`, dan
+   `gmake: *** No rule to make target 'quantize'` muncul — lagi-lagi
+   setelah konversi f16 berhasil. Kini mencoba kedua nama dan menyebut
+   apa saja yang dicoba bila gagal.
+4. **`len()` atas `encoder_layers`.** `train/lora.py` memanggil `len()`
+   pada `model.config.encoder_layers`, yang berupa **hitungan**, bukan
+   daftar — sehingga **setiap** config yang memakai `encoder_top_layers`
+   (termasuk turbo-di-6GB) gagal `TypeError`. Ditemukan saat menjalankan
+   uji VRAM di 2060 sungguhan.
+5. **Jalur gradien hilang untuk LoRA fp16 + checkpointing.** LoRA
+   membekukan basis, sehingga di bawah gradient checkpointing blok yang
+   dihitung ulang tidak punya masukan yang butuh gradien dan backward
+   gagal: `element 0 of tensors does not require grad`. Config turbo
+   lolos karena `prepare_model_for_kbit_training` sudah mengaktifkan
+   gradien masukan; config **fp16 `base` dan `small` gagal seketika** di
+   GPU. Kini `enable_input_require_grads()` dipanggil untuk jalur
+   non-kuantisasi.
+
+Selain itu `torchcodec` dipin di extra `train`: `datasets` menyerahkan
+dekode audio kepadanya dan melempar `ImportError` tanpanya, sehingga
+shard `audiofolder` **tidak bisa dimuat sama sekali**.
+
+---
+
+## Item 6 — Kit rekaman code-switching: DONE (perangkat), rekaman belum
+
+| Berkas | Isi |
+|---|---|
+| `ml/record_kit/CONSENT.md` | Formulir persetujuan Bahasa Indonesia, mengikuti UU 27/2022 (UU PDP) + PP 33/2026: tujuan, dasar hukum, daftar data yang diproses, **tiga tingkat publikasi** yang dipilih peserta, penyimpanan, jangka simpan, delapan hak subjek data, prosedur penarikan, risiko, sifat sukarela |
+| `ml/record_kit/SESSION_SCRIPT.md` | 5 blok topik kantor ID–EN, aturan bicara, **dua kondisi mikrofon** (dekat + medan jauh), aturan teknis perekaman |
+| `ml/record_kit/TRANSCRIPTION_GUIDE.md` | Pedoman transkrip verbatim, konvensi imbuhan pada kata Inggris, tabel penanda |
+| `ml/record_kit/ingest.py` | Sesi + transkrip terkoreksi → shard dataset, **memakai ulang** pipeline alignment |
+| `ml/record_kit/session_log.tsv` | Catatan sesi |
+
+Dua hal yang disampaikan terus terang di formulir, karena persetujuan
+yang tidak berdasar informasi bukan persetujuan:
+
+- **Model yang sudah dirilis tidak bisa "melupakan" seketika.** Data
+  peserta dikeluarkan dari pelatihan **berikutnya** dan penghapusannya
+  dicatat di *model card*; itulah yang bisa dijanjikan (§9).
+- **Penanda `[potong]`** — peserta boleh meminta bagian dihapus saat
+  sesi. `ingest.py` membuang giliran bertanda itu **sebelum** audio
+  dipotong, sehingga tidak ada klip darinya yang pernah ditulis ke
+  disk, bahkan sementara. Ini kewajiban persetujuan, bukan filter mutu,
+  jadi ditegakkan dan **diuji** (`tests/test_record_kit.py`, 15 tes,
+  termasuk uji ujung-ke-ujung bahwa teks yang ditarik tidak muncul di
+  ujaran mana pun).
+
+**Rekaman belum dilakukan.** Perlu relawan ber-consent dan izin pemilik
+untuk membuka mikrofon ruangan di kantor bersama.
+
+---
+
+## Item 7 — Dokumen hukum/etika: DONE
+
+**`ml/DATA_CARD.md`** — setiap sumber dengan lisensi dan dasar hukumnya;
+UU 28/2014 **Pasal 42** untuk teks risalah (dengan koreksi: laporan
+`FUTURE-D` menyebut "Pasal 43", yang salah); **hak terkait lembaga
+penyiaran** untuk rekaman siaran, yang membuat audio DPR/MK ditandai
+*perlu izin* dan diperlakukan evaluasi-saja; ketentuan non-komersial
+GigaSpeech 2; diagnosis terukur mengapa MK dan DPR tidak bisa diambil;
+penanganan PII; prosedur takedown dengan tenggat (3×24 jam konfirmasi,
+14 hari kerja penyelesaian); dan kerangka **DPIA** 8 butir.
+
+Satu ketidaksesuaian dicatat terbuka: kartu dataset GigaSpeech 2 di
+Hugging Face mencantumkan `license: apache-2.0`, sementara riset
+terverifikasi proyek ini mencatat ketentuan akses riset non-komersial.
+Sikap yang diambil adalah yang **konservatif** (perlakukan sebagai
+non-komersial) dan butir itu ditandai **PERLU KAJIAN HUKUM**.
+
+Pembatasan lisensi **ditegakkan kode**, bukan ingatan:
+`ml/train/data.py::check_licences` memeriksa nama set latih,
+`train_metrics.json` mencatat hasilnya, dan `MODEL_CARD.md` yang
+dihasilkan `merge_export.py` menyatakannya. Terbukti berjalan di dry run
+CPU maupun di LoRA GPU.
+
+**`ml/MODEL_CARD_TEMPLATE.md`** — 11 bagian: penggunaan yang dimaksudkan
+**dan yang tidak** (tegas: bukan untuk identifikasi penutur, bukan
+biometrik), data latih dengan jam dan jam yang dibuang, prosedur
+pelatihan, evaluasi dengan blok ucapan baca dan ucapan rapat
+**dipisah**, bagian "yang angka-angka itu TIDAK katakan", lisensi dengan
+peringatan GigaSpeech 2, keterbatasan & bias, pertimbangan etis, cara
+pakai, reproduksi, kontak.
+
+### Soal UU PDP dan suara sebagai biometrik
+
+Suara **dapat** tergolong data biometrik menurut UU PDP **bila dipakai
+untuk identifikasi unik**. Karena itu, di seluruh pipeline ini:
+
+- nama penutur disimpan **hanya** sebagai label teks untuk diarisasi,
+  dan dapat dihapus dengan satu perintah (prosedur ada di `DATA_CARD.md`
+  §5.2);
+- **tidak ada** *speaker embedding* / *voice profile* yang dihitung atau
+  disimpan, di mana pun;
+- tidak dipakai untuk verifikasi identitas, otentikasi, atau penilaian
+  kepegawaian.
+
+---
+
+## Gerbang verifikasi
+
+Semua dijalankan di mesin pengembang (Kali Linux, Intel i3-7100T, 4
+thread) pada commit akhir cabang ini.
+
+### Rust
+
+```
+$ cd rust_core && cargo fmt --check
+(tanpa keluaran - tidak ada selisih)
+
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3m 08s
+(tanpa peringatan)
+
+$ cargo test --lib
+test result: ok. 693 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+693 tes Rust — naik dari 689, dengan **4 tes baru** untuk parser manifes
+(`allow-empty-reference`, direktif hanya di kepala, acuan kosong tanpa
+direktif tetap error, nama berkas kosong tetap error) dan
+halusinasi pada keheningan.
+
+### Flutter
+
+```
+$ flutter analyze
+No issues found! (ran in 56.1s)
+
+$ flutter test
+03:10 +618: All tests passed!
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+**0 isu** di `flutter analyze`, termasuk tingkat info.
+
+### Gerbang privasi (wajib tetap lolos)
+
+```
+$ flutter test test/privacy_proof_test.dart
+00:00 +9: All tests passed!
+
+$ cd rust_core && cargo test --lib privacy
+test privacy::tests::transcribe_path_no_network_calls ... ok
+test result: ok. 6 passed; 0 failed
+```
+
+Transkripsi, perekaman, dan ekspor tetap luring. Tidak ada kode
+aplikasi yang disentuh sprint ini, dan `ml/` tidak diimpor oleh Flutter
+maupun Rust — diperiksa: tidak ada satu pun rujukan ke `ml/` dari
+`lib/`, `rust_core/src/`, `pubspec.yaml`, atau `rust_core/Cargo.toml`.
+
+### `ml/` (pekerjaan baru sprint ini)
+
+```
+$ cd ml && uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+56 files already formatted
+
+$ uv run pytest -q
+255 passed, 7 deselected
+
+$ uv run pytest -m network -q
+7 passed, 255 deselected
+```
+
+**255 tes hermetik** (tanpa jaringan, tanpa GPU, tanpa model) + **7 tes
+jaringan opsional**. Rincian per berkas:
+
+| Berkas | Tes | Yang dijaga |
+|---|---:|---|
+| `test_numbers_id.py` | 48 | Ejaan angka Indonesia, termasuk bentuk tak beraturan |
+| `test_gov_index.py` | 46 | Penjodohan risalah↔rekaman, penolakan pasangan tak yakin |
+| `test_normalize.py` | 43 | Kebijakan normalisasi WER |
+| `test_fetch.py` | 25 | Empat janji kesopanan pengambilan data |
+| `test_risalah.py` | 19 | Pengurai risalah, halaman sampul, furnitur dokumen |
+| `test_textalign.py` | 19 | Anchoring, `autojunk`, waktu yang tidak diekstrapolasi |
+| `test_wer.py` | 18 | Aritmetika WER/CER, pooled bukan rata-rata |
+| `test_cut.py` | 16 | Setiap gerbang pemotongan benar-benar menolak |
+| `test_record_kit.py` | 15 | Kewajiban persetujuan `[potong]` |
+| `test_harness_merge.py` | 8 | Penggabungan laporan tidak menghilangkan angka |
+| `test_sources_live.py` | 7 | *(jaringan)* status akses sumber nyata |
+
+### Berkas yang tidak masuk git
+
+Diperiksa: tidak ada audio, model, PDF, atau `data/`/`out/` yang terlacak.
+Hanya sumber — 70 berkas seluruhnya: 15 di `train/`, 12 `tests/`,
+9 `eval/`, 9 `align/`, 7 `collect/`, 6 `record_kit/`, 5 `common/`, plus
+`pyproject.toml`, `uv.lock`, `README.md`, `DATA_CARD.md`,
+`MODEL_CARD_TEMPLATE.md`, `BENCHMARK.md`, dan `.gitignore`.
+
+## Verifikasi Windows (win2060, RTX 2060 6 GB)
+
+Dilakukan lewat `ssh win2060`. Kode dipindahkan dengan **git bundle +
+scp** — bukan `git push` — karena aturan sprint melarang menyentuh
+`origin`.
+
+Satu hambatan lingkungan dicatat untuk sprint berikutnya: `uv` menolak
+Python kelolaannya sendiri di mesin itu —
+`The path cannot be traversed because it contains an untrusted mount
+point (os error 448)` untuk
+`AppData\Roaming\uv\python\cpython-3.13-...` — sehingga `uv sync` harus
+diarahkan ke Python sistem (`--python (Get-Command python).Source`).
+Venv CUDA yang sudah ada di `C:\trareon-ml\.venv` dibuat `uv` dan karena
+itu **tidak punya `pip`**; pemasangan ke dalamnya harus lewat
+`uv pip install --python <venv>\Scripts\python.exe`.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `uv sync` + `ruff check` + `ruff format --check` di `ml/` | **lolos** |
+| `pytest` di `ml/` | **255 lolos, 7 dilewati** — identik dengan Linux, dijalankan ulang pada commit akhir |
+| `torch` + CUDA | `2.6.0+cu124`, `cuda True`, `NVIDIA GeForce RTX 2060` |
+| `transformers` / `peft` / `bitsandbytes` | `4.57.6` / `0.21.2` / `0.50.2`, ketiganya terimpor |
+| `train.dry_run_memory` (turbo 4-bit) | **MUAT**: puncak **0,92 GiB** dari 6,00 GiB |
+| Sapuan batch turbo | 1→0,92 · 2→1,56 · 4→2,05 · 8→2,87 GiB, semuanya muat |
+| LoRA nyata (`large-v3-turbo`, 4-bit, 8 langkah) | loss **1,2261 → 0,7035**, 5,96 s |
+| `flutter analyze` | **No issues found!** (52,6 s) |
+| `flutter build windows --release` | **berhasil** — `build\windows\x64\runner\Release\transcribe.exe` (182,8 s) |
+| `flutter test` | **603 lolos, 15 gagal** — lihat di bawah |
+
+### Tentang 15 kegagalan `flutter test` di Windows
+
+**Tidak ada kode aplikasi yang disentuh sprint ini.** Diff di luar `ml/`
+hanya tiga berkas: `.github/workflows/ml.yml` (baru),
+`docs/research/RESEARCH-DECISION-FINAL.md` (baru), dan
+`scripts/convert_hf_whisper_to_ggml.sh`. Jadi kegagalan ini bukan
+regresi sprint ini.
+
+- **14 dari 15 adalah tes golden** — sudah terdokumentasi di laporan
+  Sprint 4b: rasterisasi teks berbeda antar host, golden dibuat di
+  Linux, dan CI memang menjalankan `--exclude-tags golden`.
+- **1 sisanya** adalah `action_items_test.dart: panel exports land next
+  to the session`. Dijalankan **sendirian**, berkas itu **lolos 12/12**
+  di Windows. Jadi ini masalah isolasi antar-tes pada eksekusi paralel
+  penuh (kemungkinan sengketa direktori sementara), bukan cacat fungsi.
+  Layak ditangani terpisah; bukan bagian sprint ini.
+
+### PERLU IZIN OWNER: uji audio Windows
+
+Capture WASAPI (mikrofon/loopback) di win2060 **tidak** dijalankan,
+sesuai OFFICE AUDIO RULES. Uji Windows pada sprint ini terbatas pada
+build, tes, pelatihan GPU, dan pemeriksaan memori — tanpa pemutaran
+audio dan tanpa membuka mikrofon.
+
+## Uji asap aplikasi nyata
+
+**Tidak dijalankan, dan tidak diperlukan sprint ini.** COMMON.md
+mewajibkannya untuk perubahan UI/capture; sprint ini tidak mengubah satu
+baris pun di `lib/` atau `rust_core/src/` (lihat diff tiga berkas di
+atas). Yang diuji pada audio nyata adalah jalur **impor berkas** lewat
+CLI aplikasi, yang dipakai berulang kali oleh benchmark dan pipeline
+alignment — semuanya tanpa suara, memakai berkas, sesuai aturan kantor.
+
+Bukti pemakaian mesin aplikasi yang sebenarnya:
+
+- `wer_bench` (membungkus `WhisperEngine` yang sama dengan aplikasi)
+  menjalankan 4 model pada 3 set uji; angkanya ada di `ml/BENCHMARK.md`.
+- `transcribe_cli` mentranskripsi *hearing* sintetis 301 detik untuk
+  pipeline alignment, dan keluarannya (segmen + timestamp) adalah yang
+  dipakai anchoring.
+- Model GGML hasil ekspor dry-run diukur ulang dengan `wer_bench`
+  (46,2% WER pada 4 klip FLEURS) — itulah langkah terakhir rantai.
+
+## Celah yang diketahui
+
+1. **Pilot MK/DPR: 0 jam.** Hambatan utama sprint ini. Kode siap dan
+   teruji; yang hilang adalah **akses resmi**. Perlu permintaan data
+   lewat PPID MK dan PPID DPR (atau kerja sama via Komdigi).
+   → *Keputusan pemilik diperlukan.*
+2. **Alignment belum pernah berjalan pada risalah sungguhan.** Semua
+   angka Item 2 berasal dari *hearing* sintetis berbasis FLEURS, yaitu
+   ucapan **dibaca**. Keep rate 21,9% adalah **batas atas**.
+3. **Lembar periksa 6 ujaran, bukan 30.** Populasi fixture hanya
+   menghasilkan 6 ujaran. Mekanismenya siap untuk 30 begitu bahannya
+   ada.
+4. **Keep rate belum diukur dengan model hipotesis yang lebih baik.**
+   Klaim bahwa `turbo-q5` akan menaikkannya masuk akal (anchoring
+   dibatasi WER hipotesis) tetapi **belum diukur**: pada CPU ini
+   `turbo-q5` berjalan 0,09× waktu nyata, jadi satu fixture 5 menit
+   memakan ~55 menit.
+5. **Tiga set uji benchmark masih kosong**: `cv-id` (repo HF tidak
+   menyajikan berkas), `gs2-id-test` (terkunci), `mk-holdout` /
+   `dpr-holdout` (terblokir). Benchmark v0 karena itu berdiri di atas
+   satu set berlisensi bebas (FLEURS) plus dua set yang dibangun
+   sendiri.
+6. **Code-switching masih sintetis.** Set alami belum direkam; itu Item
+   6 dan perlu relawan ber-consent serta izin pemilik.
+7. **`cahya/whisper-medium-id` belum diukur.** Kandidat terbaik yang
+   sudah ada untuk Bahasa Indonesia. `TransformersRunner` siap
+   menjalankannya, tetapi di CPU ini `medium` berjalan jauh di bawah
+   waktu nyata dan sprint ini sudah menghabiskan ~1,5 jam CPU untuk
+   empat model GGML. Jalankan di 2060 pada sprint berikutnya.
+8. **Pelatihan sungguhan belum dilakukan.** Yang terbukti adalah
+   rantainya (CPU, 6 langkah) dan kesiapan GPU (8 langkah nyata, uji
+   memori). Fine-tune sebenarnya menunggu data dari butir 1.
+9. **`uv` bawaan di win2060 tidak bisa memakai Python kelolaannya.**
+   Didokumentasikan di atas dan di `ml/train/WINDOWS.md`; layak
+   diperbaiki agar sesi berikut tidak mengulang penemuannya.
+10. **Jendela aplikasi Windows masih kosong** (terdokumentasi Sprint
+    4b, bukan regresi). Verifikasi UI Windows karena itu tetap belum
+    mungkin.
+
+## Perbaikan pasca-verifikasi (putaran perbaikan Sprint 6a)
+
+Verifikasi independen / CI gagal pada gerbang format Rust:
+`rustfmt` 1.98 (CI) dan 1.96 (lokal) tidak sepakat soal pembungkusan
+baris di `rust_core/src/wer.rs:491`, tes
+`the_directive_only_counts_in_the_header`. Argumen literalnya cukup
+pendek (95 kolom bila disatukan) sehingga rustfmt baru memadatkannya,
+sedangkan rustfmt lama memecahnya — jadi berkas yang "sudah terformat"
+secara lokal tetap ditolak CI.
+
+Akar masalah diperbaiki, bukan ditutup: literal manifest dipindahkan ke
+pengikat `let manifest = …`, sehingga kedua barisnya pendek dan tidak
+ada lagi keputusan pembungkusan yang bisa berbeda antarversi. Tidak ada
+lint yang dimatikan dan tidak ada tes yang dilemahkan (tes tetap
+menguji perilaku yang sama).
+
+Agar hal ini tidak terulang, toolchain `1.98.0` (rustfmt + clippy)
+dipasang di mesin ini, lalu seluruh crate diperiksa dengan versi CI:
+hanya satu lokasi yang berbeda, dan setelah perbaikan `cargo +1.98.0
+fmt --check` serta `cargo +1.98.0 clippy --all-targets -- -D warnings`
+dua-duanya bersih.
+
+- Berkas disentuh: `rust_core/src/wer.rs` (hanya tes), `docs/SPRINT-REPORTS.md`.
+- Tes ditambahkan: tidak ada (perbaikan bentuk, cakupan tetap sama).
+
+Keluaran gerbang verifikasi (semua hijau):
+
+```
+cargo fmt --check                              → bersih (1.96 lokal)
+cargo +1.98.0 fmt --check                      → bersih (versi CI)
+cargo clippy --all-targets -- -D warnings      → bersih (1.96 lokal)
+cargo +1.98.0 clippy --all-targets -- -D warnings → bersih (versi CI)
+cargo test --lib                               → 693 passed; 0 failed
+flutter analyze                                → No issues found!
+flutter test                                   → 618 tests, All tests passed!
+flutter build linux --release                  → ✓ build/linux/x64/release/bundle/transcribe
+```
+
+Uji asap aplikasi tidak diulang: perubahan hanya menyentuh kode tes
+Rust, tidak ada jalur UI maupun penangkapan audio yang berubah.

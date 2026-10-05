@@ -225,6 +225,11 @@ pub fn render_table(scores: &[ModelScore]) -> String {
     out
 }
 
+/// Directive a manifest puts in a comment to permit empty references.
+///
+/// Opt-in rather than always-on: see [`parse_manifest`].
+pub const ALLOW_EMPTY_REFERENCE: &str = "allow-empty-reference";
+
 /// One line of a manifest: an audio path and the reference text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestEntry {
@@ -238,25 +243,60 @@ pub struct ManifestEntry {
 /// annotated. A line without a tab is an error rather than a silently
 /// skipped clip — a manifest that quietly measures fewer clips than it
 /// lists produces a number nobody can reproduce.
+///
+/// A blank reference is an error **unless** the manifest opts in with
+/// the directive [`ALLOW_EMPTY_REFERENCE`] in a comment line.
+///
+/// Both halves of that matter. A reference someone forgot to fill in is
+/// a mistake worth refusing, which is why it stays an error by default.
+/// But a *deliberately* empty reference is how a hallucination test set
+/// is written: the audio is silence, so every word a model emits is an
+/// insertion and a WER of 0% means it stayed quiet. `EditCounts::rate`
+/// already handles a zero-length reference for exactly that case; only
+/// this parser had no way to let one through.
+///
+/// Making the manifest declare its intent once, rather than inferring it
+/// from whether anything follows the tab, keeps the two cases apart
+/// without depending on whitespace an editor might add or strip.
 pub fn parse_manifest(content: &str) -> Result<Vec<ManifestEntry>, String> {
+    let allow_empty = content
+        .lines()
+        .take_while(|line| {
+            let trimmed = line.trim();
+            trimmed.is_empty() || trimmed.starts_with('#')
+        })
+        .any(|line| line.contains(ALLOW_EMPTY_REFERENCE));
+
     let mut entries = Vec::new();
     for (index, line) in content.lines().enumerate() {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        let Some((audio, reference)) = trimmed.split_once('\t') else {
+        // Split the untrimmed line: trimming first eats a trailing tab,
+        // which is exactly how an empty reference is written.
+        let Some((audio, reference)) = line.split_once('\t') else {
             return Err(format!(
                 "baris {} tidak punya TAB antara berkas dan teks acuan: {trimmed:?}",
                 index + 1
             ));
         };
-        if reference.trim().is_empty() {
-            return Err(format!("baris {} tidak punya teks acuan", index + 1));
+        let audio = audio.trim();
+        if audio.is_empty() {
+            return Err(format!("baris {} tidak punya nama berkas", index + 1));
+        }
+        let reference = reference.trim();
+        if reference.is_empty() && !allow_empty {
+            return Err(format!(
+                "baris {} tidak punya teks acuan (tambahkan komentar \
+                 `# {ALLOW_EMPTY_REFERENCE}` di kepala manifes bila ini \
+                 memang set hening)",
+                index + 1
+            ));
         }
         entries.push(ManifestEntry {
-            audio: audio.trim().to_string(),
-            reference: reference.trim().to_string(),
+            audio: audio.to_string(),
+            reference: reference.to_string(),
         });
     }
     if entries.is_empty() {
@@ -409,6 +449,57 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn an_empty_reference_is_a_silence_clip_not_a_malformed_line() {
+        // How a hallucination test set is written: the audio is silence,
+        // so the reference is deliberately empty and any word the model
+        // emits is an insertion.
+        let entries = parse_manifest(
+            "# set hening\n# allow-empty-reference\naudio/0000.wav\t\naudio/0001.wav\t\n",
+        )
+        .unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].audio, "audio/0000.wav");
+        assert!(entries[0].reference.is_empty());
+    }
+
+    #[test]
+    fn a_silence_clip_transcribed_as_silence_scores_zero() {
+        let counts = word_errors("", "");
+        assert_eq!(counts.rate(), 0.0);
+        assert_eq!(counts.errors(), 0);
+    }
+
+    #[test]
+    fn a_hallucination_on_a_silence_clip_is_counted() {
+        let counts = word_errors("", "terima kasih telah menonton");
+        assert_eq!(counts.insertions, 4);
+        assert_eq!(counts.rate(), 1.0);
+    }
+
+    #[test]
+    fn an_empty_reference_without_the_directive_is_still_an_error() {
+        // A reference someone forgot to fill in stays a mistake.
+        let error = parse_manifest("audio/0000.wav\t\n").unwrap_err();
+        assert!(error.contains("teks acuan"), "got: {error}");
+        assert!(error.contains(ALLOW_EMPTY_REFERENCE), "got: {error}");
+    }
+
+    #[test]
+    fn the_directive_only_counts_in_the_header() {
+        // Otherwise a stray mention in a reference would silently relax
+        // the whole manifest.
+        let manifest = "audio/0.wav\tteks biasa\n# allow-empty-reference\naudio/1.wav\t\n";
+        let error = parse_manifest(manifest).unwrap_err();
+        assert!(error.contains("teks acuan"), "got: {error}");
+    }
+
+    #[test]
+    fn a_line_with_no_name_before_the_tab_is_still_an_error() {
+        let error = parse_manifest("\tSelamat pagi\n").unwrap_err();
+        assert!(error.contains("nama berkas"), "got: {error}");
     }
 
     #[test]

@@ -1,0 +1,41 @@
+# Live-preview model (priority). whisper-base is what the app can run
+# faster than real time on a weak CPU, so this is the fine-tune that
+# changes what users see *during* a meeting.
+#
+# Fits on 6 GB in fp16 with no quantisation: base is ~74M parameters,
+# and quantising it would cost accuracy for memory that is not needed.
+name: whisper-base-id
+base_model: openai/whisper-base
+language: indonesian
+task: transcribe
+
+train_sets:
+  - data/shards/mk
+  - data/shards/dpr
+eval_sets:
+  - data/fleurs-id
+
+fp16: true
+load_in_4bit: false
+gradient_checkpointing: true
+per_device_batch_size: 4
+gradient_accumulation_steps: 4   # effective batch 16
+
+max_clip_secs: 25.0
+min_anchor_rate: 0.7
+
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+target_modules: [q_proj, v_proj]
+encoder_top_layers: 0            # adapter on every targeted layer
+
+spec_augment: true
+mask_time_prob: 0.05
+mask_feature_prob: 0.05
+
+learning_rate: 1.0e-3
+warmup_steps: 50
+max_steps: 2000
+optim: adamw_bnb_8bit
+output_dir: out/train/whisper-base-id

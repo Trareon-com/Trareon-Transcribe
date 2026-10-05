@@ -1,0 +1,49 @@
+# CPU dry run: proves the whole chain (train -> merge -> GGML -> evaluate)
+# in minutes, with no GPU and no quantisation.
+#
+# This is the config the sprint's exit criterion uses. A training script
+# that has only ever run on the machine it was written for is a script
+# that fails on the one that matters, so the pipeline is exercised
+# end-to-end here before an RTX 2060 is involved. The resulting model is
+# worthless; only the plumbing is being tested.
+name: dry-run-cpu
+base_model: openai/whisper-tiny
+language: indonesian
+task: transcribe
+
+train_sets:
+  - data/shards/sintetis
+eval_sets: []
+
+# No CUDA: fp16 on CPU is either unsupported or catastrophically slow.
+fp16: false
+bf16: false
+load_in_4bit: false
+load_in_8bit: false
+# Off on CPU: it buys memory we are not short of and costs 30% speed.
+gradient_checkpointing: false
+
+per_device_batch_size: 1
+gradient_accumulation_steps: 2
+max_steps: 6
+warmup_steps: 0
+learning_rate: 1.0e-4
+logging_steps: 1
+save_steps: 6
+eval_steps: 6
+save_total_limit: 1
+
+max_clip_secs: 25.0
+min_clip_secs: 1.0
+min_anchor_rate: 0.6
+max_train_samples: 8
+
+lora_r: 8
+lora_alpha: 16
+target_modules: [q_proj, v_proj]
+
+spec_augment: false
+optim: adamw_torch
+output_dir: out/train/dry-run-cpu
+dry_run: true
+resume: false
