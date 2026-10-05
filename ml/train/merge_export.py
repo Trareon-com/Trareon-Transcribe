@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -97,38 +98,78 @@ def merge(adapter_dir: str | Path, out_dir: str | Path, *, base_model: str | Non
         str(adapter) if (adapter / "preprocessor_config.json").exists() else base
     )
     processor.save_pretrained(str(target))
-    _write_legacy_vocab(processor, target)
+    write_legacy_tokenizer_files(processor, target, base)
 
     print(f"==> model gabungan: {target}", flush=True)
     return target
 
 
-def _write_legacy_vocab(processor: object, target: Path) -> None:
-    """Emit `vocab.json` and `merges.txt` next to the model.
+#: What whisper.cpp's `convert-h5-to-ggml.py` reads out of the model
+#: directory, beyond the weights and `config.json`.
+LEGACY_TOKENIZER_FILES = ("vocab.json", "merges.txt", "added_tokens.json")
 
-    `save_pretrained` writes only the fast tokenizer's single
-    `tokenizer.json`, but whisper.cpp's `convert-h5-to-ggml.py` reads the
-    *legacy* pair and dies with `FileNotFoundError: vocab.json`. Without
-    this the whole GGML export fails after the merge has already
-    succeeded, which is a confusing place to fail.
 
-    The BPE model behind the fast tokenizer can write the pair itself, so
-    no second download and no slow-tokenizer class is needed.
+def write_legacy_tokenizer_files(processor: object, target: Path, base: str) -> None:
+    """Make sure the legacy tokenizer files sit next to the model.
+
+    `save_pretrained` writes a single `tokenizer.json` — in current
+    `transformers` even the so-called slow tokenizer does — but
+    whisper.cpp's converter reads the *legacy* trio `vocab.json`,
+    `merges.txt` and `added_tokens.json`. Without them the GGML export
+    dies with `FileNotFoundError` **after** the merge has already
+    succeeded, which is a confusing place to fail and cost this sprint
+    two round trips.
+
+    Preferred source is the base model's own Hub repo, because those are
+    the exact files the upstream converter was written against. If the
+    Hub is unreachable, both can be reconstructed locally: the BPE model
+    behind the fast tokenizer writes `vocab.json` + `merges.txt`, and
+    `added_tokens.json` is just the added-token vocabulary as a dict.
     """
-    if (target / "vocab.json").exists() and (target / "merges.txt").exists():
+    missing = [name for name in LEGACY_TOKENIZER_FILES if not (target / name).exists()]
+    if not missing:
         return
+
+    try:
+        from huggingface_hub import hf_hub_download
+
+        for name in list(missing):
+            try:
+                downloaded = hf_hub_download(repo_id=base, filename=name)
+                shutil.copyfile(downloaded, target / name)
+                missing.remove(name)
+            except Exception:
+                continue
+    except ImportError:
+        pass
+
+    if not missing:
+        return
+
     tokenizer = getattr(processor, "tokenizer", None)
-    backend = getattr(tokenizer, "backend_tokenizer", None)
-    model = getattr(backend, "model", None)
-    if model is None or not hasattr(model, "save"):
+
+    if "vocab.json" in missing or "merges.txt" in missing:
+        backend = getattr(tokenizer, "backend_tokenizer", None)
+        bpe = getattr(backend, "model", None)
+        if bpe is not None and hasattr(bpe, "save"):
+            # Writes both files into the directory.
+            bpe.save(str(target))
+            missing = [name for name in missing if not (target / name).exists()]
+
+    if "added_tokens.json" in missing and tokenizer is not None:
+        added = {}
+        getter = getattr(tokenizer, "get_added_vocab", None)
+        if callable(getter):
+            added = getter()
+        write_json(target / "added_tokens.json", added)
+        missing.remove("added_tokens.json")
+
+    if missing:
         print(
-            "  peringatan: tidak bisa menulis vocab.json/merges.txt; "
+            f"  peringatan: berkas tokenizer lama belum lengkap ({missing}); "
             "konversi GGML kemungkinan gagal",
             file=sys.stderr,
         )
-        return
-    # `model.save` writes `vocab.json` and `merges.txt` into the dir.
-    model.save(str(target))
 
 
 def to_ggml(

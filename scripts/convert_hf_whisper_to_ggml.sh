@@ -138,9 +138,37 @@ echo "==> f16 selesai: $WORK/$OUT ($(du -h "$OUT" | cut -f1))"
 if [[ -n "$QUANTIZE" ]]; then
     echo "==> membangun alat kuantisasi whisper.cpp"
     cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build whisper.cpp/build --target quantize -j"$(nproc 2>/dev/null || echo 4)" >/dev/null
+
+    # whisper.cpp renamed this target: it is `whisper-quantize` in
+    # current checkouts and was plain `quantize` in older ones. Asking
+    # for the wrong one fails with `No rule to make target 'quantize'`
+    # *after* the f16 conversion has already succeeded, so try both and
+    # say which names were attempted if neither exists.
+    QUANT_BIN=""
+    for target in whisper-quantize quantize; do
+        if cmake --build whisper.cpp/build --target "$target" \
+                -j"$(nproc 2>/dev/null || echo 4)" >/dev/null 2>&1; then
+            for candidate in \
+                "whisper.cpp/build/bin/$target" \
+                "whisper.cpp/build/bin/Release/$target.exe" \
+                "whisper.cpp/build/$target"; do
+                if [[ -x "$candidate" ]]; then
+                    QUANT_BIN="$candidate"
+                    break
+                fi
+            done
+        fi
+        [[ -n "$QUANT_BIN" ]] && break
+    done
+
+    if [[ -z "$QUANT_BIN" ]]; then
+        echo "tidak menemukan alat kuantisasi (dicoba: whisper-quantize, quantize)." >&2
+        echo "Model f16 tetap ada dan bisa dipakai: $WORK/$OUT" >&2
+        exit 1
+    fi
+
     QUANT_OUT="${OUT%.bin}-${QUANTIZE}.bin"
-    ./whisper.cpp/build/bin/quantize "$OUT" "$QUANT_OUT" "$QUANTIZE"
+    "$QUANT_BIN" "$OUT" "$QUANT_OUT" "$QUANTIZE"
     echo "==> kuantisasi selesai: $WORK/$QUANT_OUT ($(du -h "$QUANT_OUT" | cut -f1))"
     OUT="$QUANT_OUT"
 fi
