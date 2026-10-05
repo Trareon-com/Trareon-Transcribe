@@ -45,7 +45,8 @@ use crate::streaming::{
     StreamingBuffer, PRE_ROLL_SECS, UTTERANCE_END_SECS,
 };
 use crate::stt::{DecodeOptions, WhisperEngine};
-use crate::vad::{DualVad, VadConfig, FRAME_SAMPLES_10MS};
+use crate::vad::whisper_silero::SileroGate;
+use crate::vad::{DualVad, SegmentationConfig, VadConfig, FRAME_SAMPLES_10MS};
 
 /// Per-source live transcription over a LocalAgreement-2 commit policy.
 ///
@@ -59,6 +60,17 @@ pub struct LivePipeline<'a> {
     /// The growing, overlapping decode window.
     window: StreamingBuffer,
     vad: DualVad,
+    /// whisper.cpp's Silero VAD, when its model is installed.
+    ///
+    /// The second stage the module has always described and never had: a
+    /// real neural confirmation in front of the decoder. [`DualVad`] runs
+    /// per 100 ms buffer and is cheap enough to, but it is WebRTC plus an
+    /// RMS threshold, and room tone at -64 dBFS gets past it — measured in
+    /// a live session, where four seconds of it before the meeting started
+    /// came back as `MENENENEN…` at confidence 0.75. Silero runs once per
+    /// decode over the whole window instead, which costs ~10 ms and
+    /// settles the question properly.
+    silero: Option<SileroGate>,
     vad_enabled: bool,
     diarizer: Diarizer,
     source: String,
@@ -979,6 +991,18 @@ impl<'a> LivePipeline<'a> {
             policy,
             window: StreamingBuffer::new(crate::decode::TARGET_SAMPLE_RATE),
             vad: DualVad::new(vad_config)?,
+            // `None` when the model is not installed, which is the
+            // ordinary state until the user downloads it. A failure to
+            // load is logged and treated the same: the live path degrades
+            // to WebRTC+energy rather than stopping.
+            silero: match SileroGate::from_settings(crate::stt::file::VAD_THREADS) {
+                Some(Ok(gate)) => Some(gate),
+                Some(Err(e)) => {
+                    tracing::warn!(%e, "Silero VAD unusable for the live gate");
+                    None
+                }
+                None => None,
+            },
             vad_enabled,
             diarizer: Diarizer::new(),
             source: source.into(),
@@ -1115,6 +1139,14 @@ impl<'a> LivePipeline<'a> {
         // lets one hallucination seed the next (Research Round 2 §2.2.5) —
         // and the overlapping window already carries the acoustic context
         // that tail was standing in for.
+        // Silero has the final say on whether this window holds speech.
+        // Only when the user has VAD on: with it off they have asked for
+        // every chunk to be transcribed, and the text filters are then the
+        // only thing between room tone and an invented caption.
+        if self.vad_enabled && !self.window_holds_speech()? {
+            return Ok(Vec::new());
+        }
+
         let prompt = crate::glossary::build_initial_prompt(&self.glossary, "");
         let initial_prompt = (!prompt.text.is_empty()).then_some(prompt.text.as_str());
         let mut segments = self.engine.transcribe_chunk_with(
@@ -1136,6 +1168,25 @@ impl<'a> LivePipeline<'a> {
             .flat_map(|segment| segment.words)
             .map(HypoWord::from)
             .collect())
+    }
+
+    /// Whether the current window holds speech according to Silero.
+    ///
+    /// `true` when no Silero model is installed: a gate that cannot run
+    /// must not be the reason a meeting goes untranscribed. The cheap
+    /// WebRTC+energy stage has already had its say by this point.
+    fn window_holds_speech(&mut self) -> TranscribeResult<bool> {
+        let config = SegmentationConfig::default();
+        let Some(gate) = self.silero.as_mut() else {
+            return Ok(true);
+        };
+        match gate.speech_regions(self.window.samples(), config) {
+            Ok(regions) => Ok(!regions.is_empty()),
+            Err(e) => {
+                tracing::warn!(%e, "Silero VAD failed mid-session; falling back to WebRTC+energy");
+                Ok(true)
+            }
+        }
     }
 
     /// Turns committed word runs into transcript segments.

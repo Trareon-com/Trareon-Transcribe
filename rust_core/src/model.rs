@@ -238,11 +238,17 @@ pub fn list_auxiliary_assets(models_dir: &Path) -> Vec<ModelInfo> {
         .collect()
 }
 
+/// Whether `model_id` is installed anywhere the app will actually look.
+///
+/// Searches [`model_search_dirs`], not just `models_dir`. The two used to
+/// disagree: the engine resolves model paths with [`find_model_file`]
+/// (which checks the OS cache directory, where downloads land) while this
+/// only joined the library path — so Settings offered an "Unduh" button
+/// for a file that was plainly on disk and already in use. Both now answer
+/// the same question.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn is_model_downloaded(models_dir: &Path, model_id: &str) -> bool {
-    resolve_model_path(models_dir, model_id)
-        .map(|p| p.exists())
-        .unwrap_or(false)
+    find_model_file(models_dir, model_id).is_some()
 }
 
 /// Every directory a model file can legitimately live in, in the order
