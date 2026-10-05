@@ -71,6 +71,9 @@ pub mod provenance;
 pub mod session;
 pub mod settings;
 pub mod singleton;
+/// Metadata sidecar for registering a notulen in SRIKANDI by hand.
+/// Local-only: there is no SRIKANDI API to call.
+pub mod srikandi;
 /// LocalAgreement-2: which words of a live hypothesis are safe to show as
 /// final. Pure policy; the engine side is in `pipeline`.
 pub mod streaming;

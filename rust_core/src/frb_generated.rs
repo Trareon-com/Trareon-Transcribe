@@ -4640,6 +4640,20 @@ impl SseDecode for Vec<crate::pdp::retention::RetentionItem> {
     }
 }
 
+impl SseDecode for Vec<crate::export::notulen::RisalahEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::export::notulen::RisalahEntry>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::export::Segment> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4826,7 +4840,7 @@ impl SseDecode for crate::export::notulen::NotulenDraft {
 impl SseDecode for crate::export::notulen::NotulenForm {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_variant = <crate::export::notulen::NotulenVariant>::sse_decode(deserializer);
+        let mut var_template = <crate::notulen::NotulenTemplate>::sse_decode(deserializer);
         let mut var_instansi = <String>::sse_decode(deserializer);
         let mut var_unitKerja = <String>::sse_decode(deserializer);
         let mut var_nomor = <String>::sse_decode(deserializer);
@@ -4840,6 +4854,9 @@ impl SseDecode for crate::export::notulen::NotulenForm {
         let mut var_peserta = <Vec<String>>::sse_decode(deserializer);
         let mut var_agenda = <Vec<String>>::sse_decode(deserializer);
         let mut var_pembahasan = <String>::sse_decode(deserializer);
+        let mut var_jalannyaRapat =
+            <Vec<crate::export::notulen::RisalahEntry>>::sse_decode(deserializer);
+        let mut var_pihak = <Vec<String>>::sse_decode(deserializer);
         let mut var_keputusan = <Vec<String>>::sse_decode(deserializer);
         let mut var_tindakLanjut =
             <Vec<crate::export::notulen::TindakLanjut>>::sse_decode(deserializer);
@@ -4847,7 +4864,7 @@ impl SseDecode for crate::export::notulen::NotulenForm {
         let mut var_kopSuratPath = <String>::sse_decode(deserializer);
         let mut var_lampirkanTranskrip = <bool>::sse_decode(deserializer);
         return crate::export::notulen::NotulenForm {
-            variant: var_variant,
+            template: var_template,
             instansi: var_instansi,
             unit_kerja: var_unitKerja,
             nomor: var_nomor,
@@ -4861,6 +4878,8 @@ impl SseDecode for crate::export::notulen::NotulenForm {
             peserta: var_peserta,
             agenda: var_agenda,
             pembahasan: var_pembahasan,
+            jalannya_rapat: var_jalannyaRapat,
+            pihak: var_pihak,
             keputusan: var_keputusan,
             tindak_lanjut: var_tindakLanjut,
             poin_penting: var_poinPenting,
@@ -4870,14 +4889,16 @@ impl SseDecode for crate::export::notulen::NotulenForm {
     }
 }
 
-impl SseDecode for crate::export::notulen::NotulenVariant {
+impl SseDecode for crate::notulen::NotulenTemplate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::export::notulen::NotulenVariant::Dinas,
-            1 => crate::export::notulen::NotulenVariant::Ringkas,
-            _ => unreachable!("Invalid variant for NotulenVariant: {}", inner),
+            0 => crate::notulen::NotulenTemplate::Dinas,
+            1 => crate::notulen::NotulenTemplate::Risalah,
+            2 => crate::notulen::NotulenTemplate::BeritaAcara,
+            3 => crate::notulen::NotulenTemplate::Ringkas,
+            _ => unreachable!("Invalid variant for NotulenTemplate: {}", inner),
         };
     }
 }
@@ -5201,6 +5222,18 @@ impl SseDecode for crate::pdp::retention::RetentionPolicy {
         return crate::pdp::retention::RetentionPolicy {
             audio_days: var_audioDays,
             transcript_days: var_transcriptDays,
+        };
+    }
+}
+
+impl SseDecode for crate::export::notulen::RisalahEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_pembicara = <String>::sse_decode(deserializer);
+        let mut var_pokok = <String>::sse_decode(deserializer);
+        return crate::export::notulen::RisalahEntry {
+            pembicara: var_pembicara,
+            pokok: var_pokok,
         };
     }
 }
@@ -6691,7 +6724,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::export::notulen::NotulenDraft>
 impl flutter_rust_bridge::IntoDart for crate::export::notulen::NotulenForm {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.variant.into_into_dart().into_dart(),
+            self.template.into_into_dart().into_dart(),
             self.instansi.into_into_dart().into_dart(),
             self.unit_kerja.into_into_dart().into_dart(),
             self.nomor.into_into_dart().into_dart(),
@@ -6705,6 +6738,8 @@ impl flutter_rust_bridge::IntoDart for crate::export::notulen::NotulenForm {
             self.peserta.into_into_dart().into_dart(),
             self.agenda.into_into_dart().into_dart(),
             self.pembahasan.into_into_dart().into_dart(),
+            self.jalannya_rapat.into_into_dart().into_dart(),
+            self.pihak.into_into_dart().into_dart(),
             self.keputusan.into_into_dart().into_dart(),
             self.tindak_lanjut.into_into_dart().into_dart(),
             self.poin_penting.into_into_dart().into_dart(),
@@ -6726,23 +6761,25 @@ impl flutter_rust_bridge::IntoIntoDart<crate::export::notulen::NotulenForm>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::export::notulen::NotulenVariant {
+impl flutter_rust_bridge::IntoDart for crate::notulen::NotulenTemplate {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
             Self::Dinas => 0.into_dart(),
-            Self::Ringkas => 1.into_dart(),
+            Self::Risalah => 1.into_dart(),
+            Self::BeritaAcara => 2.into_dart(),
+            Self::Ringkas => 3.into_dart(),
             _ => unreachable!(),
         }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::export::notulen::NotulenVariant
+    for crate::notulen::NotulenTemplate
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::export::notulen::NotulenVariant>
-    for crate::export::notulen::NotulenVariant
+impl flutter_rust_bridge::IntoIntoDart<crate::notulen::NotulenTemplate>
+    for crate::notulen::NotulenTemplate
 {
-    fn into_into_dart(self) -> crate::export::notulen::NotulenVariant {
+    fn into_into_dart(self) -> crate::notulen::NotulenTemplate {
         self
     }
 }
@@ -7018,6 +7055,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::pdp::retention::RetentionPolicy>
     for crate::pdp::retention::RetentionPolicy
 {
     fn into_into_dart(self) -> crate::pdp::retention::RetentionPolicy {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::export::notulen::RisalahEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.pembicara.into_into_dart().into_dart(),
+            self.pokok.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::export::notulen::RisalahEntry
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::export::notulen::RisalahEntry>
+    for crate::export::notulen::RisalahEntry
+{
+    fn into_into_dart(self) -> crate::export::notulen::RisalahEntry {
         self
     }
 }
@@ -8243,6 +8301,16 @@ impl SseEncode for Vec<crate::pdp::retention::RetentionItem> {
     }
 }
 
+impl SseEncode for Vec<crate::export::notulen::RisalahEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::export::notulen::RisalahEntry>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::export::Segment> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -8383,7 +8451,7 @@ impl SseEncode for crate::export::notulen::NotulenDraft {
 impl SseEncode for crate::export::notulen::NotulenForm {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::export::notulen::NotulenVariant>::sse_encode(self.variant, serializer);
+        <crate::notulen::NotulenTemplate>::sse_encode(self.template, serializer);
         <String>::sse_encode(self.instansi, serializer);
         <String>::sse_encode(self.unit_kerja, serializer);
         <String>::sse_encode(self.nomor, serializer);
@@ -8397,6 +8465,8 @@ impl SseEncode for crate::export::notulen::NotulenForm {
         <Vec<String>>::sse_encode(self.peserta, serializer);
         <Vec<String>>::sse_encode(self.agenda, serializer);
         <String>::sse_encode(self.pembahasan, serializer);
+        <Vec<crate::export::notulen::RisalahEntry>>::sse_encode(self.jalannya_rapat, serializer);
+        <Vec<String>>::sse_encode(self.pihak, serializer);
         <Vec<String>>::sse_encode(self.keputusan, serializer);
         <Vec<crate::export::notulen::TindakLanjut>>::sse_encode(self.tindak_lanjut, serializer);
         <Vec<String>>::sse_encode(self.poin_penting, serializer);
@@ -8405,13 +8475,15 @@ impl SseEncode for crate::export::notulen::NotulenForm {
     }
 }
 
-impl SseEncode for crate::export::notulen::NotulenVariant {
+impl SseEncode for crate::notulen::NotulenTemplate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::export::notulen::NotulenVariant::Dinas => 0,
-                crate::export::notulen::NotulenVariant::Ringkas => 1,
+                crate::notulen::NotulenTemplate::Dinas => 0,
+                crate::notulen::NotulenTemplate::Risalah => 1,
+                crate::notulen::NotulenTemplate::BeritaAcara => 2,
+                crate::notulen::NotulenTemplate::Ringkas => 3,
                 _ => {
                     unimplemented!("");
                 }
@@ -8659,6 +8731,14 @@ impl SseEncode for crate::pdp::retention::RetentionPolicy {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.audio_days, serializer);
         <u32>::sse_encode(self.transcript_days, serializer);
+    }
+}
+
+impl SseEncode for crate::export::notulen::RisalahEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.pembicara, serializer);
+        <String>::sse_encode(self.pokok, serializer);
     }
 }
 

@@ -33,22 +33,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::TranscribeError;
 use crate::export::{fmt_timestamp, Bookmark, Segment};
 
-/// Which of the two shipped layouts to render.
-///
-/// Tata Naskah Dinas varies per ministry and pemda, so the strategy from the
-/// blueprint is two variants rather than one "correct" template: the full
-/// dinas form for archiving, and a one-page ringkas form for circulation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum NotulenVariant {
-    /// Full Tata Naskah Dinas layout: kop surat, nomor, identity table,
-    /// agenda, pembahasan, keputusan, tindak lanjut table, signature block.
-    #[default]
-    Dinas,
-    /// One page, no kop surat and no signature block — for circulating the
-    /// outcome quickly.
-    Ringkas,
-}
-
 /// One row of the "Tindak Lanjut" table.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TindakLanjut {
@@ -57,6 +41,27 @@ pub struct TindakLanjut {
     pub tenggat: String,
 }
 
+/// One intervention in a risalah: who said what, in order.
+///
+/// Flat strings rather than [`crate::notulen::schema::Intervensi`]: the
+/// document shows no segment numbers, and the form the user edits before
+/// export should not carry fields the document cannot display.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RisalahEntry {
+    pub pembicara: String,
+    pub pokok: String,
+}
+
+/// The closing formula a berita acara must end with.
+///
+/// Fixed text from the Pedoman, not something the model writes: a model
+/// asked to produce it writes a plausible variation, and a berita acara
+/// with a paraphrased closing formula is a berita acara a TU will send
+/// back.
+pub const PENUTUP_BERITA_ACARA: &str =
+    "Demikian Berita Acara ini dibuat dengan sesungguhnya untuk dipergunakan \
+     sebagaimana mestinya.";
+
 /// Everything the notulen needs that the audio cannot supply, plus the body
 /// sections derived from the summary.
 ///
@@ -64,7 +69,15 @@ pub struct TindakLanjut {
 /// meeting six months later reproduces the same document.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NotulenForm {
-    pub variant: NotulenVariant,
+    /// Which naskah-dinas layout to render.
+    ///
+    /// `alias = "variant"` migrates sessions saved before Sprint 7, when
+    /// this was a two-value `NotulenVariant`. Both of its names —
+    /// `Dinas`, `Ringkas` — are still names of
+    /// [`crate::notulen::NotulenTemplate`] variants, so an old
+    /// `transcript.json` deserialises unchanged.
+    #[serde(default, alias = "variant")]
+    pub template: crate::notulen::NotulenTemplate,
     /// Kop surat first line, e.g. "KEMENTERIAN KEUANGAN REPUBLIK INDONESIA".
     pub instansi: String,
     /// Kop surat second line, e.g. "DIREKTORAT JENDERAL ANGGARAN".
@@ -86,6 +99,14 @@ pub struct NotulenForm {
     pub agenda: Vec<String>,
     /// Discussion body, Markdown (normally the AI summary's "Pembahasan").
     pub pembahasan: String,
+    /// Risalah Rapat only: the ordered record of interventions. Ignored
+    /// by the other templates.
+    #[serde(default)]
+    pub jalannya_rapat: Vec<RisalahEntry>,
+    /// Berita Acara only: "kami yang bertanda tangan di bawah ini".
+    /// Ignored by the other templates.
+    #[serde(default)]
+    pub pihak: Vec<String>,
     pub keputusan: Vec<String>,
     pub tindak_lanjut: Vec<TindakLanjut>,
     /// Bookmarks the notulis dropped during the meeting, rendered as
@@ -523,9 +544,12 @@ fn tindak_lanjut_table(rows: &[TindakLanjut]) -> Table {
         .set_grid(widths.to_vec())
 }
 
-/// Two-column signature block: Notulis on the left, Pimpinan Rapat on the
-/// right, each over four blank lines and the name.
-fn signature_table(form: &NotulenForm) -> Table {
+/// Two-column signature block, each column over four blank lines.
+///
+/// The Pedoman puts the signing officer on the right; for a berita acara
+/// the two columns are the parties instead, which is why the roles are
+/// parameters rather than fixed.
+fn signature_table(left: (&str, &str), right: (&str, &str)) -> Table {
     let half = TABLE_WIDTH / 2;
     let column = |role: &str, name: &str| {
         let mut c = TableCell::new()
@@ -550,8 +574,8 @@ fn signature_table(form: &NotulenForm) -> Table {
         )
     };
     Table::without_borders(vec![TableRow::new(vec![
-        column("Notulis", &form.notulis),
-        column("Pimpinan Rapat", &form.pimpinan),
+        column(left.0, left.1),
+        column(right.0, right.1),
     ])])
     .width(TABLE_WIDTH, WidthType::Dxa)
     .set_grid(vec![half, half])
@@ -619,14 +643,19 @@ fn add_numbered(mut docx: Docx, items: &[String]) -> Docx {
     docx
 }
 
-/// Builds the whole document. Separated from [`to_docx_bytes`] so
-/// [`document_xml`] can hand the raw XML to the golden tests.
-fn build(form: &NotulenForm, segments: &[Segment]) -> Result<Docx, TranscribeError> {
-    let dinas = form.variant == NotulenVariant::Dinas;
-    let mut docx = Docx::new();
+/// Non-empty, trimmed entries of a list field.
+fn filled(items: &[String]) -> Vec<String> {
+    items
+        .iter()
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
 
-    // ── Kop surat ────────────────────────────────────────────────────────
-    if dinas {
+/// Kop surat (letterhead) and the centred title block.
+fn add_masthead(mut docx: Docx, form: &NotulenForm) -> Result<Docx, TranscribeError> {
+    let template = form.template;
+    if template.is_formal() {
         if !form.kop_surat_path.trim().is_empty() {
             docx = docx.add_paragraph(kop_surat_paragraph(form.kop_surat_path.trim())?);
         } else {
@@ -645,135 +674,272 @@ fn build(form: &NotulenForm, segments: &[Segment]) -> Result<Docx, TranscribeErr
         }
     }
 
-    // ── Judul ────────────────────────────────────────────────────────────
-    docx = docx.add_paragraph(centered_bold(
-        if dinas {
-            "NOTULEN RAPAT"
-        } else {
-            "NOTULEN RAPAT (RINGKAS)"
-        },
-        TITLE_SIZE,
-    ));
-    if dinas && !form.nomor.trim().is_empty() {
+    docx = docx.add_paragraph(centered_bold(template.document_title(), TITLE_SIZE));
+    // A berita acara names its subject under the title, as the Pedoman's
+    // example does ("BERITA ACARA / SERAH TERIMA …").
+    if template == crate::notulen::NotulenTemplate::BeritaAcara && !form.judul.trim().is_empty() {
+        docx = docx.add_paragraph(centered_bold(
+            &form.judul.trim().to_uppercase(),
+            HEADING_SIZE,
+        ));
+    }
+    if template.is_formal() && !form.nomor.trim().is_empty() {
         docx = docx.add_paragraph(centered_bold(
             &format!("Nomor: {}", form.nomor.trim()),
             BODY_SIZE,
         ));
     }
-    docx = docx.add_paragraph(Paragraph::new());
+    Ok(docx.add_paragraph(Paragraph::new()))
+}
 
+/// "Tindak Lanjut", as a table or an honest "Tidak ada."
+fn add_tindak_lanjut(mut docx: Docx, form: &NotulenForm, heading_text: &str) -> Docx {
+    docx = docx.add_paragraph(heading(heading_text));
+    if form.tindak_lanjut.is_empty() {
+        docx = docx.add_paragraph(body("Tidak ada."));
+    } else {
+        docx = docx.add_table(tindak_lanjut_table(&form.tindak_lanjut));
+    }
+    docx.add_paragraph(Paragraph::new())
+}
+
+/// The "Poin Penting" block, from the bookmarks the notulis dropped.
+fn add_poin_penting(mut docx: Docx, form: &NotulenForm) -> Docx {
+    let poin = filled(&form.poin_penting);
+    if poin.is_empty() {
+        return docx;
+    }
+    docx = docx.add_paragraph(heading("Poin Penting"));
+    docx = add_numbered(docx, &poin);
+    docx.add_paragraph(Paragraph::new())
+}
+
+/// The optional "Lampiran: Transkrip" on its own page.
+fn add_transcript_attachment(mut docx: Docx, form: &NotulenForm, segments: &[Segment]) -> Docx {
+    if !form.lampirkan_transkrip || segments.is_empty() {
+        return docx;
+    }
+    docx = docx.add_paragraph(
+        Paragraph::new().page_break_before(true).add_run(
+            Run::new()
+                .add_text("Lampiran: Transkrip")
+                .size(HEADING_SIZE)
+                .bold(),
+        ),
+    );
+    for segment in segments.iter().filter(|s| !s.is_partial) {
+        let text = segment.text.trim();
+        if text.is_empty() {
+            continue;
+        }
+        docx = docx.add_paragraph(body(&format!(
+            "[{}] {}: {}",
+            fmt_timestamp(segment.timestamp),
+            segment.speaker.trim(),
+            text
+        )));
+    }
+    docx
+}
+
+/// Notula Rapat and Notulen Ringkas: the same section order, with the
+/// ringkas form dropping the kop, the nomor and the signature block.
+fn build_notula(mut docx: Docx, form: &NotulenForm) -> Docx {
+    let formal = form.template.is_formal();
     if !form.judul.trim().is_empty() {
         docx = docx.add_paragraph(bold_body(&format!("Judul Rapat: {}", form.judul.trim())));
     }
-
-    // ── Identitas rapat ──────────────────────────────────────────────────
-    let rows = identity_rows(form);
-    if !rows.is_empty() {
+    if !identity_rows(form).is_empty() {
         docx = docx.add_table(identity_table(form));
         docx = docx.add_paragraph(Paragraph::new());
     }
 
-    // ── Peserta ──────────────────────────────────────────────────────────
-    let peserta: Vec<String> = form
-        .peserta
-        .iter()
-        .map(|p| p.trim().to_string())
-        .filter(|p| !p.is_empty())
-        .collect();
+    let peserta = filled(&form.peserta);
     if !peserta.is_empty() {
         docx = docx.add_paragraph(heading("Peserta"));
-        if dinas {
-            docx = add_numbered(docx, &peserta);
+        docx = if formal {
+            add_numbered(docx, &peserta)
         } else {
-            docx = docx.add_paragraph(body(&peserta.join(", ")));
-        }
+            docx.add_paragraph(body(&peserta.join(", ")))
+        };
         docx = docx.add_paragraph(Paragraph::new());
     }
 
-    // ── Agenda ───────────────────────────────────────────────────────────
-    let agenda: Vec<String> = form
-        .agenda
-        .iter()
-        .map(|a| a.trim().to_string())
-        .filter(|a| !a.is_empty())
-        .collect();
+    let agenda = filled(&form.agenda);
     if !agenda.is_empty() {
         docx = docx.add_paragraph(heading("Agenda"));
         docx = add_numbered(docx, &agenda);
         docx = docx.add_paragraph(Paragraph::new());
     }
 
-    // ── Pembahasan ───────────────────────────────────────────────────────
     docx = docx.add_paragraph(heading("Pembahasan"));
-    if form.pembahasan.trim().is_empty() {
-        docx = docx.add_paragraph(body("Tidak ada."));
+    docx = if form.pembahasan.trim().is_empty() {
+        docx.add_paragraph(body("Tidak ada."))
     } else {
-        docx = add_blocks(docx, form.pembahasan.trim());
-    }
+        add_blocks(docx, form.pembahasan.trim())
+    };
     docx = docx.add_paragraph(Paragraph::new());
 
-    // ── Poin penting (bookmarks) ─────────────────────────────────────────
-    let poin: Vec<String> = form
-        .poin_penting
-        .iter()
-        .map(|p| p.trim().to_string())
-        .filter(|p| !p.is_empty())
-        .collect();
-    if !poin.is_empty() {
-        docx = docx.add_paragraph(heading("Poin Penting"));
-        docx = add_numbered(docx, &poin);
-        docx = docx.add_paragraph(Paragraph::new());
-    }
+    docx = add_poin_penting(docx, form);
 
-    // ── Keputusan ────────────────────────────────────────────────────────
     docx = docx.add_paragraph(heading("Keputusan"));
     docx = add_numbered(docx, &form.keputusan);
     docx = docx.add_paragraph(Paragraph::new());
 
-    // ── Tindak lanjut ────────────────────────────────────────────────────
-    docx = docx.add_paragraph(heading("Tindak Lanjut"));
-    if form.tindak_lanjut.is_empty() {
-        docx = docx.add_paragraph(body("Tidak ada."));
-    } else {
-        docx = docx.add_table(tindak_lanjut_table(&form.tindak_lanjut));
-    }
-    docx = docx.add_paragraph(Paragraph::new());
+    docx = add_tindak_lanjut(docx, form, "Tindak Lanjut");
 
-    // ── Penutup + tanda tangan ───────────────────────────────────────────
-    if dinas {
+    if formal {
         docx = docx.add_paragraph(body(
             "Rapat ditutup setelah seluruh agenda dibahas. Notulen ini dibuat \
              sebagai dokumentasi resmi pelaksanaan rapat.",
         ));
         docx = docx.add_paragraph(Paragraph::new());
-        docx = docx.add_table(signature_table(form));
+        docx = docx.add_table(signature_table(
+            ("Notulis", &form.notulis),
+            ("Pimpinan Rapat", &form.pimpinan),
+        ));
+    }
+    docx
+}
+
+/// Risalah Rapat: the ordered record of who said what is the body.
+fn build_risalah(mut docx: Docx, form: &NotulenForm) -> Docx {
+    if !form.judul.trim().is_empty() {
+        docx = docx.add_paragraph(bold_body(&format!("Judul Rapat: {}", form.judul.trim())));
+    }
+    if !identity_rows(form).is_empty() {
+        docx = docx.add_table(identity_table(form));
+        docx = docx.add_paragraph(Paragraph::new());
     }
 
-    // ── Lampiran transkrip ───────────────────────────────────────────────
-    if form.lampirkan_transkrip && !segments.is_empty() {
-        docx = docx.add_paragraph(
-            Paragraph::new().page_break_before(true).add_run(
-                Run::new()
-                    .add_text("Lampiran: Transkrip")
-                    .size(HEADING_SIZE)
-                    .bold(),
-            ),
-        );
-        for segment in segments.iter().filter(|s| !s.is_partial) {
-            let text = segment.text.trim();
-            if text.is_empty() {
-                continue;
+    let peserta = filled(&form.peserta);
+    if !peserta.is_empty() {
+        docx = docx.add_paragraph(heading("Peserta"));
+        docx = add_numbered(docx, &peserta);
+        docx = docx.add_paragraph(Paragraph::new());
+    }
+
+    let agenda = filled(&form.agenda);
+    if !agenda.is_empty() {
+        docx = docx.add_paragraph(heading("Acara"));
+        docx = add_numbered(docx, &agenda);
+        docx = docx.add_paragraph(Paragraph::new());
+    }
+
+    docx = docx.add_paragraph(heading("Jalannya Rapat"));
+    // Rendered as "<Pembicara> menyampaikan <pokok>" only when a speaker
+    // is known: a risalah entry with no attribution is still a record of
+    // what was said, and inventing an attribution for it would be the
+    // one thing a risalah must never do.
+    let lines: Vec<String> = form
+        .jalannya_rapat
+        .iter()
+        .filter(|entry| !entry.pokok.trim().is_empty())
+        .map(|entry| {
+            let pembicara = entry.pembicara.trim();
+            if pembicara.is_empty() {
+                entry.pokok.trim().to_string()
+            } else {
+                format!("{pembicara}: {}", entry.pokok.trim())
             }
-            docx = docx.add_paragraph(body(&format!(
-                "[{}] {}: {}",
-                fmt_timestamp(segment.timestamp),
-                segment.speaker.trim(),
-                text
-            )));
+        })
+        .collect();
+    docx = if lines.is_empty() {
+        // Fall back to the discussion body rather than printing nothing:
+        // a risalah whose structured record failed to parse must still
+        // carry the meeting.
+        if form.pembahasan.trim().is_empty() {
+            docx.add_paragraph(body("Tidak ada."))
+        } else {
+            add_blocks(docx, form.pembahasan.trim())
         }
-    }
+    } else {
+        add_numbered(docx, &lines)
+    };
+    docx = docx.add_paragraph(Paragraph::new());
 
-    Ok(docx)
+    docx = add_poin_penting(docx, form);
+
+    docx = docx.add_paragraph(heading("Keputusan"));
+    docx = add_numbered(docx, &form.keputusan);
+    docx = docx.add_paragraph(Paragraph::new());
+
+    docx = add_tindak_lanjut(docx, form, "Tindak Lanjut");
+
+    docx = docx.add_paragraph(body(
+        "Risalah ini dibuat sebagai catatan resmi jalannya rapat.",
+    ));
+    docx = docx.add_paragraph(Paragraph::new());
+    docx.add_table(signature_table(
+        ("Notulis", &form.notulis),
+        ("Pimpinan Rapat", &form.pimpinan),
+    ))
+}
+
+/// Berita Acara: para pihak, what was carried out, and the closing
+/// formula the Pedoman fixes word for word.
+fn build_berita_acara(mut docx: Docx, form: &NotulenForm) -> Docx {
+    let hari_tanggal = match (form.hari.trim(), form.tanggal.trim()) {
+        ("", "") => "[hari], tanggal [tanggal]".to_string(),
+        ("", tanggal) => format!("tanggal {tanggal}"),
+        (hari, "") => format!("hari {hari}"),
+        (hari, tanggal) => format!("hari {hari}, tanggal {tanggal}"),
+    };
+    docx = docx.add_paragraph(body(&format!(
+        "Pada hari ini {hari_tanggal}, kami yang bertanda tangan di bawah ini:"
+    )));
+
+    let pihak = filled(&form.pihak);
+    docx = if pihak.is_empty() {
+        docx.add_paragraph(body(
+            "1. ( ................................... )\n2. ( ................................... )",
+        ))
+    } else {
+        add_numbered(docx, &pihak)
+    };
+    docx = docx.add_paragraph(Paragraph::new());
+
+    docx = docx.add_paragraph(bold_body("telah melaksanakan:"));
+    docx = if form.pembahasan.trim().is_empty() {
+        docx.add_paragraph(body("Tidak ada."))
+    } else {
+        add_blocks(docx, form.pembahasan.trim())
+    };
+    docx = docx.add_paragraph(Paragraph::new());
+
+    docx = add_poin_penting(docx, form);
+
+    docx = docx.add_paragraph(heading("Kesepakatan"));
+    docx = add_numbered(docx, &form.keputusan);
+    docx = docx.add_paragraph(Paragraph::new());
+
+    docx = add_tindak_lanjut(docx, form, "Tindak Lanjut");
+
+    docx = docx.add_paragraph(body(PENUTUP_BERITA_ACARA));
+    docx = docx.add_paragraph(Paragraph::new());
+    docx.add_table(signature_table(
+        (
+            "PIHAK KEDUA,",
+            pihak.get(1).map(String::as_str).unwrap_or(""),
+        ),
+        (
+            "PIHAK PERTAMA,",
+            pihak.first().map(String::as_str).unwrap_or(""),
+        ),
+    ))
+}
+
+/// Builds the whole document. Separated from [`to_docx_bytes`] so
+/// [`document_xml`] can hand the raw XML to the golden tests.
+fn build(form: &NotulenForm, segments: &[Segment]) -> Result<Docx, TranscribeError> {
+    use crate::notulen::NotulenTemplate;
+    let mut docx = add_masthead(Docx::new(), form)?;
+    docx = match form.template {
+        NotulenTemplate::Dinas | NotulenTemplate::Ringkas => build_notula(docx, form),
+        NotulenTemplate::Risalah => build_risalah(docx, form),
+        NotulenTemplate::BeritaAcara => build_berita_acara(docx, form),
+    };
+    Ok(add_transcript_attachment(docx, form, segments))
 }
 
 /// The generated `word/document.xml`, as UTF-8.
@@ -822,7 +988,7 @@ mod tests {
 
     fn form() -> NotulenForm {
         NotulenForm {
-            variant: NotulenVariant::Dinas,
+            template: crate::notulen::NotulenTemplate::Dinas,
             instansi: "KEMENTERIAN KEUANGAN REPUBLIK INDONESIA".into(),
             unit_kerja: "DIREKTORAT JENDERAL ANGGARAN".into(),
             nomor: "ND-12/AG.3/2026".into(),
@@ -842,6 +1008,8 @@ mod tests {
                 penanggung_jawab: "Budi Santoso".into(),
                 tenggat: "10 Oktober 2026".into(),
             }],
+            jalannya_rapat: Vec::new(),
+            pihak: Vec::new(),
             poin_penting: vec!["[05:12] keputusan penting".into()],
             kop_surat_path: String::new(),
             lampirkan_transkrip: false,
@@ -988,7 +1156,7 @@ mod tests {
         for expected in [
             "KEMENTERIAN KEUANGAN REPUBLIK INDONESIA",
             "DIREKTORAT JENDERAL ANGGARAN",
-            "NOTULEN RAPAT",
+            "NOTULA RAPAT",
             "Nomor: ND-12/AG.3/2026",
             "Judul Rapat: Rapat Koordinasi Penyusunan RKAKL 2027",
             "Hari/Tanggal",
@@ -1027,7 +1195,7 @@ mod tests {
             xml.find(needle)
                 .unwrap_or_else(|| panic!("missing {needle}"))
         };
-        assert!(at("NOTULEN RAPAT") < at("Hari/Tanggal"));
+        assert!(at("NOTULA RAPAT") < at("Hari/Tanggal"));
         assert!(at("Hari/Tanggal") < at(">Agenda<"));
         assert!(at(">Agenda<") < at(">Pembahasan<"));
         assert!(at(">Pembahasan<") < at(">Keputusan<"));
@@ -1041,9 +1209,9 @@ mod tests {
     #[test]
     fn ringkas_variant_drops_the_kop_and_signature_block() {
         let mut ringkas = form();
-        ringkas.variant = NotulenVariant::Ringkas;
+        ringkas.template = crate::notulen::NotulenTemplate::Ringkas;
         let xml = document_xml(&ringkas, &[]).unwrap();
-        assert!(xml.contains("NOTULEN RAPAT (RINGKAS)"));
+        assert!(xml.contains("NOTULEN RINGKAS"));
         assert!(!xml.contains("KEMENTERIAN KEUANGAN"), "no kop surat");
         assert!(!xml.contains("Nomor:"), "no nomor naskah");
         // "Pimpinan Rapat" survives only as the identity row, not as a
@@ -1051,6 +1219,117 @@ mod tests {
         assert_eq!(xml.matches("Pimpinan Rapat").count(), 1);
         // Peserta are inline, not a numbered list.
         assert!(xml.contains("Dr. Siti Aminah, Budi Santoso"));
+    }
+
+    #[test]
+    fn the_risalah_renders_the_ordered_record_of_interventions() {
+        let mut risalah = form();
+        risalah.template = crate::notulen::NotulenTemplate::Risalah;
+        risalah.jalannya_rapat = vec![
+            RisalahEntry {
+                pembicara: "Ketua Rapat".into(),
+                pokok: "membuka rapat".into(),
+            },
+            RisalahEntry {
+                pembicara: String::new(),
+                pokok: "rapat menyepakati jadwal".into(),
+            },
+        ];
+        let xml = document_xml(&risalah, &[]).unwrap();
+        assert!(xml.contains("RISALAH RAPAT"));
+        assert!(xml.contains("Jalannya Rapat"));
+        assert!(xml.contains("1. Ketua Rapat: membuka rapat"));
+        // An entry with no attribution keeps its text and gains no
+        // invented speaker.
+        assert!(xml.contains("2. rapat menyepakati jadwal"));
+        // The order of interventions is the point of a risalah.
+        assert!(xml.find("membuka rapat").unwrap() < xml.find("menyepakati jadwal").unwrap());
+    }
+
+    #[test]
+    fn a_risalah_without_a_parsed_record_falls_back_to_the_discussion_body() {
+        // A model that produced no `jalannya_rapat` must not yield a
+        // risalah whose body is the word "Tidak ada."
+        let mut risalah = form();
+        risalah.template = crate::notulen::NotulenTemplate::Risalah;
+        risalah.jalannya_rapat.clear();
+        let xml = document_xml(&risalah, &[]).unwrap();
+        assert!(xml.contains("Pagu naik 4%"), "the body must still appear");
+    }
+
+    #[test]
+    fn the_berita_acara_names_the_parties_and_closes_with_the_fixed_formula() {
+        let mut berita = form();
+        berita.template = crate::notulen::NotulenTemplate::BeritaAcara;
+        berita.judul = "Serah Terima Barang Milik Negara".into();
+        berita.pihak = vec![
+            "Sumarno, Kepala Bagian Umum".into(),
+            "Herlina, Kepala Bagian Pengawasan".into(),
+        ];
+        let xml = document_xml(&berita, &[]).unwrap();
+        assert!(xml.contains("BERITA ACARA"));
+        assert!(xml.contains("SERAH TERIMA BARANG MILIK NEGARA"));
+        assert!(xml.contains("Pada hari ini hari Senin, tanggal 1 Oktober 2026"));
+        assert!(xml.contains("kami yang bertanda tangan di bawah ini"));
+        assert!(xml.contains("1. Sumarno, Kepala Bagian Umum"));
+        assert!(xml.contains("telah melaksanakan"));
+        // "Kesepakatan", not "Keputusan": a berita acara records an
+        // agreement between parties.
+        assert!(xml.contains(">Kesepakatan<"));
+        assert!(!xml.contains(">Keputusan<"));
+        assert!(xml.contains(PENUTUP_BERITA_ACARA));
+        // The signature columns are the parties, not notulis/pimpinan.
+        assert!(xml.contains("PIHAK PERTAMA,"));
+        assert!(xml.contains("PIHAK KEDUA,"));
+        assert!(!xml.contains(">Notulis<"));
+    }
+
+    #[test]
+    fn a_berita_acara_without_parties_leaves_signature_lines_blank() {
+        let mut berita = form();
+        berita.template = crate::notulen::NotulenTemplate::BeritaAcara;
+        berita.pihak.clear();
+        let xml = document_xml(&berita, &[]).unwrap();
+        assert!(
+            xml.contains("..................."),
+            "blank lines to fill in"
+        );
+        assert!(xml.contains(PENUTUP_BERITA_ACARA));
+    }
+
+    #[test]
+    fn a_pre_sprint7_form_still_deserialises() {
+        // Sessions saved when this field was a two-value `NotulenVariant`
+        // write `"variant": "Ringkas"`.
+        let old = r#"{
+            "variant": "Ringkas",
+            "instansi": "", "unit_kerja": "", "nomor": "", "judul": "Rapat lama",
+            "hari": "", "tanggal": "", "waktu": "", "tempat": "",
+            "pimpinan": "", "notulis": "", "peserta": [], "agenda": [],
+            "pembahasan": "", "keputusan": [], "tindak_lanjut": [],
+            "poin_penting": [], "kop_surat_path": "", "lampirkan_transkrip": false
+        }"#;
+        let form: NotulenForm = serde_json::from_str(old).unwrap();
+        assert_eq!(form.template, crate::notulen::NotulenTemplate::Ringkas);
+        assert_eq!(form.judul, "Rapat lama");
+        assert!(form.jalannya_rapat.is_empty());
+        assert!(form.pihak.is_empty());
+    }
+
+    #[test]
+    fn every_template_renders_without_erroring_on_an_empty_form() {
+        for template in crate::notulen::NotulenTemplate::all() {
+            let sparse = NotulenForm {
+                template: *template,
+                ..NotulenForm::default()
+            };
+            let xml = document_xml(&sparse, &[])
+                .unwrap_or_else(|e| panic!("{template:?} failed to render: {e}"));
+            assert!(
+                xml.contains(template.document_title()),
+                "{template:?} did not name itself"
+            );
+        }
     }
 
     #[test]

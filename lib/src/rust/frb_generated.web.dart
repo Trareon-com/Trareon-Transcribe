@@ -25,6 +25,7 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'mapreduce.dart';
 import 'model.dart';
+import 'notulen.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
@@ -296,6 +297,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RetentionItem> dco_decode_list_retention_item(dynamic raw);
 
   @protected
+  List<RisalahEntry> dco_decode_list_risalah_entry(dynamic raw);
+
+  @protected
   List<Segment> dco_decode_list_segment(dynamic raw);
 
   @protected
@@ -338,7 +342,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NotulenForm dco_decode_notulen_form(dynamic raw);
 
   @protected
-  NotulenVariant dco_decode_notulen_variant(dynamic raw);
+  NotulenTemplate dco_decode_notulen_template(dynamic raw);
 
   @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
@@ -414,6 +418,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RetentionPolicy dco_decode_retention_policy(dynamic raw);
+
+  @protected
+  RisalahEntry dco_decode_risalah_entry(dynamic raw);
 
   @protected
   RunsAt dco_decode_runs_at(dynamic raw);
@@ -791,6 +798,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RisalahEntry> sse_decode_list_risalah_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<Segment> sse_decode_list_segment(SseDeserializer deserializer);
 
   @protected
@@ -843,7 +855,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NotulenForm sse_decode_notulen_form(SseDeserializer deserializer);
 
   @protected
-  NotulenVariant sse_decode_notulen_variant(SseDeserializer deserializer);
+  NotulenTemplate sse_decode_notulen_template(SseDeserializer deserializer);
 
   @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
@@ -929,6 +941,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RetentionPolicy sse_decode_retention_policy(SseDeserializer deserializer);
+
+  @protected
+  RisalahEntry sse_decode_risalah_entry(SseDeserializer deserializer);
 
   @protected
   RunsAt sse_decode_runs_at(SseDeserializer deserializer);
@@ -1397,6 +1412,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_risalah_entry(
+    List<RisalahEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_segment(List<Segment> self, SseSerializer serializer);
 
   @protected
@@ -1466,8 +1487,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_notulen_form(NotulenForm self, SseSerializer serializer);
 
   @protected
-  void sse_encode_notulen_variant(
-    NotulenVariant self,
+  void sse_encode_notulen_template(
+    NotulenTemplate self,
     SseSerializer serializer,
   );
 
@@ -1581,6 +1602,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     RetentionPolicy self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_risalah_entry(RisalahEntry self, SseSerializer serializer);
 
   @protected
   void sse_encode_runs_at(RunsAt self, SseSerializer serializer);

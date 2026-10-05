@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::TranscribeError;
 
 /// One discussion topic.
+#[flutter_rust_bridge::frb(ignore)]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Pembahasan {
     #[serde(default, alias = "judul", alias = "pokok_bahasan")]
@@ -44,6 +45,7 @@ pub struct Pembahasan {
 }
 
 /// One intervention in a risalah: who said what, in order.
+#[flutter_rust_bridge::frb(ignore)]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Intervensi {
     #[serde(default, alias = "nama", alias = "speaker", alias = "penutur")]
@@ -55,6 +57,7 @@ pub struct Intervensi {
 }
 
 /// One decision taken.
+#[flutter_rust_bridge::frb(ignore)]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Keputusan {
     #[serde(default, alias = "keputusan", alias = "teks", alias = "uraian")]
@@ -64,6 +67,7 @@ pub struct Keputusan {
 }
 
 /// One follow-up, with the two fields that make it actionable.
+#[flutter_rust_bridge::frb(ignore)]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct TindakLanjut {
     #[serde(default, alias = "kegiatan", alias = "action", alias = "uraian")]
@@ -87,6 +91,7 @@ pub struct TindakLanjut {
 /// Every field is `#[serde(default)]`: a model that omits `agenda`
 /// entirely must still produce a usable notulen, and the *structure
 /// check* — not the parser — is what reports a missing required section.
+#[flutter_rust_bridge::frb(ignore)]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct NotulenJson {
     #[serde(default)]

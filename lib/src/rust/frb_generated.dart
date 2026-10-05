@@ -24,6 +24,7 @@ import 'frb_generated.io.dart'
 import 'glossary.dart';
 import 'mapreduce.dart';
 import 'model.dart';
+import 'notulen.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
@@ -4680,6 +4681,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RisalahEntry> dco_decode_list_risalah_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_risalah_entry).toList();
+  }
+
+  @protected
   List<Segment> dco_decode_list_segment(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_segment).toList();
@@ -4802,10 +4809,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NotulenForm dco_decode_notulen_form(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 19)
-      throw Exception('unexpected arr length: expect 19 but see ${arr.length}');
+    if (arr.length != 21)
+      throw Exception('unexpected arr length: expect 21 but see ${arr.length}');
     return NotulenForm(
-      variant: dco_decode_notulen_variant(arr[0]),
+      template: dco_decode_notulen_template(arr[0]),
       instansi: dco_decode_String(arr[1]),
       unitKerja: dco_decode_String(arr[2]),
       nomor: dco_decode_String(arr[3]),
@@ -4819,18 +4826,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       peserta: dco_decode_list_String(arr[11]),
       agenda: dco_decode_list_String(arr[12]),
       pembahasan: dco_decode_String(arr[13]),
-      keputusan: dco_decode_list_String(arr[14]),
-      tindakLanjut: dco_decode_list_tindak_lanjut(arr[15]),
-      poinPenting: dco_decode_list_String(arr[16]),
-      kopSuratPath: dco_decode_String(arr[17]),
-      lampirkanTranskrip: dco_decode_bool(arr[18]),
+      jalannyaRapat: dco_decode_list_risalah_entry(arr[14]),
+      pihak: dco_decode_list_String(arr[15]),
+      keputusan: dco_decode_list_String(arr[16]),
+      tindakLanjut: dco_decode_list_tindak_lanjut(arr[17]),
+      poinPenting: dco_decode_list_String(arr[18]),
+      kopSuratPath: dco_decode_String(arr[19]),
+      lampirkanTranskrip: dco_decode_bool(arr[20]),
     );
   }
 
   @protected
-  NotulenVariant dco_decode_notulen_variant(dynamic raw) {
+  NotulenTemplate dco_decode_notulen_template(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return NotulenVariant.values[raw as int];
+    return NotulenTemplate.values[raw as int];
   }
 
   @protected
@@ -5076,6 +5085,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return RetentionPolicy(
       audioDays: dco_decode_u_32(arr[0]),
       transcriptDays: dco_decode_u_32(arr[1]),
+    );
+  }
+
+  @protected
+  RisalahEntry dco_decode_risalah_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return RisalahEntry(
+      pembicara: dco_decode_String(arr[0]),
+      pokok: dco_decode_String(arr[1]),
     );
   }
 
@@ -6389,6 +6410,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RisalahEntry> sse_decode_list_risalah_entry(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RisalahEntry>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_risalah_entry(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<Segment> sse_decode_list_segment(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -6569,7 +6604,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   NotulenForm sse_decode_notulen_form(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_variant = sse_decode_notulen_variant(deserializer);
+    var var_template = sse_decode_notulen_template(deserializer);
     var var_instansi = sse_decode_String(deserializer);
     var var_unitKerja = sse_decode_String(deserializer);
     var var_nomor = sse_decode_String(deserializer);
@@ -6583,13 +6618,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_peserta = sse_decode_list_String(deserializer);
     var var_agenda = sse_decode_list_String(deserializer);
     var var_pembahasan = sse_decode_String(deserializer);
+    var var_jalannyaRapat = sse_decode_list_risalah_entry(deserializer);
+    var var_pihak = sse_decode_list_String(deserializer);
     var var_keputusan = sse_decode_list_String(deserializer);
     var var_tindakLanjut = sse_decode_list_tindak_lanjut(deserializer);
     var var_poinPenting = sse_decode_list_String(deserializer);
     var var_kopSuratPath = sse_decode_String(deserializer);
     var var_lampirkanTranskrip = sse_decode_bool(deserializer);
     return NotulenForm(
-      variant: var_variant,
+      template: var_template,
       instansi: var_instansi,
       unitKerja: var_unitKerja,
       nomor: var_nomor,
@@ -6603,6 +6640,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       peserta: var_peserta,
       agenda: var_agenda,
       pembahasan: var_pembahasan,
+      jalannyaRapat: var_jalannyaRapat,
+      pihak: var_pihak,
       keputusan: var_keputusan,
       tindakLanjut: var_tindakLanjut,
       poinPenting: var_poinPenting,
@@ -6612,10 +6651,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  NotulenVariant sse_decode_notulen_variant(SseDeserializer deserializer) {
+  NotulenTemplate sse_decode_notulen_template(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
-    return NotulenVariant.values[inner];
+    return NotulenTemplate.values[inner];
   }
 
   @protected
@@ -6917,6 +6956,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       audioDays: var_audioDays,
       transcriptDays: var_transcriptDays,
     );
+  }
+
+  @protected
+  RisalahEntry sse_decode_risalah_entry(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_pembicara = sse_decode_String(deserializer);
+    var var_pokok = sse_decode_String(deserializer);
+    return RisalahEntry(pembicara: var_pembicara, pokok: var_pokok);
   }
 
   @protected
@@ -8128,6 +8175,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_risalah_entry(
+    List<RisalahEntry> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_risalah_entry(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_segment(List<Segment> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
@@ -8272,7 +8331,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_notulen_form(NotulenForm self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_notulen_variant(self.variant, serializer);
+    sse_encode_notulen_template(self.template, serializer);
     sse_encode_String(self.instansi, serializer);
     sse_encode_String(self.unitKerja, serializer);
     sse_encode_String(self.nomor, serializer);
@@ -8286,6 +8345,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_String(self.peserta, serializer);
     sse_encode_list_String(self.agenda, serializer);
     sse_encode_String(self.pembahasan, serializer);
+    sse_encode_list_risalah_entry(self.jalannyaRapat, serializer);
+    sse_encode_list_String(self.pihak, serializer);
     sse_encode_list_String(self.keputusan, serializer);
     sse_encode_list_tindak_lanjut(self.tindakLanjut, serializer);
     sse_encode_list_String(self.poinPenting, serializer);
@@ -8294,8 +8355,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_notulen_variant(
-    NotulenVariant self,
+  void sse_encode_notulen_template(
+    NotulenTemplate self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -8553,6 +8614,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.audioDays, serializer);
     sse_encode_u_32(self.transcriptDays, serializer);
+  }
+
+  @protected
+  void sse_encode_risalah_entry(RisalahEntry self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.pembicara, serializer);
+    sse_encode_String(self.pokok, serializer);
   }
 
   @protected

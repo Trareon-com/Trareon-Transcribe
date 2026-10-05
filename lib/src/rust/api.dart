@@ -19,6 +19,7 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'mapreduce.dart';
 import 'model.dart';
+import 'notulen.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
