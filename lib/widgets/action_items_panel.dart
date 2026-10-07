@@ -66,6 +66,23 @@ class ActionItemsPanel extends ConsumerStatefulWidget {
   ConsumerState<ActionItemsPanel> createState() => _ActionItemsPanelState();
 }
 
+/// The most recent export started from an [ActionItemsPanel], or null if
+/// none has run yet.
+///
+/// The export buttons are fire-and-forget (`onPressed: () => _exportCsv(…)`),
+/// so a test has no handle on the Rust call plus atomic write they kick off.
+/// Polling for the file to appear is what this replaces: a bounded poll that
+/// gives up silently turns a loaded CPU into a failure several lines after
+/// its cause. Awaiting the future is deterministic at any speed — the same
+/// reasoning, and the same shape, as `libraryIndexWriteSettled`.
+///
+/// Completes rather than fails on an export error, matching the panel's
+/// contract: a failed export surfaces as a toast, not an exception.
+///
+/// Production behaviour is unchanged: nothing awaits this.
+@visibleForTesting
+Future<void>? actionItemExportSettled;
+
 class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
   bool _expanded = true;
   bool _exporting = false;
@@ -273,14 +290,26 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
-                            : () => _exportCsv(exportable),
+                            : () {
+                                // Kept, not awaited — see
+                                // [actionItemExportSettled].
+                                actionItemExportSettled = _exportCsv(
+                                  exportable,
+                                );
+                              },
                         icon: const Icon(AppIcons.table, size: IconSizes.sm),
                         label: const Text('Ekspor CSV'),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
-                            : () => _exportIcs(exportable),
+                            : () {
+                                // Kept, not awaited — see
+                                // [actionItemExportSettled].
+                                actionItemExportSettled = _exportIcs(
+                                  exportable,
+                                );
+                              },
                         icon: const Icon(AppIcons.event, size: IconSizes.sm),
                         label: const Text('Ekspor .ics'),
                       ),
