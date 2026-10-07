@@ -111,10 +111,15 @@ pub struct ModelOption {
     pub tag: String,
     pub label: String,
     pub tier: LlmTier,
-    /// Download size, GiB.
+    /// Download size, GiB, converted from what `ollama list` reports in
+    /// decimal GB.
     pub unduh_gb: f64,
-    /// Resident footprint while generating, GiB — measured, not the
-    /// download size.
+    /// Resident footprint while generating, GiB — measured from
+    /// `/api/ps`, not derived from the download size.
+    ///
+    /// Usually larger than [`Self::unduh_gb`], but not always: a
+    /// multimodal tag ships a vision projector that a text-only request
+    /// never loads, so Gemma 3 4B downloads 3.1 GiB and resides in 2.7.
     pub residen_gb: f64,
     /// Context window the tag advertises, in tokens.
     pub konteks: u32,
@@ -132,9 +137,14 @@ pub const DEFAULT_MODEL: &str = "qwen3:8b";
 
 /// The catalogue, in the order the setup step lists it.
 ///
-/// Sizes are the measured resident footprints from the bake-off run on a
-/// 6 GB GPU; on a CPU-only machine the resident figure is the same but
-/// the speed is roughly an order of magnitude lower.
+/// Both size columns come from the bake-off run on a 6 GB GPU
+/// (`ml/NOTULEN-BENCHMARK.md` §6.3): `residen_gb` is what Ollama's
+/// `/api/ps` reported while generating, `unduh_gb` is `ollama list`
+/// converted to GiB. On a CPU-only machine the resident figure is the
+/// same but the speed is roughly an order of magnitude lower.
+///
+/// Two models that were measured are deliberately absent — see
+/// `the_two_models_the_bake_off_rejected_stay_out_of_the_catalogue`.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn catalogue() -> Vec<ModelOption> {
     vec![
@@ -142,62 +152,60 @@ pub fn catalogue() -> Vec<ModelOption> {
             tag: "qwen3:4b".to_string(),
             label: "Qwen3 4B".to_string(),
             tier: LlmTier::Ringan,
-            unduh_gb: 2.5,
-            residen_gb: 4.0,
+            unduh_gb: 2.3,
+            residen_gb: 3.6,
             konteks: 40_960,
             lisensi: "Apache-2.0".to_string(),
-            catatan: "Pilihan untuk laptop tanpa kartu grafis. Strukturnya \
-                      rapi, tetapi lebih sering melewatkan penanggung jawab \
-                      dan tenggat daripada model yang lebih besar."
+            catatan: "Pilihan untuk laptop tanpa kartu grafis: 29 detik per \
+                      rapat dan tidak mengarang satu keputusan pun di uji \
+                      banding. Lisensi Apache-2.0. Kelemahannya ada di \
+                      kelengkapan — bagian wajib lebih sering kosong \
+                      daripada bawaan, dan satu dari delapan rapat uji gagal \
+                      menghasilkan JSON yang sah."
+                .to_string(),
+        },
+        ModelOption {
+            tag: "gemma3:4b".to_string(),
+            label: "Gemma 3 4B".to_string(),
+            tier: LlmTier::Ringan,
+            unduh_gb: 3.1,
+            residen_gb: 2.7,
+            konteks: 131_072,
+            lisensi: "Gemma Terms of Use".to_string(),
+            catatan: "Paling cepat di uji banding — 23 detik per rapat, \
+                      sepuluh kali lebih cepat daripada bawaan. Tetapi ia \
+                      mengarang satu keputusan pada rapat yang tidak \
+                      memutuskan apa pun, dan hanya 61% pernyataannya \
+                      menautkan nomor segmen yang cocok sehingga Periksa \
+                      Fakta sulit menelusurinya. Lisensi Gemma perlu \
+                      ditelaah. Pilih bila kecepatan lebih penting daripada \
+                      ketelitian, dan periksa hasilnya."
                 .to_string(),
         },
         ModelOption {
             tag: "qwen3:8b".to_string(),
             label: "Qwen3 8B".to_string(),
             tier: LlmTier::Seimbang,
-            unduh_gb: 5.2,
-            residen_gb: 6.5,
+            unduh_gb: 4.8,
+            residen_gb: 6.1,
             konteks: 40_960,
             lisensi: "Apache-2.0".to_string(),
-            catatan: "Bawaan Trareon. Lisensi Apache-2.0 sehingga bebas \
-                      dipakai di instansi, konteks panjang untuk rapat satu \
-                      jam, dan skor tertinggi pada uji banding notulen \
-                      (ml/NOTULEN-BENCHMARK.md)."
-                .to_string(),
-        },
-        ModelOption {
-            tag: "aisingapore/Apertus-SEA-LION-v4-8B-IT:q4_k_m".to_string(),
-            label: "Apertus-SEA-LION v4 8B".to_string(),
-            tier: LlmTier::Seimbang,
-            unduh_gb: 5.1,
-            residen_gb: 6.4,
-            konteks: 65_536,
-            lisensi: "Apache-2.0".to_string(),
-            catatan: "Dilatih khusus bahasa Asia Tenggara termasuk bahasa \
-                      Indonesia, lisensi Apache-2.0. Pilih ini bila rapat \
-                      Anda banyak memakai istilah lokal."
-                .to_string(),
-        },
-        ModelOption {
-            tag: "Supa-AI/gemma2-9b-cpt-sahabatai-v1-instruct:q4_k_s".to_string(),
-            label: "Sahabat-AI 9B".to_string(),
-            tier: LlmTier::Berat,
-            unduh_gb: 5.4,
-            residen_gb: 7.0,
-            konteks: 8_192,
-            lisensi: "Gemma Community License".to_string(),
-            catatan: "Model khusus bahasa Indonesia dari GoTo dan Indosat \
-                      bersama AI Singapore. Konteksnya hanya 8.192 token, \
-                      jadi rapat panjang diringkas bertahap. Lisensi Gemma \
-                      perlu ditelaah sebelum dipakai di produk komersial."
+            catatan: "Bawaan Trareon. Skor tertinggi pada uji banding \
+                      notulen (komposit 0,816), satu-satunya model yang \
+                      tidak mengarang satu keputusan pun sekaligus \
+                      menautkan nomor segmen dengan tepat pada setiap \
+                      pernyataan. Lisensi Apache-2.0 sehingga bebas dipakai \
+                      di instansi. Lebih lambat: sekitar 226 detik per \
+                      rapat pada kartu grafis 6 GB. Rincian: \
+                      ml/NOTULEN-BENCHMARK.md."
                 .to_string(),
         },
         ModelOption {
             tag: "gemma3:12b".to_string(),
             label: "Gemma 3 12B".to_string(),
             tier: LlmTier::Berat,
-            unduh_gb: 8.1,
-            residen_gb: 10.0,
+            unduh_gb: 7.5,
+            residen_gb: 8.3,
             konteks: 131_072,
             lisensi: "Gemma Terms of Use".to_string(),
             catatan: "Paling besar yang masih masuk mesin 16 GB. Perlu \
@@ -554,14 +562,19 @@ mod tests {
             assert!(!option.lisensi.is_empty(), "{} has no licence", option.tag);
             assert!(!option.catatan.is_empty(), "{} has no note", option.tag);
             assert!(option.konteks >= 8_192, "{} context too small", option.tag);
-            // The resident footprint is what the recommendation uses, and
-            // it is always larger than the download.
+            // Both figures are real measurements, so both must be set.
+            //
+            // This used to assert `residen > unduh`, on the reasoning
+            // that the KV cache always adds to the weights. The bake-off
+            // disproved it: Gemma 3 4B downloads 3.1 GiB and resides in
+            // 2.7, because the tag ships a vision projector that a
+            // text-only request never loads. The assumption was wrong,
+            // not the measurement.
+            assert!(option.unduh_gb > 0.0, "{} has no download size", option.tag);
             assert!(
-                option.residen_gb > option.unduh_gb,
-                "{}: resident {} is not above download {}",
-                option.tag,
-                option.residen_gb,
-                option.unduh_gb
+                option.residen_gb > 0.0,
+                "{} has no resident size",
+                option.tag
             );
         }
     }
@@ -578,6 +591,50 @@ mod tests {
     #[test]
     fn an_unknown_tag_is_not_in_the_catalogue() {
         assert!(option_for("llama3:70b").is_none());
+    }
+
+    #[test]
+    fn the_two_models_the_bake_off_rejected_stay_out_of_the_catalogue() {
+        // Both are Indonesian/SEA-tuned and both are tempting to list for
+        // that reason alone. `ml/NOTULEN-BENCHMARK.md` §8.4 is why they
+        // are not here:
+        //
+        // * Sahabat-AI 9B answered the notulen prompt with an unrelated
+        //   boilerplate object (`{"name": "John Doe", ...}`) in six of
+        //   eight cases and failed to parse in the other two. Structure
+        //   score 0.000.
+        // * Apertus-SEA-LION v4 8B failed four of eight — two of them by
+        //   running past 900 s — and invented a decision for a meeting
+        //   that took none.
+        //
+        // The catalogue is what the app *recommends*. A model that fails
+        // half the time cannot be recommended, however good its licence.
+        for rejected in [
+            "Supa-AI/gemma2-9b-cpt-sahabatai-v1-instruct:q4_k_s",
+            "aisingapore/Apertus-SEA-LION-v4-8B-IT:q4_k_m",
+        ] {
+            assert!(
+                option_for(rejected).is_none(),
+                "{rejected} failed the bake-off; see ml/NOTULEN-BENCHMARK.md §8.4"
+            );
+        }
+    }
+
+    #[test]
+    fn the_light_tier_offers_both_a_clean_licence_and_the_fast_one() {
+        let light: Vec<_> = catalogue()
+            .into_iter()
+            .filter(|option| option.tier == LlmTier::Ringan)
+            .collect();
+        // The fastest light model measured well but invented a decision
+        // and cites poorly, so it cannot be the only light option — a
+        // user on a small laptop must still be able to pick one whose
+        // licence needs no review.
+        assert!(
+            light.iter().any(|option| option.lisensi == "Apache-2.0"),
+            "no cleanly-licensed light option"
+        );
+        assert!(light.len() >= 2, "the light tier should offer a choice");
     }
 
     // --- install guidance ------------------------------------------------
