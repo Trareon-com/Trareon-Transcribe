@@ -3565,3 +3565,152 @@ sampai ke pengguna:
   ISO/IEC 27001 maupun 27701 dan belum dikategorisasi BSSN.
 - Angka uji banding diukur pada **dataset sintetis** dan **satu mesin**.
 - Tidak ada uji audio nyata di Windows pada sprint ini.
+
+---
+
+## Sprint 7 — putaran perbaikan (CI merah)
+
+Verifikasi independen menjalankan CI pada checkout bersih dan gagal di dua
+pekerjaan sekaligus. Gate lokal di akhir Sprint 7 hijau, jadi kegagalannya
+bukan soal kode yang salah melainkan soal berkas yang tidak pernah sampai ke
+remote.
+
+### Temuan 1 — fixture kontrak templat notulen tidak terlacak git (DONE)
+
+**Gejala.** Dua kegagalan, satu akar:
+
+- `Rust (fmt, clippy, test, audit, deny)` → `cargo test`:
+  `../test/fixtures/notulen_templates.json is missing (No such file or
+  directory (os error 2))`, uji `the_template_table_dart_copies_is_current`.
+  844 lulus, 1 gagal.
+- `Flutter (analyze, test)` → `flutter test`:
+  `test/notulen_templates_test.dart: (setUpAll) (failed)`, `Expected: true`.
+  607 lulus, 1 gagal.
+
+**Akar masalah.** `test/fixtures/notulen_templates.json` adalah *kontrak*
+antara tabel templat milik `rust_core` dan salinannya di
+`lib/state/notulen_templates.dart`; kedua sisi membandingkan diri terhadap
+berkas yang sama. Tetapi `.gitignore` mengecualikan seluruh `test/fixtures/`
+(tempat artefak WAV dari `gen_fixtures`), sehingga berkas itu hanya pernah
+ada di mesin lokal. Di CI tidak ada yang membuatnya lebih dulu, jadi kedua
+uji gagal bersamaan.
+
+**Perbaikan.** Fixture dilacak, bukan ujinya dilonggarkan. Aturan ignore
+diubah dari `test/fixtures/` menjadi `test/fixtures/*` lalu diberi negasi
+`!test/fixtures/notulen_templates.json` — bentuk `dir/` tidak bisa dinegasi
+per berkas karena git tidak menelusuri direktori yang sudah dikecualikan.
+Artefak WAV tetap diabaikan (diverifikasi dengan `git check-ignore -v`).
+
+**Perbaikan penjaga.** `test/tracked_sources_test.dart` dibuat pada Sprint 2
+justru untuk mencegah kelas kesalahan ini, tetapi hanya memindai berkas
+`.dart`, sehingga fixture `.json` lolos. Cakupannya kini **seluruh berkas**
+di `lib/`, `test/`, `integration_test/`, dengan pengecualian eksplisit pada
+`generatedArtifacts()` untuk keluaran yang memang dihasilkan ulang
+(`test/failures/**`, `*.wav`).
+
+- Berkas: `.gitignore`, `test/fixtures/notulen_templates.json` (kini
+  terlacak), `test/tracked_sources_test.dart`
+- Uji ditambah: 1 (`no fixture the suite reads is gitignored, whatever its
+  extension`)
+- Commit: `96b870b`
+
+**Bukti penjaga benar-benar menjaga.** Negasi `.gitignore` dinonaktifkan
+sementara, lalu uji dijalankan: GAGAL dengan
+`Actual: ['test/fixtures/notulen_templates.json']`. Negasi dikembalikan,
+uji lulus. Penjaga yang tidak pernah dilihat gagal bukan penjaga.
+
+### Temuan 2 — uji indeks pustaka tidak stabil (DONE, di luar laporan CI)
+
+Ditemukan saat menjalankan gate penuh secara lokal: dua uji berbeda gagal
+bergantian di dua kali jalan (`library_index_test.dart: a new session is
+picked up without re-parsing the old ones`, lalu
+`perf/library_index_perf_test.dart: a warm open of 200 sessions is under
+500 ms`). Keduanya lulus bila dijalankan sendirian.
+
+**Akar masalah — bukan CPU lambat.** `loadLibraryIndex` menulis indeks di
+latar belakang (`unawaited`) dan kembali sebelum penulisan mendarat.
+Perkakas uji menunggunya dengan *menjajak keberadaan berkas selama satu
+detik lalu kembali tanpa gagal*. Di mesin yang terbebani, penulisan belum
+selesai, pemuatan berikutnya tidak menemukan indeks, lalu mengurai ulang
+seluruh korpus — kegagalan muncul sebagai `parsedFromDisk` yang keliru, tiga
+baris setelah penyebab sebenarnya, seolah logika inkremental yang rusak.
+
+**Perbaikan.** `libraryIndexWriteSettled` memaparkan penulisan latar
+belakang tersebut sehingga uji dapat **menunggunya secara pasti**, bukan
+menjajak dengan tenggat. Perilaku produksi tidak berubah: pemanggil tetap
+tidak menunggu penulisan. **Tidak ada ambang uji yang dilonggarkan** —
+kriteria keluar 500 ms tetap apa adanya; justru pengukurannya menjadi jujur
+karena tidak lagi bercampur sisa penulisan (warm open 311 ms → 134 ms saat
+diukur sendirian).
+
+- Berkas: `lib/services/library_index.dart`, `test/library_index_test.dart`,
+  `test/perf/library_index_perf_test.dart`
+- Commit: `f681de9`
+
+**Bukti tahan beban.** Enam proses sibuk dijalankan pada mesin 4 inti
+(load average 10,83), lalu `library_index_test.dart` dijalankan: 20 uji
+lulus. Dengan jajak satu detik yang lama, beban inilah yang memicu
+kegagalan.
+
+### Gate verifikasi (semua hijau)
+
+```
+cd rust_core && cargo fmt --check          → FMT OK
+cargo clippy --all-targets -- -D warnings  → bersih, tanpa peringatan
+cargo test --lib                           → 845 lulus, 0 gagal
+flutter analyze                            → No issues found!
+flutter test                               → 628 lulus, 0 gagal
+flutter build linux --release              → ✓ build/linux/x64/release/bundle/transcribe
+```
+
+Sebelum perbaikan: Rust 844/845, Flutter 607/608. Sesudah: Rust 845/845,
+Flutter 628/628.
+
+### Simulasi checkout CI (bukti paling menentukan)
+
+Gate lokal tidak dapat membuktikan apa pun di sini, karena yang rusak justru
+yang hanya terlihat pada checkout bersih. Maka repositori diklon ulang dari
+HEAD ke direktori sementara, lalu kedua uji yang gagal di CI dijalankan di
+sana:
+
+- `test/fixtures/notulen_templates.json` **ada** di klon segar.
+- `cargo test --lib notulen::tests` → 39 lulus, 0 gagal, termasuk
+  `the_template_table_dart_copies_is_current`.
+- `flutter test test/notulen_templates_test.dart test/tracked_sources_test.dart`
+  → 8 lulus, 0 gagal.
+
+### Uji asap aplikasi nyata
+
+Perubahan menyentuh kode produksi (`lib/services/library_index.dart`), jadi
+build rilis dijalankan sungguhan di `DISPLAY=:0`.
+
+- **Buka dingin.** Aplikasi terbuka, bilah sisi memuat 10 sesi nyata lengkap
+  dengan judul, cuplikan, durasi, dan jumlah segmen
+  (`/tmp/smoke_1_start.png`).
+- **Indeks tertulis.** `~/Documents/TrareonTranscribe/.trareon-library-index.json`
+  ditulis oleh aplikasi yang berjalan: 10 entri, cocok dengan 10 direktori
+  sesi nyata. Jalur tulis produksi tetap bekerja.
+- **Buka hangat.** Aplikasi ditutup lalu dibuka lagi; pustaka tampil
+  identik dari indeks (`/tmp/smoke_2_warm.png`).
+- **Muat fase-2.** Satu sesi dibuka: 9 segmen transkrip Bahasa Indonesia
+  nyata beserta stempel waktu, label pembicara, dan gelombang audio —
+  cocok dengan metadata indeks "40 detik · 9 segmen"
+  (`/tmp/smoke_4_session.png`).
+- Log bersih (hanya peringatan usang `libayatana-appindicator`).
+  `pkill -9 -x transcribe` dijalankan sesudahnya.
+
+Tidak ada audio yang dimainkan dan mikrofon tidak pernah dibuka selama uji
+asap ini, sesuai ATURAN AUDIO KANTOR.
+
+### Kesenjangan yang diketahui
+
+- **Uji perf berbasis jam dinding tetap peka beban.** `a warm open of 200
+  sessions is under 500 ms` mengukur waktu nyata, jadi mesin yang sangat
+  terbebani masih bisa menjatuhkannya. Penyebab ketidakstabilan yang
+  sebenarnya sudah dihapus (lihat Temuan 2) dan marginnya kini lebar
+  (134–311 ms terhadap anggaran 500 ms), tetapi ambang itu adalah kriteria
+  keluar sprint dan **sengaja tidak dinaikkan**.
+- Direktori klon simulasi CI tertinggal di `/tmp` (penghapusannya ditolak
+  oleh pagar perkakas); tidak berpengaruh pada repositori.
+- Berkas `test/failures/*.png` dari jalan golden sebelumnya masih ada di
+  pohon kerja; berkas itu diabaikan git dan memang keluaran awakutu.
