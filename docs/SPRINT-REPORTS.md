@@ -3982,3 +3982,141 @@ tidak pernah dibuka pada putaran ini.
   dari ketiga tugas yang merah, plus bukti bahwa fixture yang menjatuhkan
   dua di antaranya memang terlacak git. Orkestrator yang mendorong dan
   mengawasi CI.
+
+## Sprint 7 — verifikasi ulang putaran final (pra-dorong PR #16)
+
+Putaran verifikasi, bukan putaran perbaikan. Semua perbaikan yang diminta
+brief sudah terkomit pada putaran sebelumnya (`96b870b`, `f681de9`,
+`377f300`, `e4c8ee5`, `20c8c66`); yang belum pernah dilakukan adalah
+menjalankan ulang seluruh gerbang di atas pohon final itu secara utuh,
+satu per satu, dan membuktikan kegagalan yang memblokir benar-benar sudah
+hilang. Tidak ada berkas yang diubah pada putaran ini selain laporan ini.
+
+### Kegagalan lokal yang memblokir — perbaikan yang berlaku dan buktinya
+
+Brief menawarkan dua pilihan: menaikkan tenggat `lessThan(4000)` ke angka
+yang longgar, atau mekanisme yang bebas beban. **Yang berlaku di pohon ini
+adalah pilihan kedua** (komit `377f300`, didokumentasikan di
+bagian sebelumnya), dan ia diverifikasi di sini, bukan diasumsikan:
+
+- biaya pemanasan proses dibakar lebih dulu pada dua pohon pemanasan;
+- bangun pertama @40 dan @5 000 diukur berdampingan dalam jalan yang sama
+  dan diasersi sebagai **rasio** terhadap `kScaleBudget` (6×);
+- tenggat mutlak tetap ada, tetapi hanya sebagai jaring pengaman longgar
+  **8 000 ms** — sesuai rentang terukur 0,5–0,9 s (hangat) dan 3,5–5,3 s
+  (bila menyerap pemanasan) yang tercatat di komentar berkas.
+
+Alasan memilih itu daripada sekadar menaikkan tenggat: angka 4 s yang gagal
+tidak pernah mengukur panjang transkrip — ia mengukur pemanasan satu kali
+proses uji, yang ditanggung pohon mana pun yang dibangun lebih dulu.
+Menaikkannya ke 8 s akan menyembunyikan gejalanya; mengukur rasio
+menghilangkan variabelnya. Tidak ada asersi struktural atau rasio yang
+diturunkan: `built < 60` dan `kScaleBudget = 6.0` tidak berubah, dan uji
+tidak dimatikan maupun dikeluarkan dari gerbang.
+
+Tiga jalan berurutan atas berkas itu pada putaran ini — semuanya 7/7 hijau:
+
+| jalan | kendali @40 | termuat @5 000 | rasio | baris termaterialkan | mutlak |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1 290,17 ms | 709,03 ms | 0,55× | 11 | lulus (<8 000) |
+| 2 | 575,12 ms | 565,94 ms | 0,98× | 11 | lulus |
+| 3 | 1 100,13 ms | 800,67 ms | 0,73× | 11 | lulus |
+
+Faktor penskalaan gulir 1,17× / 0,68× / 0,87× dan bangun-ulang induk
+0,71× / 0,45× / 0,63× — semuanya jauh di bawah 6×, dan arahnya di bawah 1×
+justru menegaskan bahwa biaya per-bingkai tidak tumbuh dengan panjang
+transkrip.
+
+### Tiga tugas CI yang merah — hasil lokal putaran ini
+
+**1. `Rust (fmt, clippy, test, audit, deny)`** — gagal di CI pada
+`notulen::tests::the_template_table_dart_copies_is_current` (844 lulus,
+1 gagal). Lokal sekarang:
+
+```
+$ cargo fmt --check            → FMT_OK
+$ cargo fmt --all -- --check   → FMT_ALL_OK   (bentuk persis seperti ci.yml)
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
+$ cargo test --lib
+test result: ok. 845 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 574.34s
+$ cargo audit    → warning: 1 allowed warning found   (exit 0)
+$ cargo deny check → advisories ok, bans ok, licenses ok, sources ok   (exit 0)
+```
+
+844 + 1 = 845: uji yang menjatuhkan CI kini lulus dan tidak ada yang lain
+yang bergeser.
+
+**2. `Flutter (analyze, test)`** — gagal di CI pada `(setUpAll)`
+`test/notulen_templates_test.dart`, akar masalah sama: fixture
+`test/fixtures/notulen_templates.json` tidak sampai ke runner. Diverifikasi
+ulang dengan cara yang paling dekat dengan apa yang runner lakukan —
+mengintip isi arsip komit, bukan hanya indeks:
+
+```
+$ git archive HEAD | tar -t | grep fixtures
+test/fixtures/
+test/fixtures/notulen_templates.json
+$ git check-ignore -v test/fixtures/notulen_templates.json
+(exit 1 — tidak diabaikan; .gitignore:37 membuang, :45 mengecualikan)
+$ git show HEAD:test/fixtures/notulen_templates.json | diff - test/fixtures/notulen_templates.json
+(tanpa selisih — isi di pohon identik dengan isi terkomit)
+```
+
+Jadi fixture itu ada di dalam komit yang akan di-checkout runner, dan isinya
+sama dengan yang baru saja diterima `cargo test --lib`.
+
+```
+$ flutter analyze
+No issues found! (ran in 37.9s)
+$ flutter test
+06:13 +628: All tests passed!
+```
+
+628 lulus termasuk uji golden (tanpa `--exclude-tags golden`, jadi lebih
+luas dari yang dijalankan CI).
+
+**3. `ml (ruff, pytest)`** — gagal di CI pada `ruff format --check`. Lokal:
+
+```
+$ uv run ruff check .          → All checks passed!
+$ uv run ruff format --check . → 71 files already formatted
+$ uv run pytest -q             → 294 passed, 7 deselected in 3.10s
+```
+
+### Gerbang verifikasi — ekor keluaran
+
+```
+rust : fmt OK · clippy OK · 845 passed; 0 failed (574,34 s) · audit exit 0 · deny exit 0
+dart : flutter analyze → No issues found! (37,9 s)
+dart : flutter test    → 628 lulus, 0 gagal
+build: ✓ Built build/linux/x64/release/bundle/transcribe
+ml   : ruff check OK · ruff format OK (71 berkas) · 294 passed, 7 deselected
+git  : git status --porcelain → kosong
+```
+
+Semua dijalankan berurutan, tidak pernah `flutter test` dan
+`flutter build` berbarengan.
+
+### Uji asap — tidak dijalankan, dan alasannya
+
+Putaran ini tidak mengubah satu baris pun di `lib/` atau `rust_core/src/`
+(satu-satunya berkas yang berubah adalah `docs/SPRINT-REPORTS.md`), jadi
+tidak ada perilaku aplikasi yang bisa berubah dan tidak ada yang bisa
+dibuktikan sebuah tangkapan layar baru. Build rilis Linux tetap dijalankan
+dan sukses. Bukti asap `DISPLAY=:0` yang berlaku ada di bagian Sprint 7
+sebelumnya. Tidak ada audio yang dimainkan, mikrofon tidak pernah dibuka,
+dan tidak ada perangkat atau volume yang diubah.
+
+### Celah yang diketahui (tidak berubah dari putaran sebelumnya)
+
+- `chacha20 0.10.1` tetap tertarik (yanked), transitif lewat
+  `printpdf → lopdf → rand`; `cargo audit` dan `cargo deny` sama-sama
+  melaporkannya sebagai peringatan yang diizinkan dan keluar 0.
+- Versi `cargo-audit 0.22.2` / `cargo-deny 0.20.2` di host ini bisa berbeda
+  dari yang di-`cargo install --locked` runner; manifes dependensinya
+  identik dengan `origin/main` yang hijau.
+- Berkas perf lain di repositori belum ditinjau untuk pola tenggat
+  jam-dinding mutlak yang sama.
+- CI masih belum dilihat hijau: yang dibuktikan di sini adalah ekuivalen
+  lokal ketiga tugas itu. Orkestrator yang mendorong dan mengawasi.
