@@ -294,23 +294,42 @@ void main() {
 
     active.value = 12;
     await tester.pumpAndSettle();
+    expect(
+      tester.binding.hasScheduledFrame,
+      isFalse,
+      reason: 'the tree must be quiet before unchanged ticks are judged',
+    );
+
+    // The guard here is structural, not a time budget. The contract is not
+    // "an unchanged tick is fast", it is "an unchanged tick schedules no
+    // frame at all": `_onActiveIndexChanged` returns before `setState` when
+    // the index has not moved, so the binding must have nothing pending
+    // after one. Asserting that directly is load-independent — it cannot
+    // flake on a busy CPU — and it is strictly *stronger* than the 2 ms
+    // average this replaces, which a regression that did call `setState`
+    // could still slip under on a fast run. The old ceiling was also the
+    // last absolute wall-clock assertion in this file: it passed standalone
+    // at 0.42–1.08 ms avg, then failed one full-suite run at over 2 ms with
+    // nothing changed but the load around it.
     final ticks = <int>[];
     for (var i = 0; i < 100; i++) {
       final sw = Stopwatch()..start();
       active.value = 12; // the audio moved, the row did not
+      expect(
+        tester.binding.hasScheduledFrame,
+        isFalse,
+        reason: 'tick $i repeated index 12 and still scheduled a frame',
+      );
       await tester.pump();
       sw.stop();
       ticks.add(sw.elapsedMicroseconds);
     }
     final stats = _Stats('unchanged position tick @${big.length}', ticks)
       ..report();
-    expect(
-      stats.avg,
-      lessThan(2000),
-      reason:
-          'a repeated identical value must not schedule a frame at '
-          'all — $stats',
-    );
+    // Printed for the report, asserted only as a catastrophic-regression
+    // backstop, per this file's header: the measured avg is ~1 ms, so 20 ms
+    // cannot fire on load noise alone.
+    expect(stats.avg, lessThan(20000), reason: '$stats');
   });
 
   testWidgets('seeking across the meeting reveals the playing row', (
