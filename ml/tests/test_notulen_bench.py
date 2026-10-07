@@ -467,3 +467,25 @@ def test_a_refused_connection_is_reported_rather_than_raised(monkeypatch) -> Non
     assert ollama.loaded_footprint() == {}
     # Eviction is best effort: a host that is gone has nothing to evict.
     ollama.unload("m")
+
+
+def test_an_empty_notulen_scores_zero_formality() -> None:
+    """A document with no words cannot be formal.
+
+    The old floor (`max(len(words), 1)`) gave empty output a perfect
+    score, which is 0.20 of the composite handed to a model that
+    produced nothing.
+    """
+    assert register.formality_score("") == 0.0
+    assert register.formality_score("   \n ") == 0.0
+    # A real sentence in dinas register still scores well.
+    assert register.formality_score(
+        "Rapat memutuskan mengalokasikan anggaran untuk digitalisasi arsip."
+    ) > 0.9
+
+
+def test_a_notulen_with_no_recognised_sections_renders_to_nothing() -> None:
+    """What Sahabat-AI 9B actually returned, scored end to end."""
+    boilerplate = {"id": "1", "name": "John Doe", "email": "john.doe@example.com"}
+    assert metrics.rendered_text(boilerplate) == ""
+    assert register.formality_score(metrics.rendered_text(boilerplate)) == 0.0

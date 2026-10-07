@@ -425,9 +425,19 @@ fn replace_clock(text: &str) -> String {
 /// Reported rather than enforced. The benchmark needs one number per
 /// model and "how many register errors per 100 words" is the number that
 /// means something; a notulen with no findings scores 1.0.
+///
+/// Empty text scores **0.0**, not 1.0. The old `.max(1)` floor treated
+/// "no words" as "no findings", so a model that returned nothing banked
+/// a perfect formality score. Sahabat-AI 9B did exactly that in the
+/// Sprint 7 bake-off — it answered the notulen prompt with an unrelated
+/// boilerplate object — and rode the free marks to a mid-table
+/// composite. A document with no words has no register to be formal in.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn formality_score(text: &str) -> f64 {
-    let words = text.split_whitespace().count().max(1);
+    let words = text.split_whitespace().count();
+    if words == 0 {
+        return 0.0;
+    }
     let findings = check(text).len();
     let per_hundred = findings as f64 * 100.0 / words as f64;
     (1.0 - per_hundred / 5.0).clamp(0.0, 1.0)
@@ -547,6 +557,15 @@ mod tests {
         assert!(formality_score(clean) > formality_score(messy));
         assert!(formality_score(messy) < 0.5, "{}", formality_score(messy));
         assert!((0.0..=1.0).contains(&formality_score(messy)));
+    }
+
+    #[test]
+    fn an_empty_notulen_scores_zero_formality_not_one() {
+        // The old `.max(1)` floor read "no words" as "no findings" and
+        // handed full marks to a model that produced nothing.
+        assert_eq!(formality_score(""), 0.0);
+        assert_eq!(formality_score("   \n\t "), 0.0);
+        assert!(formality_score("Rapat dilaksanakan sesuai jadwal.") > 0.9);
     }
 
     #[test]

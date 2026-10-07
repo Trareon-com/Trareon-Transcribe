@@ -274,7 +274,19 @@ def _replace_clock(text: str) -> str:
 
 
 def formality_score(text: str) -> float:
-    """``0.0..=1.0``: register findings per 100 words, inverted."""
-    words = max(len(text.split()), 1)
+    """``0.0..=1.0``: register findings per 100 words, inverted.
+
+    Empty text scores **0.0**, not 1.0. A notulen with no words has no
+    register to be formal in, and the old ``max(len(words), 1)`` floor
+    handed a perfect 0.20 of the composite to a model that produced
+    nothing. Measured: Sahabat-AI 9B answered the notulen prompt with an
+    unrelated boilerplate object (`{"name": "John Doe", ...}`), rendered
+    to zero words, and banked full marks for formality on the way to a
+    mid-table composite. A metric that rewards the absence of a document
+    is worse than no metric.
+    """
+    words = len(text.split())
+    if words == 0:
+        return 0.0
     per_hundred = len(check(text)) * 100.0 / words
     return max(0.0, min(1.0, 1.0 - per_hundred / 5.0))
