@@ -1,0 +1,57 @@
+[
+  {
+    "description": "Notula lengkap sesuai Tata Naskah Dinas: identitas rapat, peserta, acara, jalannya rapat, kesimpulan, tindak lanjut, dan ruang tanda tangan notulis serta pimpinan rapat.",
+    "document_title": "NOTULA RAPAT",
+    "formal": true,
+    "id": "notulen_dinas",
+    "jenis_naskah": "Notula Rapat",
+    "label": "Notulen Dinas",
+    "required_sections": [
+      "Peserta",
+      "Pembahasan",
+      "Keputusan",
+      "Tindak Lanjut"
+    ]
+  },
+  {
+    "description": "Catatan berurutan per pembicara, mendekati verbatim tetapi diringkas. Dipakai untuk sidang dan rapat yang perlu merekam siapa menyampaikan apa.",
+    "document_title": "RISALAH RAPAT",
+    "formal": true,
+    "id": "risalah_rapat",
+    "jenis_naskah": "Risalah Rapat",
+    "label": "Risalah Rapat (verbatim-ringkas)",
+    "required_sections": [
+      "Peserta",
+      "Jalannya Rapat",
+      "Keputusan",
+      "Tindak Lanjut"
+    ]
+  },
+  {
+    "description": "Naskah pembuktian: menyebut para pihak, apa yang telah dilaksanakan, hasilnya, dan ditutup dengan formula baku \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".",
+    "document_title": "BERITA ACARA",
+    "formal": true,
+    "id": "berita_acara",
+    "jenis_naskah": "Berita Acara",
+    "label": "Berita Acara",
+    "required_sections": [
+      "Para Pihak",
+      "Pelaksanaan",
+      "Kesepakatan",
+      "Tindak Lanjut"
+    ]
+  },
+  {
+    "description": "Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.",
+    "document_title": "NOTULEN RINGKAS",
+    "formal": false,
+    "id": "notulen_ringkas",
+    "jenis_naskah": "Notulen Ringkas",
+    "label": "Notulen Ringkas",
+    "required_sections": [
+      "Pembahasan",
+      "Keputusan",
+      "Tindak Lanjut"
+    ]
+  }
+]

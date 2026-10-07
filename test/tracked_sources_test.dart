@@ -9,11 +9,30 @@ import 'package:flutter_test/flutter_test.dart';
 /// green. The file never reached the remote, so CI failed with 21
 /// `uri_does_not_exist` / `undefined_function` errors in four test files.
 ///
+/// Sprint 7 hit the same wall from the other side: `test/fixtures/`
+/// also held `notulen_templates.json`, the contract
+/// `test/notulen_templates_test.dart` and `rust_core`'s
+/// `the_template_table_dart_copies_is_current` both compare against. It
+/// was on disk locally, so the whole gate was green; on CI the Rust test
+/// and the Dart test failed together. This guard had not noticed, because
+/// it only looked at `.dart` files — so it now covers every file the
+/// suite is allowed to depend on, whatever its extension.
+///
 /// Nothing in the normal verification gate can catch that class of mistake,
 /// because the gate only ever sees the working tree. So it becomes its own
-/// gate: every Dart source under the scanned roots must be visible to git.
+/// gate: every source and fixture under the scanned roots must be visible to
+/// git, except the generated artifacts named in [generatedArtifacts].
 void main() {
   const scannedRoots = ['lib', 'test', 'integration_test'];
+
+  /// The only files allowed to be invisible to git: output a tool writes,
+  /// which no test may read. Everything else under the roots is either a
+  /// source or a fixture, and CI gets neither unless it is tracked.
+  bool generatedArtifacts(String path) =>
+      // Golden diff images for the run that produced them.
+      path.startsWith('test/failures/') ||
+      // `cargo run --bin gen_fixtures -- ../test/fixtures` output.
+      path.endsWith('.wav');
 
   test(
     'no Dart source under lib/, test/ or integration_test/ is gitignored',
@@ -62,6 +81,46 @@ void main() {
       );
     },
   );
+
+  test('no fixture the suite reads is gitignored, whatever its extension', () {
+    final inWorkTree = _tryGit(['rev-parse', '--is-inside-work-tree']);
+    if (inWorkTree?.trim() != 'true') {
+      markTestSkipped('not a git work tree — cannot check ignore rules');
+      return;
+    }
+
+    final files = <String>[];
+    for (final root in scannedRoots) {
+      final dir = Directory(root);
+      if (!dir.existsSync()) continue;
+      for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+        if (entity is File) files.add(entity.path);
+      }
+    }
+
+    expect(
+      files,
+      isNotEmpty,
+      reason: 'found no files at all — the scan itself is broken',
+    );
+
+    final ignored = _ignoredPaths(files)
+        .where((path) => !generatedArtifacts(path))
+        .toList();
+
+    expect(
+      ignored,
+      isEmpty,
+      reason:
+          'These files are gitignored and will not exist on CI, so any test '
+          'that reads one passes locally and fails on a fresh checkout:\n'
+          '  ${ignored.join('\n  ')}\n'
+          'Either add a `!` negation in .gitignore (note: the enclosing rule '
+          'must be `dir/*`, not `dir/`, or git never considers the negation), '
+          'or — if it really is regenerated output no test reads — add it to '
+          'generatedArtifacts() in this file.',
+    );
+  });
 }
 
 /// Runs a git command, returning its stdout, or null if git is unavailable or
