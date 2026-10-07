@@ -128,7 +128,7 @@ ditegakkan oleh `rust_core/src/privacy.rs` serta
 |---|-------|--------|-------|----------------------|-------------|
 | 1 | Unduh model Whisper | `huggingface.co/ggerganov/whisper.cpp` | Onboarding atau dialog model, atas klik pengguna | **Tidak ada data rapat.** Permintaan GET untuk berkas model; SHA256 dipin di `model.rs` dan diverifikasi setelah unduh | Laporan Privasi, `audit.jsonl` (`ModelPulled`) |
 | 2 | Ringkasan/notulen AI | `base_url` endpoint — **baku loopback** `http://localhost:11434` | Atas klik pengguna per permintaan; mati secara baku | **Transkrip bernomor** dikirim ke endpoint. Pada konfigurasi baku endpoint berada di perangkat yang sama, jadi tidak ada data yang meninggalkan perangkat | Laporan Privasi, `audit.jsonl` (`SummarySent`) |
-| 3 | Cek pembaruan | repositori rilis | Atas klik "Cek Pembaruan" | **Tidak ada data rapat.** GET metadata versi | Laporan Privasi |
+| 3 | Cek pembaruan | `raw.githubusercontent.com` — satu berkas `VERSION` (`lib/app_version.dart:24`) | Atas klik "Cek Pembaruan" | **Tidak ada data rapat.** GET satu berkas teks berisi nomor versi | Laporan Privasi |
 | 4 | Buka halaman rilis | peramban pengguna | Atas klik tautan | Tidak ada | Laporan Privasi |
 | 5 | Tanya arsip rapat | endpoint yang sama dengan #2 | Atas pertanyaan pengguna | **Hanya petikan yang diambil secara lokal** dikirim, bukan seluruh arsip | Laporan Privasi |
 
