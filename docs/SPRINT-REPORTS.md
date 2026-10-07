@@ -3104,3 +3104,464 @@ flutter build linux --release                  → ✓ build/linux/x64/release/b
 
 Uji asap aplikasi tidak diulang: perubahan hanya menyentuh kode tes
 Rust, tidak ada jalur UI maupun penangkapan audio yang berubah.
+
+---
+
+## Sprint 7 report
+
+Cabang `sprint/07-notulen`. Sprint ini dijalankan dalam beberapa putaran;
+bagian ini melaporkan **seluruh** Sprint 7, bukan hanya putaran terakhir,
+karena yang menarik justru selisih antara apa yang sudah dibangun di mesin
+dan apa yang benar-benar sampai ke pengguna.
+
+### Ringkasan status per item
+
+| # | Item | Status |
+|---|------|--------|
+| 1 | Uji banding LLM → `ml/NOTULEN-BENCHMARK.md` + bawaan aplikasi | **DONE** |
+| 2 | UX penyiapan LLM pertama kali | **PARTIAL** — mesin lengkap dan teruji, **tanpa antarmuka** |
+| 3 | Mutu mesin notulen (map-reduce, skema ketat, provenance, periksa fakta, ragam, 4 templat) | **PARTIAL** — mesin lengkap, **UI masih memakai jalur lama** |
+| 4 | Ekspor siap-SRIKANDI | **PARTIAL** — mesin + prosedur lengkap, **formulir metadata belum ada di UI** |
+| 5 | Kit penyetelan halus notulen | **NOT DONE** — celah teridentifikasi, GPU tidak tersedia |
+| 6 | Paket kepatuhan `docs/compliance/` | **DONE** |
+
+---
+
+### Item 1 — Uji banding LLM · **DONE**
+
+`ml/NOTULEN-BENCHMARK.md` ada dan berisi angka hasil pengukuran nyata.
+
+**Enam model diuji, lima selesai penuh atas himpunan 8 kasus yang sama**
+(empat templat + dua kasus alih-kode + satu uji anti-halusinasi); dua model
+terbanyak dijalankan lebih luas (16 dan 24 kasus) untuk memeriksa
+kestabilan.
+
+#### Tabel utama — 8 kasus yang sama untuk setiap model
+
+| Model | Komposit | Struktur | Faithful | Sitasi | Formal | Tindak lanjut F1 | Keputusan dikarang | ROUGE-1 | Detik/rapat | tok/s | Kasus ok |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Qwen3 8B** (bawaan baru) | **0.816** | 0.906 | 1.000 | 1.000 | 0.996 | 0.202 | **0** | 0.507 | 226 | 7.8 | **8/8** |
+| Gemma 3 4B | 0.810 | 0.969 | 0.835 | 0.613 | 1.000 | 0.377 | **1** | 0.536 | **23** | 62.1 | 8/8 |
+| Qwen3 4B | 0.760 | 0.821 | 0.917 | 0.857 | 0.994 | 0.177 | **0** | 0.442 | 29 | 60.6 | 7/8 |
+| Apertus-SEA-LION v4 8B | 0.703 | 0.688 | 0.875 | 1.000 | 1.000 | 0.125 | **1** | 0.359 | 159 | 9.4 | **4/8** |
+| Sahabat-AI 9B | 0.350 | **0.000** | 1.000* | 1.000* | 0.000 | 0.000 | 0 | 0.000 | 85 | 7.5 | 6/8 |
+| Gemma 3 12B | *(lihat catatan)* | | | | | | | | | | |
+
+\* hampa — tidak ada pernyataan untuk diperiksa.
+
+Diukur pada laptop Windows 11, Intel i7-10750H, 15,8 GiB RAM, RTX 2060
+6 GiB (driver 555.99), Ollama 0.32.14, Python 3.14.7. Non-streaming,
+`format: json`, `temperature: 0.2`, `think: false`, `num_ctx` disesuaikan
+per kasus.
+
+#### Tiga temuan yang mengubah keputusan
+
+**1. Pelatihan khusus bahasa Indonesia tidak menang.** Kedua model yang
+di-*post-train* untuk Asia Tenggara menempati dua peringkat terbawah.
+Sahabat-AI 9B — pemegang skor SEA-HELM bahasa Indonesia tertinggi di
+kelasnya — menjawab prompt notulen dengan objek contoh generik:
+
+```json
+{"id": "1", "name": "John Doe", "email": "john.doe@example.com",
+ "phone": "123-456-7890", "address": {"street": "123 Main St", ...}}
+```
+
+Pola yang sama di enam kasus; dua sisanya gagal diparsing. Prompt kasus 01
+~2.500 token, jauh di bawah jendela 8.192 model itu, jadi ini bukan
+pemotongan konteks.
+
+Angka yang menjelaskan mengapa ada di kolom **Formal**: setiap model yang
+menghasilkan teks mencetak ≥ 0,994. **Ragam bahasa Indonesia tidak pernah
+menjadi hambatan.** Yang menjadi hambatan adalah kepatuhan skema JSON,
+kelengkapan bagian, penautan nomor segmen, dan menolak mengarang — itu
+kemampuan mengikuti instruksi berstruktur, dan di situ model umum unggul.
+Rekomendasi riset Sprint 0 (Gemma-SEA-LION-v3-9B-IT sebagai bawaan)
+karenanya dibatalkan.
+
+**2. Ukuran bukan penentu utama; keandalan yang menentukan.** Selisih
+Qwen3 4B → 8B hanya 0,056 komposit, dan Gemma 3 4B hampir menyamai Qwen3
+8B sambil sepuluh kali lebih cepat. Yang memisahkan keduanya bukan
+komposit melainkan modus kegagalan: Gemma 3 4B **mengarang satu
+keputusan** pada rapat yang tidak memutuskan apa pun —
+
+> "Narasumber akan melakukan kajian lebih lanjut mengenai perlakuan
+> terhadap rekaman rapat yang berisi suara pegawai." → dicatat sebagai
+> keputusan rapat
+
+— dan akurasi sitasinya hanya 0,613, sehingga Periksa Fakta bawaan
+Trareon tidak dapat menelusuri hampir empat dari sepuluh pernyataannya.
+Qwen3 8B: nol karangan, sitasi 1,000.
+
+**3. Kelemahan yang dimiliki semua model: ekstraksi tindak lanjut.** F1
+tertinggi di seluruh tabel 0,377; pemenangnya 0,202. Tabel tindak lanjut
+justru yang paling dibaca pimpinan. Ini celah terukur paling jelas dari
+seluruh uji, dan target yang jelas untuk Item 5.
+
+#### Katalog aplikasi setelah uji banding
+
+`rust_core/src/llm_setup.rs`:
+
+| Tingkat | Model | Lisensi | Perubahan |
+|---------|-------|---------|-----------|
+| Ringan | Qwen3 4B | Apache-2.0 | catatan diganti dengan angka terukur |
+| Ringan | Gemma 3 4B | Gemma Terms of Use | **ditambahkan**, dengan catatan yang menyebut karangan + sitasi lemah |
+| **Seimbang (bawaan)** | **Qwen3 8B** | **Apache-2.0** | dipertahankan, kini beralasan |
+| Berat | Gemma 3 12B | Gemma Terms of Use | ukuran diganti hasil ukur |
+| — | Sahabat-AI 9B | Gemma Community | **dikeluarkan** |
+| — | Apertus-SEA-LION v4 8B | Apache-2.0 | **dikeluarkan** |
+
+Lisensi dicatat di katalog dan di `NOTULEN-BENCHMARK.md` §4: bawaan harus
+Apache-2.0 (diuji oleh `the_default_model_is_in_the_catalogue_and_is_cleanly_licensed`),
+dan tingkat Ringan wajib memuat sekurangnya satu pilihan berlisensi bersih.
+
+#### Dua bug nyata yang ditemukan uji banding ini
+
+- **Harness berhenti total pada satu model lambat.** `urlopen` menerapkan
+  batas waktu per operasi soket dan Ollama non-streaming tidak mengirim
+  apa pun sampai selesai, jadi TimeoutError terlempar dari tengah sweep
+  dan menjatuhkan setiap pasangan yang mengantre. Terjadi nyata: Apertus
+  menggantung >1.300 detik di kasus 02 dan membuang tiga model di
+  belakangnya. Diperbaiki — kegagalan transport kini dicatat sebagai kasus
+  gagal dan sweep lanjut (`fc82841`).
+- **Notulen kosong berskor formalitas sempurna.** `formality_score`
+  memakai lantai `max(jumlah_kata, 1)`, sehingga teks nol kata dibaca
+  sebagai "tanpa temuan ragam". Sahabat-AI mengantongi 0,20 komposit
+  gratis karenanya. Diperbaiki di kedua sisi gerbang paritas (Python dan
+  Rust) dengan uji di masing-masing sisi (`215d3f6`).
+
+#### Berkas disentuh (Item 1)
+
+`ml/NOTULEN-BENCHMARK.md` (baru) · `ml/notulen_bench/report.py` (`--cases`) ·
+`ml/notulen_bench/ollama.py` (`_send`, `TRANSPORT_ERROR`) ·
+`ml/notulen_bench/register.py` · `ml/tests/test_notulen_bench.py` ·
+`ml/README.md` · `rust_core/src/llm_setup.rs` ·
+`rust_core/src/notulen/register.rs` · `rust_core/src/api.rs`
+(`llm_default_model`) · `lib/widgets/summary_settings_section.dart` ·
+`lib/src/rust/*` (regen FRB) · `ml/notulen_bench/results/results.jsonl` (data)
+
+#### Uji ditambahkan (Item 1)
+
+| Uji | Di mana |
+|-----|---------|
+| batas waktu baca dicatat, tidak dilempar | `ml/tests/test_notulen_bench.py` |
+| koneksi ditolak dilaporkan, tidak dilempar | idem |
+| notulen kosong berskor formalitas 0 | idem + `rust_core/src/notulen/register.rs` |
+| keluaran tanpa bagian dikenal ter-render jadi kosong | `ml/tests/test_notulen_bench.py` |
+| dua model yang ditolak uji banding tetap di luar katalog | `rust_core/src/llm_setup.rs` |
+| tingkat Ringan memuat pilihan berlisensi bersih | idem |
+
+---
+
+### Item 6 — Paket kepatuhan · **DONE**
+
+`docs/compliance/` berisi tujuh dokumen Markdown plus turunan DOCX di
+`docs/compliance/docx/`, dihasilkan `scripts/build_compliance_docx.py`
+(python-docx 1.2.0 lewat `/usr/bin/python3`).
+
+| Berkas | Isi |
+|--------|-----|
+| `Ringkasan-Kepatuhan-untuk-Pengadaan.md` | Satu halaman untuk panitia pengadaan |
+| `PEMETAAN-UU-PDP-27-2022.md` | Kendali Trareon → pasal UU 27/2022 |
+| `PEMETAAN-ISO-27001-27701.md` | ISO/IEC 27001:2022 Annex A, ISO/IEC 27701:2019, rujukan BSSN |
+| `ALUR-DATA.md` | Diagram mermaid, inventaris aset, lima titik keluar jaringan |
+| `TEMPLAT-DPIA.md` | Templat DPIA + dua lampiran |
+| `PROSEDUR-RETENSI-DAN-PENGHAPUSAN.md` | Prosedur operasional retensi, penghapusan, pemusnahan |
+| `README.md` | Indeks + tiga peringatan yang harus dibaca lebih dulu |
+
+**Verifikasi nomor pasal.** Pasal 31, 34, 46, dan 53 diverifikasi dari
+kutipan teksnya (peraturan.bpk.go.id, pasal.id, 7 Okt 2026); pasal lain
+diverifikasi pada tingkat pokok materi. **PP 33/2026**, nomor peraturan
+CSIRT BSSN, dan penerapan PP 71/2019 pada konteks ini ditandai
+**"belum diverifikasi"** — tidak ada nomor yang ditebak tanpa tanda.
+Peraturan BSSN 8/2020 + Indeks KAMI diverifikasi 7 Okt 2026 ke bssn.go.id.
+
+**Tidak ada klaim sertifikasi.** Ketiga dokumen utama menyatakan di muka
+bahwa Trareon belum disertifikasi ISO/IEC 27001 maupun 27701 dan belum
+dikategorisasi BSSN.
+
+**Enam kesenjangan produk dicatat apa adanya**, bukan dihaluskan: tidak
+ada enkripsi penyimpanan maupun autentikasi tingkat aplikasi (G-2), log
+audit tidak tahan-ubah secara kriptografis (G-1), tidak ada status
+pemrosesan ditangguhkan per sesi (G-3), teks pemberitahuan bawaan belum
+memenuhi seluruh unsur Pasal 21 (G-4), penghapusan bukan pemusnahan aman
+(G-5), tidak ada pemberitahuan otomatis Pasal 45 (G-6). Ditambah sembilan
+kewajiban yang tetap pada instansi (K-1…K-9) dan tiga risiko konfigurasi
+(R-1…R-3), yang terpenting: **endpoint LLM dapat diarahkan ke luar
+perangkat**, dan apa akibat hukumnya bila itu dilakukan.
+
+Seluruh klaim teknis merujuk berkas sumber dengan nomor baris, dan
+`Ringkasan-Kepatuhan-untuk-Pengadaan.md` memuat tiga perintah yang bisa
+dijalankan panitia untuk memeriksa sendiri klaim "transkripsi tidak pernah
+meninggalkan perangkat".
+
+Berkas disentuh: tujuh berkas baru di `docs/compliance/`, tujuh DOCX di
+`docs/compliance/docx/`, `scripts/build_compliance_docx.py` (baru).
+Uji ditambahkan: tidak ada — ini dokumen, bukan kode. Isi teknisnya
+diverifikasi lewat uji asap aplikasi (di bawah) dan terhadap kode sumber.
+
+---
+
+### Item 2 — UX penyiapan LLM pertama kali · **PARTIAL**
+
+**Yang ada dan teruji** (`rust_core/src/llm_setup.rs`, 21 uji):
+
+- deteksi Ollama (`llm_detect`);
+- panduan pemasangan per sistem operasi — macOS, Windows, Linux — dengan
+  perintah yang bisa disalin dan tautan yang dijaga uji agar selalu
+  menunjuk ollama.com;
+- profil perangkat keras (`HardwareProfile::probe`) dan rekomendasi
+  sadar-perangkat (`recommend`) yang menahan 4 GB untuk sisa mesin dan
+  menjelaskan alasannya dalam bahasa Indonesia yang menyebut angka mesin
+  pengguna;
+- katalog model (§Item 1);
+- unduh model dengan laporan kemajuan (`llm_pull_model`,
+  `read_llm_pull_progress`, parser aliran kemajuan Ollama);
+- pencatatan ke log audit sebagai `ModelPulled`.
+
+Seluruhnya terpapar ke Dart lewat FRB: `llmDetect`, `llmHardware`,
+`llmRecommend`, `llmCatalogue`, `llmDefaultModel`, `llmInstallGuide`,
+`llmPullModel`, `readLlmPullProgress`.
+
+**Yang tidak ada: antarmukanya.** Tidak satu pun berkas di `lib/` memanggil
+fungsi-fungsi itu — diperiksa dengan `grep -rn "llm[A-Z]" lib/ --include=*.dart`
+di luar `lib/src/rust/`: nol pemanggil. Akibatnya, bagi pengguna, layar
+penyiapan pertama-kali **belum ada**, dan kegagalan "tidak bisa menghubungi
+http://localhost:11434" yang menjadi alasan modul ini ditulis **masih
+terjadi persis seperti sebelumnya**.
+
+Satu perbaikan kecil sampai ke pengguna dalam putaran ini: kolom "Model" di
+Pengaturan → Ringkasan AI dulu menampilkan petunjuk `qwen2.5:7b`, tag yang
+tidak pernah ada di katalog dan tidak punya satu pun angka di uji banding.
+Kini petunjuknya berasal dari `DEFAULT_MODEL` lewat `llm_default_model()`,
+satu sumber kebenaran dengan katalog dan hasil uji banding (`159c411`).
+
+**Sisa pekerjaan:** satu layar penyiapan (deteksi → panduan pasang →
+rekomendasi → unduh berprogres) yang memanggil API yang sudah ada.
+
+---
+
+### Item 3 — Mutu mesin notulen · **PARTIAL**
+
+**Yang ada dan teruji di mesin:**
+
+| Bagian | Di mana |
+|--------|---------|
+| Skema JSON ketat per templat + penguraian toleran + perbaikan | `rust_core/src/notulen/schema.rs` |
+| Empat templat naskah dinas (Notulen Dinas, Risalah Rapat, Berita Acara, Notulen Ringkas) | `rust_core/src/notulen/` + `lib/state/notulen_templates.dart` (cermin Dart, dengan uji paritas) |
+| Map-reduce rapat panjang | `rust_core/src/mapreduce.rs`, `summary::generate_notulen` |
+| Provenance butir → nomor segmen | `rust_core/src/provenance.rs` |
+| Periksa fakta terhadap transkrip | `rust_core/src/notulen/factcheck.rs` |
+| Pemeriksaan angka rupiah/persentase | `rust_core/src/notulen/angka.rs` |
+| Aturan ragam dinas (EYD V, istilah dinas) | `rust_core/src/notulen/register.rs` |
+| Gerbang paritas Rust ↔ Python | `rust_core/src/notulen/parity.rs` ↔ `ml/tests/test_notulen_bench.py` |
+
+Semuanya dipakai sungguhan — uji banding Item 1 menjalankan prompt dan
+pemeriksaan ini terhadap enam model dan 24 rapat, yang adalah bukti
+terkuat bahwa bagian mesinnya bekerja.
+
+**Yang belum: UI masih memakai jalur lama.** `lib/widgets/notulen_dialog.dart`
+memanggil `exportNotulen` + `notulenDraftFromSummary` — jalur Sprint 4.
+API Sprint 7 `generateNotulen`, `periksaNotulen`, dan `rapikanRagam`
+**tidak punya satu pun pemanggil di `lib/`**. Templat sudah terpasang di
+dialog (dropdown empat pilihan, dengan uji widget), tetapi jalur
+pembuatan notulen berskema-ketat, hasil Periksa Fakta, dan perapian ragam
+belum terlihat pengguna.
+
+**Sisa pekerjaan:** mengganti pemanggilan dialog ke `generateNotulen`,
+menampilkan temuan `periksaNotulen` sebagai penanda per butir yang harus
+ditinjau notulis sebelum ekspor, dan menyediakan tombol `rapikanRagam`.
+
+---
+
+### Item 4 — Ekspor siap-SRIKANDI · **PARTIAL**
+
+**Yang ada dan teruji:** `rust_core/src/srikandi.rs` (762 baris, dengan
+uji) — metadata registrasi lengkap (nomor, tanggal, jenis naskah, perihal,
+sifat, klasifikasi keamanan, kode klasifikasi arsip, unit pengolah,
+penandatangan, jumlah lampiran, tingkat perkembangan, catatan), validator
+bertingkat Wajib/Saran, pemeriksa bentuk nomor
+(`[sifat-]urut/KODE UNIT/KODE KLAS/MM/TTTT`), dan ekspor empat berkas
+sekaligus (DOCX + PDF + metadata JSON + metadata CSV) lewat
+`api::export_notulen_srikandi`, seluruhnya ditulis atomik.
+
+Modul ini **menolak mengisi `nomor`** — satu-satunya bidang yang paling
+menggoda untuk diisi otomatis dan yang paling mahal bila salah: nomor
+karangan mendaftarkan dokumen dengan identitas milik dokumen lain.
+Validator menandainya, tidak menggantinya.
+
+**Diperbaiki putaran ini:** `srikandi.rs` dan `api.rs` dua-duanya merujuk
+`docs/SRIKANDI-EXPORT.md` sebagai prosedurnya, dan berkas itu **tidak
+pernah ada**. Kini ada (`d9427ef`): mengapa unggahan manual (tidak ada API
+publik SRIKANDI V3 yang terdokumentasi), empat berkas yang dihasilkan,
+setiap bidang metadata beserta siapa yang mengisinya, dan 15 langkah dari
+persiapan sampai pencatatan setelah unggah. Tidak ada klaim integrasi
+resmi; dokumen itu justru menjelaskan mengapa integrasi otomatis tidak
+dapat dibangun dengan jujur hari ini.
+
+**Yang belum: formulir metadata di UI.** Tidak ada berkas di `lib/` yang
+memanggil `srikandiMetadataDefault`, `srikandiValidate`,
+`srikandiSiapUnggah`, atau `exportNotulenSrikandi`. Brief meminta bidang
+metadata "editable in the export form"; formulir itu belum ada. Sampai ada,
+metadata hanya terisi dari nilai bawaan formulir notulen dan tidak dapat
+disunting pengguna. Batasan ini ditulis terang di §6
+`docs/SRIKANDI-EXPORT.md`.
+
+---
+
+### Item 5 — Kit penyetelan halus notulen · **NOT DONE**
+
+Opsional menurut brief, dan syaratnya ("hanya bila uji banding menunjukkan
+celah") **terpenuhi**: ekstraksi tindak lanjut F1 ≤ 0,377 untuk setiap
+model yang diuji, tertinggi 0,377 dan pemenangnya 0,202 (§7.5
+`NOTULEN-BENCHMARK.md`). Celahnya tajam dan targetnya jelas.
+
+**Alasan tidak dikerjakan:** satu-satunya GPU yang tersedia (RTX 2060 6 GiB
+di win2060) terpakai penuh untuk uji banding sepanjang sprint — inferensi
+enam model berjam-jam, termasuk dua model yang masing-masing melewati
+batas 900 detik pada beberapa kasus. Menjalankan LoRA SFT di GPU yang sama
+berarti membatalkan uji banding, yang merupakan item wajib.
+
+**Rekomendasi sprint berikutnya:** kit penyetelan dengan sasaran tunggal
+yang sudah terukur — ekstraksi tindak lanjut (tugas, penanggung jawab,
+tenggat) — di atas Qwen3 4B (muat 6 GiB pada 4-bit), dievaluasi ulang
+dengan harness yang sama sehingga angkanya langsung sebanding dengan tabel
+§6.1.
+
+---
+
+### Masukan kompetitif (TikTok `@prakom.exe`, dipelajari 6 Okt 2026)
+
+Dibaca dari `trareon-sprints/FEEDBACK-tiktok-prakom-exe-20261006.md`.
+**Tidak ada yang dibangun di sprint ini** — didaftar sebagai backlog
+berikutnya sesuai instruksi.
+
+| # | Fitur pesaing | Status Trareon | Nilai/effort |
+|---|---------------|----------------|--------------|
+| 1 | **Input "poin catatan" → notulen** (tanpa audio) | belum ada | **Tinggi / rendah** — templat notulen sudah ada; tinggal menerima butir catatan sebagai transkrip manual |
+| 2 | **Konteks dokumen** (dokumen rujukan + "plan rapat" masuk prompt LLM) | hanya glosarium + templat | Tinggi / sedang — pemilih dokumen lokal di dialog notulen, masuk ke prompt map-reduce |
+| 3 | Preset panjang keluaran (maks 250 / 3000 kata) | belum ada | Sedang / rendah — preset Ringkas/Sedang/Lengkap di dialog |
+| 4 | Ekspor Google Docs / Notion | DOCX/PDF + sidecar SRIKANDI | Rendah untuk instansi — **jangan dijanjikan**, bergantung API/izin |
+| 5 | Bilah kemajuan "Memproses notulen… 100%" + toast coba-lagi | sebagian | Rendah / rendah |
+| 6 | Editor pembicara (tambah/ubah nama) | **sudah ada** (Sprint 4b) | Paritas — jangan diulang |
+| 7 | Riwayat "buka ulang tanpa biaya" | **sudah ada** (sesi lokal) | Ubah jadi copywriting, bukan fitur |
+| 8 | Monetisasi berbasis kredit | sengaja tidak dipakai | **Jangan ikut** — jadikan pembeda |
+
+Pesan posisi yang diperkuat masukan ini, dan yang kini punya bukti di
+`docs/compliance/`: pesaing mengunggah audio rapat ke server dan menagih
+kredit; Trareon memproses di perangkat, tanpa kuota, tanpa langganan, dan
+klaim itu dapat diperiksa panitia pengadaan dengan satu perintah.
+
+---
+
+### Gerbang verifikasi — keluaran apa adanya
+
+```
+cd rust_core
+cargo fmt --check                                  → bersih (1.96 lokal)
+cargo +1.98.0 fmt --check                          → bersih (versi CI)
+cargo clippy --all-targets -- -D warnings          → bersih (1.96 lokal)
+cargo +1.98.0 clippy --all-targets -- -D warnings  → bersih (versi CI)
+cargo test --lib                                   → 845 passed; 0 failed; 0 ignored
+
+cd ..
+flutter analyze                                    → No issues found!
+flutter test                                       → 627 tests, All tests passed!
+flutter build linux --release                      → ✓ build/linux/x64/release/bundle/transcribe
+
+cd ml
+python -m pytest tests/                            → 294 passed, 7 deselected
+```
+
+Perubahan jumlah uji selama putaran ini: Rust 842 → **845** (+3: formalitas
+teks kosong, dua model yang ditolak tetap di luar katalog, tingkat Ringan
+memuat lisensi bersih). Flutter 626 → **627** (+1: jam sesi Laporan
+Privasi). Python `ml/` 290 → **294** (+4: batas waktu transport, koneksi
+ditolak, formalitas kosong, render tanpa bagian dikenal).
+
+### Uji asap aplikasi nyata — `DISPLAY=:0`
+
+Dua kali, pada build rilis Linux. Kepatuhan **ATURAN AUDIO KANTOR**:
+`pactl get-default-sink` diperiksa sebelum setiap peluncuran dan mencetak
+`trareon_silent` dua-duanya; **tidak ada audio yang diputar, mikrofon
+tidak pernah dibuka**, dan tidak ada perangkat baku yang diubah. Uji ini
+menyentuh pengaturan dan layar saja.
+
+**Putaran 1 — memverifikasi klaim paket kepatuhan terhadap aplikasi nyata.**
+Pengaturan → Kepatuhan PDP: sakelar "Aktifkan Mode Kepatuhan PDP" **mati
+secara bawaan**, persis seperti yang didokumentasikan. Setelah
+diaktifkan, tampil lima kategori penyamaran (NIK, NPWP, nomor telepon,
+alamat email, nomor rekening — yang terakhir dengan keterangan "hanya bila
+ada kata 'rekening' atau nama bank di dekatnya, supaya angka anggaran
+tidak ikut disamarkan") plus daftar nama; bagian Retensi data menampilkan
+**"Simpan selamanya" pada kedua jam** dan kalimat "Tidak ada yang dihapus
+otomatis. Anda melihat daftarnya dulu."; Pemberitahuan perekaman dengan
+`{judul}`/`{tanggal}` dan tombol "Salin teks pemberitahuan"; Log audit
+dengan keterangan "Isinya hanya metadata, tidak ada kutipan transkrip di
+dalamnya". **Seluruh klaim di `docs/compliance/` cocok dengan apa yang
+ditampilkan aplikasi.** Kedua sakelar dikembalikan ke posisi mati
+sesudahnya.
+
+Pada putaran yang sama ditemukan dua cacat yang kemudian diperbaiki:
+
+1. Kolom "Model" di Pengaturan → Ringkasan AI menampilkan petunjuk
+   `qwen2.5:7b` — tag yang tidak ada di katalog dan tidak punya satu pun
+   angka di uji banding.
+2. Laporan Privasi melaporkan **"Sesi berjalan selama 3d"** untuk aplikasi
+   yang sudah terbuka satu menit.
+
+**Putaran 2 — memverifikasi kedua perbaikan pada build gerbang.**
+
+| Yang diperiksa | Sebelum | Sesudah |
+|----------------|---------|---------|
+| Petunjuk kolom Model | `qwen2.5:7b` | **`qwen3:8b`** — berasal dari `DEFAULT_MODEL` lewat jembatan |
+| URL endpoint | `http://localhost:11434` | tidak berubah (benar) |
+| Jam sesi Laporan Privasi | "1 menit nyata → 3d" | **"1m 22d"** untuk aplikasi berumur ~82 detik |
+| Penghitung panggilan jaringan | 0 | **0** — tetap nol sepanjang navigasi pengaturan |
+
+Tangkapan layar: `/tmp/smoke_01..14_*.png` (tidak dikomit — berisi jalur
+dan judul sesi dari mesin pengembang).
+
+### PERLU IZIN OWNER
+
+| Hal | Mengapa tertahan |
+|-----|------------------|
+| Uji tangkap audio WASAPI di Windows (win2060) | Aturan audio kantor melarang membuka mikrofon atau memutar audio di sana tanpa izin pemilik. **Tidak dijalankan.** Sprint ini tidak membutuhkannya — win2060 hanya dipakai untuk inferensi GPU uji banding, tanpa audio sama sekali. |
+| Transkripsi berkas uji pada rapat nyata | Dataset uji banding seluruhnya sintetis (§Item 1). Mengukur mutu notulen pada rekaman rapat nyata memerlukan persetujuan peserta dan dasar pemrosesan. |
+
+### Celah yang diketahui / backlog berikutnya
+
+Berurut menurut besarnya selisih antara apa yang ada di mesin dan apa yang
+sampai ke pengguna:
+
+1. **Antarmuka untuk mesin Sprint 7.** Tiga item (2, 3, 4) berstatus
+   PARTIAL karena alasan yang sama: API-nya lengkap, teruji, dan terpapar
+   ke Dart, tetapi tidak ada layar yang memanggilnya. Ini pekerjaan
+   terbesar yang tersisa, dan pekerjaan dengan nilai tertinggi — seluruh
+   mutunya sudah dibayar, tinggal disambungkan.
+   - layar penyiapan LLM pertama kali (`llmDetect`/`llmRecommend`/`llmPullModel`);
+   - jalur `generateNotulen` + penanda `periksaNotulen` per butir di dialog notulen;
+   - formulir metadata SRIKANDI yang dapat disunting.
+2. **Kit penyetelan halus notulen** dengan sasaran terukur: ekstraksi
+   tindak lanjut (F1 0,202 untuk bawaan, 0,495 untuk model terbaik).
+3. **Log audit tahan-ubah** (rantai hash per entri) — kesenjangan G-1 di
+   paket kepatuhan, satu-satunya kesenjangan di sana yang murni pekerjaan
+   mesin.
+4. **Penanda "tahan dari retensi"** per sesi — saat ini pengecualian harus
+   dilakukan dengan menaikkan sementara angka retensi
+   (`PROSEDUR-RETENSI-DAN-PENGHAPUSAN.md` §3).
+5. **Status "pemrosesan ditangguhkan" per sesi** — kesenjangan G-3,
+   kewajiban Pasal 11/41 yang saat ini hanya bisa dipenuhi secara manual.
+6. Dari masukan kompetitif: **input "poin catatan" → notulen** (nilai
+   tinggi, effort rendah) dan **konteks dokumen** untuk prompt LLM.
+7. **Jalur map-reduce belum terwakili uji banding** — himpunan 8 kasus
+   tidak memuat rapat 30 menit.
+
+### Yang tidak diklaim
+
+- Item 2, 3, dan 4 **bukan DONE**, meskipun mesinnya lengkap dan teruji.
+  Fitur yang tidak dapat dijangkau pengguna belum selesai.
+- Item 5 **NOT DONE**, bukan "sebagian".
+- Paket kepatuhan **bukan sertifikasi**. Trareon belum disertifikasi
+  ISO/IEC 27001 maupun 27701 dan belum dikategorisasi BSSN.
+- Angka uji banding diukur pada **dataset sintetis** dan **satu mesin**.
+- Tidak ada uji audio nyata di Windows pada sprint ini.
