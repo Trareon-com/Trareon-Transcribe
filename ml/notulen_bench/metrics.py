@@ -240,9 +240,7 @@ def faithfulness_score(notulen: dict, case: Case) -> tuple[float, list[str], flo
     cited_well = 0
     for text, ids in statements:
         problems: list[str] = []
-        if decided_nothing and any(
-            text == item["isi"] for item in notulen.get("keputusan", [])
-        ):
+        if decided_nothing and any(text == item["isi"] for item in notulen.get("keputusan", [])):
             problems.append("rapat ini tidak mengambil keputusan")
         if stem.overlap(text, all_words) < MIN_DUKUNGAN:
             problems.append("dukungan transkrip lemah")

@@ -479,9 +479,12 @@ def test_an_empty_notulen_scores_zero_formality() -> None:
     assert register.formality_score("") == 0.0
     assert register.formality_score("   \n ") == 0.0
     # A real sentence in dinas register still scores well.
-    assert register.formality_score(
-        "Rapat memutuskan mengalokasikan anggaran untuk digitalisasi arsip."
-    ) > 0.9
+    assert (
+        register.formality_score(
+            "Rapat memutuskan mengalokasikan anggaran untuk digitalisasi arsip."
+        )
+        > 0.9
+    )
 
 
 def test_a_notulen_with_no_recognised_sections_renders_to_nothing() -> None:

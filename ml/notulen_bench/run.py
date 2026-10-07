@@ -175,9 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--redo", action="store_true", help="Ignore existing records and re-run everything."
     )
-    parser.add_argument(
-        "--list", action="store_true", help="Print the pending work and exit."
-    )
+    parser.add_argument("--list", action="store_true", help="Print the pending work and exit.")
     args = parser.parse_args(argv)
 
     cases = dataset.load_cases()
@@ -195,16 +193,12 @@ def main(argv: list[str] | None = None) -> int:
     # meeting, then evicted. Case-major order would reload six models per
     # meeting and measure the loader.
     pending = [
-        (tag, case)
-        for tag in args.models
-        for case in cases
-        if (tag, case.id) not in already
+        (tag, case) for tag in args.models for case in cases if (tag, case.id) not in already
     ]
 
     if args.list:
         print(
-            f"{len(pending)} pasangan tertunda dari "
-            f"{len(args.models)} model × {len(cases)} kasus"
+            f"{len(pending)} pasangan tertunda dari {len(args.models)} model × {len(cases)} kasus"
         )
         for tag, case in pending:
             print(f"  {tag}  {case.id}")

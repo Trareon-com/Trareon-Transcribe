@@ -91,9 +91,7 @@ FLAG_ONLY: tuple[tuple[str, str], ...] = (
     ("dsb", 'Pedoman melarang "dsb." di naskah resmi — sebutkan rinciannya'),
 )
 
-_SPOKEN = frozenset(
-    "gak nggak udah udh blm kalo bikin dapet pengen oke ok bareng nanya".split()
-)
+_SPOKEN = frozenset("gak nggak udah udh blm kalo bikin dapet pengen oke ok bareng nanya".split())
 _GAYA_DINAS = frozenset(["dan lain-lain", "dll", "dsb"])
 
 
