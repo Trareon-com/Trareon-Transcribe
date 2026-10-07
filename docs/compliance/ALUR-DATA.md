@@ -137,6 +137,14 @@ jauh, tidak ada akun, dan tidak ada sinkronisasi. Yang membuat ini bisa
 diperiksa bukan daftar ini melainkan uji di `privacy.rs`: daftar yang
 tidak sesuai kode akan menggagalkan build.
 
+> **Mengapa layar Laporan Privasi menyebut *empat*, bukan lima.** Layar di
+> dalam aplikasi melipat baris 5 ke dalam baris 2, karena keduanya adalah
+> endpoint yang sama dan pengguna mengaturnya di satu tempat. Tabel ini
+> memisahkannya karena pemicunya berbeda — satu dari tombol "Buat
+> Ringkasan/Notulen", satu dari "Tanya arsip rapat" — dan asesmen perlu
+> tahu keduanya. Tidak ada titik keluar yang hilang dari salah satu
+> daftar.
+
 ### Pemeriksaan mandiri untuk auditor
 
 ```sh
