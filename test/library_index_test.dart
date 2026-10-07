@@ -108,11 +108,21 @@ void main() {
   });
 
   group('the index file', () {
+    /// Waits for the background index write [loadLibraryIndex] started.
+    ///
+    /// This used to poll for the file for one second and then return anyway,
+    /// so on a loaded machine the write was still in flight and the next
+    /// load re-parsed the whole corpus — surfacing as a `parsedFromDisk`
+    /// mismatch that read like a logic bug. Awaiting the write itself is
+    /// exact, and asserting the file exists keeps "the index was written"
+    /// a checked precondition rather than an assumption.
     Future<void> waitForIndex() async {
-      for (var i = 0; i < 100; i++) {
-        if (indexFile().existsSync()) return;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
+      await libraryIndexWriteSettled;
+      expect(
+        indexFile().existsSync(),
+        isTrue,
+        reason: 'the background index write did not produce a file',
+      );
     }
 
     test('is written on the first load and reused on the second', () async {

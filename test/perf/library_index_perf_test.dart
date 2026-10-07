@@ -48,11 +48,10 @@ void main() {
       '${cold.elapsedMilliseconds}ms',
     );
 
-    // The index is written best-effort in the background; give it a moment.
-    for (var i = 0; i < 50; i++) {
-      if (File('${library.path}/$kLibraryIndexFilename').existsSync()) break;
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
+    // The index is written best-effort in the background. Awaiting the write
+    // is exact; a bounded poll would make the warm measurement below depend
+    // on how loaded the machine is rather than on the index.
+    await libraryIndexWriteSettled;
     expect(File('${library.path}/$kLibraryIndexFilename').existsSync(), isTrue);
 
     final warm = Stopwatch()..start();
@@ -81,10 +80,7 @@ void main() {
 
   test('a stale entry is re-derived, the rest are not', () async {
     await loadLibraryIndex(library.path);
-    for (var i = 0; i < 50; i++) {
-      if (File('${library.path}/$kLibraryIndexFilename').existsSync()) break;
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-    }
+    await libraryIndexWriteSettled;
 
     // Edit one transcript the way the player's autosave would.
     final target = (await loadLibraryIndex(library.path)).entries.first;
