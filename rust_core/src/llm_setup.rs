@@ -133,6 +133,17 @@ pub struct ModelOption {
 /// Chosen by the bake-off in `ml/NOTULEN-BENCHMARK.md`, not by
 /// reputation: the two prior research rounds recommended two different
 /// models and neither recommendation was measurable from the literature.
+///
+/// Deliberately **not** the highest-scoring model. Gemma 3 12B won the
+/// composite (0.868 against 0.816), and three things keep it out of the
+/// default slot — see `NOTULEN-BENCHMARK.md` §8.1:
+///
+/// * its licence has conditions, and the default is the one model the
+///   app configures *without asking*;
+/// * its citation accuracy is 0.715 against this model's 1.000, so
+///   provenance and the fact check would flag three statements in ten as
+///   untraceable for a user who chose nothing;
+/// * it needs 8.3 GiB resident against 6.1.
 pub const DEFAULT_MODEL: &str = "qwen3:8b";
 
 /// The catalogue, in the order the setup step lists it.
@@ -208,9 +219,15 @@ pub fn catalogue() -> Vec<ModelOption> {
             residen_gb: 8.3,
             konteks: 131_072,
             lisensi: "Gemma Terms of Use".to_string(),
-            catatan: "Paling besar yang masih masuk mesin 16 GB. Perlu \
-                      kartu grafis 12 GB agar nyaman; di CPU sangat lambat. \
-                      Lisensi Gemma perlu ditelaah."
+            catatan: "Skor tertinggi di uji banding (komposit 0,868): \
+                      semua bagian wajib terisi, tidak mengarang keputusan, \
+                      dan tabel tindak lanjutnya paling lengkap. Bukan \
+                      bawaan karena tiga hal: lisensi Gemma perlu ditelaah, \
+                      hanya 72% pernyataannya menautkan nomor segmen yang \
+                      cocok, dan ia butuh 8,3 GB saat bekerja. Paling \
+                      lambat juga — 277 detik per rapat pada kartu 6 GB. \
+                      Pilih bila mesin Anda besar dan lisensinya sudah \
+                      ditelaah instansi."
                 .to_string(),
         },
     ]
