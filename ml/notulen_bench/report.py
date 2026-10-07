@@ -159,9 +159,22 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ringkas hasil bake-off notulen.")
     parser.add_argument("--results", type=Path, default=RESULTS_FILE)
     parser.add_argument("--out", type=Path, default=None, help="Tulis tabel ke berkas.")
+    parser.add_argument(
+        "--cases",
+        nargs="*",
+        default=None,
+        help="Hanya ringkas kasus ini. Dipakai ketika model tidak "
+        "menjalani jumlah kasus yang sama: rata-rata atas himpunan kasus "
+        "yang berbeda tidak dapat dibandingkan.",
+    )
     args = parser.parse_args(argv)
 
     records = load_records(args.results)
+    if args.cases:
+        wanted = set(args.cases)
+        records = [r for r in records if r.get("case_id") in wanted]
+        if not records:
+            raise SystemExit(f"tidak ada catatan untuk kasus {sorted(wanted)}")
     rows = summarise(records)
     text = (
         "## Hasil utama\n\n"
