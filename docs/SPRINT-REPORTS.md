@@ -4120,3 +4120,193 @@ dan tidak ada perangkat atau volume yang diubah.
   jam-dinding mutlak yang sama.
 - CI masih belum dilihat hijau: yang dibuktikan di sini adalah ekuivalen
   lokal ketiga tugas itu. Orkestrator yang mendorong dan mengawasi.
+
+## Sprint 7 — putaran perbaikan ke-4 (tidak ada kegagalan yang dapat direproduksi)
+
+Brief putaran ini berbunyi "verifikasi independen (atau CI) GAGAL", tetapi
+blok `Failure output tail` yang menyertainya **kosong** — tidak ada satu pun
+nama uji, langkah, atau pesan galat yang diberikan. Karena itu putaran ini
+tidak dimulai dengan menebak perbaikan, melainkan dengan mencoba
+mereproduksi kegagalannya: seluruh gerbang brief dijalankan ulang, lalu
+**setiap tugas `ci.yml` dan `ml.yml` yang berjalan pada sebuah PR**
+dijalankan satu per satu, termasuk tugas yang selama ini tidak pernah
+dijalankan secara lokal pada putaran-putaran sebelumnya.
+
+Hasilnya: **tidak ada kegagalan yang dapat direproduksi.** Semuanya hijau,
+termasuk pada clippy yang lebih baru dan pada platform kedua (Windows).
+Tidak ada berkas kode atau uji yang diubah pada putaran ini — mengubah
+sesuatu tanpa kegagalan yang bisa ditunjuk hanya akan menjadi tebakan, dan
+brief melarang melemahkan uji. Satu-satunya berkas yang berubah adalah
+laporan ini.
+
+### Status per item
+
+| item | status | keterangan |
+| --- | --- | --- |
+| Reproduksi kegagalan dari brief | **NOT DONE — tidak mungkin** | ekor keluaran kegagalan kosong; tidak ada kegagalan yang muncul di seluruh matriks di bawah |
+| Jalankan ulang gerbang brief secara utuh | **DONE** | 4 perintah, semuanya hijau (lihat keluaran apa adanya) |
+| Jalankan setiap tugas CI PR yang bisa direproduksi | **DONE** | 7 dari 9 tugas; 2 tugas macOS tidak bisa (tidak ada host macOS) |
+| Perbaiki akar masalah | **N/A** | tidak ada akar masalah yang ditemukan; nol perubahan kode |
+
+### Gerbang verifikasi brief — keluaran apa adanya
+
+```
+$ cd rust_core && cargo fmt --check
+    (keluar 0, tanpa keluaran)
+
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.08s
+    (nol peringatan)
+
+$ cargo test --lib
+test result: ok. 845 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 788.35s
+
+$ flutter analyze
+No issues found! (ran in 37.0s)
+
+$ flutter test
+00:08:22 +628: All tests passed!          ← 614 uji biasa + 14 golden
+
+$ flutter build linux --release
+✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+### Setiap tugas CI PR, dijalankan satu per satu
+
+Tugas `rust` (ubuntu) — termasuk langkah yang tidak ada di gerbang brief:
+
+```
+$ cargo fmt --all -- --check                        → keluar 0   (bentuk persis ci.yml)
+$ cargo audit                                        → warning: 1 allowed warning found (keluar 0)
+$ cargo deny check                                   → advisories ok, bans ok, licenses ok, sources ok
+$ cargo check --lib --features silero-onnx           → Finished in 5m 38s
+$ cargo check --lib --features neural-diarization    → Finished in 6m 55s
+```
+
+Tugas `benchmark` — **belum pernah dijalankan lokal pada putaran mana pun.**
+Dijalankan persis seperti ci.yml (unduh model tiny, bangkitkan sinus 5 detik
+ke `/tmp/test_en.wav`, lalu `bash scripts/benchmark.sh`):
+
+```
+--- Benchmark: STT Latency (5s WAV) ---   ✅ PASS   (transcribe_cli rilis terbangun dan berjalan)
+--- Benchmark: Export All Formats ---     ✅ PASS
+--- Benchmark: Rust Unit Tests ---        Test suite: 1375s
+=== Summary ===  ✅ All benchmarks passed.            (keluar 0)
+```
+
+Tugas `ml` (ruff, pytest) — terpicu karena cabang ini mengubah `ml/`:
+
+```
+$ ruff check .          → All checks passed!
+$ ruff format --check . → 71 files already formatted
+$ uv run pytest -q      → 294 passed, 7 deselected in 2.93s
+$ konfigurasi train/configs/*.yaml → 5/5 ok
+```
+
+### Platform kedua: win2060 (klon segar, clippy lebih baru dari CI)
+
+Cabang dikirim sebagai `git bundle` lewat `scp` (tanpa menyentuh `origin`,
+tanpa `git push`, tanpa `gh`) lalu **di-klon segar** ke
+`C:\trareon-work\s7fix`. Klon dari bundle hanya berisi berkas yang terlacak
+git — jadi jalan ini sekaligus menjadi simulasi checkout CI yang bersih.
+Toolchain di sana `cargo/rustc 1.98.1`, yaitu **lebih baru** dari 1.96.0
+lokal dan dari 1.98 yang disebut brief.
+
+```
+$ cargo fmt --all -- --check                → FMT_EXIT=0
+$ cargo clippy --all-targets -- -D warnings → CLIPPY_EXIT=0        (1.98.1, nol peringatan)
+$ cargo build --release --lib               → Finished in 3m 37s
+$ flutter analyze                           → No issues found! (ran in 59.4s)
+$ flutter test --no-pub --exclude-tags golden → 00:34 +614: All tests passed!
+$ flutter build windows --release           → √ Built ...\Release\transcribe.exe (205.4s)
+$ .\scripts\package_windows.ps1             → Done: dist\transcribe-1.0.0-windows.zip   PKG_EXIT=0
+```
+
+614 uji lulus pada klon segar itu menutup **kelas kegagalan fixture** yang
+menjatuhkan putaran-putaran sebelumnya (`notulen_templates.json` hilang di
+runner): kalau masih ada berkas tak-terlacak yang diandalkan uji, klon dari
+bundle inilah yang akan memperlihatkannya, dan ia tidak memperlihatkannya.
+
+Catatan metodologis: percobaan pertama menjalankan `package_windows.ps1`
+tampak gagal di `cargo build` dengan `NativeCommandError`. Itu **artefak
+cara saya memanggilnya**, bukan cacat skrip — pengalihan `*>` membuat stderr
+kargo menjadi ErrorRecord, dan `$ErrorActionPreference = "Stop"` di skrip
+menghentikannya. Dijalankan tanpa pengalihan (seperti ci.yml), skrip lulus
+penuh. Dicatat agar tidak ada yang "memperbaiki" skrip karena laporan palsu.
+
+### Temuan nyata: golden terikat pada host (bukti, bukan dugaan)
+
+`dart_test.yaml` sudah menyatakan golden bergantung host dan CI memakai
+`--exclude-tags golden`. Yang belum pernah dibuktikan angkanya: seberapa
+terikat. Berkas golden yang sama dijalankan di win2060:
+
+```
+Linux (host yang membangkitkan test/goldens/) : 00:59 +14: All tests passed!
+Windows (host lain)                           : 00:55 +0 -14: Some tests failed.
+```
+
+**14 dari 14 gagal di host lain.** Konsekuensinya penting untuk putaran
+seperti ini: gerbang brief adalah `flutter test` polos, yang **ikut
+menjalankan golden**. Dijalankan di mesin mana pun selain yang
+membangkitkan `test/goldens/`, perintah itu gagal 14 uji — tanpa ada yang
+salah pada cabang ini. Jika verifikasi independen itu berjalan di host/
+kontainer lain, inilah penjelasan yang paling cocok dengan "gagal, tanpa
+ekor keluaran yang berguna".
+
+Saya **tidak** mengubah `dart_test.yaml` untuk menyembunyikan ini. Mengubah
+arti `flutter test` akan mengurangi cakupan gerbang yang ditetapkan brief,
+dan itu keputusan orkestrator, bukan keputusan saya. Dua jalan yang tersedia
+bila dugaan ini benar: jalankan `flutter test --exclude-tags golden` (persis
+yang CI lakukan), atau bangkitkan ulang golden di host pemverifikasi dengan
+`flutter test --update-goldens test/golden_test.dart`.
+
+### Uji asap aplikasi nyata — `DISPLAY=:0`
+
+Tidak ada perubahan UI pada putaran ini, tetapi bundel rilis tetap
+dijalankan untuk membuktikan ia lebih dari sekadar "terkompilasi".
+`pactl get-default-sink` → `trareon_silent` diperiksa lebih dulu; tidak ada
+audio yang diputar, mikrofon tidak dibuka, tidak ada perangkat yang diubah.
+
+- Diluncurkan persis dengan perintah berbatas-log dari brief; jendela
+  `1280x800` ditemukan (yang 10x10 diabaikan), tangkapan layar diambil.
+- Yang terlihat: "Siap merekam", "Semua transkripsi berjalan di komputer
+  ini. Tidak ada audio yang keluar.", tiga mode (Rapat Offline / Rapat
+  Online / Webinar) dengan Rapat Online terpilih, pemilih Mikrofon dan Suara
+  sistem (`trareon_silent`), tombol "Mulai Rekam" — seluruhnya Bahasa
+  Indonesia.
+- Bilah sisi memuat sesi nyata dari pustaka (mis. "Sesi 2026-10-05 11:02 —
+  40 detik, 9 segmen"), jadi indeks pustaka benar-benar terbaca, bukan
+  keadaan kosong.
+- `/tmp/trareon_smoke.log` kosong — nol galat saat jalan.
+- `pkill -9 -x transcribe` dijalankan sesudahnya; proses terkonfirmasi mati.
+
+### Celah yang diketahui
+
+- **Dua tugas macOS tidak diverifikasi** (`Flutter build (macos)` dan
+  `macOS packaging smoke test`): tidak ada host macOS. Yang bisa dikatakan:
+  cabang ini **tidak menyentuh `macos/`, `.github/`, maupun
+  `scripts/package_macos.sh`** (`git diff --stat origin/main..HEAD` atas
+  jalur itu hanya memunculkan satu berkas Python baru,
+  `scripts/build_compliance_docx.py`), dan kode Dart/Rust yang sama
+  terbangun di Linux dan Windows. Risiko kecil, tetapi tidak nol dan tidak
+  saya klaim hijau.
+- Tenggat mutlak **500 ms** pada `library_index_perf_test` masih ada. Ia
+  lulus di sini (terbaik dari tiga), tetapi tetap jam-dinding dan punya
+  riwayat goyah di bawah beban. Tidak saya ubah pada putaran ini: tanpa
+  kegagalan yang bisa ditunjuk, menyentuhnya adalah tebakan, dan menaikkan
+  tenggatnya akan melemahkan kriteria keluar sprint.
+- `chacha20 0.10.1` tetap yanked (transitif lewat `printpdf → lopdf → rand`);
+  `cargo audit` dan `cargo deny` sama-sama keluar 0 dengan peringatan yang
+  diizinkan. Tidak berubah dari putaran sebelumnya.
+- CI sendiri masih belum dilihat hijau dari sini; yang dibuktikan adalah
+  ekuivalen lokal dan Windows dari setiap tugasnya. Orkestrator yang
+  mendorong dan mengawasi.
+
+### Yang tidak diklaim
+
+Saya tidak mengklaim memperbaiki apa pun, karena tidak ada yang rusak yang
+bisa saya temukan. Jika verifikasi independen memang gagal, maka
+kegagalannya ada di salah satu dari tiga tempat yang tidak terjangkau dari
+sini: dua tugas macOS, golden yang dijalankan di host lain (lihat di atas),
+atau goyah waktu pada runner yang lebih lambat. Untuk mempersempitnya,
+putaran berikutnya butuh ekor keluaran kegagalan yang sebenarnya.
