@@ -40,6 +40,39 @@ class ChatResult:
         return self.eval_tokens / self.eval_seconds
 
 
+#: Status code used for transport failures that never reached HTTP — a
+#: read timeout, a refused connection, a dropped socket. Not a real HTTP
+#: code; chosen from the unassigned 6xx range so it can never collide
+#: with something Ollama actually returns.
+TRANSPORT_ERROR = 600
+
+
+def _send(request: urllib.request.Request, timeout: float) -> tuple[int, str]:
+    """One round trip, with every transport failure turned into a status.
+
+    A raised exception here used to kill the whole run: ``urlopen``'s
+    timeout is per socket operation, and with ``stream: false`` Ollama
+    sends nothing until generation finishes, so a model that grinds past
+    the limit raises ``TimeoutError`` out of the middle of a multi-hour
+    sweep and takes every pair after it down with it. Measured on
+    Apertus-SEA-LION 8B, which did exactly that on the second case and
+    discarded the four models queued behind it.
+
+    A model that cannot answer within the budget is a *result*, not a
+    crash, so it is recorded as a failed case and the sweep moves on.
+    """
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except (TimeoutError, urllib.error.URLError, OSError) as e:
+        # URLError wraps the socket error; unwrap it so the recorded
+        # message says "timed out" rather than "<urlopen error ...>".
+        reason = getattr(e, "reason", e)
+        return TRANSPORT_ERROR, f"transport: {type(reason).__name__}: {reason}"
+
+
 def _post(host: str, path: str, payload: dict, timeout: float) -> tuple[int, str]:
     request = urllib.request.Request(
         f"{host.rstrip('/')}{path}",
@@ -47,20 +80,12 @@ def _post(host: str, path: str, payload: dict, timeout: float) -> tuple[int, str
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")
+    return _send(request, timeout)
 
 
 def _get(host: str, path: str, timeout: float) -> tuple[int, str]:
     request = urllib.request.Request(f"{host.rstrip('/')}{path}", method="GET")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")
+    return _send(request, timeout)
 
 
 def chat(
@@ -107,6 +132,8 @@ def chat(
         no_think = False
     elapsed = time.monotonic() - started
 
+    if status == TRANSPORT_ERROR:
+        return ChatResult(error=f"{body[:300]} (batas {timeout:.0f}s)", seconds=elapsed)
     if status >= 400:
         return ChatResult(error=f"HTTP {status}: {body[:300]}", seconds=elapsed)
     try:

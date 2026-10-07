@@ -13,7 +13,16 @@ from pathlib import Path
 
 import pytest
 
-from notulen_bench import dataset, metrics, models, register, run, schema, stem
+from notulen_bench import (
+    dataset,
+    metrics,
+    models,
+    ollama,
+    register,
+    run,
+    schema,
+    stem,
+)
 
 FIXTURE = Path(__file__).resolve().parent.parent / "notulen_bench" / "fixtures" / "parity.json"
 
@@ -419,3 +428,42 @@ def test_append_record_is_one_line_per_record(tmp_path: Path) -> None:
     lines = path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
     assert json.loads(lines[0])["case_id"] == "a"
+
+
+# --------------------------------------------------------------------------
+# transport failures must not end the sweep
+# --------------------------------------------------------------------------
+
+
+def test_a_read_timeout_is_a_failed_case_not_an_exception(monkeypatch) -> None:
+    """The whole point of a resumable sweep is that one model cannot end it.
+
+    ``urlopen``'s timeout is per socket operation, and with
+    ``stream: false`` Ollama sends nothing until it has finished
+    generating — so a model that grinds past the budget raises out of the
+    middle of a multi-hour run and takes every pair queued behind it with
+    it. That is what happened to Apertus-SEA-LION 8B on case 02.
+    """
+
+    def always_times_out(request, timeout=None):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(ollama.urllib.request, "urlopen", always_times_out)
+
+    result = ollama.chat("m", "sys", "user", timeout=5.0)
+
+    assert not result.ok
+    assert "TimeoutError" in result.error
+    assert "batas 5s" in result.error
+
+
+def test_a_refused_connection_is_reported_rather_than_raised(monkeypatch) -> None:
+    def refused(request, timeout=None):
+        raise ollama.urllib.error.URLError(ConnectionRefusedError("refused"))
+
+    monkeypatch.setattr(ollama.urllib.request, "urlopen", refused)
+
+    assert ollama.installed_models() == []
+    assert ollama.loaded_footprint() == {}
+    # Eviction is best effort: a host that is gone has nothing to evict.
+    ollama.unload("m")
