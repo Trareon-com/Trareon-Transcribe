@@ -4310,3 +4310,77 @@ kegagalannya ada di salah satu dari tiga tempat yang tidak terjangkau dari
 sini: dua tugas macOS, golden yang dijalankan di host lain (lihat di atas),
 atau goyah waktu pada runner yang lebih lambat. Untuk mempersempitnya,
 putaran berikutnya butuh ekor keluaran kegagalan yang sebenarnya.
+
+## Sprint 7 — putaran final kelima: gerbang hijau untuk PR #16
+
+Brief putaran ini menyebut satu kegagalan lokal yang menghalangi (tenggat
+mutlak 4000 ms pada `transcript_view_perf_test.dart`, uji "5 000 segments
+materialise only the visible rows", terukur goyah 3487 ms lulus vs 5252 ms
+gagal pada host yang sama) dan tiga tugas CI PR #16 yang sempat merah
+(Flutter/`notulen_templates_test`, Rust, ml). Memeriksa berkas ujinya lebih
+dulu (sesuai `systematic-debugging`): tenggatnya **sudah dinaikkan ke 8000
+ms di komit `32786ea`** oleh putaran sebelumnya, dengan komentar yang
+mencatat rentang terukur 3,5–5,3 s dan alasan kenapa penjaga sebenarnya
+tetap struktural (`kScaleBudget` rasio skala, `built < 60` baris). Tidak
+ada perubahan kode diperlukan pada putaran ini — perbaikannya sudah ada,
+tugasnya adalah memverifikasi dan menjalankan sisa gerbang.
+
+### Perbaikan uji perf — diverifikasi, bukan dibuat ulang
+
+Pilihan yang sudah diambil putaran sebelumnya: **menaikkan tenggat mutlak
+ke 8000 ms**, bukan menghapus atau melemahkan penjaga struktural. Dijalankan
+3× berturut-turut untuk membuktikan stabil:
+
+```
+$ flutter test test/perf/transcript_view_perf_test.dart   (×3)
+run 1: first build @40: 514.05ms, @5000: 632.81ms, scale 1.23×  → +7: All tests passed!
+run 2: first build @40: 1078.13ms, @5000: 1114.08ms, scale 1.03× → +7: All tests passed!
+run 3: first build @40: 654.81ms, @5000: 614.08ms, scale 0.94×  → +7: All tests passed!
+```
+
+### Ketiga tugas CI yang sempat merah — ekuivalen lokal
+
+```
+$ cd rust_core && cargo fmt --check                 → keluar 0
+$ cargo clippy --all-targets -- -D warnings         → nol peringatan
+$ cargo test --lib                                   → test result: ok. 845 passed; 0 failed; finished in 818.34s
+$ cargo audit                                        → warning: 1 allowed warning found (chacha20 0.10.1 yanked, keluar 0)
+$ cargo deny check                                   → advisories ok, bans ok, licenses ok, sources ok
+
+$ cd ml && uv sync --extra dev --extra data --extra pdf   (persis ci.yml)  → Resolved/Checked, keluar 0
+$ uv run ruff check .                                → All checks passed!
+$ uv run ruff format --check .                       → 95 files already formatted
+$ uv run pytest -q                                   → 294 passed, 7 deselected in 3.86s
+$ konfigurasi train/configs/*.yaml (5 berkas)         → 5/5 ok
+
+$ flutter analyze                                    → No issues found! (ran in 44.8s)
+$ flutter test                                       → 05:57 +628: All tests passed!
+$ flutter build linux --release                      → ✓ Built build/linux/x64/release/bundle/transcribe
+```
+
+Tugas Flutter `notulen_templates_test.dart` yang gagal `setUpAll` di CI
+sudah tertutup oleh komit `d081b3a` (melacak 24 fixture bench yang
+sebelumnya tertelan `.gitignore`) dari putaran sebelumnya — fixture itu
+termasuk dalam 628 uji yang lulus di atas.
+
+### Status per item
+
+| item | status | keterangan |
+| --- | --- | --- |
+| Perbaikan tenggat uji perf | **DONE (diwarisi, diverifikasi)** | 8000 ms, komentar mencatat rentang terukur; penjaga struktural tak disentuh; 3/3 lulus |
+| Tugas Rust (fmt/clippy/test/audit/deny) | **DONE** | semua hijau lokal |
+| Tugas Flutter (`notulen_templates_test`) | **DONE (diwarisi)** | fixture sudah terlacak sejak `d081b3a`; termasuk 628 uji hijau |
+| Tugas ml (ruff/pytest) | **DONE** | `uv sync` persis ci.yml, lint + 294 uji + 5 config semuanya hijau |
+| Gerbang lokal penuh | **DONE** | rust 845 uji, flutter analyze 0 isu, flutter test 628 lulus, build linux rilis sukses |
+| Smoke test UI | **TIDAK PERLU** | tidak ada berkas UI yang diubah pada putaran ini |
+
+### Celah yang diketahui
+
+- CI PR #16 sendiri belum dilihat hijau dari sini — yang dibuktikan adalah
+  ekuivalen lokal persis setiap tugasnya. Orkestrator yang mendorong dan
+  mengawasi (sesuai larangan `git push`/`gh` pada brief).
+- `chacha20 0.10.1` tetap yanked (transitif lewat `printpdf → lopdf →
+  rand`); tidak berubah dari putaran sebelumnya, `cargo audit`/`cargo deny`
+  keluar 0 dengan peringatan yang diizinkan.
+- Dua tugas macOS dan golden terikat-host masih di luar jangkauan mesin
+  ini, seperti dicatat pada putaran sebelumnya.
