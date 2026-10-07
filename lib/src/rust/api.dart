@@ -333,6 +333,15 @@ Future<Recommendation> llmRecommend({required HardwareProfile hardware}) =>
 Future<List<ModelOption>> llmCatalogue() =>
     RustLib.instance.api.crateApiLlmCatalogue();
 
+/// The tag the app configures when the user accepts the default.
+///
+/// Exposed so the settings screen's "Model" hint names the model the
+/// bake-off actually chose. It used to hardcode a tag that was never in
+/// the catalogue, which told a user who typed it verbatim to pull a model
+/// the app has no measurements for.
+Future<String> llmDefaultModel() =>
+    RustLib.instance.api.crateApiLlmDefaultModel();
+
 /// How to install Ollama on `os` (`"macos"`, `"windows"`, `"linux"`).
 Future<InstallGuide> llmInstallGuide({required String os}) =>
     RustLib.instance.api.crateApiLlmInstallGuide(os: os);

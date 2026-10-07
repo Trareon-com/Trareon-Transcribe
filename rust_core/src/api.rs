@@ -590,6 +590,16 @@ pub fn llm_catalogue() -> Vec<crate::llm_setup::ModelOption> {
     crate::llm_setup::catalogue()
 }
 
+/// The tag the app configures when the user accepts the default.
+///
+/// Exposed so the settings screen's "Model" hint names the model the
+/// bake-off actually chose. It used to hardcode a tag that was never in
+/// the catalogue, which told a user who typed it verbatim to pull a model
+/// the app has no measurements for.
+pub fn llm_default_model() -> String {
+    crate::llm_setup::DEFAULT_MODEL.to_string()
+}
+
 /// How to install Ollama on `os` (`"macos"`, `"windows"`, `"linux"`).
 pub fn llm_install_guide(os: String) -> crate::llm_setup::InstallGuide {
     crate::llm_setup::install_guide(&os)

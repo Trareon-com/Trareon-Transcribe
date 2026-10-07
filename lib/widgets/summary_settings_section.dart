@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../src/rust/api.dart' show llmDefaultModel;
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -33,6 +34,14 @@ class _SummarySettingsSectionState
   bool _loadingModels = false;
   String? _modelsError;
 
+  /// Placeholder for the Ollama model field, replaced by the engine's
+  /// default tag once it answers. Neutral until then: a hint naming a
+  /// model the catalogue does not contain is worse than no name at all,
+  /// because a user who types it verbatim pulls a model the app has no
+  /// measurements for. That is exactly what the previous hardcoded
+  /// `qwen2.5:7b` did.
+  String _ollamaModelHint = 'nama model Ollama';
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +50,19 @@ class _SummarySettingsSectionState
     _apiKeyController = TextEditingController(text: summary.apiKey);
     _modelController = TextEditingController(text: summary.model);
     _customPromptController = TextEditingController(text: summary.customPrompt);
+    _loadDefaultModelHint();
+  }
+
+  Future<void> _loadDefaultModelHint() async {
+    try {
+      final tag = await llmDefaultModel();
+      if (!mounted) return;
+      setState(() => _ollamaModelHint = tag);
+    } catch (_) {
+      // No bridge (widget tests) or a failed load. The neutral hint is
+      // still correct, and a placeholder is not worth surfacing an error
+      // for.
+    }
   }
 
   @override
@@ -211,7 +233,7 @@ class _SummarySettingsSectionState
                           controller: _modelController,
                           decoration: _decoration(
                             hint: summary.provider == SummaryProvider.ollama
-                                ? 'qwen2.5:7b'
+                                ? _ollamaModelHint
                                 : 'gpt-4o-mini',
                           ),
                           onSubmitted: (v) =>
