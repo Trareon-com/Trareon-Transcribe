@@ -45,7 +45,7 @@ class PrivacyReportState {
 class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   PrivacyReportNotifier()
     : super(
-        PrivacyReportState(networkCallCount: 0, launchedAt: DateTime.now()),
+        PrivacyReportState(networkCallCount: 0, launchedAt: appLaunchedAt),
       );
 
   void _record(String description) {
@@ -95,6 +95,17 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
     _record('Membuka $url di peramban');
   }
 }
+
+/// When the process started. Set by `main()` before any provider exists.
+///
+/// The notifier used to stamp `DateTime.now()` in its own constructor,
+/// and Riverpod builds providers lazily — so on a launch where nothing
+/// ever touched the network, the provider was first built when the user
+/// opened the Privacy Report, and the screen reported "Sesi berjalan
+/// selama 3d" for an app that had been open for a minute. The call
+/// counter was right; the clock was not. A screen whose whole purpose is
+/// to be checkable cannot misstate one of its two numbers.
+DateTime appLaunchedAt = DateTime.now();
 
 final privacyReportProvider =
     StateNotifierProvider<PrivacyReportNotifier, PrivacyReportState>((ref) {

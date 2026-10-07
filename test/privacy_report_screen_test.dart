@@ -45,4 +45,33 @@ void main() {
     expect(find.byIcon(AppIcons.warning), findsOneWidget);
     expect(find.textContaining('Mengunduh model "tiny"'), findsOneWidget);
   });
+
+  testWidgets('the session clock starts at app launch, not at first read', (
+    WidgetTester tester,
+  ) async {
+    // Riverpod builds providers lazily. The notifier used to stamp
+    // DateTime.now() in its own constructor, so on a launch where nothing
+    // touched the network the provider was first built when the user
+    // opened this screen — and the screen reported a three-second session
+    // for an app that had been open for a minute.
+    appLaunchedAt = DateTime.now().subtract(const Duration(hours: 2));
+    addTearDown(() => appLaunchedAt = DateTime.now());
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PrivacyReportScreen()),
+      ),
+    );
+
+    expect(
+      container.read(privacyReportProvider).launchedAt,
+      appLaunchedAt,
+      reason: 'the notifier must read the launch time, not its own clock',
+    );
+    expect(find.textContaining('Sesi berjalan selama 2j'), findsOneWidget);
+  });
 }
