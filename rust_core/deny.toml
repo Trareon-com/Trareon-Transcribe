@@ -3,7 +3,15 @@ all-features = false
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    # ttf-parser is pulled in transitively, non-optionally, by lopdf 0.42
+    # (via pdf-extract 0.12, used for "konteks dokumen" PDF text extraction).
+    # The advisory states no safe upgrade exists: lopdf only made ttf-parser
+    # optional (font_embedding feature) starting at 0.44, and pdf-extract's
+    # lopdf requirement ("0.42") does not reach that version yet. We do not
+    # use any font-embedding/glyph-parsing path — only plain text extraction.
+    "RUSTSEC-2026-0192",
+]
 
 [licenses]
 version = 2

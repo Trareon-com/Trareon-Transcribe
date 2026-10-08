@@ -229,6 +229,26 @@ mixin SummaryBridgeStubs {
     peserta: const [],
   );
 
+  Future<rust_api.NotulenHasil> generateNotulen({
+    required SummaryConfig config,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+    required List<Bookmark> bookmarks,
+    required rust_notulen.NotulenForm base,
+    required NotulenLength panjang,
+    String? konteksDokumen,
+  }) async => rust_api.NotulenHasil(
+    form: base,
+    perbaikan: const [],
+    struktur: const StructureReport(bagianKosong: [], terisi: 0, wajib: 0),
+    fakta: const LaporanFakta(temuan: [], diperiksa: 0, bersih: 0),
+    ragam: const [],
+    mapReduce: false,
+    mentah: '{}',
+  );
+
+  Future<String> extractNotulenDocumentContext(String path) async => '';
+
   Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
     required rust_glossary.GlossaryConfig glossary,
     String contextTail = '',

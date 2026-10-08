@@ -4384,3 +4384,102 @@ termasuk dalam 628 uji yang lulus di atas.
   keluar 0 dengan peringatan yang diizinkan.
 - Dua tugas macOS dan golden terikat-host masih di luar jangkauan mesin
   ini, seperti dicatat pada putaran sebelumnya.
+
+## Sprint 8 report — Poin Catatan, Preset Panjang, Progress Jujur, Konteks Dokumen
+
+Lanjutan dari checkpoint `330e58b` (rencana 713 baris di
+`docs/superpowers/plans/2026-10-08-sprint8-poin-catatan.md` + 3 tes TDD RED
+di `rust_core/src/notulen/prompt.rs`). Semua butir brief diselesaikan sampai
+gerbang verifikasi hijau.
+
+### Status per item
+
+| item | status | keterangan |
+| --- | --- | --- |
+| `NotulenLength` preset (Ringkas/Sedang/Lengkap) | **DONE** | enum baru `rust_core/src/notulen/mod.rs` dengan `target_words()` (250/1000/3000); `length_instruction()` dan `document_context_block()` dijahit ke `prompt::user_prompt`/`reduce_prompt`; 3 tes RED dari checkpoint sekarang hijau tanpa diturunkan |
+| Sambung `generate_notulen` ke `notulen_dialog.dart` | **DONE** | dialog ini sebelumnya TIDAK PERNAH memanggil `generateNotulen` — ini pemasangan pertama. `summary::generate_notulen`/`api::generate_notulen` diberi parameter `panjang`+`konteks_dokumen`; `RustBridge.generateNotulen` baru (interface + mock + impl nyata); dialog punya bagian "Isi otomatis dengan AI" dengan tombol **Buat Otomatis** |
+| Mode "Poin catatan" | **DONE** | `AppSegmented<bool>` toggle "Transkrip sesi"/"Poin catatan"; `manualNotesToSegments()` murni di `lib/state/notulen_generation.dart` mengubah baris teks jadi `TranscriptSegment` ber-timestamp naik, lewat jalur map-reduce yang sama tanpa kode baru di sisi Rust |
+| Progress jujur + Coba lagi | **DONE** | polling `summaryProgress()` 700 ms (pola persis `SummaryNotifier`), `AppLinearProgress` dengan `done/total` nyata dari map-reduce; tombol **Coba lagi** muncul saat gagal dan memanggil `_generate()` ulang dengan state yang sama (tidak reset form) |
+| Preset panjang di dialog | **DONE** | `CompactDropdown<NotulenLength>` dengan tabel `kNotulenLengthOptions` (Dart, mirror manual dari enum Rust — pola yang sama dengan `notulen_templates.dart`) |
+| Konteks dokumen lokal (txt/md/pdf) | **DONE** | `notulen::context::extract_document_text` (ekstensi dispatch + `pdf-extract` + potong-jaga-kedua-ujung di 6.000 char); FRB `extract_notulen_document_context`; `file_picker` di dialog (`FileType.custom`, `['txt','md','pdf']`); teks dicache di state dialog (bukan di `NotulenFormData` — path tersimpan supaya UI re-render, tapi isi dibaca ulang saat dialog dibuka kembali) |
+| Audit PDP untuk pemakaian dokumen | **DONE** | `AuditAction::DocumentContextUsed` (Rust) + `AuditAction.documentContextUsed` (Dart, label "Konteks dokumen digunakan", ikon `AppIcons.document`); dicatat lewat `rust_api.writeAuditEntry` persis pola `_auditExport` di `export_dialog.dart`, hanya saat `pdp.enabled` |
+| Regenerasi FRB | **DONE** | `flutter_rust_bridge_codegen generate` + `build_runner build --delete-conflicting-outputs` dijalankan sekali untuk semua perubahan signature; tidak ada file orphan di `lib/src/rust/` (`git status` sebelum/sesudah sama, semua `M` bukan file baru) |
+| Tes pendukung | **DONE** | `test/notulen_generation_test.dart` (5 tes: `manualNotesToSegments`, `kNotulenLengthOptions`); `test/notulen_dialog_widget_test.dart` +3 tes (mode poin catatan, pilih preset, galat+Coba lagi via `_FailingNotulenBridge`); `rust_core/src/notulen/context.rs` 5 tes (txt, md, ekstensi tak didukung, berkas hilang, potong teks panjang, + 1 tes PDF nyata lewat `export::pdf::to_pdf_bytes` sebagai fixture) |
+
+### Jalur tes dan hasil
+
+```
+$ cd rust_core && cargo fmt --check                   → bersih
+$ cargo clippy --all-targets -- -D warnings            → bersih
+$ cargo test --lib                                     → test result: ok. 854 passed; 0 failed
+$ flutter analyze                                      → No issues found!
+$ flutter test                                          → 636/636 lulus (termasuk 5+3 tes baru Sprint 8)
+$ flutter build linux --release                        → sukses, build/linux/x64/release/bundle/transcribe
+```
+
+Golden `notulen-light.png`/`notulen-dark.png` diregenerasi (`--update-goldens`)
+karena bagian "Isi otomatis dengan AI" mengubah tampilan preview notulen —
+hanya dua berkas itu yang berubah, golden lain tidak tersentuh.
+
+### Bukti smoke test (DISPLAY :0, resolusi dinaikkan ke 1920x1080 via `xrandr`
+karena layar 1360x768 bawaan terlalu pendek untuk toolbar bawah sesi)
+
+1. Dibuka sesi "Sesi 2026-10-05 11:02" (transkrip 9 segmen dari audio yang
+   sudah ditranskripsi sebelumnya — tidak ada audio baru diputar untuk
+   putaran ini, hanya navigasi UI).
+2. Klik **Notulen Rapat** → dialog terbuka menampilkan bagian baru "Isi
+   otomatis dengan AI": toggle Transkrip sesi/Poin catatan, dropdown
+   "Panjang notulen" (Sedang), tombol "Tambahkan dokumen rujukan
+   (opsional)", tombol "Buat Otomatis".
+3. Klik "Poin catatan" → textarea "Tempel atau ketik butir-butir catatan
+   rapat..." muncul, menggantikan mode transkrip sesi. Screenshot:
+   `/tmp/trareon_29_poincatatan.png`.
+4. Klik dropdown "Panjang notulen" → tiga pilihan Ringkas/Sedang/Lengkap
+   tampil. Screenshot: `/tmp/trareon_33_dropdown.png`.
+5. Klik **Buat Otomatis** tanpa endpoint LLM dikonfigurasi (sengaja, untuk
+   menguji jalur galat) → pesan merah "Gagal membuat notulen otomatis:
+   Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan →
+   Ringkasan AI." muncul tepat di bawah tombol, dengan tombol **Coba
+   lagi** di sampingnya. Screenshot: `/tmp/trareon_32_generate.png`.
+6. `pkill -9 -x transcribe` di akhir; resolusi layar dikembalikan ke
+   1360x768.
+
+**Celah yang diketahui (dicatat, bukan disembunyikan):**
+- Kepatuhan panjang keluaran ("≈1000 kata") hanya bisa diverifikasi
+  lawan LLM sungguhan — tidak ada mock-HTTP di `rust_core` untuk
+  memalsukannya dalam `cargo test`. Tugas 1 menguji "instruksi sampai ke
+  prompt dengan angka yang benar"; smoke test di atas tidak sempat
+  menguji generasi sungguhan karena tidak ada endpoint Ollama aktif pada
+  putaran ini (di luar cakupan — brief tidak meminta start Ollama).
+- Pemilihan berkas dokumen rujukan via `file_picker` tidak dilatih di
+  smoke test (dialog pemilih berkas OS butuh interaksi GTK native yang
+  tidak stabil lewat `xdotool` di sesi non-interaktif); jalur ini
+  tercakup oleh tes unit Rust (`notulen::context::tests`) dan review kode
+  manual terhadap pola `getDirectoryPath` yang sudah ada di file yang
+  sama.
+- `xdotool type` tidak berhasil mengisi textarea "Poin catatan" di smoke
+  test (kemungkinan masalah IME/fokus di lingkungan X11 virtual ini,
+  bukan bug aplikasi — `AppTextField` yang sama bekerja normal di field
+  lain seperti "Judul Rapat"); path ini dibuktikan lewat widget test
+  `poin catatan mode shows a notes field...` yang mengetik via
+  `tester.enterText` dan lulus.
+
+### File tersentuh
+
+Rust: `rust_core/src/notulen/mod.rs`, `rust_core/src/notulen/prompt.rs`,
+`rust_core/src/notulen/context.rs` (baru), `rust_core/src/summary.rs`,
+`rust_core/src/api.rs`, `rust_core/src/pdp/audit.rs`, `rust_core/Cargo.toml`,
+`rust_core/Cargo.lock`, `rust_core/src/frb_generated.rs`.
+
+Flutter: `lib/src/rust/**` (regenerasi), `lib/state/models.dart`,
+`lib/state/notulen_generation.dart` (baru), `lib/services/session_store.dart`,
+`lib/services/bridge_service.dart`, `lib/widgets/notulen_dialog.dart`,
+`lib/widgets/audit_log_view.dart`.
+
+Tes: `test/notulen_generation_test.dart` (baru),
+`test/notulen_dialog_widget_test.dart`, `test/test_helpers.dart`,
+`test/goldens/notulen-{light,dark}.png`.
+
+Lainnya: `ml/notulen_bench/prompts/*.user.txt` (4 fixture diregenerasi
+dengan `TRAREON_DUMP_PROMPTS=1` supaya cocok dengan instruksi panjang baru
+di prompt).

@@ -16,12 +16,17 @@
 /// this screen cannot drift from what the renderer actually produces.
 library;
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/session_store.dart';
+import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
+import '../state/notulen_generation.dart';
 import '../state/notulen_templates.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -228,6 +233,20 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
 
   final _controllers = <String, TextEditingController>{};
 
+  /// `false` = pakai transkrip sesi, `true` = pakai poin catatan manual.
+  bool _sumberCatatan = false;
+  final _catatanController = TextEditingController();
+
+  /// Teks dokumen rujukan yang sudah diekstrak, dicache di sini (bukan di
+  /// [NotulenFormData]) sehingga re-membuka sesi tidak membaca ulang berkas
+  /// yang mungkin sudah dipindah/dihapus.
+  String _konteksDokumenTeks = '';
+
+  bool _generating = false;
+  MapReduceProgress? _progress;
+  Timer? _progressPoll;
+  Object? _generateError;
+
   @override
   void initState() {
     super.initState();
@@ -239,6 +258,8 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     for (final controller in _controllers.values) {
       controller.dispose();
     }
+    _catatanController.dispose();
+    _progressPoll?.cancel();
     super.dispose();
   }
 
@@ -276,7 +297,171 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
           // No parse, but there *is* a summary — do not silently lose it.
           ? form.copyWith(pembahasan: widget.summary.trim())
           : form;
+      _sumberCatatan = _form.sumberCatatan.trim().isNotEmpty;
+      _catatanController.text = _form.sumberCatatan;
       _loading = false;
+    });
+    if (_form.konteksDokumenPath.isNotEmpty) {
+      try {
+        _konteksDokumenTeks = await ref
+            .read(rustBridgeProvider)
+            .extractNotulenDocumentContext(_form.konteksDokumenPath);
+      } catch (_) {
+        // The picked file may have moved or been deleted since the form
+        // was saved — the chip still shows its name, generation just runs
+        // without that context until the user re-picks it.
+      }
+    }
+  }
+
+  /// Rebuilds the engine's notulen from the session transcript or the
+  /// "poin catatan" the user typed, at the chosen length and with the
+  /// optional document context. Fills [_form]'s body sections; the
+  /// identity block the user already typed is preserved by
+  /// `notulen::to_form` on the Rust side.
+  Future<void> _generate() async {
+    final settings = ref.read(settingsProvider);
+    if (!settings.summary.isUsable) {
+      setState(
+        () => _generateError =
+            'Endpoint atau model ringkasan belum diisi. Lengkapi di '
+            'Pengaturan → Ringkasan AI.',
+      );
+      return;
+    }
+    setState(() {
+      _generating = true;
+      _generateError = null;
+      _progress = null;
+    });
+    _startProgressPoll();
+    try {
+      final bridge = ref.read(rustBridgeProvider);
+      final segments = _sumberCatatan
+          ? manualNotesToSegments(_catatanController.text)
+          : widget.session.segments;
+      final poinPenting = widget.bookmarks.isEmpty
+          ? const <String>[]
+          : await bridge.formatBookmarks(widget.bookmarks);
+      final hasil = await bridge.generateNotulen(
+        config: settings.summary.toConfig(language: settings.language),
+        template: _form.template,
+        segments: segments,
+        bookmarks: widget.bookmarks,
+        base: _form.toRust(poinPenting: poinPenting),
+        panjang: _form.panjang,
+        konteksDokumen: _konteksDokumenTeks.isEmpty
+            ? null
+            : _konteksDokumenTeks,
+      );
+      if (!mounted) return;
+      setState(() {
+        _form = _form.copyWith(
+          ringkasan: hasil.form.ringkasan,
+          peserta: hasil.form.peserta,
+          agenda: hasil.form.agenda,
+          pihak: hasil.form.pihak,
+          pembahasan: hasil.form.pembahasan,
+          jalannyaRapat: [
+            for (final entry in hasil.form.jalannyaRapat)
+              NotulenIntervention(
+                pembicara: entry.pembicara,
+                pokok: entry.pokok,
+              ),
+          ],
+          keputusan: hasil.form.keputusan,
+          tindakLanjut: [
+            for (final task in hasil.form.tindakLanjut)
+              NotulenTask(
+                tugas: task.tugas,
+                penanggungJawab: task.penanggungJawab,
+                tenggat: task.tenggat,
+              ),
+          ],
+        );
+      });
+      // The reused controllers (pembahasan, judul, …) hold stale text once
+      // _form changes under them; dropping them forces a fresh one with
+      // the new value next build.
+      _controllers.remove('pembahasan')?.dispose();
+      if (_konteksDokumenTeks.isNotEmpty) {
+        final pdp = ref.read(settingsProvider).pdp;
+        if (pdp.enabled) {
+          unawaited(
+            rust_api
+                .writeAuditEntry(
+                  action: AuditAction.documentContextUsed,
+                  subject: widget.session.title,
+                  destination: _form.konteksDokumenNama,
+                  detail: 'Panjang: ${_form.panjang.name}',
+                )
+                .catchError((_) {}),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _generateError = e);
+    } finally {
+      _stopProgressPoll();
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  /// Mirrors the engine's map-reduce progress, the same polling pattern
+  /// `SummaryNotifier._startProgressPoll` uses for the AI summary — the
+  /// two share one progress slot on the Rust side.
+  void _startProgressPoll() {
+    _progressPoll?.cancel();
+    _progressPoll = Timer.periodic(const Duration(milliseconds: 700), (
+      _,
+    ) async {
+      try {
+        final progress = await ref.read(rustBridgeProvider).summaryProgress();
+        if (!mounted) return;
+        setState(() => _progress = progress);
+      } catch (_) {
+        // Progress is decoration; losing it must not fail the generation.
+      }
+    });
+  }
+
+  void _stopProgressPoll() {
+    _progressPoll?.cancel();
+    _progressPoll = null;
+    if (mounted) setState(() => _progress = null);
+  }
+
+  Future<void> _pickKonteksDokumen() async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Pilih dokumen rujukan',
+      type: FileType.custom,
+      allowedExtensions: const ['txt', 'md', 'pdf'],
+    );
+    final path = result?.files.singleOrNull?.path;
+    if (path == null) return;
+    try {
+      final text = await ref
+          .read(rustBridgeProvider)
+          .extractNotulenDocumentContext(path);
+      if (!mounted) return;
+      setState(() {
+        _konteksDokumenTeks = text;
+        _form = _form.copyWith(
+          konteksDokumenPath: path,
+          konteksDokumenNama: path.split(Platform.pathSeparator).last,
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Gagal membaca dokumen: $e');
+    }
+  }
+
+  void _clearKonteksDokumen() {
+    setState(() {
+      _konteksDokumenTeks = '';
+      _form = _form.copyWith(konteksDokumenPath: '', konteksDokumenNama: '');
     });
   }
 
@@ -355,6 +540,8 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _templatePicker(colors),
+                  Spacing.gapLg,
+                  _generationSection(colors),
                   Spacing.gapLg,
                   AppGroupLabel('Identitas rapat'),
                   Spacing.gapSm,
@@ -617,6 +804,110 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
           selected.description,
           style: AppText.caption.c(colors.textTertiary),
         ),
+      ],
+    );
+  }
+
+  /// Source toggle, length preset, document context, and the "Buat
+  /// Otomatis" action that fills the form below from the engine.
+  Widget _generationSection(AppColorSet colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppGroupLabel('Isi otomatis dengan AI'),
+        Spacing.gapSm,
+        AppSegmented<bool>(
+          segments: const [
+            AppSegment(value: false, label: 'Transkrip sesi'),
+            AppSegment(value: true, label: 'Poin catatan'),
+          ],
+          selected: _sumberCatatan,
+          enabled: !_generating,
+          onChanged: (value) => setState(() => _sumberCatatan = value),
+        ),
+        if (_sumberCatatan) ...[
+          Spacing.gapSm,
+          AppTextField(
+            controller: _catatanController,
+            maxLines: 6,
+            minLines: 3,
+            enabled: !_generating,
+            reserveHelperSpace: false,
+            placeholder:
+                'Tempel atau ketik butir-butir catatan rapat, satu poin '
+                'per baris.',
+            onChanged: (v) =>
+                setState(() => _form = _form.copyWith(sumberCatatan: v)),
+          ),
+        ],
+        Spacing.gapMd,
+        AppGroupLabel('Panjang notulen'),
+        Spacing.gapSm,
+        CompactDropdown<NotulenLength>(
+          value: _form.panjang,
+          items: [for (final opt in kNotulenLengthOptions) opt.value],
+          labelBuilder: (value) => kNotulenLengthOptions
+              .firstWhere((opt) => opt.value == value)
+              .label,
+          onChanged: (value) =>
+              setState(() => _form = _form.copyWith(panjang: value)),
+        ),
+        Spacing.gapMd,
+        if (_form.konteksDokumenNama.isEmpty)
+          AppButton(
+            onPressed: _generating ? null : _pickKonteksDokumen,
+            icon: AppIcons.uploadFile,
+            label: 'Tambahkan dokumen rujukan (opsional)',
+          )
+        else
+          AppChip(
+            label: _form.konteksDokumenNama,
+            deleteTooltip: 'Hapus dokumen rujukan',
+            onDeleted: _generating ? null : _clearKonteksDokumen,
+          ),
+        Spacing.gapMd,
+        Row(
+          children: [
+            AppButton.primary(
+              onPressed: _generating ? null : _generate,
+              loading: _generating,
+              icon: AppIcons.enhance,
+              label: _generating ? 'Menyusun…' : 'Buat Otomatis',
+            ),
+            if (_generateError != null && !_generating) ...[
+              Spacing.hSm,
+              AppButton(
+                onPressed: _generate,
+                icon: AppIcons.refresh,
+                label: 'Coba lagi',
+              ),
+            ],
+          ],
+        ),
+        if (_generating && _progress != null) ...[
+          Spacing.gapSm,
+          Text(
+            _progress!.label,
+            style: AppText.caption.c(colors.textSecondary),
+          ),
+          Spacing.gapXs,
+          AppLinearProgress(
+            value: _progress!.total > 0
+                ? (_progress!.done / _progress!.total).clamp(0.0, 1.0)
+                : null,
+            semanticLabel: _progress!.label,
+          ),
+        ],
+        if (_generateError != null && !_generating) ...[
+          Spacing.gapSm,
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              'Gagal membuat notulen otomatis: $_generateError',
+              style: AppText.caption.c(colors.error),
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -33,7 +33,7 @@
 //!    prompt, because "## Keputusan" in a prompt is enough to make a 4B
 //!    model produce decisions from a meeting that took none.
 
-use crate::notulen::NotulenTemplate;
+use crate::notulen::{NotulenLength, NotulenTemplate};
 
 /// System message: who the model is and the rules it works under.
 #[flutter_rust_bridge::frb(ignore)]
@@ -161,15 +161,47 @@ pub fn template_notes(template: NotulenTemplate) -> &'static str {
     }
 }
 
+/// Target-length instruction appended to the final-document prompts.
+/// Not used by [`map_prompt`]: length/document context apply to the final
+/// document, not per-window notes.
+fn length_instruction(panjang: NotulenLength) -> String {
+    format!(
+        "\n\nPANJANG KELUARAN: targetkan sekitar {} kata untuk seluruh \
+         dokumen. Ini target, bukan batas kaku — jangan memotong kalimat \
+         atau menghapus keputusan/tugas hanya demi target ini.",
+        panjang.target_words()
+    )
+}
+
+/// Optional local-document context block, rendered empty when absent.
+fn document_context_block(konteks: Option<&str>) -> String {
+    match konteks {
+        None | Some("") => String::new(),
+        Some(text) => format!(
+            "\n\n--- KONTEKS DOKUMEN RUJUKAN (bukan transkrip; gunakan \
+             HANYA untuk memahami istilah/singkatan, JANGAN mengutipnya \
+             sebagai ucapan peserta rapat) ---\n{text}\n--- AKHIR KONTEKS \
+             DOKUMEN ---"
+        ),
+    }
+}
+
 /// The user message: instruction, schema, transcript, and the notulis's
 /// own marks.
 ///
 /// `transcript` must be the numbered rendering from
 /// [`crate::provenance::numbered_transcript`] — the `segmen` field is
 /// meaningless otherwise, and a model given unnumbered text invents ids
-/// rather than omitting them.
+/// rather than omitting them. `panjang` sets the target length;
+/// `konteks_dokumen`, when present, is a local document's extracted text.
 #[flutter_rust_bridge::frb(ignore)]
-pub fn user_prompt(template: NotulenTemplate, transcript: &str, bookmarks: &[String]) -> String {
+pub fn user_prompt(
+    template: NotulenTemplate,
+    transcript: &str,
+    bookmarks: &[String],
+    panjang: NotulenLength,
+    konteks_dokumen: Option<&str>,
+) -> String {
     let mut prompt = format!(
         "Susun {} dari transkrip di bawah ini.\n\n{}\n\nKERANGKA JSON:\n{}\n\n\
          --- TRANSKRIP (bernomor segmen) ---\n{}\n--- AKHIR TRANSKRIP ---",
@@ -191,6 +223,8 @@ pub fn user_prompt(template: NotulenTemplate, transcript: &str, bookmarks: &[Str
         prompt.push_str(&marks.join("\n"));
         prompt.push_str("\n--- AKHIR POIN DITANDAI ---");
     }
+    prompt.push_str(&length_instruction(panjang));
+    prompt.push_str(&document_context_block(konteks_dokumen));
     prompt
 }
 
@@ -214,10 +248,16 @@ pub fn map_prompt(index: u32, total: u32, label: &str) -> String {
     )
 }
 
-/// The reduce step's instruction, over the collected notes.
+/// The reduce step's instruction, over the collected notes. `panjang` and
+/// `konteks_dokumen` have the same meaning as in [`user_prompt`].
 #[flutter_rust_bridge::frb(ignore)]
-pub fn reduce_prompt(template: NotulenTemplate, notes: &str) -> String {
-    format!(
+pub fn reduce_prompt(
+    template: NotulenTemplate,
+    notes: &str,
+    panjang: NotulenLength,
+    konteks_dokumen: Option<&str>,
+) -> String {
+    let mut prompt = format!(
         "Di bawah ini catatan per bagian dari satu rapat panjang, berurutan, \
          dengan nomor segmen transkrip dalam tanda siku. Gabungkan menjadi SATU \
          {} utuh — bukan ringkasan dari ringkasan yang mengulang struktur per \
@@ -229,7 +269,10 @@ pub fn reduce_prompt(template: NotulenTemplate, notes: &str) -> String {
         template_notes(template),
         schema_block(template),
         notes.trim()
-    )
+    );
+    prompt.push_str(&length_instruction(panjang));
+    prompt.push_str(&document_context_block(konteks_dokumen));
+    prompt
 }
 
 #[cfg(test)]
@@ -333,11 +376,61 @@ mod tests {
     }
 
     #[test]
+    fn user_prompt_includes_length_instruction_for_each_preset() {
+        for panjang in [
+            NotulenLength::Ringkas,
+            NotulenLength::Sedang,
+            NotulenLength::Lengkap,
+        ] {
+            let prompt = user_prompt(NotulenTemplate::Dinas, "transkrip", &[], panjang, None);
+            let target = panjang.target_words();
+            assert!(
+                prompt.contains(&target.to_string()),
+                "prompt untuk {panjang:?} harus menyebut target {target} kata:\n{prompt}"
+            );
+        }
+    }
+
+    #[test]
+    fn reduce_prompt_includes_length_instruction() {
+        let prompt = reduce_prompt(
+            NotulenTemplate::Dinas,
+            "catatan",
+            NotulenLength::Ringkas,
+            None,
+        );
+        assert!(prompt.contains(&NotulenLength::Ringkas.target_words().to_string()));
+    }
+
+    #[test]
+    fn user_prompt_includes_document_context_when_present() {
+        let with_ctx = user_prompt(
+            NotulenTemplate::Dinas,
+            "transkrip",
+            &[],
+            NotulenLength::Sedang,
+            Some("Isi dokumen rujukan."),
+        );
+        let without_ctx = user_prompt(
+            NotulenTemplate::Dinas,
+            "transkrip",
+            &[],
+            NotulenLength::Sedang,
+            None,
+        );
+        assert!(with_ctx.contains("Isi dokumen rujukan."));
+        assert!(!without_ctx.contains("KONTEKS DOKUMEN"));
+        assert!(with_ctx.contains("KONTEKS DOKUMEN"));
+    }
+
+    #[test]
     fn the_user_prompt_embeds_schema_transcript_and_marks() {
         let prompt = user_prompt(
             NotulenTemplate::Dinas,
             "[1] 00:00 (Pimpinan): rapat dibuka",
             &["[05:12] keputusan penting".to_string()],
+            NotulenLength::Sedang,
+            None,
         );
         assert!(prompt.contains("KERANGKA JSON"));
         assert!(prompt.contains("\"keputusan\""));
@@ -356,11 +449,19 @@ mod tests {
 
     #[test]
     fn a_prompt_without_marks_has_no_marks_block() {
-        let plain = user_prompt(NotulenTemplate::Dinas, "[1] 00:00 (A): halo", &[]);
+        let plain = user_prompt(
+            NotulenTemplate::Dinas,
+            "[1] 00:00 (A): halo",
+            &[],
+            NotulenLength::Sedang,
+            None,
+        );
         let blank = user_prompt(
             NotulenTemplate::Dinas,
             "[1] 00:00 (A): halo",
             &[String::new(), "  ".to_string()],
+            NotulenLength::Sedang,
+            None,
         );
         assert_eq!(plain, blank);
         assert!(!plain.contains("DITANDAI"));
@@ -381,7 +482,12 @@ mod tests {
 
     #[test]
     fn the_reduce_prompt_asks_for_one_document_in_the_schema() {
-        let prompt = reduce_prompt(NotulenTemplate::Dinas, "## Bagian 1\n- halo [#1]");
+        let prompt = reduce_prompt(
+            NotulenTemplate::Dinas,
+            "## Bagian 1\n- halo [#1]",
+            NotulenLength::Sedang,
+            None,
+        );
         assert!(prompt.contains("SATU NOTULA RAPAT utuh"));
         assert!(prompt.contains("KERANGKA JSON"));
         assert!(prompt.contains("\"tindak_lanjut\""));
@@ -447,7 +553,10 @@ mod tests {
                 ("system", system_prompt(*template)),
                 ("notes", template_notes(*template).to_string()),
                 ("schema", schema_block(*template)),
-                ("user", user_prompt(*template, TRANSCRIPT_SLOT, &[])),
+                (
+                    "user",
+                    user_prompt(*template, TRANSCRIPT_SLOT, &[], NotulenLength::Sedang, None),
+                ),
             ] {
                 out.push((format!("{}.{suffix}.txt", template.id()), text));
             }
@@ -458,7 +567,7 @@ mod tests {
     #[test]
     fn the_mirrored_user_prompt_has_exactly_one_transcript_slot() {
         for template in NotulenTemplate::all() {
-            let prompt = user_prompt(*template, TRANSCRIPT_SLOT, &[]);
+            let prompt = user_prompt(*template, TRANSCRIPT_SLOT, &[], NotulenLength::Sedang, None);
             assert_eq!(
                 prompt.matches(TRANSCRIPT_SLOT).count(),
                 1,

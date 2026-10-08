@@ -25,7 +25,7 @@ export '../src/rust/export/notulen.dart'
 export '../src/rust/llm_setup.dart'
     show HardwareProfile, InstallGuide, LlmTier, ModelOption, PullProgress,
         Recommendation;
-export '../src/rust/notulen.dart' show NotulenTemplate;
+export '../src/rust/notulen.dart' show NotulenLength, NotulenTemplate;
 export '../src/rust/notulen/factcheck.dart'
     show FaktaMasalah, LaporanFakta, TemuanFakta;
 export '../src/rust/notulen/register.dart'

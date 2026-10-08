@@ -89,11 +89,16 @@ class ModelOption {
   final String label;
   final LlmTier tier;
 
-  /// Download size, GiB.
+  /// Download size, GiB, converted from what `ollama list` reports in
+  /// decimal GB.
   final double unduhGb;
 
-  /// Resident footprint while generating, GiB — measured, not the
-  /// download size.
+  /// Resident footprint while generating, GiB — measured from
+  /// `/api/ps`, not derived from the download size.
+  ///
+  /// Usually larger than [`Self::unduh_gb`], but not always: a
+  /// multimodal tag ships a vision projector that a text-only request
+  /// never loads, so Gemma 3 4B downloads 3.1 GiB and resides in 2.7.
   final double residenGb;
 
   /// Context window the tag advertises, in tokens.

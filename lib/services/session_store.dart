@@ -332,6 +332,10 @@ class NotulenFormData {
     this.tindakLanjut = const [],
     this.kopSuratPath = '',
     this.lampirkanTranskrip = false,
+    this.sumberCatatan = '',
+    this.panjang = NotulenLength.sedang,
+    this.konteksDokumenPath = '',
+    this.konteksDokumenNama = '',
   });
 
   final NotulenTemplate template;
@@ -360,6 +364,20 @@ class NotulenFormData {
   final String kopSuratPath;
   final bool lampirkanTranskrip;
 
+  /// Manual "poin catatan" notes typed/pasted by the user. Empty means the
+  /// session transcript is the source instead.
+  final String sumberCatatan;
+
+  /// Target length the model is asked for.
+  final NotulenLength panjang;
+
+  /// Picked local document's path/filename, used as extra context.
+  /// Display-only — the extracted text is cached in the dialog's state,
+  /// not persisted, since re-reading the file on resume is cheap and
+  /// keeps the sidecar free of document contents.
+  final String konteksDokumenPath;
+  final String konteksDokumenNama;
+
   NotulenFormData copyWith({
     NotulenTemplate? template,
     String? instansi,
@@ -382,6 +400,10 @@ class NotulenFormData {
     List<NotulenTask>? tindakLanjut,
     String? kopSuratPath,
     bool? lampirkanTranskrip,
+    String? sumberCatatan,
+    NotulenLength? panjang,
+    String? konteksDokumenPath,
+    String? konteksDokumenNama,
   }) {
     return NotulenFormData(
       template: template ?? this.template,
@@ -405,6 +427,10 @@ class NotulenFormData {
       tindakLanjut: tindakLanjut ?? this.tindakLanjut,
       kopSuratPath: kopSuratPath ?? this.kopSuratPath,
       lampirkanTranskrip: lampirkanTranskrip ?? this.lampirkanTranskrip,
+      sumberCatatan: sumberCatatan ?? this.sumberCatatan,
+      panjang: panjang ?? this.panjang,
+      konteksDokumenPath: konteksDokumenPath ?? this.konteksDokumenPath,
+      konteksDokumenNama: konteksDokumenNama ?? this.konteksDokumenNama,
     );
   }
 
@@ -468,6 +494,10 @@ class NotulenFormData {
     'tindak_lanjut': [for (final task in tindakLanjut) task.toJson()],
     'kop_surat_path': kopSuratPath,
     'lampirkan_transkrip': lampirkanTranskrip,
+    'sumber_catatan': sumberCatatan,
+    'panjang': panjang.name,
+    'konteks_dokumen_path': konteksDokumenPath,
+    'konteks_dokumen_nama': konteksDokumenNama,
   };
 
   factory NotulenFormData.fromJson(Map<String, dynamic> json) {
@@ -513,6 +543,14 @@ class NotulenFormData {
           : const [],
       kopSuratPath: text('kop_surat_path'),
       lampirkanTranskrip: json['lampirkan_transkrip'] == true,
+      sumberCatatan: text('sumber_catatan'),
+      panjang:
+          NotulenLength.values
+              .where((v) => v.name == json['panjang'])
+              .firstOrNull ??
+          NotulenLength.sedang,
+      konteksDokumenPath: text('konteks_dokumen_path'),
+      konteksDokumenNama: text('konteks_dokumen_nama'),
     );
   }
 }

@@ -250,13 +250,22 @@ Future<NotulenHasil> generateNotulen({
   required List<Segment> segments,
   required List<Bookmark> bookmarks,
   required NotulenForm base,
+  required NotulenLength panjang,
+  String? konteksDokumen,
 }) => RustLib.instance.api.crateApiGenerateNotulen(
   config: config,
   template: template,
   segments: segments,
   bookmarks: bookmarks,
   base: base,
+  panjang: panjang,
+  konteksDokumen: konteksDokumen,
 );
+
+/// Reads a local .txt/.md/.pdf file for use as notulen context. Never
+/// uploads or caches the file anywhere else.
+Future<String> extractNotulenDocumentContext({required String path}) =>
+    RustLib.instance.api.crateApiExtractNotulenDocumentContext(path: path);
 
 /// Re-runs every check on a form the user has edited.
 ///

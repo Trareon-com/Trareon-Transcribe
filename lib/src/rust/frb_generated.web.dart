@@ -395,6 +395,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NotulenHasil dco_decode_notulen_hasil(dynamic raw);
 
   @protected
+  NotulenLength dco_decode_notulen_length(dynamic raw);
+
+  @protected
   NotulenTemplate dco_decode_notulen_template(dynamic raw);
 
   @protected
@@ -1010,6 +1013,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NotulenHasil sse_decode_notulen_hasil(SseDeserializer deserializer);
+
+  @protected
+  NotulenLength sse_decode_notulen_length(SseDeserializer deserializer);
 
   @protected
   NotulenTemplate sse_decode_notulen_template(SseDeserializer deserializer);
@@ -1768,6 +1774,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_notulen_hasil(NotulenHasil self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_notulen_length(NotulenLength self, SseSerializer serializer);
 
   @protected
   void sse_encode_notulen_template(

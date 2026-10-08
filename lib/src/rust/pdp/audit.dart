@@ -21,6 +21,9 @@ enum AuditAction {
 
   /// A notulen model was downloaded to the summary endpoint.
   modelPulled,
+
+  /// A local document was used as notulen context.
+  documentContextUsed,
 }
 
 /// One line of the log.
