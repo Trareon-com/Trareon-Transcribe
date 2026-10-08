@@ -6,6 +6,12 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// How long the generated notulen should target.
+///
+/// Serialised by name into the session's saved form, so the variant names
+/// are a storage format: renaming one needs a migration.
+enum NotulenLength { ringkas, sedang, lengkap }
+
 /// Which naskah-dinas layout the notulen is being written as.
 ///
 /// Serialised by name into `settings.json` and the session's saved form,

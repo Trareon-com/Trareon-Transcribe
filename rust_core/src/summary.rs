@@ -829,6 +829,8 @@ pub async fn generate_notulen(
     template: crate::notulen::NotulenTemplate,
     segments: Vec<Segment>,
     bookmarks: Vec<String>,
+    panjang: crate::notulen::NotulenLength,
+    konteks_dokumen: Option<String>,
     mut on_progress: impl FnMut(crate::mapreduce::MapReduceProgress),
 ) -> Result<NotulenResponse, TranscribeError> {
     validate(&config)?;
@@ -847,7 +849,13 @@ pub async fn generate_notulen(
 
     let system = crate::notulen::prompt::system_prompt(template);
     if !crate::mapreduce::needs_map_reduce(numbered.len(), MAX_TRANSCRIPT_CHARS) {
-        let prompt = crate::notulen::prompt::user_prompt(template, &numbered, &bookmarks);
+        let prompt = crate::notulen::prompt::user_prompt(
+            template,
+            &numbered,
+            &bookmarks,
+            panjang,
+            konteks_dokumen.as_deref(),
+        );
         let mentah = chat_once(&config, &system, &prompt, notulen_chat_options()).await?;
         return Ok(NotulenResponse {
             parsed: crate::notulen::schema::parse(&mentah)?,
@@ -921,7 +929,12 @@ pub async fn generate_notulen(
     // --- reduce: one document -------------------------------------------
     on_progress(crate::mapreduce::MapReduceProgress::reducing(total));
     let notes = crate::mapreduce::join_partials(&chunks, &partials);
-    let mut prompt = crate::notulen::prompt::reduce_prompt(template, &notes);
+    let mut prompt = crate::notulen::prompt::reduce_prompt(
+        template,
+        &notes,
+        panjang,
+        konteks_dokumen.as_deref(),
+    );
     let marks: Vec<&str> = bookmarks
         .iter()
         .map(|b| b.trim())
@@ -1598,6 +1611,8 @@ mod tests {
             crate::notulen::NotulenTemplate::Dinas,
             Vec::new(),
             Vec::new(),
+            crate::notulen::NotulenLength::Sedang,
+            None,
             |_| {},
         )
         .await
@@ -1621,6 +1636,8 @@ mod tests {
             crate::notulen::NotulenTemplate::Dinas,
             vec![partial],
             Vec::new(),
+            crate::notulen::NotulenLength::Sedang,
+            None,
             |_| {},
         )
         .await

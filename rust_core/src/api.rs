@@ -391,6 +391,8 @@ pub async fn generate_notulen(
     segments: Vec<Segment>,
     bookmarks: Vec<Bookmark>,
     base: NotulenForm,
+    panjang: crate::notulen::NotulenLength,
+    konteks_dokumen: Option<String>,
 ) -> Result<NotulenHasil, TranscribeError> {
     let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
     crate::summary::reset_progress();
@@ -399,6 +401,8 @@ pub async fn generate_notulen(
         template,
         segments.clone(),
         marks,
+        panjang,
+        konteks_dokumen,
         crate::summary::publish_progress,
     )
     .await;
@@ -417,6 +421,12 @@ pub async fn generate_notulen(
         mentah: response.mentah,
         form,
     })
+}
+
+/// Reads a local .txt/.md/.pdf file for use as notulen context. Never
+/// uploads or caches the file anywhere else.
+pub fn extract_notulen_document_context(path: String) -> Result<String, TranscribeError> {
+    crate::notulen::context::extract_document_text(std::path::Path::new(&path))
 }
 
 /// The document's prose, for the register checker and the preview.

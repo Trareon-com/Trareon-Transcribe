@@ -47,6 +47,8 @@ pub enum AuditAction {
     AuditExported,
     /// A notulen model was downloaded to the summary endpoint.
     ModelPulled,
+    /// A local document was used as notulen context.
+    DocumentContextUsed,
 }
 
 impl AuditAction {
@@ -65,6 +67,7 @@ impl AuditAction {
             AuditAction::RetentionApplied => "Kebijakan retensi dijalankan",
             AuditAction::AuditExported => "Log audit diekspor",
             AuditAction::ModelPulled => "Model notulen diunduh",
+            AuditAction::DocumentContextUsed => "Konteks dokumen digunakan",
         }
     }
 }

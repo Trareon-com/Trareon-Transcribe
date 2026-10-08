@@ -14,3 +14,5 @@ KERANGKA JSON:
 --- TRANSKRIP (bernomor segmen) ---
 <<TRANSKRIP>>
 --- AKHIR TRANSKRIP ---
+
+PANJANG KELUARAN: targetkan sekitar 1000 kata untuk seluruh dokumen. Ini target, bukan batas kaku — jangan memotong kalimat atau menghapus keputusan/tugas hanya demi target ini.

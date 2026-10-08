@@ -40,6 +40,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod angka;
+pub mod context;
 pub mod factcheck;
 #[cfg(test)]
 mod parity;
@@ -68,6 +69,32 @@ pub enum NotulenTemplate {
     BeritaAcara,
     /// One page, no kop surat, no signature block.
     Ringkas,
+}
+
+/// How long the generated notulen should target.
+///
+/// Serialised by name into the session's saved form, so the variant names
+/// are a storage format: renaming one needs a migration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum NotulenLength {
+    Ringkas,
+    #[default]
+    Sedang,
+    Lengkap,
+}
+
+impl NotulenLength {
+    /// Rough word budget the prompt asks the model to stay near. Not
+    /// enforced client-side — a model given a hard cap mid-sentence
+    /// produces worse minutes than one given a target and overshooting it.
+    #[flutter_rust_bridge::frb(ignore)]
+    pub fn target_words(self) -> u32 {
+        match self {
+            NotulenLength::Ringkas => 250,
+            NotulenLength::Sedang => 1_000,
+            NotulenLength::Lengkap => 3_000,
+        }
+    }
 }
 
 /// One section of the schema, as the prompt and the structure check see it.

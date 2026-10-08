@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1632989552;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1428164068;
 
 // Section: executor
 
@@ -1357,6 +1357,39 @@ fn wire__crate__api__export_session_with_summary_impl(
         },
     )
 }
+fn wire__crate__api__extract_notulen_document_context_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "extract_notulen_document_context",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::TranscribeError>((move || {
+                    let output_ok = crate::api::extract_notulen_document_context(api_path)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__flight_clear_log_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1877,6 +1910,8 @@ fn wire__crate__api__generate_notulen_impl(
             let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
             let api_bookmarks = <Vec<crate::export::Bookmark>>::sse_decode(&mut deserializer);
             let api_base = <crate::export::notulen::NotulenForm>::sse_decode(&mut deserializer);
+            let api_panjang = <crate::notulen::NotulenLength>::sse_decode(&mut deserializer);
+            let api_konteks_dokumen = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, crate::error::TranscribeError>(
@@ -1887,6 +1922,8 @@ fn wire__crate__api__generate_notulen_impl(
                             api_segments,
                             api_bookmarks,
                             api_base,
+                            api_panjang,
+                            api_konteks_dokumen,
                         )
                         .await?;
                         std::result::Result::Ok(output_ok)
@@ -4487,6 +4524,7 @@ impl SseDecode for crate::pdp::audit::AuditAction {
             8 => crate::pdp::audit::AuditAction::RetentionApplied,
             9 => crate::pdp::audit::AuditAction::AuditExported,
             10 => crate::pdp::audit::AuditAction::ModelPulled,
+            11 => crate::pdp::audit::AuditAction::DocumentContextUsed,
             _ => unreachable!("Invalid variant for AuditAction: {}", inner),
         };
     }
@@ -5683,6 +5721,19 @@ impl SseDecode for crate::api::NotulenHasil {
     }
 }
 
+impl SseDecode for crate::notulen::NotulenLength {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::notulen::NotulenLength::Ringkas,
+            1 => crate::notulen::NotulenLength::Sedang,
+            2 => crate::notulen::NotulenLength::Lengkap,
+            _ => unreachable!("Invalid variant for NotulenLength: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::notulen::NotulenTemplate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6777,97 +6828,103 @@ fn pde_ffi_dispatcher_primary_impl(
         34 => wire__crate__api__export_session_impl(port, ptr, rust_vec_len, data_len),
         35 => wire__crate__api__export_session_audio_impl(port, ptr, rust_vec_len, data_len),
         36 => wire__crate__api__export_session_with_summary_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__flight_export_diagnostics_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__flight_log_file_count_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__format_audit_time_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__format_bookmarks_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__generate_notulen_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__generate_summary_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__generate_summary_long_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__get_batch_progress_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__get_capture_health_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__glossary_prompt_preview_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__gpu_capability_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__is_non_speech_text_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__list_auxiliary_assets_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__llm_catalogue_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__llm_default_model_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__llm_detect_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__llm_hardware_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__llm_install_guide_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__llm_pull_model_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__llm_recommend_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__merge_transcript_segments_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__neural_diarization_status_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__notulen_draft_from_summary_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__notulen_templates_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__parse_action_items_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__parse_glossary_file_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__parse_summary_provenance_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__parse_summary_provenance_verified_impl(
+        37 => wire__crate__api__extract_notulen_document_context_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        87 => wire__crate__api__periksa_notulen_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__preview_redaction_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__preview_redaction_segments_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__preview_retention_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__rapikan_ragam_impl(port, ptr, rust_vec_len, data_len),
-        94 => wire__crate__api__read_audit_log_impl(port, ptr, rust_vec_len, data_len),
-        95 => wire__crate__api__read_completion_progress_impl(port, ptr, rust_vec_len, data_len),
-        96 => wire__crate__api__read_llm_pull_progress_impl(port, ptr, rust_vec_len, data_len),
-        97 => wire__crate__api__read_summary_progress_impl(port, ptr, rust_vec_len, data_len),
-        98 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        99 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
-        100 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
-        101 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
-        102 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        103 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        104 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
-        105 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
-        106 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
-        107 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
-        108 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
-        109 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        110 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        111 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
-        112 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
-        113 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
-        114 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        115 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        116 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
-        117 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
-        118 => {
+        38 => wire__crate__api__flight_clear_log_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__flight_entry_count_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__flight_export_diagnostics_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__flight_log_auto_stop_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__flight_log_error_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__flight_log_file_count_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__flight_log_lifecycle_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__flight_log_segment_batch_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__flight_log_system_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__flight_read_log_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__flight_set_enabled_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__format_audit_time_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__format_bookmarks_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__format_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__generate_notulen_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__generate_summary_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__generate_summary_long_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__get_batch_progress_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__get_capture_health_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__get_download_progress_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__get_session_status_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__glossary_prompt_preview_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__gpu_capability_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__health_check_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__init_flight_recorder_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__init_logging_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__is_model_downloaded_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__is_non_speech_text_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__list_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__list_auxiliary_assets_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__list_available_models_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__list_output_audio_devices_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__list_recoverable_sessions_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__list_summary_models_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__llm_catalogue_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__llm_default_model_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__llm_detect_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__llm_hardware_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__llm_install_guide_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__llm_pull_model_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__llm_recommend_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__load_settings_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__merge_transcript_segments_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__neural_diarization_status_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__notulen_draft_from_summary_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__notulen_templates_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__parse_action_items_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__parse_glossary_file_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__parse_summary_provenance_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__parse_summary_provenance_verified_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        88 => wire__crate__api__periksa_notulen_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__poll_session_events_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__preview_redaction_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__preview_redaction_segments_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__preview_retention_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__progressive_transcribe_file_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__rapikan_ragam_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__read_audit_log_impl(port, ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__read_completion_progress_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__read_llm_pull_progress_impl(port, ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__read_summary_progress_impl(port, ptr, rust_vec_len, data_len),
+        99 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        100 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
+        101 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
+        102 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
+        103 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        104 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        105 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
+        106 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
+        107 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
+        108 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
+        109 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
+        110 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        111 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        112 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
+        113 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        114 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
+        115 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        116 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        117 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        118 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
+        119 => {
             wire__crate__api__transcript_coverage_for_audio_impl(port, ptr, rust_vec_len, data_len)
         }
-        119 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
+        120 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -7078,6 +7135,7 @@ impl flutter_rust_bridge::IntoDart for crate::pdp::audit::AuditAction {
             Self::RetentionApplied => 8.into_dart(),
             Self::AuditExported => 9.into_dart(),
             Self::ModelPulled => 10.into_dart(),
+            Self::DocumentContextUsed => 11.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -7981,6 +8039,25 @@ impl flutter_rust_bridge::IntoDart for crate::api::NotulenHasil {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::NotulenHasil {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::NotulenHasil> for crate::api::NotulenHasil {
     fn into_into_dart(self) -> crate::api::NotulenHasil {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::notulen::NotulenLength {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Ringkas => 0.into_dart(),
+            Self::Sedang => 1.into_dart(),
+            Self::Lengkap => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::notulen::NotulenLength {}
+impl flutter_rust_bridge::IntoIntoDart<crate::notulen::NotulenLength>
+    for crate::notulen::NotulenLength
+{
+    fn into_into_dart(self) -> crate::notulen::NotulenLength {
         self
     }
 }
@@ -9243,6 +9320,7 @@ impl SseEncode for crate::pdp::audit::AuditAction {
                 crate::pdp::audit::AuditAction::RetentionApplied => 8,
                 crate::pdp::audit::AuditAction::AuditExported => 9,
                 crate::pdp::audit::AuditAction::ModelPulled => 10,
+                crate::pdp::audit::AuditAction::DocumentContextUsed => 11,
                 _ => {
                     unimplemented!("");
                 }
@@ -10153,6 +10231,23 @@ impl SseEncode for crate::api::NotulenHasil {
         <Vec<crate::notulen::register::RegisterFinding>>::sse_encode(self.ragam, serializer);
         <bool>::sse_encode(self.map_reduce, serializer);
         <String>::sse_encode(self.mentah, serializer);
+    }
+}
+
+impl SseEncode for crate::notulen::NotulenLength {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::notulen::NotulenLength::Ringkas => 0,
+                crate::notulen::NotulenLength::Sedang => 1,
+                crate::notulen::NotulenLength::Lengkap => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
