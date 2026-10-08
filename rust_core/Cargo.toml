@@ -90,7 +90,7 @@ sysinfo = "0.39.6"
 flutter_rust_bridge = "=2.13.0"
 whisper-rs = "0.16"
 printpdf = { version = "0.12.8", default-features = false }
-pdf-extract = "0.7"
+pdf-extract = "0.12"
 nnnoiseless = { version = "0.5.2", default-features = false }
 # Offline speaker diarization. Optional — see the `neural-diarization`
 # feature below for why it is not a default dependency.
