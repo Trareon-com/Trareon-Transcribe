@@ -7,9 +7,13 @@
 /// user types is saved into the session sidecar so re-exporting six months
 /// later reproduces the same document.
 ///
-/// Two template variants ship, because Tata Naskah Dinas varies per ministry
-/// and pemda: "Notulen Dinas" (full form, kop surat, signature block) and
-/// "Notulen Ringkas" (one page, for circulating the outcome).
+/// Four templates ship, because the naskah-dinas family has four shapes and
+/// picking the wrong one is a document a Tata Usaha sends back: Notulen
+/// Dinas (the full notula form), Risalah Rapat (the ordered record a sidang
+/// produces), Berita Acara (para pihak and "telah melaksanakan"), and
+/// Notulen Ringkas (one page, for circulating the outcome). The engine
+/// supplies their labels and descriptions through `notulenTemplates()`, so
+/// this screen cannot drift from what the renderer actually produces.
 library;
 
 import 'package:file_picker/file_picker.dart';
@@ -18,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/session_store.dart';
 import '../state/models.dart';
+import '../state/notulen_templates.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
@@ -30,6 +35,7 @@ import 'ui/app_controls.dart';
 import 'ui/app_dialog.dart';
 import 'ui/app_feedback.dart';
 import 'ui/app_field.dart';
+import 'settings_controls.dart';
 import 'ui/app_surface.dart';
 
 /// Indonesian day names, indexed by `DateTime.weekday` (1 = Monday).
@@ -348,7 +354,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _variantPicker(colors),
+                  _templatePicker(colors),
                   Spacing.gapLg,
                   AppGroupLabel('Identitas rapat'),
                   Spacing.gapSm,
@@ -358,7 +364,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                     _form.judul,
                     (v) => _form = _form.copyWith(judul: v),
                   ),
-                  if (_form.variant == NotulenVariant.dinas) ...[
+                  if (_form.template.isFormal) ...[
                     Spacing.gapMd,
                     _field(
                       'nomor',
@@ -449,16 +455,41 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       ),
                     ],
                   ),
-                  Spacing.gapLg,
-                  AppGroupLabel('Peserta'),
-                  Spacing.gapSm,
-                  _ListEditor(
-                    items: _form.peserta,
-                    hint: 'Nama peserta',
-                    addLabel: 'Tambah peserta',
-                    onChanged: (items) =>
-                        setState(() => _form = _form.copyWith(peserta: items)),
-                  ),
+                  // A berita acara has para pihak rather than peserta: it
+                  // records an act between named parties, and the two
+                  // signature columns are those parties. Asking for both
+                  // lists would put a name in the document twice.
+                  if (_form.template == NotulenTemplate.beritaAcara) ...[
+                    Spacing.gapLg,
+                    AppGroupLabel('Para Pihak'),
+                    Spacing.gapSm,
+                    Text(
+                      'Urutan menentukan kolom tanda tangan: pihak pertama '
+                      'di kanan, pihak kedua di kiri. Sebutkan nama beserta '
+                      'jabatannya.',
+                      style: AppText.caption.c(colors.textTertiary),
+                    ),
+                    Spacing.gapSm,
+                    _ListEditor(
+                      items: _form.pihak,
+                      hint: 'Nama, jabatan',
+                      addLabel: 'Tambah pihak',
+                      onChanged: (items) =>
+                          setState(() => _form = _form.copyWith(pihak: items)),
+                    ),
+                  ] else ...[
+                    Spacing.gapLg,
+                    AppGroupLabel('Peserta'),
+                    Spacing.gapSm,
+                    _ListEditor(
+                      items: _form.peserta,
+                      hint: 'Nama peserta',
+                      addLabel: 'Tambah peserta',
+                      onChanged: (items) => setState(
+                        () => _form = _form.copyWith(peserta: items),
+                      ),
+                    ),
+                  ],
                   Spacing.gapLg,
                   AppGroupLabel('Agenda'),
                   Spacing.gapSm,
@@ -554,41 +585,41 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     );
   }
 
-  Widget _variantPicker(AppColorSet colors) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      AppGroupLabel('Bentuk notulen'),
-      Spacing.gapSm,
-      AppSegmented<NotulenVariant>(
-        expand: true,
-        semanticLabel: 'Bentuk notulen',
-        segments: const [
-          AppSegment(
-            value: NotulenVariant.dinas,
-            label: 'Notulen Dinas',
-            icon: AppIcons.institution,
-          ),
-          AppSegment(
-            value: NotulenVariant.ringkas,
-            label: 'Notulen Ringkas',
-            icon: AppIcons.shortText,
-          ),
-        ],
-        selected: _form.variant,
-        onChanged: (value) =>
-            setState(() => _form = _form.copyWith(variant: value)),
-      ),
-      Spacing.gapSm,
-      Text(
-        _form.variant == NotulenVariant.dinas
-            ? 'Format lengkap tata naskah dinas: kop surat, nomor, '
-                  'daftar peserta bernomor dan blok tanda tangan.'
-            : 'Satu halaman tanpa kop surat dan tanda tangan, untuk '
-                  'dibagikan cepat.',
-        style: AppText.caption.c(colors.textTertiary),
-      ),
-    ],
-  );
+  /// The template picker, and the engine's own one-line description of
+  /// whichever is selected.
+  ///
+  /// A dropdown rather than a segmented control: four entries with names
+  /// as long as "Risalah Rapat (verbatim-ringkas)" do not fit four
+  /// segments on a dialog this wide, and truncating them would hide the
+  /// distinction the picker exists to make.
+  Widget _templatePicker(AppColorSet colors) {
+    final templates = kNotulenTemplates;
+    final selected = templates.firstWhere(
+      (info) => info.template == _form.template,
+      orElse: () => templates.first,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppGroupLabel('Bentuk naskah'),
+        Spacing.gapSm,
+        CompactDropdown<NotulenTemplate>(
+          value: selected.template,
+          items: [for (final info in templates) info.template],
+          labelBuilder: (template) => templates
+              .firstWhere((info) => info.template == template)
+              .label,
+          onChanged: (value) =>
+              setState(() => _form = _form.copyWith(template: value)),
+        ),
+        Spacing.gapSm,
+        Text(
+          selected.description,
+          style: AppText.caption.c(colors.textTertiary),
+        ),
+      ],
+    );
+  }
 
   Widget _field(
     String key,

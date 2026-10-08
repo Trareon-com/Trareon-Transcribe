@@ -17,8 +17,13 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'llm_setup.dart';
 import 'mapreduce.dart';
 import 'model.dart';
+import 'notulen.dart';
+import 'notulen/factcheck.dart';
+import 'notulen/register.dart';
+import 'notulen/schema.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'pdp.dart';
 import 'pdp/audit.dart';
@@ -27,10 +32,11 @@ import 'pdp/retention.dart';
 import 'provenance.dart';
 import 'session.dart';
 import 'settings.dart';
+import 'srikandi.dart';
 import 'stt/file.dart';
 import 'summary.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_engine_settings`, `expand_home`, `summarise_matches`
+// These functions are ignored because they are not marked as `pub`: `apply_engine_settings`, `expand_home`, `notulen_text`, `summarise_matches`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 Future<List<Check>> runPreflightChecks() =>
@@ -224,6 +230,134 @@ Future<NotulenDraft> notulenDraftFromSummary({required String summary}) =>
 /// "Poin Penting" section and every export use.
 Future<List<String>> formatBookmarks({required List<Bookmark> bookmarks}) =>
     RustLib.instance.api.crateApiFormatBookmarks(bookmarks: bookmarks);
+
+/// Every notulen template, in the order the picker shows them.
+Future<List<NotulenTemplateInfo>> notulenTemplates() =>
+    RustLib.instance.api.crateApiNotulenTemplates();
+
+/// Generates a notulen from `segments` and checks it.
+///
+/// The only networked call in the notulen path, and it runs once per
+/// explicit press of "Buat Notulen". `base` is the form as the user left
+/// it, so regenerating does not wipe the identity block they typed.
+///
+/// Progress is published for [`read_summary_progress`] to poll, the same
+/// way the map-reduce summary does: a thirty-minute meeting is several
+/// round trips and the user has to see which.
+Future<NotulenHasil> generateNotulen({
+  required SummaryConfig config,
+  required NotulenTemplate template,
+  required List<Segment> segments,
+  required List<Bookmark> bookmarks,
+  required NotulenForm base,
+}) => RustLib.instance.api.crateApiGenerateNotulen(
+  config: config,
+  template: template,
+  segments: segments,
+  bookmarks: bookmarks,
+  base: base,
+);
+
+/// Re-runs every check on a form the user has edited.
+///
+/// Citations do not survive editing — once a human rewrites a keputusan
+/// the model's `segmen` no longer describes it — so the fact check here
+/// runs without them, checking each statement against the whole
+/// transcript and its entities. That is weaker than the generated
+/// report and is the honest amount of checking available.
+Future<NotulenHasil> periksaNotulen({
+  required NotulenForm form,
+  required NotulenTemplate template,
+  required List<Segment> segments,
+}) => RustLib.instance.api.crateApiPeriksaNotulen(
+  form: form,
+  template: template,
+  segments: segments,
+);
+
+/// Applies the register fixes that have exactly one correct answer.
+///
+/// Spelling and the clock format only. A colloquial clause is left alone,
+/// because rewriting a sentence is a judgement call and a notulen is a
+/// record of what was said.
+Future<String> rapikanRagam({required String text}) =>
+    RustLib.instance.api.crateApiRapikanRagam(text: text);
+
+/// Prefills the archive metadata from the notulen form.
+Future<SrikandiMetadata> srikandiMetadataDefault({required NotulenForm form}) =>
+    RustLib.instance.api.crateApiSrikandiMetadataDefault(form: form);
+
+/// Checks the archive metadata before export.
+Future<List<TemuanMetadata>> srikandiValidate({
+  required SrikandiMetadata metadata,
+}) => RustLib.instance.api.crateApiSrikandiValidate(metadata: metadata);
+
+/// Whether the metadata is complete enough to register.
+Future<bool> srikandiSiapUnggah({required SrikandiMetadata metadata}) =>
+    RustLib.instance.api.crateApiSrikandiSiapUnggah(metadata: metadata);
+
+/// Writes the notulen and its archive sidecar into the session folder.
+///
+/// Four files: the DOCX (the signing copy), a PDF for circulation, and
+/// the metadata as JSON and CSV. The upload to SRIKANDI itself is manual
+/// — there is no API — and `docs/SRIKANDI-EXPORT.md` is the procedure.
+Future<List<ExportedFile>> exportNotulenSrikandi({
+  required NotulenForm form,
+  required SrikandiMetadata metadata,
+  required List<Segment> segments,
+  required String outputDir,
+  required String title,
+}) => RustLib.instance.api.crateApiExportNotulenSrikandi(
+  form: form,
+  metadata: metadata,
+  segments: segments,
+  outputDir: outputDir,
+  title: title,
+);
+
+/// Checks whether an Ollama runtime answers at `base_url`.
+///
+/// Never fails: "not installed" is the expected answer on first run.
+Future<OllamaStatus> llmDetect({required String baseUrl}) =>
+    RustLib.instance.api.crateApiLlmDetect(baseUrl: baseUrl);
+
+/// RAM and thread count of this machine, for the recommendation.
+Future<HardwareProfile> llmHardware() =>
+    RustLib.instance.api.crateApiLlmHardware();
+
+/// The model this machine should run, and why.
+Future<Recommendation> llmRecommend({required HardwareProfile hardware}) =>
+    RustLib.instance.api.crateApiLlmRecommend(hardware: hardware);
+
+/// Every model the setup step offers.
+Future<List<ModelOption>> llmCatalogue() =>
+    RustLib.instance.api.crateApiLlmCatalogue();
+
+/// The tag the app configures when the user accepts the default.
+///
+/// Exposed so the settings screen's "Model" hint names the model the
+/// bake-off actually chose. It used to hardcode a tag that was never in
+/// the catalogue, which told a user who typed it verbatim to pull a model
+/// the app has no measurements for.
+Future<String> llmDefaultModel() =>
+    RustLib.instance.api.crateApiLlmDefaultModel();
+
+/// How to install Ollama on `os` (`"macos"`, `"windows"`, `"linux"`).
+Future<InstallGuide> llmInstallGuide({required String os}) =>
+    RustLib.instance.api.crateApiLlmInstallGuide(os: os);
+
+/// The operating system this build is running on, for [`llm_install_guide`].
+Future<String> currentOs() => RustLib.instance.api.crateApiCurrentOs();
+
+Future<PullProgress?> readLlmPullProgress() =>
+    RustLib.instance.api.crateApiReadLlmPullProgress();
+
+/// Downloads `model` into the Ollama at `base_url`.
+///
+/// Records one audit entry on success, so the Privacy Report shows that
+/// the app fetched something over the network and from where.
+Future<void> llmPullModel({required String baseUrl, required String model}) =>
+    RustLib.instance.api.crateApiLlmPullModel(baseUrl: baseUrl, model: model);
 
 /// Writes the raw mic/speaker audio captured during `session_id`'s live
 /// recording as WAV files into the same session folder `export_session`
@@ -935,6 +1069,118 @@ class NeuralDiarizationStatus {
           runtimeType == other.runtimeType &&
           compiledIn == other.compiledIn &&
           active == other.active;
+}
+
+/// A generated notulen plus every check that was run on it.
+class NotulenHasil {
+  /// Prefilled form, ready for the export screen to show and edit.
+  final NotulenForm form;
+
+  /// What the JSON parser had to forgive, in Indonesian. A long list is
+  /// a signal that the chosen model is a poor fit.
+  final List<String> perbaikan;
+  final StructureReport struktur;
+  final LaporanFakta fakta;
+  final List<RegisterFinding> ragam;
+
+  /// `true` when the meeting was long enough to need map-reduce.
+  final bool mapReduce;
+
+  /// The model's answer verbatim. Shown in Diagnostik, never in the
+  /// document — a notulen the parser mangled is only debuggable if the
+  /// original survived.
+  final String mentah;
+
+  const NotulenHasil({
+    required this.form,
+    required this.perbaikan,
+    required this.struktur,
+    required this.fakta,
+    required this.ragam,
+    required this.mapReduce,
+    required this.mentah,
+  });
+
+  @override
+  int get hashCode =>
+      form.hashCode ^
+      perbaikan.hashCode ^
+      struktur.hashCode ^
+      fakta.hashCode ^
+      ragam.hashCode ^
+      mapReduce.hashCode ^
+      mentah.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NotulenHasil &&
+          runtimeType == other.runtimeType &&
+          form == other.form &&
+          perbaikan == other.perbaikan &&
+          struktur == other.struktur &&
+          fakta == other.fakta &&
+          ragam == other.ragam &&
+          mapReduce == other.mapReduce &&
+          mentah == other.mentah;
+}
+
+/// One template, as the export form's picker shows it.
+class NotulenTemplateInfo {
+  final NotulenTemplate template;
+
+  /// Stable id, used in settings and the benchmark.
+  final String id;
+  final String label;
+  final String description;
+
+  /// What the document calls itself, e.g. "NOTULA RAPAT".
+  final String judulDokumen;
+
+  /// Jenis naskah dinas for the archive sidecar.
+  final String jenisNaskah;
+
+  /// Headings this template requires, in document order.
+  final List<String> bagianWajib;
+
+  /// Whether it carries a kop surat, a nomor and a signature block.
+  final bool resmi;
+
+  const NotulenTemplateInfo({
+    required this.template,
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.judulDokumen,
+    required this.jenisNaskah,
+    required this.bagianWajib,
+    required this.resmi,
+  });
+
+  @override
+  int get hashCode =>
+      template.hashCode ^
+      id.hashCode ^
+      label.hashCode ^
+      description.hashCode ^
+      judulDokumen.hashCode ^
+      jenisNaskah.hashCode ^
+      bagianWajib.hashCode ^
+      resmi.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NotulenTemplateInfo &&
+          runtimeType == other.runtimeType &&
+          template == other.template &&
+          id == other.id &&
+          label == other.label &&
+          description == other.description &&
+          judulDokumen == other.judulDokumen &&
+          jenisNaskah == other.jenisNaskah &&
+          bagianWajib == other.bagianWajib &&
+          resmi == other.resmi;
 }
 
 /// Result of an HPT (dual-model) file transcription: the quick pass from

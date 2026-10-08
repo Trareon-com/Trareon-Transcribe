@@ -4,6 +4,7 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../notulen.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Prefill for the notulen form, parsed out of an AI summary.
@@ -44,7 +45,14 @@ class NotulenDraft {
 /// Persisted with the session (see `session_store.dart`) so re-exporting a
 /// meeting six months later reproduces the same document.
 class NotulenForm {
-  final NotulenVariant variant;
+  /// Which naskah-dinas layout to render.
+  ///
+  /// `alias = "variant"` migrates sessions saved before Sprint 7, when
+  /// this was a two-value `NotulenVariant`. Both of its names —
+  /// `Dinas`, `Ringkas` — are still names of
+  /// [`crate::notulen::NotulenTemplate`] variants, so an old
+  /// `transcript.json` deserialises unchanged.
+  final NotulenTemplate template;
 
   /// Kop surat first line, e.g. "KEMENTERIAN KEUANGAN REPUBLIK INDONESIA".
   final String instansi;
@@ -72,8 +80,20 @@ class NotulenForm {
   final List<String> peserta;
   final List<String> agenda;
 
+  /// Two or three sentences of context, printed above Pembahasan.
+  /// Empty = the section is omitted entirely.
+  final String ringkasan;
+
   /// Discussion body, Markdown (normally the AI summary's "Pembahasan").
   final String pembahasan;
+
+  /// Risalah Rapat only: the ordered record of interventions. Ignored
+  /// by the other templates.
+  final List<RisalahEntry> jalannyaRapat;
+
+  /// Berita Acara only: "kami yang bertanda tangan di bawah ini".
+  /// Ignored by the other templates.
+  final List<String> pihak;
   final List<String> keputusan;
   final List<TindakLanjut> tindakLanjut;
 
@@ -89,7 +109,7 @@ class NotulenForm {
   final bool lampirkanTranskrip;
 
   const NotulenForm({
-    required this.variant,
+    required this.template,
     required this.instansi,
     required this.unitKerja,
     required this.nomor,
@@ -102,7 +122,10 @@ class NotulenForm {
     required this.notulis,
     required this.peserta,
     required this.agenda,
+    required this.ringkasan,
     required this.pembahasan,
+    required this.jalannyaRapat,
+    required this.pihak,
     required this.keputusan,
     required this.tindakLanjut,
     required this.poinPenting,
@@ -112,7 +135,7 @@ class NotulenForm {
 
   @override
   int get hashCode =>
-      variant.hashCode ^
+      template.hashCode ^
       instansi.hashCode ^
       unitKerja.hashCode ^
       nomor.hashCode ^
@@ -125,7 +148,10 @@ class NotulenForm {
       notulis.hashCode ^
       peserta.hashCode ^
       agenda.hashCode ^
+      ringkasan.hashCode ^
       pembahasan.hashCode ^
+      jalannyaRapat.hashCode ^
+      pihak.hashCode ^
       keputusan.hashCode ^
       tindakLanjut.hashCode ^
       poinPenting.hashCode ^
@@ -137,7 +163,7 @@ class NotulenForm {
       identical(this, other) ||
       other is NotulenForm &&
           runtimeType == other.runtimeType &&
-          variant == other.variant &&
+          template == other.template &&
           instansi == other.instansi &&
           unitKerja == other.unitKerja &&
           nomor == other.nomor &&
@@ -150,7 +176,10 @@ class NotulenForm {
           notulis == other.notulis &&
           peserta == other.peserta &&
           agenda == other.agenda &&
+          ringkasan == other.ringkasan &&
           pembahasan == other.pembahasan &&
+          jalannyaRapat == other.jalannyaRapat &&
+          pihak == other.pihak &&
           keputusan == other.keputusan &&
           tindakLanjut == other.tindakLanjut &&
           poinPenting == other.poinPenting &&
@@ -158,19 +187,27 @@ class NotulenForm {
           lampirkanTranskrip == other.lampirkanTranskrip;
 }
 
-/// Which of the two shipped layouts to render.
+/// One intervention in a risalah: who said what, in order.
 ///
-/// Tata Naskah Dinas varies per ministry and pemda, so the strategy from the
-/// blueprint is two variants rather than one "correct" template: the full
-/// dinas form for archiving, and a one-page ringkas form for circulation.
-enum NotulenVariant {
-  /// Full Tata Naskah Dinas layout: kop surat, nomor, identity table,
-  /// agenda, pembahasan, keputusan, tindak lanjut table, signature block.
-  dinas,
+/// Flat strings rather than [`crate::notulen::schema::Intervensi`]: the
+/// document shows no segment numbers, and the form the user edits before
+/// export should not carry fields the document cannot display.
+class RisalahEntry {
+  final String pembicara;
+  final String pokok;
 
-  /// One page, no kop surat and no signature block — for circulating the
-  /// outcome quickly.
-  ringkas,
+  const RisalahEntry({required this.pembicara, required this.pokok});
+
+  @override
+  int get hashCode => pembicara.hashCode ^ pokok.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RisalahEntry &&
+          runtimeType == other.runtimeType &&
+          pembicara == other.pembicara &&
+          pokok == other.pokok;
 }
 
 /// One row of the "Tindak Lanjut" table.

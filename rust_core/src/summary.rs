@@ -607,24 +607,63 @@ fn client(timeout_secs: u64) -> Result<reqwest::Client, TranscribeError> {
         .map_err(|e| TranscribeError::Summary(format!("gagal membuat HTTP client: {e}")))
 }
 
-fn request_body(config: &SummaryConfig, system: &str, prompt: &str) -> serde_json::Value {
+/// Per-request knobs that differ between the summary, question and
+/// notulen paths.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ChatOptions {
+    /// Ask the endpoint to constrain the answer to JSON.
+    ///
+    /// Only for the notulen path, whose prompt demands one JSON object.
+    /// A Markdown summary asked for JSON comes back as a JSON *string*
+    /// containing the Markdown.
+    pub json: bool,
+    /// Ask a reasoning model not to reason.
+    ///
+    /// A thinking model left in thinking mode spends most of its budget
+    /// on tokens the document never shows. Ollama rejects `think` for
+    /// models that have no thinking mode, so [`chat_once`] retries
+    /// without it rather than failing the request.
+    pub no_think: bool,
+}
+
+fn request_body(
+    config: &SummaryConfig,
+    system: &str,
+    prompt: &str,
+    options: ChatOptions,
+) -> serde_json::Value {
     let messages = serde_json::json!([
         { "role": "system", "content": system },
         { "role": "user", "content": prompt },
     ]);
     match config.provider {
-        SummaryProvider::Ollama => serde_json::json!({
-            "model": config.model,
-            "messages": messages,
-            "stream": false,
-            "options": { "temperature": 0.2 },
-        }),
-        SummaryProvider::OpenAiCompatible => serde_json::json!({
-            "model": config.model,
-            "messages": messages,
-            "stream": false,
-            "temperature": 0.2,
-        }),
+        SummaryProvider::Ollama => {
+            let mut body = serde_json::json!({
+                "model": config.model,
+                "messages": messages,
+                "stream": false,
+                "options": { "temperature": 0.2 },
+            });
+            if options.json {
+                body["format"] = serde_json::json!("json");
+            }
+            if options.no_think {
+                body["think"] = serde_json::json!(false);
+            }
+            body
+        }
+        SummaryProvider::OpenAiCompatible => {
+            let mut body = serde_json::json!({
+                "model": config.model,
+                "messages": messages,
+                "stream": false,
+                "temperature": 0.2,
+            });
+            if options.json {
+                body["response_format"] = serde_json::json!({ "type": "json_object" });
+            }
+            body
+        }
     }
 }
 
@@ -642,45 +681,54 @@ fn validate(config: &SummaryConfig) -> Result<(), TranscribeError> {
     Ok(())
 }
 
-/// Sends `transcript` to the configured endpoint and returns Markdown.
+/// One chat round trip against the configured endpoint.
 ///
-/// This is the only place in the crate that performs an outbound request
-/// with user content, and it runs exactly once per explicit user action.
-pub async fn generate_summary(
-    config: SummaryConfig,
-    transcript: String,
-    bookmarks: Vec<String>,
+/// The single place in the crate that performs an outbound request with
+/// user content. Every feature that needs a model — summary, archive
+/// question, notulen — goes through here, which is what keeps
+/// `privacy::tests`' "only two modules may open a socket" claim true.
+pub async fn chat_once(
+    config: &SummaryConfig,
+    system: &str,
+    prompt: &str,
+    options: ChatOptions,
 ) -> Result<String, TranscribeError> {
-    validate(&config)?;
-    if transcript.trim().is_empty() {
-        return Err(TranscribeError::Summary(
-            "Transkrip kosong — tidak ada yang bisa diringkas.".into(),
-        ));
-    }
-
     let url = chat_endpoint(config.provider, &config.base_url);
-    let prompt = build_prompt(&config, &transcript, &bookmarks);
+    let send = |options: ChatOptions| {
+        let body = request_body(config, system, prompt, options);
+        let url = url.clone();
+        async move {
+            let mut request = client(config.timeout_secs)?.post(&url).json(&body);
+            if !config.api_key.trim().is_empty() {
+                request = request.bearer_auth(config.api_key.trim());
+            }
+            let response = request.send().await.map_err(|e| {
+                TranscribeError::Summary(format!(
+                    "tidak bisa menghubungi {url}: {e}. Pastikan layanan berjalan dan \
+                     URL benar."
+                ))
+            })?;
+            let status = response.status();
+            let text = response.text().await.map_err(|e| {
+                TranscribeError::Summary(format!("gagal membaca jawaban {url}: {e}"))
+            })?;
+            Ok::<_, TranscribeError>((status, text))
+        }
+    };
 
-    let mut request = client(config.timeout_secs)?.post(&url).json(&request_body(
-        &config,
-        &system_prompt(&config.language),
-        &prompt,
-    ));
-    if !config.api_key.trim().is_empty() {
-        request = request.bearer_auth(config.api_key.trim());
+    let (mut status, mut body) = send(options).await?;
+    if !status.is_success() && options.no_think && body.to_lowercase().contains("think") {
+        // The endpoint has no thinking mode to turn off. Asking again
+        // without the field is better than reporting a failure the user
+        // cannot act on.
+        let (retry_status, retry_body) = send(ChatOptions {
+            no_think: false,
+            ..options
+        })
+        .await?;
+        status = retry_status;
+        body = retry_body;
     }
-
-    let response = request.send().await.map_err(|e| {
-        TranscribeError::Summary(format!(
-            "tidak bisa menghubungi {url}: {e}. Pastikan layanan berjalan dan URL benar."
-        ))
-    })?;
-
-    let status = response.status();
-    let body = response
-        .text()
-        .await
-        .map_err(|e| TranscribeError::Summary(format!("gagal membaca jawaban {url}: {e}")))?;
 
     if !status.is_success() {
         // Some servers put a useful message in a JSON error body even on 4xx,
@@ -696,8 +744,29 @@ pub async fn generate_summary(
             )),
         });
     }
-
     parse_chat_response(&body)
+}
+
+/// Sends `transcript` to the configured endpoint and returns Markdown.
+pub async fn generate_summary(
+    config: SummaryConfig,
+    transcript: String,
+    bookmarks: Vec<String>,
+) -> Result<String, TranscribeError> {
+    validate(&config)?;
+    if transcript.trim().is_empty() {
+        return Err(TranscribeError::Summary(
+            "Transkrip kosong — tidak ada yang bisa diringkas.".into(),
+        ));
+    }
+    let prompt = build_prompt(&config, &transcript, &bookmarks);
+    chat_once(
+        &config,
+        &system_prompt(&config.language),
+        &prompt,
+        ChatOptions::default(),
+    )
+    .await
 }
 
 /// Sends one already-composed prompt to the configured endpoint.
@@ -712,34 +781,343 @@ pub async fn ask(config: SummaryConfig, prompt: String) -> Result<String, Transc
     if prompt.trim().is_empty() {
         return Err(TranscribeError::Summary("Pertanyaan kosong.".into()));
     }
-    let url = chat_endpoint(config.provider, &config.base_url);
-    let mut request = client(config.timeout_secs)?.post(&url).json(&request_body(
+    chat_once(
         &config,
         // Not the summarisation prompt: see `question_system_prompt`.
         &question_system_prompt(&config.language),
         &prompt,
-    ));
-    if !config.api_key.trim().is_empty() {
-        request = request.bearer_auth(config.api_key.trim());
+        ChatOptions::default(),
+    )
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// Notulen: strict JSON, with map-reduce for long meetings
+// ---------------------------------------------------------------------------
+
+/// What a notulen request produced before any checking.
+#[derive(Debug, Clone)]
+pub struct NotulenResponse {
+    pub parsed: crate::notulen::schema::ParsedNotulen,
+    /// The model's answer verbatim, for the diagnostics pane. A notulen
+    /// the parser mangled is only debuggable if the original survived.
+    pub mentah: String,
+    /// `true` when the meeting needed the map-reduce path.
+    pub map_reduce: bool,
+}
+
+/// The options the notulen path always uses.
+///
+/// `json` because the prompt demands exactly one JSON object, and
+/// `no_think` because a reasoning model's visible reasoning is tokens
+/// the document never shows — on a 6 GB GPU that is the difference
+/// between forty seconds and six minutes per meeting.
+fn notulen_chat_options() -> ChatOptions {
+    ChatOptions {
+        json: true,
+        no_think: true,
     }
-    let response = request.send().await.map_err(|e| {
-        TranscribeError::Summary(format!(
-            "tidak bisa menghubungi {url}: {e}. Pastikan layanan berjalan dan URL benar."
-        ))
-    })?;
-    let status = response.status();
-    let body = response
-        .text()
+}
+
+/// Generates a notulen as strict JSON from `segments`.
+///
+/// Falls back to the map-reduce path when the transcript is longer than
+/// one request can carry; a single pass is both faster and better when
+/// the meeting fits, because the model sees every connection at once.
+pub async fn generate_notulen(
+    config: SummaryConfig,
+    template: crate::notulen::NotulenTemplate,
+    segments: Vec<Segment>,
+    bookmarks: Vec<String>,
+    mut on_progress: impl FnMut(crate::mapreduce::MapReduceProgress),
+) -> Result<NotulenResponse, TranscribeError> {
+    validate(&config)?;
+    // Partials dropped once, here, so that three things index the same
+    // list: the numbering the model cites into, the windows map-reduce
+    // cuts, and the segments `factcheck::periksa` resolves ids against.
+    // They used to disagree, which made every citation past the first
+    // partial point at the wrong moment.
+    let segments: Vec<Segment> = segments.into_iter().filter(|s| !s.is_partial).collect();
+    let numbered = crate::provenance::numbered_transcript(&segments);
+    if numbered.trim().is_empty() {
+        return Err(TranscribeError::Summary(
+            "Transkrip kosong — tidak ada yang bisa dinotulenkan.".into(),
+        ));
+    }
+
+    let system = crate::notulen::prompt::system_prompt(template);
+    if !crate::mapreduce::needs_map_reduce(numbered.len(), MAX_TRANSCRIPT_CHARS) {
+        let prompt = crate::notulen::prompt::user_prompt(template, &numbered, &bookmarks);
+        let mentah = chat_once(&config, &system, &prompt, notulen_chat_options()).await?;
+        return Ok(NotulenResponse {
+            parsed: crate::notulen::schema::parse(&mentah)?,
+            mentah,
+            map_reduce: false,
+        });
+    }
+
+    // --- map: notes per window ------------------------------------------
+    //
+    // The windows are numbered against the *whole* transcript, not
+    // restarted per window, so a segment id in a window's notes still
+    // resolves after the reduce step. That is the only reason citations
+    // survive a three-hour meeting.
+    let chunks = crate::mapreduce::chunk_by_time(
+        &segments,
+        crate::mapreduce::WINDOW_SECS,
+        crate::mapreduce::MAX_WINDOW_CHARS,
+    );
+    let total = chunks.len() as u32;
+    let mut partials: Vec<String> = Vec::with_capacity(chunks.len());
+    for (index, chunk) in chunks.iter().enumerate() {
+        on_progress(crate::mapreduce::MapReduceProgress::mapping(
+            index as u32,
+            total,
+            &chunk.label(),
+        ));
+        let offset = chunk.first_index as usize;
+        let end = (offset + chunk.count as usize).min(segments.len());
+        let numbered_window =
+            crate::provenance::numbered_transcript_from(&segments[offset.min(end)..end], offset);
+
+        let instruction =
+            crate::notulen::prompt::map_prompt(chunk.index, chunk.total, &chunk.label());
+        let prompt = format!(
+            "{instruction}\n\n--- TRANSKRIP BAGIAN INI (bernomor segmen) ---\n\
+             {numbered_window}\n--- AKHIR BAGIAN ---"
+        );
+        // Notes are prose, so no JSON constraint here; the reduce step is
+        // what has to emit the schema.
+        let partial = match chat_once(
+            &config,
+            &system,
+            &prompt,
+            ChatOptions {
+                json: false,
+                no_think: true,
+            },
+        )
         .await
-        .map_err(|e| TranscribeError::Summary(format!("gagal membaca jawaban {url}: {e}")))?;
+        {
+            Ok(text) => text,
+            Err(e) => {
+                // A window the endpoint refused is recorded as empty
+                // rather than failing the run: seventeen windows of notes
+                // beat none.
+                tracing::warn!(window = chunk.index, %e, "map step failed for one window");
+                String::new()
+            }
+        };
+        partials.push(partial);
+    }
+    if partials.iter().all(|p| p.trim().is_empty()) {
+        return Err(TranscribeError::Summary(
+            "Tidak ada bagian rapat yang berhasil diringkas. Periksa endpoint \
+             dan model yang dipilih."
+                .into(),
+        ));
+    }
+
+    // --- reduce: one document -------------------------------------------
+    on_progress(crate::mapreduce::MapReduceProgress::reducing(total));
+    let notes = crate::mapreduce::join_partials(&chunks, &partials);
+    let mut prompt = crate::notulen::prompt::reduce_prompt(template, &notes);
+    let marks: Vec<&str> = bookmarks
+        .iter()
+        .map(|b| b.trim())
+        .filter(|b| !b.is_empty())
+        .collect();
+    if !marks.is_empty() {
+        prompt.push_str("\n\n--- POIN YANG DITANDAI NOTULIS ---\n");
+        prompt.push_str(&marks.join("\n"));
+        prompt.push_str("\n--- AKHIR POIN DITANDAI ---");
+    }
+    let mentah = chat_once(&config, &system, &prompt, notulen_chat_options()).await?;
+    Ok(NotulenResponse {
+        parsed: crate::notulen::schema::parse(&mentah)?,
+        mentah,
+        map_reduce: true,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// First-run setup: is the runtime there, and can we fetch a model
+// ---------------------------------------------------------------------------
+
+/// What the setup step found at the configured endpoint.
+#[derive(Debug, Clone, Serialize)]
+pub struct OllamaStatus {
+    pub tersedia: bool,
+    /// Version string the endpoint reported, empty when unreachable.
+    pub versi: String,
+    /// Models already installed there.
+    pub model: Vec<String>,
+    /// Indonesian sentence for the UI, whether it worked or not.
+    pub pesan: String,
+}
+
+/// Checks whether an Ollama runtime answers at `base_url`.
+///
+/// Sends no transcript content — `/api/version` and `/api/tags` carry no
+/// user data — and never errors: "not installed" is the expected answer
+/// on first run, and an `Err` would make the setup screen look broken
+/// rather than instructive.
+pub async fn detect_ollama(base_url: String) -> OllamaStatus {
+    let base = trim_base(&base_url);
+    if base.is_empty() {
+        return OllamaStatus {
+            tersedia: false,
+            versi: String::new(),
+            model: Vec::new(),
+            pesan: "URL endpoint belum diisi.".to_string(),
+        };
+    }
+    let Ok(client) = client(10) else {
+        return OllamaStatus {
+            tersedia: false,
+            versi: String::new(),
+            model: Vec::new(),
+            pesan: "Gagal menyiapkan HTTP client.".to_string(),
+        };
+    };
+    let version = match client.get(format!("{base}/api/version")).send().await {
+        Ok(response) if response.status().is_success() => response
+            .json::<serde_json::Value>()
+            .await
+            .ok()
+            .and_then(|v| {
+                v.get("version")
+                    .and_then(|s| s.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_default(),
+        _ => {
+            return OllamaStatus {
+                tersedia: false,
+                versi: String::new(),
+                model: Vec::new(),
+                pesan: format!(
+                    "Ollama tidak menjawab di {base}. Pasang Ollama lalu tekan \
+                     \"Periksa lagi\"."
+                ),
+            }
+        }
+    };
+    let model = list_summary_models(SummaryProvider::Ollama, base.to_string(), String::new())
+        .await
+        .unwrap_or_default();
+    let pesan = if model.is_empty() {
+        format!(
+            "Ollama {version} berjalan di {base}, tetapi belum ada model \
+             terpasang. Unduh model yang disarankan di bawah."
+        )
+    } else {
+        format!(
+            "Ollama {version} berjalan di {base} dengan {} model terpasang.",
+            model.len()
+        )
+    };
+    OllamaStatus {
+        tersedia: true,
+        versi: version,
+        model,
+        pesan,
+    }
+}
+
+/// Downloads `model` into the Ollama at `base_url`, reporting progress.
+///
+/// Streamed rather than requested with `stream: false`, because a 5 GB
+/// download with no progress is indistinguishable from a hang — and the
+/// first thing a user does to a hung download is kill the app.
+///
+/// Records one [`crate::pdp::audit::AuditAction::ModelPulled`] entry on
+/// success, so the Privacy Report shows that the app fetched something
+/// over the network and from where.
+pub async fn pull_model(
+    base_url: String,
+    model: String,
+    mut on_progress: impl FnMut(crate::llm_setup::PullProgress),
+) -> Result<(), TranscribeError> {
+    use futures_util::StreamExt;
+
+    let base = trim_base(&base_url);
+    if base.is_empty() {
+        return Err(TranscribeError::Summary(
+            "URL endpoint ringkasan belum diisi.".into(),
+        ));
+    }
+    if model.trim().is_empty() {
+        return Err(TranscribeError::Summary("Model belum dipilih.".into()));
+    }
+    let url = format!("{base}/api/pull");
+    // No timeout: a model is gigabytes and a slow connection is not an
+    // error. The user cancels by leaving the screen.
+    let response = reqwest::Client::builder()
+        .build()
+        .map_err(|e| TranscribeError::Summary(format!("gagal membuat HTTP client: {e}")))?
+        .post(&url)
+        .json(&serde_json::json!({ "model": model.trim(), "stream": true }))
+        .send()
+        .await
+        .map_err(|e| {
+            TranscribeError::Summary(format!(
+                "tidak bisa menghubungi {url}: {e}. Pastikan Ollama berjalan."
+            ))
+        })?;
+    let status = response.status();
     if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
         return Err(TranscribeError::Summary(format!(
             "HTTP {} dari {url} — {}",
             status.as_u16(),
             snippet(&body)
         )));
     }
-    parse_chat_response(&body)
+
+    let mut stream = response.bytes_stream();
+    // The stream is newline-delimited JSON, and a chunk boundary lands
+    // mid-line often enough that parsing per chunk loses lines.
+    let mut buffer = String::new();
+    let mut succeeded = false;
+    let mut last_error = String::new();
+    while let Some(chunk) = stream.next().await {
+        let bytes =
+            chunk.map_err(|e| TranscribeError::Summary(format!("unduhan terputus: {e}")))?;
+        buffer.push_str(&String::from_utf8_lossy(&bytes));
+        while let Some(at) = buffer.find('\n') {
+            let line: String = buffer.drain(..=at).collect();
+            if let Some(progress) = crate::llm_setup::parse_pull_line(&line) {
+                if progress.status == "error" {
+                    last_error = progress.label.clone();
+                }
+                succeeded |= progress.done;
+                on_progress(progress);
+            }
+        }
+    }
+    // A stream that ended mid-line still has one line left in it.
+    if let Some(progress) = crate::llm_setup::parse_pull_line(&buffer) {
+        if progress.status == "error" {
+            last_error = progress.label.clone();
+        }
+        succeeded |= progress.done;
+        on_progress(progress);
+    }
+
+    if !succeeded {
+        return Err(TranscribeError::Summary(if last_error.is_empty() {
+            format!("Unduhan {model} berakhir tanpa konfirmasi berhasil.")
+        } else {
+            last_error
+        }));
+    }
+    crate::pdp::audit::record(
+        crate::pdp::audit::AuditEntry::new(crate::pdp::audit::AuditAction::ModelPulled, &model)
+            .to(base)
+            .with_detail("Model notulen diunduh ke endpoint ringkasan"),
+    );
+    Ok(())
 }
 
 /// Lists the models the configured endpoint offers, so the UI can present a
@@ -1158,7 +1536,7 @@ mod tests {
                 model: "m".into(),
                 ..Default::default()
             };
-            let body = request_body(&config, "SYSTEM", "PROMPT");
+            let body = request_body(&config, "SYSTEM", "PROMPT", ChatOptions::default());
             let messages = body["messages"].as_array().unwrap();
             assert_eq!(messages.len(), 2);
             assert_eq!(messages[0]["role"], "system");
@@ -1169,6 +1547,84 @@ mod tests {
                 body["stream"], false,
                 "streaming would break parse_chat_response"
             );
+            // The summary path must not ask for JSON: a Markdown summary
+            // constrained to JSON comes back as a JSON *string* holding
+            // the Markdown.
+            assert!(body.get("format").is_none());
+            assert!(body.get("response_format").is_none());
+            assert!(body.get("think").is_none());
         }
+    }
+
+    #[test]
+    fn the_notulen_options_ask_each_provider_for_json_in_its_own_dialect() {
+        let ollama = request_body(
+            &SummaryConfig {
+                model: "m".into(),
+                ..Default::default()
+            },
+            "S",
+            "P",
+            notulen_chat_options(),
+        );
+        assert_eq!(ollama["format"], "json");
+        assert_eq!(ollama["think"], false);
+
+        let openai = request_body(
+            &SummaryConfig {
+                provider: SummaryProvider::OpenAiCompatible,
+                model: "m".into(),
+                ..Default::default()
+            },
+            "S",
+            "P",
+            notulen_chat_options(),
+        );
+        assert_eq!(openai["response_format"]["type"], "json_object");
+        // `think` is an Ollama extension; sending it to an OpenAI-shaped
+        // endpoint is a 400 from some servers and silently ignored by
+        // others, and neither is useful.
+        assert!(openai.get("think").is_none());
+    }
+
+    #[tokio::test]
+    async fn a_notulen_request_refuses_an_empty_transcript() {
+        let config = SummaryConfig {
+            model: "m".into(),
+            ..Default::default()
+        };
+        let err = generate_notulen(
+            config,
+            crate::notulen::NotulenTemplate::Dinas,
+            Vec::new(),
+            Vec::new(),
+            |_| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("kosong"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn a_notulen_request_of_only_partials_is_an_empty_transcript() {
+        // Partials are dropped before the transcript is numbered, so a
+        // live-preview-only transcript must be reported as empty rather
+        // than sent to the endpoint.
+        let config = SummaryConfig {
+            model: "m".into(),
+            ..Default::default()
+        };
+        let mut partial = seg("Saya", "teks cepat", 0.0, true);
+        partial.is_partial = true;
+        let err = generate_notulen(
+            config,
+            crate::notulen::NotulenTemplate::Dinas,
+            vec![partial],
+            Vec::new(),
+            |_| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("kosong"), "got: {err}");
     }
 }

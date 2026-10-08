@@ -248,20 +248,34 @@ fn to_pdf_bytes_with(
         }
     }
 
-    // Paginate.
+    paginate(title, &font, &lines, options)
+}
+
+/// Lays out `lines` onto A4 pages and serialises the document.
+///
+/// Split out of [`to_pdf_bytes_with`] when the notulen gained its own PDF:
+/// the two documents differ only in which lines they produce, and a second
+/// copy of the pagination loop is a second place for the `Tm`/`Td` bug
+/// below to come back.
+fn paginate(
+    title: &str,
+    font: &ParsedFont,
+    lines: &[Line],
+    options: &PdfSaveOptions,
+) -> Result<Vec<u8>, TranscribeError> {
     let top_pt = mm_to_pt(PAGE_HEIGHT_MM - MARGIN_MM);
     let bottom_pt = mm_to_pt(MARGIN_MM);
     let left_pt = mm_to_pt(MARGIN_MM);
 
     let mut doc = PdfDocument::new(title);
-    let font_id = doc.add_font(&font);
+    let font_id = doc.add_font(font);
     let handle = PdfFontHandle::External(font_id);
 
     let mut pages: Vec<PdfPage> = Vec::new();
     let mut ops: Vec<Op> = Vec::new();
     let mut cursor = top_pt;
 
-    for line in &lines {
+    for line in lines {
         let advance = line.size_pt * LINE_SPACING + line.space_before_pt;
         if cursor - advance < bottom_pt && !ops.is_empty() {
             ops.push(Op::EndTextSection);
@@ -310,6 +324,319 @@ fn to_pdf_bytes_with(
 
     let mut save_warnings = Vec::new();
     Ok(doc.with_pages(pages).save(options, &mut save_warnings))
+}
+
+/// The notulen as a PDF, for circulating a document nobody should edit.
+///
+/// Deliberately not a rendering of the DOCX: there is no layout engine
+/// here that could reproduce the identity table or the signature block,
+/// and a PDF that *almost* looks like the official form is worse than one
+/// that plainly reads as a printout. What this produces is the same
+/// sections in the same order, as text — which is what a PDF of a notulen
+/// is wanted for (reading and filing, not signing).
+///
+/// The DOCX remains the signing copy, and `docs/SRIKANDI-EXPORT.md` says
+/// so.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn notulen_to_pdf_bytes(
+    form: &super::notulen::NotulenForm,
+    segments: &[Segment],
+) -> Result<Vec<u8>, TranscribeError> {
+    let mut parse_warnings = Vec::new();
+    let font = ParsedFont::from_bytes(DEJAVU_SANS, 0, &mut parse_warnings)
+        .ok_or_else(|| TranscribeError::Export("font PDF bawaan tidak bisa dibaca".to_string()))?;
+    let content_width_pt = mm_to_pt(PAGE_WIDTH_MM - 2.0 * MARGIN_MM);
+
+    let mut lines: Vec<Line> = Vec::new();
+    // Macros rather than closures: a closure capturing `lines` cannot be
+    // called from inside another closure that also captures it, and this
+    // layout is naturally nested (a section pushes lines, a heading
+    // pushes a line).
+    macro_rules! push {
+        ($text:expr, $size:expr, $gap:expr) => {
+            add_wrapped(&mut lines, &font, content_width_pt, $text, $size, $gap)
+        };
+    }
+    macro_rules! heading {
+        ($text:expr) => {
+            push!($text, HEADING_PT, BODY_PT)
+        };
+    }
+
+    let template = form.template;
+    if template.is_formal() {
+        for line in [form.instansi.trim(), form.unit_kerja.trim()] {
+            if !line.is_empty() {
+                push!(line, HEADING_PT, 0.0);
+            }
+        }
+    }
+    push!(template.document_title(), TITLE_PT, BODY_PT);
+    if template.is_formal() && !form.nomor.trim().is_empty() {
+        push!(&format!("Nomor: {}", form.nomor.trim()), BODY_PT, 0.0);
+    }
+    if !form.judul.trim().is_empty() {
+        push!(&format!("Hal: {}", form.judul.trim()), BODY_PT, BODY_PT);
+    }
+
+    for (label, value) in [
+        (
+            "Hari/Tanggal",
+            format!("{} {}", form.hari.trim(), form.tanggal.trim()),
+        ),
+        ("Waktu", form.waktu.trim().to_string()),
+        ("Tempat/Media", form.tempat.trim().to_string()),
+        ("Pimpinan Rapat", form.pimpinan.trim().to_string()),
+        ("Notulis", form.notulis.trim().to_string()),
+    ] {
+        if !value.trim().is_empty() {
+            push!(&format!("{label}: {}", value.trim()), BODY_PT, 0.0);
+        }
+    }
+
+    macro_rules! section {
+        ($title:expr, $items:expr) => {{
+            let filled: Vec<&String> = $items.iter().filter(|i| !i.trim().is_empty()).collect();
+            if !filled.is_empty() {
+                heading!($title);
+                for (index, item) in filled.iter().enumerate() {
+                    push!(&format!("{}. {}", index + 1, item.trim()), BODY_PT, 0.0);
+                }
+            }
+        }};
+    }
+    section!("Para Pihak", form.pihak);
+    section!("Peserta", form.peserta);
+    section!("Acara", form.agenda);
+
+    if !form.ringkasan.trim().is_empty() {
+        heading!("Ringkasan");
+        push!(form.ringkasan.trim(), BODY_PT, 0.0);
+    }
+
+    if !form.jalannya_rapat.is_empty() {
+        heading!("Jalannya Rapat");
+        for (index, entry) in form.jalannya_rapat.iter().enumerate() {
+            if entry.pokok.trim().is_empty() {
+                continue;
+            }
+            let pembicara = entry.pembicara.trim();
+            let text = if pembicara.is_empty() {
+                format!("{}. {}", index + 1, entry.pokok.trim())
+            } else {
+                format!("{}. {pembicara}: {}", index + 1, entry.pokok.trim())
+            };
+            push!(&text, BODY_PT, 0.0);
+        }
+    }
+
+    let berita_acara = template == crate::notulen::NotulenTemplate::BeritaAcara;
+    heading!(if berita_acara {
+        "Pelaksanaan"
+    } else {
+        "Pembahasan"
+    });
+    if form.pembahasan.trim().is_empty() {
+        push!("Tidak ada.", BODY_PT, 0.0);
+    } else {
+        for paragraph in form.pembahasan.lines() {
+            if paragraph.trim().is_empty() {
+                continue;
+            }
+            push!(
+                paragraph.trim().trim_start_matches('#').trim(),
+                BODY_PT,
+                0.0
+            );
+        }
+    }
+
+    section!("Poin Penting", form.poin_penting);
+
+    heading!(if berita_acara {
+        "Kesepakatan"
+    } else {
+        "Keputusan"
+    });
+    if form.keputusan.iter().all(|k| k.trim().is_empty()) {
+        push!("Tidak ada.", BODY_PT, 0.0);
+    } else {
+        for (index, item) in form
+            .keputusan
+            .iter()
+            .filter(|k| !k.trim().is_empty())
+            .enumerate()
+        {
+            push!(&format!("{}. {}", index + 1, item.trim()), BODY_PT, 0.0);
+        }
+    }
+
+    heading!("Tindak Lanjut");
+    if form.tindak_lanjut.is_empty() {
+        push!("Tidak ada.", BODY_PT, 0.0);
+    } else {
+        for (index, row) in form.tindak_lanjut.iter().enumerate() {
+            let dash = |value: &str| {
+                if value.trim().is_empty() {
+                    "-".to_string()
+                } else {
+                    value.trim().to_string()
+                }
+            };
+            push!(
+                &format!(
+                    "{}. {} — PJ: {} — Tenggat: {}",
+                    index + 1,
+                    dash(&row.tugas),
+                    dash(&row.penanggung_jawab),
+                    dash(&row.tenggat)
+                ),
+                BODY_PT,
+                0.0
+            );
+        }
+    }
+
+    if berita_acara {
+        push!(super::notulen::PENUTUP_BERITA_ACARA, BODY_PT, BODY_PT);
+    }
+
+    if form.lampirkan_transkrip {
+        heading!("Lampiran: Transkrip");
+        for segment in segments.iter().filter(|s| !s.is_partial) {
+            if segment.text.trim().is_empty() {
+                continue;
+            }
+            push!(
+                &format!(
+                    "[{}] {}: {}",
+                    clock(segment.timestamp),
+                    segment.speaker.trim(),
+                    segment.text.trim()
+                ),
+                BODY_PT,
+                0.0
+            );
+        }
+    }
+
+    let title = if form.judul.trim().is_empty() {
+        template.document_title().to_string()
+    } else {
+        format!("{} — {}", template.document_title(), form.judul.trim())
+    };
+    paginate(&title, &font, &lines, &PdfSaveOptions::default())
+}
+
+/// Wraps `text` and appends it, giving the paragraph's gap to its first
+/// line only.
+fn add_wrapped(
+    lines: &mut Vec<Line>,
+    font: &ParsedFont,
+    width_pt: f32,
+    text: &str,
+    size_pt: f32,
+    space_before_pt: f32,
+) {
+    for (index, wrapped) in wrap(font, text, size_pt, width_pt).into_iter().enumerate() {
+        lines.push(Line {
+            text: wrapped,
+            size_pt,
+            space_before_pt: if index == 0 { space_before_pt } else { 0.0 },
+        });
+    }
+}
+
+#[cfg(test)]
+mod notulen_pdf_tests {
+    use super::*;
+    use crate::export::notulen::{NotulenForm, RisalahEntry, TindakLanjut};
+    use crate::notulen::NotulenTemplate;
+
+    fn form(template: NotulenTemplate) -> NotulenForm {
+        NotulenForm {
+            template,
+            instansi: "KEMENTERIAN KEUANGAN REPUBLIK INDONESIA".into(),
+            nomor: "112/SJ.5/UM.03.01/01/2026".into(),
+            judul: "Rapat Koordinasi Pagu Indikatif".into(),
+            hari: "Senin".into(),
+            tanggal: "5 Oktober 2026".into(),
+            waktu: "09.00–11.30 WIB".into(),
+            pimpinan: "Dr. Siti Aminah".into(),
+            notulis: "Budi Santoso".into(),
+            peserta: vec!["Dr. Siti Aminah".into()],
+            pembahasan: "## Pagu\nPagu naik 4 (empat) persen.".into(),
+            keputusan: vec!["Pagu disetujui.".into()],
+            tindak_lanjut: vec![TindakLanjut {
+                tugas: "Susun draf".into(),
+                penanggung_jawab: "Budi".into(),
+                tenggat: String::new(),
+            }],
+            ..NotulenForm::default()
+        }
+    }
+
+    #[test]
+    fn every_template_produces_a_pdf() {
+        for template in NotulenTemplate::all() {
+            let bytes = notulen_to_pdf_bytes(&form(*template), &[])
+                .unwrap_or_else(|e| panic!("{template:?}: {e}"));
+            assert_eq!(&bytes[0..4], b"%PDF", "{template:?} is not a PDF");
+            assert!(bytes.len() > 1_000, "{template:?} produced an empty PDF");
+        }
+    }
+
+    #[test]
+    fn an_empty_form_still_produces_a_readable_pdf() {
+        // A PDF with no pages is a file a reader refuses to open.
+        let bytes = notulen_to_pdf_bytes(&NotulenForm::default(), &[]).unwrap();
+        assert_eq!(&bytes[0..4], b"%PDF");
+    }
+
+    #[test]
+    fn a_missing_tenggat_becomes_a_dash_not_a_blank() {
+        // Rendered as text, so the check is on the uncompressed layout
+        // input rather than the compressed stream.
+        let mut lines: Vec<Line> = Vec::new();
+        let mut warnings = Vec::new();
+        let font = ParsedFont::from_bytes(DEJAVU_SANS, 0, &mut warnings).unwrap();
+        add_wrapped(
+            &mut lines,
+            &font,
+            400.0,
+            "1. Susun draf — PJ: Budi — Tenggat: -",
+            BODY_PT,
+            0.0,
+        );
+        assert!(lines.iter().any(|line| line.text.contains("Tenggat: -")));
+    }
+
+    #[test]
+    fn a_risalah_pdf_carries_the_ordered_record() {
+        let mut risalah = form(NotulenTemplate::Risalah);
+        risalah.jalannya_rapat = vec![RisalahEntry {
+            pembicara: "Ketua Rapat".into(),
+            pokok: "membuka rapat".into(),
+        }];
+        let bytes = notulen_to_pdf_bytes(&risalah, &[]).unwrap();
+        assert_eq!(&bytes[0..4], b"%PDF");
+        assert!(bytes.len() > 1_000);
+    }
+
+    #[test]
+    fn wrapping_gives_the_paragraph_gap_to_its_first_line_only() {
+        let mut warnings = Vec::new();
+        let font = ParsedFont::from_bytes(DEJAVU_SANS, 0, &mut warnings).unwrap();
+        let mut lines: Vec<Line> = Vec::new();
+        let long = "kata ".repeat(80);
+        add_wrapped(&mut lines, &font, 200.0, &long, BODY_PT, 7.0);
+        assert!(lines.len() > 1, "the text must have wrapped");
+        assert_eq!(lines[0].space_before_pt, 7.0);
+        assert!(
+            lines[1..].iter().all(|line| line.space_before_pt == 0.0),
+            "a wrapped continuation must not repeat the gap"
+        );
+    }
 }
 
 /// Transcript as CSV, for a spreadsheet (F19).

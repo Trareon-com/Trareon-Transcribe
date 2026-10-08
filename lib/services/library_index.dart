@@ -283,10 +283,31 @@ Future<LibraryIndexLoad> loadLibraryIndex(String libraryPath) async {
   entries.sort((a, b) => b.date.compareTo(a.date));
   if (indexChanged) {
     // Best effort: a read-only library still opens, it just opens slowly.
-    unawaited(saveLibraryIndex(libraryPath, entries).catchError((_) {}));
+    // Deliberately not awaited — the caller gets its list immediately — but
+    // kept in [libraryIndexWriteSettled] so a test can await the write
+    // rather than poll for the file (see that field).
+    libraryIndexWriteSettled = saveLibraryIndex(
+      libraryPath,
+      entries,
+    ).catchError((_) {});
+    unawaited(libraryIndexWriteSettled!);
   }
   return LibraryIndexLoad(entries, parsed);
 }
+
+/// The most recent background index write, or null if no load has written one.
+///
+/// [loadLibraryIndex] returns before its index write finishes, so a test that
+/// wants the *next* load to hit a warm index has to know when the write
+/// landed. Polling for the file to appear is what this replaces: a bounded
+/// poll that gives up silently turns a slow machine into a confusing
+/// `parsedFromDisk` mismatch three lines later, which is exactly how this
+/// flaked under a loaded CPU. Awaiting the future is deterministic at any
+/// speed.
+///
+/// Completes rather than fails on a write error, matching the best-effort
+/// contract above: the error surfaces as a cold open, not an exception.
+Future<void>? libraryIndexWriteSettled;
 
 Future<bool> _stillValid(Directory dir, LibraryEntry entry) async {
   try {

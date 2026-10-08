@@ -11,7 +11,9 @@
 ///   quote real numbers, and asserted only against deliberately loose
 ///   ceilings. A tight absolute budget under `flutter test` would be a
 ///   flaky test, not a performance gate: the test binding builds widgets
-///   far slower than a release build.
+///   far slower than a release build, and the first tree of the process
+///   also absorbs binding, font and text-layout warm-up — enough to swing
+///   an identical measurement from 3.5 s to 5.3 s between runs.
 library;
 
 import 'package:flutter/material.dart';
@@ -84,13 +86,43 @@ void main() {
   ) async {
     _sizeViewport(tester);
 
+    // The first transcripts built in a test process pay for binding setup,
+    // font loading and the text-layout caches. Measured on this host: 3.9 s
+    // for a *40-segment* tree when it went first, against 0.8 s for the
+    // 5 000-segment one built right after it. That one-time cost, not
+    // transcript length, is what an absolute first-build ceiling here used
+    // to measure — an identical tree came in at 3.5 s and 5.3 s on two
+    // consecutive runs, which made the old 4 s ceiling a coin flip. Burn it
+    // on warm-up trees so the two measurements below compare like with like.
+    for (final warmup in ['warmup-1', 'warmup-2']) {
+      await tester.pumpWidget(
+        _host(TranscriptView(key: ValueKey(warmup), segments: small)),
+      );
+      await tester.pump();
+    }
+
+    final controlBuild = Stopwatch()..start();
+    await tester.pumpWidget(
+      _host(TranscriptView(key: const ValueKey('control'), segments: small)),
+    );
+    await tester.pump();
+    controlBuild.stop();
+
     final firstBuild = Stopwatch()..start();
-    await tester.pumpWidget(_host(TranscriptView(segments: big)));
+    await tester.pumpWidget(
+      _host(TranscriptView(key: const ValueKey('loaded'), segments: big)),
+    );
     await tester.pump();
     firstBuild.stop();
+
+    final scale =
+        firstBuild.elapsedMicroseconds / controlBuild.elapsedMicroseconds;
     debugPrint(
-      '[perf] first build of ${big.length} segments: '
-      '${firstBuild.elapsedMilliseconds}ms',
+      '[perf] first build @${small.length}: '
+      '${(controlBuild.elapsedMicroseconds / 1000).toStringAsFixed(2)}ms, '
+      '@${big.length}: '
+      '${(firstBuild.elapsedMicroseconds / 1000).toStringAsFixed(2)}ms, '
+      'scale ${scale.toStringAsFixed(2)}×',
     );
 
     expect(find.text('5000 segmen'), findsOneWidget);
@@ -101,7 +133,23 @@ void main() {
       lessThan(60),
       reason: 'the list must lazily build ~a viewport of rows, not 5 000',
     );
-    expect(firstBuild.elapsedMilliseconds, lessThan(4000));
+    // The real guard here, and load-independent like the ratios below:
+    // putting 125× the segments in the view must not make its first frame
+    // cost measurably more, because the same ~11 rows get built either way.
+    // Measured warm on this host: 0.28×–1.02×. Materialising all 5 000 rows
+    // instead lands two orders of magnitude up.
+    expect(
+      scale,
+      lessThan(kScaleBudget),
+      reason:
+          'the first frame of a 3-hour transcript must cost about what a '
+          '90-second one costs — ${controlBuild.elapsedMilliseconds}ms '
+          'vs ${firstBuild.elapsedMilliseconds}ms',
+    );
+    // Loose backstop against a catastrophic regression on any host: the
+    // warm 5 000-segment build measures 0.5–0.9 s here, and 3.5–5.3 s when
+    // it absorbs process warm-up, so 8 s cannot fire on load noise alone.
+    expect(firstBuild.elapsedMilliseconds, lessThan(8000));
   });
 
   testWidgets('scroll frame cost does not grow with transcript length', (
@@ -246,23 +294,42 @@ void main() {
 
     active.value = 12;
     await tester.pumpAndSettle();
+    expect(
+      tester.binding.hasScheduledFrame,
+      isFalse,
+      reason: 'the tree must be quiet before unchanged ticks are judged',
+    );
+
+    // The guard here is structural, not a time budget. The contract is not
+    // "an unchanged tick is fast", it is "an unchanged tick schedules no
+    // frame at all": `_onActiveIndexChanged` returns before `setState` when
+    // the index has not moved, so the binding must have nothing pending
+    // after one. Asserting that directly is load-independent — it cannot
+    // flake on a busy CPU — and it is strictly *stronger* than the 2 ms
+    // average this replaces, which a regression that did call `setState`
+    // could still slip under on a fast run. The old ceiling was also the
+    // last absolute wall-clock assertion in this file: it passed standalone
+    // at 0.42–1.08 ms avg, then failed one full-suite run at over 2 ms with
+    // nothing changed but the load around it.
     final ticks = <int>[];
     for (var i = 0; i < 100; i++) {
       final sw = Stopwatch()..start();
       active.value = 12; // the audio moved, the row did not
+      expect(
+        tester.binding.hasScheduledFrame,
+        isFalse,
+        reason: 'tick $i repeated index 12 and still scheduled a frame',
+      );
       await tester.pump();
       sw.stop();
       ticks.add(sw.elapsedMicroseconds);
     }
     final stats = _Stats('unchanged position tick @${big.length}', ticks)
       ..report();
-    expect(
-      stats.avg,
-      lessThan(2000),
-      reason:
-          'a repeated identical value must not schedule a frame at '
-          'all — $stats',
-    );
+    // Printed for the report, asserted only as a catastrophic-regression
+    // backstop, per this file's header: the measured avg is ~1 ms, so 20 ms
+    // cannot fire on load noise alone.
+    expect(stats.avg, lessThan(20000), reason: '$stats');
   });
 
   testWidgets('seeking across the meeting reveals the playing row', (

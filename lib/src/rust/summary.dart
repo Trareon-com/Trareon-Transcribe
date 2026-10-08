@@ -6,6 +6,41 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// What the setup step found at the configured endpoint.
+class OllamaStatus {
+  final bool tersedia;
+
+  /// Version string the endpoint reported, empty when unreachable.
+  final String versi;
+
+  /// Models already installed there.
+  final List<String> model;
+
+  /// Indonesian sentence for the UI, whether it worked or not.
+  final String pesan;
+
+  const OllamaStatus({
+    required this.tersedia,
+    required this.versi,
+    required this.model,
+    required this.pesan,
+  });
+
+  @override
+  int get hashCode =>
+      tersedia.hashCode ^ versi.hashCode ^ model.hashCode ^ pesan.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OllamaStatus &&
+          runtimeType == other.runtimeType &&
+          tersedia == other.tersedia &&
+          versi == other.versi &&
+          model == other.model &&
+          pesan == other.pesan;
+}
+
 class SummaryConfig {
   final SummaryProvider provider;
 

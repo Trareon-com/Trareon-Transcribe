@@ -372,14 +372,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Same reason as the tick above: the export is real file I/O.
+      // Same reason as the tick above: the export is real file I/O. It is
+      // awaited through [actionItemExportSettled] rather than polled for:
+      // this used to spin for the file for two seconds and then carry on
+      // regardless, so on a loaded CPU the Rust call plus atomic write were
+      // still in flight and the failure surfaced further down as a
+      // missing-file or un-settled-tree error. Awaiting the export itself is
+      // exact at any speed.
       await tester.runAsync(() async {
+        actionItemExportSettled = null; // so isNotNull below means this tap
         await tester.tap(find.widgetWithText(OutlinedButton, 'Ekspor .ics'));
         await tester.pump();
-        for (var i = 0; i < 100; i++) {
-          if (File('${dir.path}/tindak-lanjut.ics').existsSync()) break;
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
+        expect(
+          actionItemExportSettled,
+          isNotNull,
+          reason: 'tapping Ekspor .ics must start an export',
+        );
+        await actionItemExportSettled;
       });
       await tester.pumpAndSettle();
 
@@ -392,12 +401,15 @@ void main() {
       expect(bridge.today, matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')));
 
       await tester.runAsync(() async {
+        actionItemExportSettled = null; // so isNotNull below means this tap
         await tester.tap(find.widgetWithText(OutlinedButton, 'Ekspor CSV'));
         await tester.pump();
-        for (var i = 0; i < 100; i++) {
-          if (File('${dir.path}/tindak-lanjut.csv').existsSync()) break;
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
+        expect(
+          actionItemExportSettled,
+          isNotNull,
+          reason: 'tapping Ekspor CSV must start an export',
+        );
+        await actionItemExportSettled;
       });
       await tester.pumpAndSettle();
 

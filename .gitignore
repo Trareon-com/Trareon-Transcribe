@@ -30,9 +30,19 @@ rust_core/models/*.gguf
 # the run that produced them, never a reviewable artefact.
 test/failures/
 
-# Generated test fixtures (regenerate via `cargo run --bin gen_fixtures`)
-test/fixtures/
-rust_core/test/fixtures/
+# Generated test fixtures (regenerate via `cargo run --bin gen_fixtures`).
+# Written as `dir/*` rather than `dir/`, because git does not descend into an
+# excluded *directory* — a `!` negation below it would never be considered.
+# That is what the exception needs.
+test/fixtures/*
+rust_core/test/fixtures/*
+
+# Exception: the Rust↔Dart template contract. `rust_core`'s
+# `the_template_table_dart_copies_is_current` writes it and
+# `test/notulen_templates_test.dart` reads it, so unlike the WAV artifacts
+# beside it this one is a reviewable text file the test suite *requires* —
+# ignoring it made both halves of CI fail on a fresh checkout.
+!test/fixtures/notulen_templates.json
 rust_core/transkrip/
 
 # Env / secrets

@@ -1,0 +1,145 @@
+{
+  "_comment": [
+    "Shared fixtures for the two implementations of the notulen checks.",
+    "rust_core/src/notulen/{factcheck,register,angka,schema}.rs is what the",
+    "app runs; ml/notulen_bench/{stem,register,schema}.py is what the",
+    "bake-off runs. If they disagree, the benchmark recommends a model on",
+    "numbers the product will not reproduce.",
+    "Asserted by ml/tests/test_notulen_bench.py and by",
+    "rust_core/src/notulen/parity.rs — both read this file, so neither side",
+    "can be fixed by editing its own copy of the expectations."
+  ],
+  "stem": [
+    ["setuju", "tuju"],
+    ["setujui", "tuju"],
+    ["disetujui", "tuju"],
+    ["menyetujui", "tuju"],
+    ["susun", "susun"],
+    ["menyusun", "susun"],
+    ["penyusunan", "susun"],
+    ["disusun", "susun"],
+    ["anggaran", "anggar"],
+    ["menganggarkan", "anggar"],
+    ["keputusan", "putus"],
+    ["pagu", "pagu"],
+    ["hari", "hari"],
+    ["draf", "draf"],
+    ["baru", "baru"],
+    ["indikatif", "indikatif"],
+    ["pemerintah", "erintah"],
+    ["koordinasi", "koordinas"]
+  ],
+  "spell_integer": [
+    [0, "nol"],
+    [4, "empat"],
+    [10, "sepuluh"],
+    [11, "sebelas"],
+    [12, "dua belas"],
+    [19, "sembilan belas"],
+    [20, "dua puluh"],
+    [25, "dua puluh lima"],
+    [100, "seratus"],
+    [180, "seratus delapan puluh"],
+    [1000, "seribu"],
+    [1200, "seribu dua ratus"],
+    [2000, "dua ribu"],
+    [2026, "dua ribu dua puluh enam"],
+    [1000000, "satu juta"],
+    [1000001, "satu juta satu"],
+    [8500000, "delapan juta lima ratus ribu"],
+    [1000000000, "satu miliar"],
+    [82000000000, "delapan puluh dua miliar"]
+  ],
+  "spoken_forms": [
+    ["2026", ["dua ribu dua puluh enam"]],
+    ["4", ["empat"]],
+    ["08.00", ["delapan"]],
+    ["9:30", ["sembilan"]],
+    ["8.500.000", ["delapan juta lima ratus ribu"]],
+    ["", []],
+    ["abc", []]
+  ],
+  "numbers": [
+    ["Pagu Rp8.500.000,00 untuk 4 kegiatan.", ["8.500.000,00", "4"]],
+    ["Rapat pukul 09.00 WIB.", ["09.00"]],
+    ["Tidak ada angka di sini.", []]
+  ],
+  "proper_names": [
+    ["Budi menyetujui usulan RKAKL. Siti Aminah menolak.", ["Aminah"]],
+    [
+      "Pagu indikatif disetujui pada Rapat Koordinasi hari Senin.",
+      ["Koordinasi"]
+    ],
+    ["Susun draf rencana kerja — penanggung jawab Budi, tenggat 10 Oktober", ["Budi"]]
+  ],
+  "register": [
+    [
+      "Kita gak perlu bikin laporan baru, udah ada.",
+      ["gak", "bikin", "udah"],
+      "Kita tidak perlu membuat laporan baru, sudah ada."
+    ],
+    [
+      "Analisa risiko dan praktek standarisasi mempengaruhi jadual.",
+      ["analisa", "praktek", "standarisasi", "mempengaruhi", "jadual"],
+      "Analisis risiko dan praktik standardisasi memengaruhi jadwal."
+    ],
+    [
+      "Pokok bahasan tentang Tokek dan menganalisanya.",
+      [],
+      "Pokok bahasan tentang Tokek dan menganalisanya."
+    ],
+    [
+      "Rapat dimulai 09:00 dan selesai 11:30.",
+      ["09:00", "11:30"],
+      "Rapat dimulai 09.00 dan selesai 11.30."
+    ],
+    [
+      "Peserta membahas anggaran, jadwal, dan lain-lain.",
+      ["dan lain-lain"],
+      "Peserta membahas anggaran, jadwal, dan lain-lain."
+    ],
+    [
+      "Surat tanggal 5-10-2026 sudah diterima.",
+      ["5-10-2026"],
+      "Surat tanggal 5-10-2026 sudah diterima."
+    ]
+  ],
+  "schema": [
+    {
+      "name": "fenced with preamble",
+      "raw": "Berikut notulennya:\n```json\n{\"keputusan\": [{\"isi\": \"Pagu disetujui.\", \"segmen\": [7]}]}\n```",
+      "keputusan": [["Pagu disetujui.", [7]]],
+      "tindak_lanjut": []
+    },
+    {
+      "name": "bare strings with inline citation",
+      "raw": "{\"keputusan\": [\"Pagu disetujui. [#7,8]\"]}",
+      "keputusan": [["Pagu disetujui.", [7, 8]]],
+      "tindak_lanjut": []
+    },
+    {
+      "name": "renamed keys and string segmen",
+      "raw": "{\"kesimpulan\": [{\"keputusan\": \"Anggaran disetujui.\", \"segmen\": \"[#5]\"}], \"rencana_aksi\": [{\"kegiatan\": \"Kirim surat\", \"pic\": \"Rina\", \"batas_waktu\": \"Jumat\"}]}",
+      "keputusan": [["Anggaran disetujui.", [5]]],
+      "tindak_lanjut": [["Kirim surat", "Rina", "Jumat"]]
+    },
+    {
+      "name": "trailing commas and placeholders",
+      "raw": "{\"keputusan\": [{\"isi\": \"-\"}, {\"isi\": \"Pagu disetujui.\",}], \"tindak_lanjut\": [{\"tugas\": \"Kirim surat\", \"penanggung_jawab\": \"-\", \"tenggat\": \"N/A\"}],}",
+      "keputusan": [["Pagu disetujui.", []]],
+      "tindak_lanjut": [["Kirim surat", "", ""]]
+    },
+    {
+      "name": "think block then the answer",
+      "raw": "<think>mungkin {\"keputusan\": []} ?</think>\n{\"keputusan\": [{\"isi\": \"Pagu disetujui.\", \"segmen\": [1]}]}",
+      "keputusan": [["Pagu disetujui.", [1]]],
+      "tindak_lanjut": []
+    },
+    {
+      "name": "single object instead of an array",
+      "raw": "{\"tindak_lanjut\": {\"tugas\": \"Kirim surat\", \"pj\": \"Rina\"}}",
+      "keputusan": [],
+      "tindak_lanjut": [["Kirim surat", "Rina", ""]]
+    }
+  ]
+}

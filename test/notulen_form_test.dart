@@ -101,7 +101,7 @@ void main() {
       expect(form.hari, 'Kamis');
       expect(form.tanggal, '1 Oktober 2026');
       expect(form.waktu, '09.00 - 10.30 WIB');
-      expect(form.variant, NotulenVariant.dinas);
+      expect(form.template, NotulenTemplate.dinas);
     });
 
     test('a saved form wins outright over any prefill', () {
@@ -153,7 +153,7 @@ void main() {
 
   group('NotulenFormData persistence', () {
     const form = NotulenFormData(
-      variant: NotulenVariant.ringkas,
+      template: NotulenTemplate.ringkas,
       instansi: 'KEMENKEU',
       unitKerja: 'DJA',
       nomor: 'ND-12/AG.3/2026',
@@ -181,7 +181,7 @@ void main() {
 
     test('round-trips through JSON without losing a field', () {
       final restored = NotulenFormData.fromJson(form.toJson());
-      expect(restored.variant, NotulenVariant.ringkas);
+      expect(restored.template, NotulenTemplate.ringkas);
       expect(restored.instansi, 'KEMENKEU');
       expect(restored.nomor, 'ND-12/AG.3/2026');
       expect(restored.peserta, form.peserta);
@@ -203,7 +203,11 @@ void main() {
           'tindak_lanjut': 'juga bukan daftar',
           'lampirkan_transkrip': 'ya',
         });
-        expect(restored.variant, NotulenVariant.dinas, reason: 'safe default');
+        expect(
+          restored.template,
+          NotulenTemplate.dinas,
+          reason: 'safe default',
+        );
         expect(restored.judul, isEmpty);
         expect(restored.peserta, isEmpty);
         expect(restored.tindakLanjut, isEmpty);
@@ -215,7 +219,7 @@ void main() {
       final rust = form.toRust(poinPenting: const ['[05:12] keputusan']);
       expect(rust.poinPenting, ['[05:12] keputusan']);
       expect(rust.tindakLanjut.single.penanggungJawab, 'Rina');
-      expect(rust.variant, NotulenVariant.ringkas);
+      expect(rust.template, NotulenTemplate.ringkas);
     });
 
     test('survives a real sidecar write and read', () async {

@@ -54,10 +54,12 @@ prefix for brevity.
 | `eval/` | normalisation, WER/CER, the benchmark harness |
 | `train/` | LoRA fine-tuning, VRAM dry run, merge + GGML export |
 | `record_kit/` | consent form, session script, ingest for own recordings |
+| `notulen_bench/` | the LLM bake-off: 24 synthetic meetings, six metrics, Rust↔Python parity gate |
 | `tests/` | 255 hermetic tests (no network, no GPU, no models) + 7 opt-in live ones |
 | `DATA_CARD.md` | every source's licence, legal basis, and PII handling |
 | `MODEL_CARD_TEMPLATE.md` | what a released model has to state |
-| `BENCHMARK.md` | the measured results table |
+| `BENCHMARK.md` | the measured ASR results table |
+| `NOTULEN-BENCHMARK.md` | the measured LLM-notulen results, and the default the app ships |
 
 ## The four things you probably came here to do
 

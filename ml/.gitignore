@@ -16,3 +16,8 @@ checkpoints/
 *.wav
 *.mp3
 *.pdf
+
+# Notulen bench: 24 fixture kasus (ditaulis sendiri, 220K, teks murni)
+# wajib ikut ke CI — ini BUKAN korpus koleksi, bukan audio.
+!notulen_bench/data/
+!notulen_bench/data/*.md

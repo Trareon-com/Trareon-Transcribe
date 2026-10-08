@@ -311,7 +311,7 @@ List<Bookmark> _bookmarksFromJson(Object? raw) {
 /// converts at the call boundary.
 class NotulenFormData {
   const NotulenFormData({
-    this.variant = NotulenVariant.dinas,
+    this.template = NotulenTemplate.dinas,
     this.instansi = '',
     this.unitKerja = '',
     this.nomor = '',
@@ -324,14 +324,17 @@ class NotulenFormData {
     this.notulis = '',
     this.peserta = const [],
     this.agenda = const [],
+    this.ringkasan = '',
     this.pembahasan = '',
+    this.jalannyaRapat = const [],
+    this.pihak = const [],
     this.keputusan = const [],
     this.tindakLanjut = const [],
     this.kopSuratPath = '',
     this.lampirkanTranskrip = false,
   });
 
-  final NotulenVariant variant;
+  final NotulenTemplate template;
   final String instansi;
   final String unitKerja;
   final String nomor;
@@ -344,14 +347,21 @@ class NotulenFormData {
   final String notulis;
   final List<String> peserta;
   final List<String> agenda;
+  final String ringkasan;
   final String pembahasan;
+
+  /// Risalah Rapat only: the ordered record of interventions.
+  final List<NotulenIntervention> jalannyaRapat;
+
+  /// Berita Acara only: "kami yang bertanda tangan di bawah ini".
+  final List<String> pihak;
   final List<String> keputusan;
   final List<NotulenTask> tindakLanjut;
   final String kopSuratPath;
   final bool lampirkanTranskrip;
 
   NotulenFormData copyWith({
-    NotulenVariant? variant,
+    NotulenTemplate? template,
     String? instansi,
     String? unitKerja,
     String? nomor,
@@ -364,14 +374,17 @@ class NotulenFormData {
     String? notulis,
     List<String>? peserta,
     List<String>? agenda,
+    String? ringkasan,
     String? pembahasan,
+    List<NotulenIntervention>? jalannyaRapat,
+    List<String>? pihak,
     List<String>? keputusan,
     List<NotulenTask>? tindakLanjut,
     String? kopSuratPath,
     bool? lampirkanTranskrip,
   }) {
     return NotulenFormData(
-      variant: variant ?? this.variant,
+      template: template ?? this.template,
       instansi: instansi ?? this.instansi,
       unitKerja: unitKerja ?? this.unitKerja,
       nomor: nomor ?? this.nomor,
@@ -384,7 +397,10 @@ class NotulenFormData {
       notulis: notulis ?? this.notulis,
       peserta: peserta ?? this.peserta,
       agenda: agenda ?? this.agenda,
+      ringkasan: ringkasan ?? this.ringkasan,
       pembahasan: pembahasan ?? this.pembahasan,
+      jalannyaRapat: jalannyaRapat ?? this.jalannyaRapat,
+      pihak: pihak ?? this.pihak,
       keputusan: keputusan ?? this.keputusan,
       tindakLanjut: tindakLanjut ?? this.tindakLanjut,
       kopSuratPath: kopSuratPath ?? this.kopSuratPath,
@@ -396,7 +412,7 @@ class NotulenFormData {
   /// session's bookmarks at export time rather than stored, so editing a
   /// bookmark is reflected in the next export without re-saving the form.
   NotulenForm toRust({List<String> poinPenting = const []}) => NotulenForm(
-    variant: variant,
+    template: template,
     instansi: instansi,
     unitKerja: unitKerja,
     nomor: nomor,
@@ -409,7 +425,13 @@ class NotulenFormData {
     notulis: notulis,
     peserta: peserta,
     agenda: agenda,
+    ringkasan: ringkasan,
     pembahasan: pembahasan,
+    jalannyaRapat: [
+      for (final entry in jalannyaRapat)
+        RisalahEntry(pembicara: entry.pembicara, pokok: entry.pokok),
+    ],
+    pihak: pihak,
     keputusan: keputusan,
     tindakLanjut: [
       for (final task in tindakLanjut)
@@ -425,7 +447,7 @@ class NotulenFormData {
   );
 
   Map<String, dynamic> toJson() => {
-    'variant': variant.name,
+    'template': template.name,
     'instansi': instansi,
     'unit_kerja': unitKerja,
     'nomor': nomor,
@@ -438,7 +460,10 @@ class NotulenFormData {
     'notulis': notulis,
     'peserta': peserta,
     'agenda': agenda,
+    'ringkasan': ringkasan,
     'pembahasan': pembahasan,
+    'jalannya_rapat': [for (final entry in jalannyaRapat) entry.toJson()],
+    'pihak': pihak,
     'keputusan': keputusan,
     'tindak_lanjut': [for (final task in tindakLanjut) task.toJson()],
     'kop_surat_path': kopSuratPath,
@@ -450,11 +475,14 @@ class NotulenFormData {
         raw is List ? raw.whereType<String>().toList() : const <String>[];
     String text(String key) => json[key] is String ? json[key] as String : '';
     return NotulenFormData(
-      variant:
-          NotulenVariant.values
-              .where((v) => v.name == json['variant'])
+      // `variant` is what sessions saved before Sprint 7 wrote, when
+      // there were only two layouts. Both of its values are still
+      // `NotulenTemplate` names, so an old session opens unchanged.
+      template:
+          NotulenTemplate.values
+              .where((v) => v.name == (json['template'] ?? json['variant']))
               .firstOrNull ??
-          NotulenVariant.dinas,
+          NotulenTemplate.dinas,
       instansi: text('instansi'),
       unitKerja: text('unit_kerja'),
       nomor: text('nomor'),
@@ -467,7 +495,15 @@ class NotulenFormData {
       notulis: text('notulis'),
       peserta: strings(json['peserta']),
       agenda: strings(json['agenda']),
+      ringkasan: text('ringkasan'),
       pembahasan: text('pembahasan'),
+      jalannyaRapat: json['jalannya_rapat'] is List
+          ? (json['jalannya_rapat'] as List)
+                .whereType<Map>()
+                .map(NotulenIntervention.fromJson)
+                .toList()
+          : const [],
+      pihak: strings(json['pihak']),
       keputusan: strings(json['keputusan']),
       tindakLanjut: json['tindak_lanjut'] is List
           ? (json['tindak_lanjut'] as List)
@@ -482,6 +518,46 @@ class NotulenFormData {
 }
 
 /// One tugas / penanggung jawab / tenggat row, JSON-serialisable.
+/// One intervention in a Risalah Rapat: who said what, in order.
+///
+/// Carries no segment ids: the document shows none, and the form the user
+/// edits should not hold fields the document cannot display. Provenance
+/// lives in the fact-check report instead.
+class NotulenIntervention {
+  const NotulenIntervention({this.pembicara = '', this.pokok = ''});
+
+  final String pembicara;
+  final String pokok;
+
+  NotulenIntervention copyWith({String? pembicara, String? pokok}) =>
+      NotulenIntervention(
+        pembicara: pembicara ?? this.pembicara,
+        pokok: pokok ?? this.pokok,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'pembicara': pembicara,
+    'pokok': pokok,
+  };
+
+  factory NotulenIntervention.fromJson(Map<dynamic, dynamic> json) =>
+      NotulenIntervention(
+        pembicara: json['pembicara'] is String
+            ? json['pembicara'] as String
+            : '',
+        pokok: json['pokok'] is String ? json['pokok'] as String : '',
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is NotulenIntervention &&
+      other.pembicara == pembicara &&
+      other.pokok == pokok;
+
+  @override
+  int get hashCode => Object.hash(pembicara, pokok);
+}
+
 class NotulenTask {
   const NotulenTask({
     this.tugas = '',

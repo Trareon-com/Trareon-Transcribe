@@ -59,7 +59,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["common", "collect", "align", "eval", "train", "record_kit"]
+packages = ["common", "collect", "align", "eval", "train", "record_kit", "notulen_bench"]
 
 [tool.ruff]
 line-length = 100
@@ -75,6 +75,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# The notulen benchmark carries three Indonesian word lists of 50-90
+# entries each (stopwords, non-name vocabulary, baku substitutions).
+# SIM905 would have them written as quoted list literals, which makes a
+# list a human has to proofread against the KBBI unreadable. Written as
+# a triple-quoted sentence and split, they read as what they are.
+"notulen_bench/stem.py" = ["SIM905"]
+"notulen_bench/register.py" = ["SIM905"]
 # A notebook is read top to bottom by a human, so an import belongs in
 # the cell that first needs it rather than hoisted to the top of that
 # cell or into cell 1. Real checks (undefined names, unused imports)

@@ -48,14 +48,22 @@ pub mod flight_recorder;
 pub mod glossary;
 /// Rejects the captions Whisper invents over silence.
 pub mod hallucination;
+pub mod journal;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
-pub mod journal;
+/// First-run setup for the local notulen model: hardware-aware
+/// recommendation, per-OS install guidance, pull-progress parsing. Pure;
+/// the two networked halves live in `summary`.
+pub mod llm_setup;
 /// Long-meeting summarisation: time windows → partial notes → one
 /// document.
 pub mod mapreduce;
 pub mod memory;
 pub mod model;
+/// Mesin notulen: templat naskah dinas, skema JSON ketat, periksa fakta,
+/// dan pemeriksa ragam bahasa baku. Local-only — the model round trip
+/// itself belongs to `summary`.
+pub mod notulen;
 /// Mode Kepatuhan UU PDP: redaction, retention, audit log, consent.
 pub mod pdp;
 pub mod pipeline;
@@ -67,6 +75,9 @@ pub mod provenance;
 pub mod session;
 pub mod settings;
 pub mod singleton;
+/// Metadata sidecar for registering a notulen in SRIKANDI by hand.
+/// Local-only: there is no SRIKANDI API to call.
+pub mod srikandi;
 /// LocalAgreement-2: which words of a live hypothesis are safe to show as
 /// final. Pure policy; the engine side is in `pipeline`.
 pub mod streaming;

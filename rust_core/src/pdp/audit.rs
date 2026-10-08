@@ -45,6 +45,8 @@ pub enum AuditAction {
     RedactionApplied,
     RetentionApplied,
     AuditExported,
+    /// A notulen model was downloaded to the summary endpoint.
+    ModelPulled,
 }
 
 impl AuditAction {
@@ -62,6 +64,7 @@ impl AuditAction {
             AuditAction::RedactionApplied => "Penyamaran data pribadi diterapkan",
             AuditAction::RetentionApplied => "Kebijakan retensi dijalankan",
             AuditAction::AuditExported => "Log audit diekspor",
+            AuditAction::ModelPulled => "Model notulen diunduh",
         }
     }
 }

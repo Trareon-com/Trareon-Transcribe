@@ -13,6 +13,7 @@ import 'src/rust/error.dart' show TranscribeError_InvalidInput;
 import 'src/rust/frb_generated.dart';
 import 'state/models.dart';
 import 'state/onboarding_model.dart';
+import 'state/privacy_report_model.dart';
 import 'state/settings_model.dart';
 import 'theme/app_icons.dart';
 import 'theme/app_motion.dart';
@@ -49,6 +50,10 @@ Locale resolveLocale(List<Locale>? preferred, Iterable<Locale> supported) {
 }
 
 void main() async {
+  // Before anything else: the Privacy Report's "session running for"
+  // clock reads this, and a provider built lazily when the user opens
+  // that screen would start the clock at the wrong moment.
+  appLaunchedAt = DateTime.now();
   WidgetsFlutterBinding.ensureInitialized();
   // Geometry, minimum size and platform chrome, plus the saved size and
   // position from last launch (see services/window_service.dart).
