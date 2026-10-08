@@ -355,6 +355,25 @@ abstract class RustBridge {
   /// Parses an AI summary into the notulen form's body sections. Local only.
   Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary);
 
+  /// **Networked.** Generates a notulen from `segments` (the session
+  /// transcript or "poin catatan" turned into segments) and checks it.
+  /// `panjang` is the length preset; `konteksDokumen`, when present, is a
+  /// local document's extracted text. Progress is published to the same
+  /// slot [summaryProgress] polls.
+  Future<rust_api.NotulenHasil> generateNotulen({
+    required rust_summary.SummaryConfig config,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+    required List<Bookmark> bookmarks,
+    required rust_notulen.NotulenForm base,
+    required NotulenLength panjang,
+    String? konteksDokumen,
+  });
+
+  /// Reads a local .txt/.md/.pdf file for use as notulen context. Local
+  /// only — never uploads or caches the file anywhere else.
+  Future<String> extractNotulenDocumentContext(String path);
+
   /// Renders bookmarks as the `"[mm:ss] catatan"` lines every export and the
   /// notulen's "Poin Penting" section use.
   Future<List<String>> formatBookmarks(List<Bookmark> bookmarks);
@@ -999,6 +1018,29 @@ class RustBridgeMock implements RustBridge {
   }
 
   @override
+  Future<rust_api.NotulenHasil> generateNotulen({
+    required rust_summary.SummaryConfig config,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+    required List<Bookmark> bookmarks,
+    required rust_notulen.NotulenForm base,
+    required NotulenLength panjang,
+    String? konteksDokumen,
+  }) async => rust_api.NotulenHasil(
+    form: base,
+    perbaikan: const [],
+    struktur: const StructureReport(bagianKosong: [], terisi: 0, wajib: 0),
+    fakta: const LaporanFakta(temuan: [], diperiksa: 0, bersih: 0),
+    ragam: const [],
+    mapReduce: false,
+    mentah: '{}',
+  );
+
+  @override
+  Future<String> extractNotulenDocumentContext(String path) async =>
+      'Isi dokumen (mock): $path';
+
+  @override
   Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
     required rust_glossary.GlossaryConfig glossary,
     String contextTail = '',
@@ -1403,6 +1445,29 @@ class RustEngineBridge implements RustBridge {
     outputDir: outputDir,
     title: title,
   );
+
+  @override
+  Future<rust_api.NotulenHasil> generateNotulen({
+    required rust_summary.SummaryConfig config,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+    required List<Bookmark> bookmarks,
+    required rust_notulen.NotulenForm base,
+    required NotulenLength panjang,
+    String? konteksDokumen,
+  }) => rust_api.generateNotulen(
+    config: config,
+    template: template,
+    segments: segments.map(toRustSegment).toList(),
+    bookmarks: bookmarks,
+    base: base,
+    panjang: panjang,
+    konteksDokumen: konteksDokumen,
+  );
+
+  @override
+  Future<String> extractNotulenDocumentContext(String path) =>
+      rust_api.extractNotulenDocumentContext(path: path);
 
   @override
   Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary) =>
