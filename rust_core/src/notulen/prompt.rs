@@ -333,11 +333,61 @@ mod tests {
     }
 
     #[test]
+    fn user_prompt_includes_length_instruction_for_each_preset() {
+        for panjang in [
+            NotulenLength::Ringkas,
+            NotulenLength::Sedang,
+            NotulenLength::Lengkap,
+        ] {
+            let prompt = user_prompt(NotulenTemplate::Dinas, "transkrip", &[], panjang, None);
+            let target = panjang.target_words();
+            assert!(
+                prompt.contains(&target.to_string()),
+                "prompt untuk {panjang:?} harus menyebut target {target} kata:\n{prompt}"
+            );
+        }
+    }
+
+    #[test]
+    fn reduce_prompt_includes_length_instruction() {
+        let prompt = reduce_prompt(
+            NotulenTemplate::Dinas,
+            "catatan",
+            NotulenLength::Ringkas,
+            None,
+        );
+        assert!(prompt.contains(&NotulenLength::Ringkas.target_words().to_string()));
+    }
+
+    #[test]
+    fn user_prompt_includes_document_context_when_present() {
+        let with_ctx = user_prompt(
+            NotulenTemplate::Dinas,
+            "transkrip",
+            &[],
+            NotulenLength::Sedang,
+            Some("Isi dokumen rujukan."),
+        );
+        let without_ctx = user_prompt(
+            NotulenTemplate::Dinas,
+            "transkrip",
+            &[],
+            NotulenLength::Sedang,
+            None,
+        );
+        assert!(with_ctx.contains("Isi dokumen rujukan."));
+        assert!(!without_ctx.contains("KONTEKS DOKUMEN"));
+        assert!(with_ctx.contains("KONTEKS DOKUMEN"));
+    }
+
+    #[test]
     fn the_user_prompt_embeds_schema_transcript_and_marks() {
         let prompt = user_prompt(
             NotulenTemplate::Dinas,
             "[1] 00:00 (Pimpinan): rapat dibuka",
             &["[05:12] keputusan penting".to_string()],
+            NotulenLength::Sedang,
+            None,
         );
         assert!(prompt.contains("KERANGKA JSON"));
         assert!(prompt.contains("\"keputusan\""));
