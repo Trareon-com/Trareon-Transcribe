@@ -35,7 +35,11 @@ if (-not (Test-Path $BuildDir)) {
 
 # `iscc` is not on PATH after a fresh choco install in the same shell session,
 # so fall back to the standard install locations rather than failing.
-$Iscc = (Get-Command iscc -ErrorAction SilentlyContinue)?.Source
+# NB: `?.` (null-conditional) is PowerShell 7+ only, and GitHub's `powershell`
+# is Windows PowerShell 5.1 — it aborts the whole script with a parse error
+# before any of our fallback logic can run. Keep this 5.1-compatible.
+$IsccCmd = Get-Command iscc -ErrorAction SilentlyContinue
+if ($IsccCmd) { $Iscc = $IsccCmd.Source } else { $Iscc = $null }
 if (-not $Iscc) {
     foreach ($candidate in @(
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
