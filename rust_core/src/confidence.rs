@@ -39,13 +39,31 @@ pub fn route_segment(
     SegmentRoute::Accept
 }
 
+/// Confidence below which a segment is flagged `low_confidence` for the
+/// "Tinjau" review filter rather than shown as plain fact.
+///
+/// 0.70, not the 0.5 this used to be: a real session measured a segment
+/// ("di video selanjutnya.", confidence 0.61) that is itself a hallucinated
+/// fragment but sat comfortably above 0.5, so it reached the transcript
+/// with no visible warning. 0.70 is still well clear of confident real
+/// speech (observed 0.85–0.98 on `rapat_id.mp3`) while catching that case
+/// and the honest-but-unsure dictation this flag also exists for.
+pub const LOW_CONFIDENCE_THRESHOLD: f32 = 0.70;
+
+/// Mean token log-probability below which a segment is flagged regardless
+/// of its `confidence` figure — a second, independent signal so a segment
+/// that is merely probable but was spoken under heavy decoding uncertainty
+/// still gets the same review flag.
+pub const LOW_CONFIDENCE_LOGPROB_THRESHOLD: f32 = -0.5;
+
 /// Filter and annotate segments in-place using confidence signals.
 /// Returns the count of discarded segments.
 ///
 /// Discards segments whose text carries no real content (fewer than two
 /// alphanumeric characters — silence/hallucination patterns) and flags
-/// segments whose `confidence` falls below 0.5 so the UI can render them
-/// distinctly.
+/// segments whose `confidence` or `avg_log_prob` falls below the review
+/// thresholds so the UI can render them distinctly and the "Tinjau" filter
+/// can pick them up.
 pub fn apply_confidence_routing(segments: &mut Vec<Segment>) -> usize {
     let before = segments.len();
     segments.retain_mut(|seg| {
@@ -53,7 +71,9 @@ pub fn apply_confidence_routing(segments: &mut Vec<Segment>) -> usize {
         if alnum_count < 2 {
             return false;
         }
-        seg.low_confidence = seg.confidence < 0.5;
+        seg.low_confidence = seg.low_confidence
+            || seg.confidence < LOW_CONFIDENCE_THRESHOLD
+            || seg.avg_log_prob < LOW_CONFIDENCE_LOGPROB_THRESHOLD;
         true
     });
     before - segments.len()
@@ -145,5 +165,27 @@ mod tests {
         let mut segs = vec![seg];
         apply_confidence_routing(&mut segs);
         assert!(!segs[0].low_confidence);
+    }
+
+    #[test]
+    fn the_061_confidence_fragment_is_flagged() {
+        // The exact figure measured on a real macOS session: "di video
+        // selanjutnya." came back at confidence 0.61, which the old 0.5
+        // threshold let through with no review flag at all.
+        let mut seg = make_segment("di video selanjutnya.");
+        seg.confidence = 0.61;
+        let mut segs = vec![seg];
+        apply_confidence_routing(&mut segs);
+        assert!(segs[0].low_confidence);
+    }
+
+    #[test]
+    fn low_avg_log_prob_flags_even_with_decent_confidence() {
+        let mut seg = make_segment("kalimat agak ragu-ragu");
+        seg.confidence = 0.8;
+        seg.avg_log_prob = -0.6;
+        let mut segs = vec![seg];
+        apply_confidence_routing(&mut segs);
+        assert!(segs[0].low_confidence);
     }
 }

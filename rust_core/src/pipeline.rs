@@ -1155,6 +1155,17 @@ impl<'a> LivePipeline<'a> {
         // Only when the user has VAD on: with it off they have asked for
         // every chunk to be transcribed, and the text filters are then the
         // only thing between room tone and an invented caption.
+        // Unconditional backstop (B1): independent of whether a Silero
+        // model is installed on this machine, the exact audio about to be
+        // decoded is measured directly. `window_holds_speech` fails open
+        // (`Ok(true)`) when no Silero gate is loaded, which otherwise means
+        // a missing model file silently disables all live-path VAD.
+        if crate::silence_gate::is_below_speech_floor(
+            self.window.samples(),
+            crate::silence_gate::SILENCE_THRESHOLD_DBFS,
+        ) {
+            return Ok(Vec::new());
+        }
         if self.vad_enabled && !self.window_holds_speech()? {
             return Ok(Vec::new());
         }
@@ -1241,7 +1252,7 @@ impl<'a> LivePipeline<'a> {
             confidence: mean_prob,
             avg_log_prob: if mean_prob > 0.0 { mean_prob.ln() } else { 0.0 },
             is_partial: false,
-            low_confidence: mean_prob < 0.5,
+            low_confidence: mean_prob < crate::confidence::LOW_CONFIDENCE_THRESHOLD,
             words: words.into_iter().map(Into::into).collect(),
         })
     }
@@ -1438,6 +1449,16 @@ impl<'a> LivePipelineHpt<'a> {
 /// but a mis-tuned detector can no longer swallow quiet speech. Shared by
 /// both pipelines so the two can't drift apart.
 fn detect_speech(vad: &mut DualVad, vad_enabled: bool, samples: &[f32]) -> TranscribeResult<bool> {
+    // Backstop gate (B1): digital silence or sub-noise-floor audio is never
+    // speech, whatever the VAD setting says. `vad_enabled: false` means
+    // "don't trust the frame-level detector", not "assume every buffer,
+    // including dead air, is speech" — a mic with no OS permission granted
+    // produces exactly this (zero-filled buffers, no error), and a disabled
+    // VAD must not be the reason that reaches Whisper.
+    if crate::silence_gate::is_below_speech_floor(samples, crate::silence_gate::SILENCE_THRESHOLD_DBFS)
+    {
+        return Ok(false);
+    }
     if !vad_enabled {
         return Ok(true);
     }

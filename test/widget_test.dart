@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/widgets/session_sidebar.dart';
+import 'package:transcribe/widgets/ui/key_hint.dart';
 
 import 'test_helpers.dart';
 
@@ -231,6 +232,14 @@ void main() {
       WidgetTester tester,
     ) async {
       sizeViewport(tester);
+      // The keycap text is platform-aware (⌘ on macOS, Ctrl elsewhere) —
+      // see `lib/widgets/ui/key_hint.dart`. Pinned to the non-macOS
+      // rendering here so this assertion is about the app's own logic, not
+      // about which OS happens to be running the test suite: before this
+      // fix, running `flutter test` on a macOS host made this fail because
+      // the real `Platform.isMacOS` flipped the caps to '⌘'.
+      debugForceCommandKey = false;
+      addTearDown(() => debugForceCommandKey = null);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 

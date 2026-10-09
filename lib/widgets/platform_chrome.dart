@@ -30,8 +30,20 @@ TargetPlatform get _platform {
   final override = debugChromePlatformOverride;
   if (override != null) return override;
   if (kIsWeb) return TargetPlatform.linux;
-  if (Platform.isMacOS) return TargetPlatform.macOS;
-  if (Platform.isWindows) return TargetPlatform.windows;
+  // Also require `defaultTargetPlatform` to agree, not just `Platform.is*`.
+  // In `flutter test`, `defaultTargetPlatform` defaults to android
+  // regardless of the host OS; without this check, running the suite on a
+  // Mac host made this getter return macOS, which then built real
+  // `PlatformProvidedMenuItem`s (servicesSubmenu etc.) whose own internal
+  // platform check disagreed and threw — 23 widget tests crashed on a
+  // Mac host for exactly this reason, never on Linux CI where both checks
+  // already agreed.
+  if (Platform.isMacOS && defaultTargetPlatform == TargetPlatform.macOS) {
+    return TargetPlatform.macOS;
+  }
+  if (Platform.isWindows && defaultTargetPlatform == TargetPlatform.windows) {
+    return TargetPlatform.windows;
+  }
   return TargetPlatform.linux;
 }
 
@@ -269,11 +281,50 @@ class AppPlatformMenuBar extends StatelessWidget {
   final VoidCallback onToggleSidebar;
   final VoidCallback onShowShortcuts;
 
+  /// Items the system provides on macOS only — guarded by `hasMenu` so this
+  /// widget never asserts on a platform where one of them does not exist.
+  static List<PlatformMenuItem> _provided(
+    List<PlatformProvidedMenuItemType> types,
+  ) {
+    return [
+      for (final type in types)
+        if (PlatformProvidedMenuItem.hasMenu(type))
+          PlatformProvidedMenuItem(type: type),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_platform != TargetPlatform.macOS) return child;
     return PlatformMenuBar(
       menus: [
+        // The application menu (named after the app, shown first by the
+        // system regardless of this list's order): About, Pengaturan,
+        // Services, Sembunyikan / Sembunyikan yang Lain / Tampilkan Semua,
+        // then Keluar. Before this fix the first entry below ("Berkas")
+        // was what macOS rendered as the app menu, so none of these
+        // standard items — including ⌘Q — existed at all.
+        PlatformMenu(
+          label: 'Trareon Transcribe',
+          menus: [
+            ..._provided([PlatformProvidedMenuItemType.about]),
+            PlatformMenuItem(
+              label: 'Pengaturan…',
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.comma,
+                meta: true,
+              ),
+              onSelected: onOpenSettings,
+            ),
+            ..._provided([PlatformProvidedMenuItemType.servicesSubmenu]),
+            ..._provided([
+              PlatformProvidedMenuItemType.hide,
+              PlatformProvidedMenuItemType.hideOtherApplications,
+              PlatformProvidedMenuItemType.showAllApplications,
+            ]),
+            ..._provided([PlatformProvidedMenuItemType.quit]),
+          ],
+        ),
         PlatformMenu(
           label: 'Berkas',
           menus: [
@@ -285,14 +336,6 @@ class AppPlatformMenuBar extends StatelessWidget {
                 meta: true,
               ),
               onSelected: onToggleRecording,
-            ),
-          ],
-        ),
-        const PlatformMenu(
-          label: 'Edit',
-          menus: [
-            PlatformProvidedMenuItem(
-              type: PlatformProvidedMenuItemType.servicesSubmenu,
             ),
           ],
         ),
@@ -339,7 +382,6 @@ class AppPlatformMenuBar extends StatelessWidget {
               label: 'Pintasan Keyboard',
               onSelected: onShowShortcuts,
             ),
-            PlatformMenuItem(label: 'Pengaturan', onSelected: onOpenSettings),
           ],
         ),
       ],

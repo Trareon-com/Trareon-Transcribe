@@ -19,6 +19,7 @@ import 'theme/app_icons.dart';
 import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
+import 'utils/debug_screenshot.dart';
 import 'widgets/platform_chrome.dart';
 import 'widgets/setup_overlay.dart';
 
@@ -163,8 +164,9 @@ class TranscribeApp extends ConsumerWidget {
       themeAnimationCurve: AppEasing.standard,
       // Every route, not just the main screen: hiding the native title bar
       // hides it everywhere, so the chrome has to be above the navigator.
-      builder: (context, child) =>
-          WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => wrapForDebugScreenshot(
+        WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
+      ),
       // First-launch routing: when models aren't downloaded yet, show the
       // dedicated onboarding/download screen. SetupWizardScreen is reached
       // from Settings → "Jalankan Ulang Penyiapan".

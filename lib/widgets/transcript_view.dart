@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../state/models.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_shortcuts.dart';
 import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
 import '../utils/speaker_color.dart';
@@ -16,6 +17,7 @@ import 'speaker_avatar.dart';
 import '../theme/app_icons.dart';
 import 'app_toast.dart';
 import '../theme/app_typography.dart';
+import 'ui/key_hint.dart';
 
 /// Scrolling transcript.
 ///
@@ -655,11 +657,12 @@ class _TranscriptViewState extends State<TranscriptView> {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     if (widget.segments.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: AppIcons.mic,
         title: 'Belum ada transkrip',
         subtitle:
-            'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)',
+            'Mulai sesi untuk memulai transkripsi\n'
+            'Tekan Mulai atau ${AppShortcuts.startStop.shortcut.label}',
       );
     }
 
@@ -954,9 +957,12 @@ class _ShortcutHint extends StatelessWidget {
       ),
       child: Text(
         editing
-            ? 'Enter simpan · Esc batal · Ctrl+Shift+S pisah di kursor'
-            : '↑↓ pilih · Enter sunting · Ctrl+↑↓ pindahkan · '
-                  'Ctrl+M gabung ke atas',
+            ? 'Enter simpan · Esc batal · '
+                  '${const AppShortcut('S', primary: true, shift: true).label} '
+                  'pisah di kursor'
+            : '↑↓ pilih · Enter sunting · '
+                  '${const AppShortcut('↑↓', primary: true).label} pindahkan · '
+                  '${const AppShortcut('M', primary: true).label} gabung ke atas',
         style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
       ),
     );
