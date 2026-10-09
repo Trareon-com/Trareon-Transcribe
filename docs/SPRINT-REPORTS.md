@@ -4727,4 +4727,47 @@ Test baru/diperluas: `test/widgets/platform_chrome_test.dart` (baru), `test/util
 - A7: dismiss dialog lewat Enter sintetis tidak terbukti andal lewat `xdotool` di lingkungan X11 virtual ini (widget test adalah buktinya, bukan smoke test manual).
 - A6: satu entri ARB (`bookmarkAddTooltip`) masih punya "(Ctrl+B)" hard-code tapi tidak dipakai kode manapun (dead key) — dibiarkan, dicatat.
 
+### Ronde perbaikan: golden "main screen, recording" (koreksi atas laporan di atas)
+
+Laporan awal Sprint 12 di atas keliru menyebut kegagalan golden "dark/light main screen,
+recording" sebagai "perbedaan piksel pra-ada, tidak terkait file manapun yang disentuh
+sprint ini". Investigasi akar masalah (bukan tebakan) membuktikan sebaliknya:
+
+- **Akar masalah:** `lib/widgets/transcript_view.dart:665` diubah sprint ini dari string
+  hard-code `'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)'` (selalu
+  menampilkan KEDUA bentuk shortcut) menjadi `'Tekan Mulai atau ${AppShortcuts.startStop.shortcut.label}'`
+  (platform-aware, satu bentuk saja — `Ctrl+R` di Linux/Windows, `⌘R` di macOS). Ini perbaikan
+  UX yang benar (konsisten dengan `KeyHint` yang sudah platform-aware di tempat lain), tapi
+  golden PNG `test/goldens/main-recording-{light,dark}.png` tidak diregenerasi untuk
+  mencerminkannya — dibuktikan lewat `git log -p` pada baris tersebut dan perbandingan piksel
+  `masterImage` vs `testImage` dari `test/failures/`, yang menunjukkan teks berbeda persis di
+  baris subtitle itu, bukan di tempat lain.
+- **Kejutan sekunder saat regenerasi:** `flutter test --update-goldens ... --plain-name "main
+  screen, recording"` (menjalankan test itu sendirian) dua kali berturut-turut menghasilkan
+  golden dengan ikon logo "Trareon Transcribe" di pojok kiri atas **hilang** (area itu putih
+  kosong), padahal render aplikasi sungguhan (`testImage`) selalu punya ikon itu. Root cause:
+  aset ikon butuh "pemanasan" dari test golden lain (`component gallery`, `main screen, idle`)
+  yang berjalan lebih dulu dalam suite penuh; memfilter ke satu test saja melewati pemanasan
+  itu dan menangkap frame sebelum aset selesai dimuat — bukan regresi kode, murni artefak
+  urutan eksekusi test. Regenerasi dengan suite penuh (`flutter test --update-goldens
+  test/golden_test.dart`, tanpa filter) menghasilkan golden stabil dengan ikon utuh, diverifikasi
+  dengan menjalankan ulang `flutter test test/golden_test.dart` dua kali tanpa filter.
+- **Fix:** `test/goldens/main-recording-light.png` dan `test/goldens/main-recording-dark.png`
+  diregenerasi lewat suite penuh, commit `333e7fd`. Tidak ada kode produksi yang diubah di
+  ronde ini — perbaikan sepenuhnya di golden fixture untuk mencerminkan perubahan UI yang
+  sudah benar.
+
+Gerbang verifikasi penuh, dijalankan ulang setelah fix (Linux):
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 874 passed; 0 failed; 0 ignored (1088.92s)
+flutter analyze                            → No issues found! (72.1s)
+flutter test                               → 648 passed; 0 failed (termasuk golden_test.dart
+                                              penuh, 14/14 — dijalankan dua kali untuk
+                                              membuktikan stabil, bukan flaky)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
 Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.
