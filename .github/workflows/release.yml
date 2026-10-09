@@ -29,7 +29,7 @@ jobs:
 
       # No per-job .sha256 here: the single SHA256SUMS written by `publish`
       # covers this archive along with every other artifact.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: artifacts-source
           path: dist/*
@@ -122,7 +122,7 @@ jobs:
             spctl --assess --type open --context context:primary-signature -vv "$dmg"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: artifacts-macos
           path: dist/*
@@ -197,7 +197,7 @@ jobs:
           test -x /usr/bin/trareon-transcribe
           sudo apt-get remove -y trareon-transcribe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: artifacts-linux
           path: dist/*
@@ -234,7 +234,7 @@ jobs:
       - name: Build Windows installer
         run: powershell -ExecutionPolicy Bypass -File scripts/package_windows_installer.ps1 -Version "${GITHUB_REF_NAME#v}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: artifacts-windows
           path: dist/*
@@ -245,7 +245,7 @@ jobs:
     needs: [source-release, build-macos, build-linux, build-windows]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: artifacts-*
           path: collected
