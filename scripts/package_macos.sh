@@ -28,11 +28,17 @@ echo "==> Ensuring cross-compilation targets"
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
 # ── Build Rust library for both architectures ─────────────────────────
+# CARGO_PROFILE_RELEASE_STRIP=none: Cargo.toml's release profile strips
+# symbols, and under Xcode 27's build environment the external-strip step
+# rustc hands off to produces a librust_core.dylib with a mis-aligned
+# LINKEDIT string pool — dyld refuses to load it and the app crashes in
+# `tryLoadRustCoreLibrary`. This only touches the macOS build invoked from
+# this script; Linux/Windows release profiles are unaffected.
 echo "==> Building rust_core for aarch64-apple-darwin"
-(cd rust_core && cargo build --release --target aarch64-apple-darwin --lib)
+(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target aarch64-apple-darwin --lib)
 
 echo "==> Building rust_core for x86_64-apple-darwin"
-(cd rust_core && cargo build --release --target x86_64-apple-darwin --lib --no-default-features)  # ort: no prebuilt for macOS Intel → energy VAD fallback
+(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target x86_64-apple-darwin --lib --no-default-features)  # ort: no prebuilt for macOS Intel → energy VAD fallback
 
 echo "==> Creating universal librust_core.dylib"
 mkdir -p rust_core/target/universal
@@ -40,6 +46,14 @@ lipo -create \
   rust_core/target/aarch64-apple-darwin/release/librust_core.dylib \
   rust_core/target/x86_64-apple-darwin/release/librust_core.dylib \
   -output rust_core/target/universal/librust_core.dylib
+
+if command -v dyld_info >/dev/null 2>&1; then
+  echo "==> Validating universal librust_core.dylib"
+  dyld_info -validate_only rust_core/target/universal/librust_core.dylib || {
+    echo "error: universal librust_core.dylib failed dyld_info -validate_only" >&2
+    exit 1
+  }
+fi
 
 # ── Build Flutter macOS release ───────────────────────────────────────
 # The Xcode build phase builds Rust for native arch and copies it into
@@ -90,29 +104,21 @@ fi
 #
 # The entitlements file grants the microphone and the audio-input device,
 # which the hardened runtime otherwise denies outright.
+# Both signing paths use the app's own `Release.entitlements` (sandbox,
+# network.client, audio-input, screen-capture, user-selected read-write) —
+# not a hand-maintained duplicate, which drifted from the real entitlements
+# the app ships with (it was missing the sandbox and screen-capture grants
+# that the production entitlements file already declared).
+ENTITLEMENTS="$(cd "$(dirname "$0")/.." && pwd)/macos/Runner/Release.entitlements"
 if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
   echo "==> Signing $APP_PATH with Developer ID"
-  ENTITLEMENTS="$(mktemp -d)/entitlements.plist"
-  cat > "$ENTITLEMENTS" << 'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>com.apple.security.device.audio-input</key>
-  <true/>
-  <key>com.apple.security.cs.disable-library-validation</key>
-  <true/>
-</dict>
-</plist>
-PLIST
   codesign --force --deep --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" \
     --sign "$MACOS_SIGN_IDENTITY" "$APP_PATH"
-  rm -rf "$(dirname "$ENTITLEMENTS")"
   codesign --verify --strict --verbose=2 "$APP_PATH"
 else
   echo "==> Ad-hoc signing $APP_PATH (no MACOS_SIGN_IDENTITY)"
-  codesign --force --deep --sign - "$APP_PATH"
+  codesign --force --deep --entitlements "$ENTITLEMENTS" --sign - "$APP_PATH"
   codesign --verify --verbose "$APP_PATH"
 fi
 
