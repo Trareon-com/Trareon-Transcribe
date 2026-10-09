@@ -1384,12 +1384,26 @@ impl<'a> LivePipelineHpt<'a> {
 
         let mut quick = Vec::new();
         let mut refined = Vec::new();
-        while let Some(chunk) = self.ring.take_chunk() {
-            let chunk_start = self
-                .samples_seen
-                .saturating_sub(self.ring.buffered_samples() as u64 + chunk.len() as u64)
-                as f64
-                / 16_000.0;
+        while self.ring.is_chunk_ready() {
+            // Captured *before* `take_chunk()`, which is what B5 fixes: the
+            // chunk about to be taken occupies the absolute sample range
+            // `[samples_seen - buffered_before, samples_seen - buffered_before
+            // + chunk.len())`. The previous version measured the ring
+            // *after* taking the chunk and added `chunk.len()` back to
+            // compensate — but `take_chunk()` only returns
+            // `chunk_len - overlap_len` samples to the ring (it keeps the
+            // overlap for the next chunk), not zero, so that compensation
+            // was short by exactly `overlap_len` (1 s) and every chunk's
+            // timestamp landed a second early. Measured in a real Webinar
+            // session: speech starting at ~6 s on `speaker.wav.part` came
+            // back labelled 3.0 s — two chunks in, so the 1 s-per-chunk
+            // error had already doubled.
+            let buffered_before = self.ring.buffered_samples() as u64;
+            let chunk = self
+                .ring
+                .take_chunk()
+                .expect("is_chunk_ready() just confirmed a chunk is available");
+            let chunk_start = chunk_start_secs(self.samples_seen, buffered_before, 16_000);
             let language = self.language.as_deref();
             // The dual-pass pipeline has never carried a rolling transcript
             // tail (the quick pass would seed the refine pass with its own
@@ -1455,8 +1469,10 @@ fn detect_speech(vad: &mut DualVad, vad_enabled: bool, samples: &[f32]) -> Trans
     // including dead air, is speech" — a mic with no OS permission granted
     // produces exactly this (zero-filled buffers, no error), and a disabled
     // VAD must not be the reason that reaches Whisper.
-    if crate::silence_gate::is_below_speech_floor(samples, crate::silence_gate::SILENCE_THRESHOLD_DBFS)
-    {
+    if crate::silence_gate::is_below_speech_floor(
+        samples,
+        crate::silence_gate::SILENCE_THRESHOLD_DBFS,
+    ) {
         return Ok(false);
     }
     if !vad_enabled {
@@ -1470,6 +1486,17 @@ fn detect_speech(vad: &mut DualVad, vad_enabled: bool, samples: &[f32]) -> Trans
         }
     }
     Ok(false)
+}
+
+/// Absolute start time (seconds) of a chunk about to be taken from a
+/// [`RingBuffer`], given how many samples the buffer held *before* the
+/// take (B5). The chunk occupies `[samples_seen - buffered_before,
+/// samples_seen - buffered_before + chunk_len)`: every sample ever pushed
+/// is either still sitting in the ring or was already handed out as part
+/// of an earlier chunk, so `samples_seen - buffered_before` is exactly
+/// where this one starts.
+fn chunk_start_secs(samples_seen: u64, buffered_before_take: u64, sample_rate: u64) -> f64 {
+    samples_seen.saturating_sub(buffered_before_take) as f64 / sample_rate as f64
 }
 
 fn fill_i16_slice(src: &[f32], dst: &mut [i16]) {
@@ -1487,7 +1514,64 @@ fn rms_level(samples: &[f32]) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{fill_i16_slice, rms_level};
+    use super::{chunk_start_secs, fill_i16_slice, rms_level};
+    use crate::audio::RingBuffer;
+
+    #[test]
+    fn chunk_start_secs_is_samples_seen_minus_what_was_still_buffered() {
+        assert_eq!(chunk_start_secs(96_000, 16_000, 16_000), 5.0);
+        assert_eq!(chunk_start_secs(16_000, 16_000, 16_000), 0.0);
+    }
+
+    #[test]
+    fn chunk_start_secs_never_goes_negative_on_a_short_first_push() {
+        // samples_seen can be smaller than buffered_before only in a
+        // pathological test setup, never in real use — but the arithmetic
+        // must not panic or wrap either way.
+        assert_eq!(chunk_start_secs(0, 1_000, 16_000), 0.0);
+    }
+
+    /// B5 regression: replays the exact push/take sequence
+    /// `LivePipelineHpt::ingest` drives its `RingBuffer` through, and
+    /// checks the chunk offsets this module now computes against hand
+    /// -derived absolute positions — cheaply, without a real Whisper
+    /// model. (A full synthetic-WAV test through the live pipeline was not
+    /// added: it needs a loaded model, and on this machine's CPU a single
+    /// such integration test already measured in the hundreds of seconds
+    /// elsewhere in this suite.)
+    #[test]
+    fn successive_chunks_land_on_their_true_offsets_not_one_overlap_early() {
+        const RATE: u64 = 16_000;
+        let mut ring = RingBuffer::new(RATE as u32); // 5 s chunks, 1 s overlap
+        let mut samples_seen: u64 = 0;
+        let mut starts = Vec::new();
+
+        let mut push_and_drain = |ring: &mut RingBuffer, secs: f64| {
+            let incoming = vec![0.0f32; (RATE as f64 * secs) as usize];
+            ring.push(&incoming);
+            samples_seen += incoming.len() as u64;
+            while ring.is_chunk_ready() {
+                let buffered_before = ring.buffered_samples() as u64;
+                ring.take_chunk().unwrap();
+                starts.push(chunk_start_secs(samples_seen, buffered_before, RATE));
+            }
+        };
+
+        // First 5 s fills exactly one chunk. The next 4 s is exactly the
+        // "chunk_len - overlap_len" advance needed to ready a second one —
+        // pushed in its own call (not one 11 s dump) so the ring's own
+        // capacity cap (2 chunks = 10 s) never has to evict anything,
+        // which would otherwise also shift these numbers.
+        push_and_drain(&mut ring, 5.0);
+        push_and_drain(&mut ring, 4.0);
+
+        // Chunk 1 covers [0, 5); chunk 2's unique advance is
+        // `chunk_len - overlap_len` = 4 s, so it starts at 4 s. The pre-fix
+        // formula (measuring the ring *after* `take_chunk()` and adding
+        // `chunk.len()` back) gives exactly 3.0 here — the precise figure
+        // the real Webinar session reported for "Selamat pagi".
+        assert_eq!(starts, vec![0.0, 4.0]);
+    }
 
     #[test]
     fn fill_i16_slice_clamps_samples() {

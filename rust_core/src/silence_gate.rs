@@ -102,7 +102,10 @@ mod tests {
         // -45 dBFS room tone, the exact level the macOS bug report measured.
         let samples = tone(16_000, 0.0056); // ~ -45 dBFS peak-ish amplitude
         let level = rms_dbfs(&samples);
-        assert!(level < SILENCE_THRESHOLD_DBFS + 20.0, "sanity: {level} dBFS");
+        assert!(
+            level < SILENCE_THRESHOLD_DBFS + 20.0,
+            "sanity: {level} dBFS"
+        );
         // Regardless of the exact figure, a signal this quiet must gate.
         assert!(is_below_speech_floor(&samples, -40.0));
     }
