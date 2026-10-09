@@ -144,9 +144,10 @@ void main() {
       container.listen(audioWatchdogProvider, (_, _) {});
 
       await container.read(sessionProvider.notifier).start();
-      // Quiet room, not permission-denied: a tiny but non-zero level.
+      // Quiet room, not permission-denied: a tiny but non-zero level on
+      // every enabled source (both mic and speaker are on by default).
       bridge.vuController.add(
-        const VuLevel(micLevel: 0.001, speakerLevel: 0.0),
+        const VuLevel(micLevel: 0.001, speakerLevel: 0.001),
       );
       await Future<void>.delayed(const Duration(milliseconds: 60));
 

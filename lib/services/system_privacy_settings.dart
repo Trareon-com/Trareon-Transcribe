@@ -17,9 +17,20 @@ String _schemeFor(PrivacyPermissionKind kind) => switch (kind) {
 
 /// Opens System Settings straight to the Microphone or Screen & System Audio
 /// Recording privacy pane. Does nothing on non-macOS platforms.
-Future<void> openPrivacySettings(PrivacyPermissionKind kind) async {
+///
+/// [recordExternalLink] is `PrivacyReportNotifier.recordExternalLink` —
+/// Trareon itself opens no socket here, but the user's machine does to
+/// hand off to System Settings, and the Privacy Report would be misleading
+/// if it omitted that handoff. Called before the handoff, not after:
+/// `test/privacy_proof_test.dart` enforces every outbound request is
+/// counted before it leaves.
+Future<void> openPrivacySettings(
+  PrivacyPermissionKind kind,
+  void Function(String url) recordExternalLink,
+) async {
   if (!Platform.isMacOS) return;
   final uri = Uri.parse(_schemeFor(kind));
+  recordExternalLink(uri.toString());
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri);
   } else {

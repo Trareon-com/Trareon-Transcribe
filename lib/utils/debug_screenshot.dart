@@ -15,7 +15,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -43,16 +42,25 @@ const Duration screenshotInterval = Duration(seconds: 2);
 /// `~/Library/Containers/com.trareon.transcribe/Data/tmp/`. This function
 /// does not create that directory; whatever launches the app with the env
 /// var set is responsible for making sure it exists.
-Widget wrapForDebugScreenshot(Widget child, {String? dirPath}) {
+Widget wrapForDebugScreenshot(
+  Widget child, {
+  String? dirPath,
+  Duration interval = screenshotInterval,
+}) {
   final dir = dirPath ?? _screenshotDir();
   if (dir == null || dir.isEmpty) return child;
-  return _DebugScreenshotBoundary(dir: dir, child: child);
+  return _DebugScreenshotBoundary(dir: dir, interval: interval, child: child);
 }
 
 class _DebugScreenshotBoundary extends StatefulWidget {
-  const _DebugScreenshotBoundary({required this.dir, required this.child});
+  const _DebugScreenshotBoundary({
+    required this.dir,
+    required this.interval,
+    required this.child,
+  });
 
   final String dir;
+  final Duration interval;
   final Widget child;
 
   @override
@@ -68,7 +76,7 @@ class _DebugScreenshotBoundaryState extends State<_DebugScreenshotBoundary> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(screenshotInterval, (_) => _capture());
+    _timer = Timer.periodic(widget.interval, (_) => _capture());
   }
 
   @override
@@ -102,11 +110,7 @@ class _DebugScreenshotBoundaryState extends State<_DebugScreenshotBoundary> {
   }
 }
 
-/// Renders `boundary` to a PNG and writes it into `dir`. Exposed (not
-/// private) so a test can exercise one capture directly, without going
-/// through the widget's real [Timer] — a periodic timer inside a widget
-/// test easily outlives the test body and hangs the suite.
-@visibleForTesting
+/// Renders `boundary` to a PNG and writes it into `dir`.
 Future<void> captureBoundaryToFile(
   RenderRepaintBoundary boundary,
   String dir,
@@ -115,13 +119,21 @@ Future<void> captureBoundaryToFile(
   final image = await boundary.toImage(pixelRatio: 1.0);
   final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
   if (bytes == null) return;
-  await _writeAtomically(dir, index, bytes.buffer.asUint8List());
+  await writeScreenshotAtomically(dir, index, bytes.buffer.asUint8List());
 }
 
 /// Writes `bytes` as `shot-<index>.png` under `dir` via temp-file-then-rename
 /// in the same directory, so a reader scp-ing the directory mid-write never
-/// sees a half-written PNG.
-Future<void> _writeAtomically(String dir, int index, List<int> bytes) async {
+/// sees a half-written PNG. Exposed (not private) so a test can check the
+/// atomicity contract directly, with fake bytes, rather than through a real
+/// (and in a headless test environment, unreliable) `RenderRepaintBoundary`
+/// rasterisation.
+@visibleForTesting
+Future<void> writeScreenshotAtomically(
+  String dir,
+  int index,
+  List<int> bytes,
+) async {
   final directory = Directory(dir);
   if (!await directory.exists()) {
     await directory.create(recursive: true);

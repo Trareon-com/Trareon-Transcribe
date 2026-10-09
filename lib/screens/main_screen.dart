@@ -17,6 +17,7 @@ import '../state/audio_watchdog_model.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -831,7 +832,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         warning.message,
         type: ToastType.error,
         actionLabel: kind == null ? null : 'Buka Pengaturan Sistem',
-        onAction: kind == null ? null : () => openPrivacySettings(kind),
+        onAction: kind == null
+            ? null
+            : () => openPrivacySettings(
+                kind,
+                ref.read(privacyReportProvider.notifier).recordExternalLink,
+              ),
       );
       ref.read(audioWatchdogProvider.notifier).acknowledge();
     });

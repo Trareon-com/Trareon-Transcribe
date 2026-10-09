@@ -120,7 +120,7 @@ class AudioWatchdogNotifier extends StateNotifier<AudioWatchdogWarning?> {
       );
     } else if (speakerDead && !micDead) {
       state = const AudioWatchdogWarning(
-        'Audio sistem/speaker tidak terdeteksi sama sekali. Periksa izin '
+        'Audio sistem tidak terdeteksi sama sekali. Periksa izin '
         '"Rekam Layar & Audio Sistem" di Pengaturan Sistem.',
         permissionKind: PrivacyPermissionKind.screenCapture,
       );
