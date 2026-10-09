@@ -3,6 +3,25 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+Sprint 10 brief asked for structured action items, a follow-up checklist
+UI, and `.ics`/CSV export. Audit at the start of the sprint found all
+three already shipped in Sprint 4 (F6: `rust_core/src/actions.rs`,
+`lib/widgets/action_items_panel.dart`, `test/action_items_test.dart`) and
+unchanged since. This sprint re-verified the implementation against the
+brief's specifics (never inventing a missing owner/deadline, CRLF +
+unique UIDs in the `.ics`, checklist state surviving a close/reopen) and
+added the gap it found: no manual-QA checklist entry for the feature in
+`docs/RELEASE-BETA.md`. See `docs/SPRINT-REPORTS.md` Sprint 10 report for
+the full per-item audit.
+
+### Diperbaiki
+
+- `docs/RELEASE-BETA.md`: tambah bagian manual QA "4b. Tindak Lanjut —
+  checklist, .ics, .csv" yang sebelumnya tidak ada walau fitur sudah
+  dirilis sejak Sprint 4.
+
 ## [1.1.0-beta.1] — 2026-10-09
 
 Rilis beta pertama yang dibagikan ke luar tim inti. Merangkum Sprint 1–7

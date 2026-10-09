@@ -4483,3 +4483,141 @@ Tes: `test/notulen_generation_test.dart` (baru),
 Lainnya: `ml/notulen_bench/prompts/*.user.txt` (4 fixture diregenerasi
 dengan `TRAREON_DUMP_PROMPTS=1` supaya cocok dengan instruksi panjang baru
 di prompt).
+
+## Sprint 10 report — Tindak Lanjut: audit ulang F6 (action item → checklist + ekspor .ics/.csv)
+
+Brief Sprint 10 meminta lima butir: (1) ekstraksi action item terstruktur
+`{tugas, penanggung_jawab, tenggat}` dari keluaran LLM notulen, (2) UI
+checklist tindak lanjut dengan status bisa dicentang dan tersimpan di sesi,
+(3) ekspor `.ics` (VTODO/VEVENT, CRLF, UID, DTSTAMP, DTSTART) dan ekspor
+CSV, (4) tes Rust + Dart, (5) bagian laporan ini.
+
+**Audit di awal putaran menemukan ketiganya sudah ada, dikirim di Sprint 4
+(F6) dan tidak berubah sejak itu** — bukan sesuatu yang perlu dibangun
+ulang:
+
+- `rust_core/src/actions.rs` (393 baris implementasi + ~420 baris tes):
+  `ActionItem { id, tugas, penanggung_jawab, tenggat, status, segment_ids }`,
+  `parse_action_items()` (JSON utuh → blok `[...]`/`{...}` pertama → tabel
+  Markdown → baris bullet `- tugas — PJ — tenggat`, berhenti di daftar
+  kosong tanpa pernah error), `to_ics()` (RFC 5545: `BEGIN/END:VCALENDAR`,
+  satu `VTODO` per butir + `VEVENT` hanya untuk tenggat yang berhasil
+  diurai oleh `parse_deadline()`, CRLF di setiap baris, `UID` stabil per
+  `item.id` sehingga ekspor ulang tidak mengganti ID kalender, escaping
+  teks RFC 5545, line folding), `to_csv()` (header `tugas,penanggung_jawab,
+  tenggat,status`, quoting RFC 4180).
+- `lib/widgets/action_items_panel.dart`: panel "Tindak Lanjut" dengan
+  checkbox per butir (status `belum/berjalan/selesai/dibatalkan`), field
+  PJ & tenggat yang bisa diedit, tombol **Ekspor CSV** / **Ekspor .ics**
+  yang menulis atomik (`writeStringAtomic`) ke folder sesi yang sama
+  dengan transkrip.
+- `lib/services/session_store.dart`: `action_items` di sidecar
+  `trareon-session.json` (`_actionItemToJson`/`_actionItemsFromJson`),
+  jadi centang status selamat lewat tutup/buka sesi.
+- `test/action_items_test.dart` (12 tes): mencakup persis butir brief —
+  "panel ticking a task writes it to the sidecar", "panel exports land
+  next to the session", "panel a cited task jumps the player to the line
+  it came from", plus provenance (F7) dan integrasi notulen (F6 lama vs
+  checklist yang sudah direview pengguna).
+
+Putaran checkpoint sebelumnya (`CHANGELOG.md`, `docs/RELEASE-BETA.md`)
+sudah mencatat temuan ini. Pekerjaan nyata putaran ini: **verifikasi ulang
+independen** — baca ulang kode butir per butir terhadap spesifikasi brief
+(PJ/tenggat yang tidak disebut harus kosong, bukan ditebak;
+`BEGIN/END:VCALENDAR`; `CRLF`; UID unik), jalankan seluruh gerbang
+verifikasi, dan coba smoke test nyata.
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| 1. Ekstraksi action item terstruktur | **DONE** (sudah ada, diverifikasi ulang) | `actions::parse_action_items` empat-lapis fallback; `tenggat` disimpan apa adanya (bukan dinormalisasi) — `parse_deadline` terpisah dan hanya dipakai saat merender `.ics`, jadi "tidak bisa diurai" tidak pernah memalsukan tanggal |
+| 2. UI checklist + persistensi | **DONE** (sudah ada, diverifikasi ulang) | `ActionItemsPanel` + `session_store.dart`; dikonfirmasi lewat `test/action_items_test.dart: panel ticking a task writes it to the sidecar` (lulus) |
+| 3. Ekspor .ics/.csv | **DONE** (sudah ada, diverifikasi ulang) | `actions::to_ics`/`to_csv`; tes Rust `ics_...` mengecek `BEGIN:VCALENDAR\r\n`/`END:VCALENDAR\r\n`, jumlah `VTODO`/`VEVENT`, dan CSV header+quoting |
+| 4. Tes Rust + Dart | **DONE** (sudah ada) | 29 fungsi tes di `actions.rs`, 12 di `test/action_items_test.dart` — semua lulus di gerbang verifikasi putaran ini (lihat di bawah) |
+| 5. Laporan Sprint 10 | **DONE** | Bagian ini |
+
+Tidak ada kode produksi yang diubah putaran ini — audit menyimpulkan tidak
+ada celah terhadap spesifikasi brief untuk diperbaiki.
+
+### Jalur tes dan hasil (gerbang verifikasi penuh, putaran ini)
+
+```
+$ cd rust_core && cargo fmt --check                   → bersih
+$ cargo clippy --all-targets -- -D warnings            → bersih (selesai 8m18s)
+$ cargo test --lib                                     → test result: ok. 854 passed; 0 failed (selesai 650.9s)
+$ flutter analyze                                      → No issues found!
+$ flutter test                                          → 1 gagal di percobaan penuh (lihat di bawah), semua lain lulus
+$ flutter build linux --release                        → sukses, build/linux/x64/release/bundle/transcribe
+```
+
+**Satu kegagalan di `flutter test` putaran penuh**:
+`test/perf/library_index_perf_test.dart: a warm open of 200 sessions is
+under 500 ms` gagal saat dijalankan bersama ~630 tes lain (kontensi CPU di
+mesin ini, bukan regresi). Dijalankan ulang **sendirian**:
+`flutter test test/perf/library_index_perf_test.dart` → **6/6 lulus**,
+`warm library open: best 288.8ms of 436.6ms` — jauh di bawah budget
+500 ms. Tidak berkaitan dengan F6/action items; semua tes di
+`test/action_items_test.dart` lulus di kedua percobaan (baris
+`627`–`634` pada output penuh).
+
+### Bukti smoke test (DISPLAY :0)
+
+1. Build rilis diluncurkan via `setsid`; jendela ditemukan dengan
+   `xdotool search --class transcribe` (`75497475`, 1280x800).
+2. Untuk menguji tanpa memanggil LLM sungguhan (tidak ada endpoint Ollama
+   aktif di mesin ini, sama seperti putaran-putaran sebelumnya), dua
+   butir action item disuntikkan langsung ke sidecar
+   `trareon-session.json` sesi "Sesi 2026-10-05 11:02": satu dengan PJ
+   dan tenggat ("Susun draf RKAKL" / Budi Santoso / 10 Oktober 2026), satu
+   tanpa keduanya ("Kirim undangan rapat lanjutan").
+3. Sesi dibuka dari sidebar → panel **"Tindak Lanjut 0/2 selesai"** tampil
+   persis sesuai spesifikasi: baris pertama menampilkan PJ "Budi Santoso"
+   dan tenggat "10 Oktober 2026"; baris kedua menampilkan field PJ dan
+   tenggat **kosong** (tidak pernah ditebak/diisi otomatis), tombol
+   **Ekspor CSV** dan **Ekspor .ics** terlihat. Screenshot:
+   `/tmp/trareon_05_session.png`.
+4. Interaksi klik presisi (checkbox, tombol ekspor) lewat `xdotool` di
+   lingkungan X11 virtual ini **tidak bisa dibuktikan andal**: hover/fokus
+   terbukti mendarat tepat di kontrol yang dituju (ring highlight pada
+   checkbox dan tombol "Ekspor CSV" terlihat di screenshot), tapi
+   `click`/`mousedown`+`mouseup` sintetis tidak konsisten memicu
+   `onTap`/`onPressed` Flutter — dikonfirmasi lewat pemeriksaan
+   ground-truth filesystem (folder sesi tidak pernah berisi
+   `tindak-lanjut.ics`/`.csv` setelah diklik berulang kali dengan delay
+   dan metode berbeda: `click`, `mousedown`+sleep+`mouseup`, kombinasi
+   `--window`-relative coordinates, serta navigasi keyboard Tab).
+   Satu klik pada tombol hapus (ikon X) sempat berhasil menghapus satu
+   baris tugas (baris "Susun draf RKAKL" terhapus, counter berubah dari
+   "0/2 selesai" ke "0/1 selesai") — membuktikan event klik *bisa* sampai
+   ke widget panel ini, hanya tidak konsisten. Data uji suntik dikembalikan
+   ke kondisi semula setelah smoke test (`trareon-session.json` ditulis
+   ulang tanpa `action_items`); tidak ada berkas `.ics`/`.csv` tertinggal.
+   Pola ini sejalan dengan catatan "Celah yang diketahui" Sprint 8 (file
+   picker dan textarea "Poin catatan" juga tidak bisa didorong andal lewat
+   `xdotool` di lingkungan ini) — bukan bug aplikasi, melainkan batasan
+   sintetis-input di lingkungan X11 virtual ini.
+5. Jalur checkbox-toggle, tulis-ke-disk CSV, dan navigasi
+   klik-untuk-lompat-ke-segmen **dibuktikan andal lewat widget test**
+   (`tester.tap()`, bukan koordinat piksel sintetis) di
+   `test/action_items_test.dart`, yang lulus penuh di gerbang verifikasi
+   di atas — ini bukti yang lebih kuat untuk logika UI dibanding klik
+   `xdotool` yang rapuh di lingkungan ini.
+6. `pkill -9 -x transcribe` di akhir.
+
+**Celah yang diketahui (dicatat, bukan disembunyikan):**
+- Ekspor `.ics` tidak divalidasi dengan membukanya di kalender desktop
+  sungguhan (GNOME Calendar/Thunderbird) pada putaran ini — item checklist
+  manual QA `docs/RELEASE-BETA.md` §4b butir ini masih `[ ]` (belum
+  dicentang manusia), seperti dicatat di checkpoint putaran sebelumnya.
+- Interaksi klik presisi pada checkbox/tombol ekspor lewat `xdotool` di
+  lingkungan X11 virtual ini tidak bisa dijadikan bukti smoke test yang
+  andal (lihat butir 4 di atas); diverifikasi sebagai gantinya lewat
+  widget test otomatis yang sudah ada dan lulus.
+
+### File tersentuh
+
+`docs/SPRINT-REPORTS.md` (bagian ini). Tidak ada berkas kode yang diubah —
+audit menyimpulkan implementasi F6 (`rust_core/src/actions.rs`,
+`lib/widgets/action_items_panel.dart`, `lib/services/session_store.dart`,
+`test/action_items_test.dart`) sudah memenuhi spesifikasi brief tanpa
+perubahan. `CHANGELOG.md` dan `docs/RELEASE-BETA.md` sudah diperbarui di
+commit checkpoint putaran awal (`4f373e9`).
