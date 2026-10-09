@@ -269,6 +269,103 @@ bash scripts/package_macos.sh "1.0.0"
 
 Both scripts: build Rust release → build Flutter release → sign → package → generate SHA256 checksum → output to `dist/`.
 
+---
+
+## Jalur Instalasi Beta (`v1.1.0-beta.1`)
+
+Panduan ini untuk siapa pun yang membangun dan menjalankan rilis beta dari
+sumber — bukan dari paket terdistribusi. Setiap perintah di bawah sudah
+dicoba langsung di mesin Linux pengembangan (lihat `docs/RELEASE-BETA.md`
+untuk checklist QA lengkap per platform).
+
+### Prasyarat
+
+| Kebutuhan | Versi | Catatan |
+|-----------|-------|---------|
+| [Flutter](https://flutter.dev/) | 3.32+ (stable) | `flutter --version` untuk cek |
+| [Rust](https://www.rust-lang.org/) | 1.80+ (edisi 2021) | `rustup show`; CI memakai toolchain 1.98, jadi `cargo clippy` bisa lebih longgar secara lokal pada 1.96 |
+| `cmake` | — | dibutuhkan `whisper-rs` untuk mengompilasi `whisper.cpp` |
+| **Linux** | — | `pkg-config`, `libasound2-dev`, `libgtk-3-dev`, `liblzma-dev`, `ninja-build`, `clang` |
+| **Windows** | — | Visual Studio 2022 Build Tools (workload Desktop development with C++) |
+| **macOS** | — | Xcode 15+ dengan Command Line Tools |
+| [Ollama](https://ollama.com/download) *(opsional)* | terbaru | hanya untuk fitur **Notulen Rapat (AI)**; transkripsi sendiri tidak memerlukannya |
+
+Semua prasyarat di atas diinstal **sekali, lokal**; tidak ada langkah yang
+memerlukan akun atau koneksi internet yang menetap setelah instalasi awal.
+
+### Build dari sumber
+
+```bash
+# 1. Klon & dependensi Flutter
+git clone https://github.com/Trareon-com/Transcribe.git
+cd Transcribe
+flutter pub get
+
+# 2. Build mesin Rust (sekali, atau ulang tiap kali rust_core berubah)
+cd rust_core && cargo build --release --lib && cd ..
+
+# 3a. Linux — rilis
+flutter build linux --release
+# Biner: build/linux/x64/release/bundle/transcribe
+
+# 3b. Windows — rilis (PowerShell)
+flutter build windows --release
+# Biner: build\windows\x64\runner\Release\transcribe.exe
+
+# 3c. macOS — rilis
+flutter build macos --release
+# Aplikasi: "build/macos/Build/Products/Release/Trareon Transcribe.app"
+```
+
+Untuk paket siap-distribusi (DMG/ZIP bertanda tangan + checksum), pakai
+`scripts/package_macos.sh` / `scripts/package_windows.ps1` di atas —
+keduanya menjalankan langkah build di atas lalu mengemasnya ke `dist/`.
+
+### Siapkan model lokal (tanpa internet, setelah unduhan awal)
+
+Transkripsi memakai model Whisper format GGUF. Dua model sudah **dibawa di
+dalam repo/paket** — tidak perlu diunduh untuk mulai memakai aplikasi:
+
+| Model | Ukuran | Dipakai untuk |
+|-------|--------|----------------|
+| `base` | 142 MB | Transkrip cepat, akurasi ID terbaik (WER 0%) |
+| `large-v3-turbo-q5` | 548 MB | Akurasi global terbaik, lebih lambat |
+
+Aplikasi mencari model di beberapa lokasi berurutan (lihat
+`rust_core/src/model.rs::model_search_dirs`): folder pustaka aplikasi,
+`~/Library/Caches/TrareonTranscribe/models` (macOS/Linux),
+`%LOCALAPPDATA%\TrareonTranscribe\models` (Windows), atau folder `models/`
+di sebelah biner hasil build. Model tambahan (`tiny`, `small`, `medium`,
+`large-v3-turbo`) bisa diunduh sekali lewat menu Pengaturan di aplikasi —
+setelah terunduh, semuanya berjalan offline permanen; tidak ada panggilan
+jaringan susulan ke mana pun.
+
+Fitur **Notulen Rapat (AI)** opsional memakai LLM lokal via
+[Ollama](https://ollama.com/download) (endpoint default
+`http://localhost:11434`, loopback, tidak aktif tanpa konfigurasi) atau
+endpoint kompatibel-OpenAI mana pun yang Anda jalankan sendiri. Tanpa
+Ollama terpasang, seluruh fitur transkripsi dan ekspor tetap berfungsi
+penuh — hanya pembuatan notulen otomatis yang memerlukannya.
+
+### Janji privasi
+
+> **Audio & notulen tidak pernah keluar dari mesin Anda.**
+
+Transkripsi, deteksi suara (VAD), diarization, dan ekspor berjalan 100%
+lokal dan dijaga oleh uji otomatis yang menggagalkan build jika ada jalur
+yang menyentuh jaringan (`rust_core/src/privacy.rs`,
+`test/privacy_proof_test.dart`). Fitur notulen AI tetap lokal secara
+default (Ollama loopback) dan tidak pernah mengirim audio — hanya naskah
+transkrip yang sudah ada di layar yang menjadi masukan LLM yang Anda
+jalankan sendiri.
+
+Untuk instansi yang memerlukan dasar kepatuhan (UU PDP 27/2022, pemetaan
+ISO/IEC 27001/27701, templat DPIA, prosedur retensi), lihat paket di
+[`docs/compliance/`](docs/compliance/). Paket ini adalah **bahan kerja
+audit internal, bukan sertifikasi** — Trareon Transcribe belum
+disertifikasi ISO/IEC 27001, ISO/IEC 27701, maupun terdaftar PSE; lihat
+[`docs/compliance/README.md`](docs/compliance/README.md) untuk rincian.
+
 ### CLI Batch Transcription
 
 ```bash
