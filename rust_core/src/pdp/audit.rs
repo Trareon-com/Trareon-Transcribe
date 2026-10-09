@@ -49,6 +49,9 @@ pub enum AuditAction {
     ModelPulled,
     /// A local document was used as notulen context.
     DocumentContextUsed,
+    /// A background pass with a more accurate model replaced a session's
+    /// transcript (F5).
+    TranscriptEnhanced,
 }
 
 impl AuditAction {
@@ -68,6 +71,7 @@ impl AuditAction {
             AuditAction::AuditExported => "Log audit diekspor",
             AuditAction::ModelPulled => "Model notulen diunduh",
             AuditAction::DocumentContextUsed => "Konteks dokumen digunakan",
+            AuditAction::TranscriptEnhanced => "Transkrip diperhalus otomatis",
         }
     }
 }
@@ -467,6 +471,9 @@ mod tests {
             AuditAction::RedactionApplied,
             AuditAction::RetentionApplied,
             AuditAction::AuditExported,
+            AuditAction::ModelPulled,
+            AuditAction::DocumentContextUsed,
+            AuditAction::TranscriptEnhanced,
         ] {
             assert!(!action.label().is_empty());
             assert!(

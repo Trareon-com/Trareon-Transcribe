@@ -24,6 +24,10 @@ enum AuditAction {
 
   /// A local document was used as notulen context.
   documentContextUsed,
+
+  /// A background pass with a more accurate model replaced a session's
+  /// transcript (F5).
+  transcriptEnhanced,
 }
 
 /// One line of the log.

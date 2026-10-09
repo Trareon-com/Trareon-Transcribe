@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app_version.dart';
 import '../services/update_checker.dart';
 import '../src/rust/api.dart' as rust_api;
+import '../state/enhance_queue_model.dart' show kAccurateModelId;
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
@@ -483,6 +484,27 @@ class _CategoryContent extends ConsumerWidget {
               : 'Pakai satu model saja. Teks muncul sekali, sudah final.',
           value: settings.progressiveEnabled,
           onChanged: notifier.setProgressiveEnabled,
+        ),
+        const SettingsDivider(),
+        // F5. Off by default: a background pass that silently rewrites a
+        // finished transcript is a surprise the user did not ask for.
+        SettingsSwitch(
+          icon: AppIcons.autoFix,
+          label: 'Perhalus otomatis dengan model lebih akurat di latar belakang',
+          subtitle: !isModelAvailable(
+            kAccurateModelId,
+            libraryPath: settings.libraryPath,
+          )
+              ? 'Model akurat belum terpasang di komputer ini. Unduh dulu '
+                    'lewat "Model default" di atas sebelum menyalakan ini.'
+              : (settings.autoRetranscribe ?? false)
+              ? 'Setelah rekam/unggah selesai, transkrip diperhalus di '
+                    'latar belakang tanpa menghentikan pekerjaan Anda. '
+                    'Transkrip lama diganti hanya kalau prosesnya berhasil.'
+              : 'Mati. Transkrip tidak diperhalus otomatis setelah rekaman '
+                    'selesai.',
+          value: settings.autoRetranscribe ?? false,
+          onChanged: notifier.setAutoRetranscribe,
         ),
         const SettingsDivider(),
         SettingsSwitch(

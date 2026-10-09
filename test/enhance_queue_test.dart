@@ -126,14 +126,18 @@ void main() {
       preference: preference,
     );
 
-    test('on by default when the live pass used the quick model', () {
-      expect(decide(), isTrue);
+    test('off by default, even when the live pass used the quick model', () {
+      // A background pass that silently rewrites a finished transcript is a
+      // surprise the user did not ask for — it requires an explicit opt-in
+      // in Settings.
+      expect(decide(), isFalse);
+      expect(decide(preference: null), isFalse);
     });
 
     test('off when the live pass already used the accurate model', () {
       // Re-running the same model over the same audio costs minutes of CPU
       // and changes nothing.
-      expect(decide(liveModelWasAccurate: true), isFalse);
+      expect(decide(preference: true, liveModelWasAccurate: true), isFalse);
     });
 
     test('off when the user said no, whatever else is true', () {
@@ -150,7 +154,7 @@ void main() {
     });
 
     test('never runs twice for the same session', () {
-      expect(decide(alreadyDone: true), isFalse);
+      expect(decide(preference: true, alreadyDone: true), isFalse);
     });
   });
 

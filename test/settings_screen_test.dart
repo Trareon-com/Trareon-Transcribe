@@ -7,6 +7,7 @@ import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/screens/settings_screen.dart';
+import 'package:transcribe/widgets/settings_controls.dart' show SettingsSwitch;
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -317,5 +318,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DropdownButton<AppThemeMode>), findsWidgets);
+  });
+
+  // F17: proves the "Pengurangan derau (RNNoise)" switch is wired all the
+  // way to the `AppSettings` object handed to the bridge — i.e. to what
+  // reaches `save_settings` / `apply_engine_settings` in Rust.
+  testWidgets(
+    'the noise reduction switch reaches the settings sent to the bridge',
+    (WidgetTester tester) async {
+      _sizeViewport(tester, const Size(1440, 900));
+      final bridge = _TestBridge();
+      await tester.pumpWidget(_host(bridge));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Audio & Suara'));
+      await tester.pumpAndSettle();
+
+      expect(bridge.savedSettings.noiseReduction, isFalse);
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(
+            SettingsSwitch,
+            'Pengurangan derau (RNNoise)',
+          ),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(bridge.savedSettings.noiseReduction, isTrue);
+      expect(
+        find.textContaining('Derau ruangan'),
+        findsOneWidget,
+        reason: 'subtitle should flip to describe the now-active switch',
+      );
+    },
+  );
+
+  // F5: off by default, and flipping it reaches the settings the
+  // background enhance queue reads its preference from.
+  group('"Perhalus otomatis" (F5)', () {
+    testWidgets('is off by default and opts in when toggled', (
+      WidgetTester tester,
+    ) async {
+      _sizeViewport(tester, const Size(1440, 900));
+      final bridge = _TestBridge();
+      await tester.pumpWidget(_host(bridge));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Model & Mode'));
+      await tester.pumpAndSettle();
+
+      const label =
+          'Perhalus otomatis dengan model lebih akurat di latar belakang';
+      expect(find.text(label), findsOneWidget);
+      expect(bridge.savedSettings.autoRetranscribe, isNot(true));
+
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(SettingsSwitch, label),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(bridge.savedSettings.autoRetranscribe, isTrue);
+    });
   });
 }
