@@ -3,6 +3,76 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0-beta.1] — 2026-10-09
+
+Rilis beta pertama yang dibagikan ke luar tim inti. Merangkum Sprint 1–7
+(lihat `docs/SPRINT-REPORTS.md` untuk rincian per item, berkas, dan hasil
+uji). Tidak ada breaking change pada format data sesi atau ekspor yang
+sudah dirilis di `1.0.0` — sesi dan transkrip lama tetap bisa dibuka.
+
+### Ditambahkan
+
+- **Transkripsi live LocalAgreement-2**: pratinjau kata-demi-kata yang
+  stabil (hipotesis "sementara" ditandai abu-abu, dikonfirmasi setelah
+  beberapa chunk berikutnya sepakat) — `rust_core/src/streaming.rs`.
+- **Tumpukan anti-halusinasi**: deteksi pengulangan, filter segmen energi
+  rendah, dan penyaringan keluaran whisper yang tidak didukung audio.
+- **Timestamp per kata + mode karaoke**: klik kata di transkrip untuk
+  lompat ke waktu itu di pemutar.
+- **Diarization neural opsional (sherpa-onnx)**: alternatif yang lebih
+  akurat dari clustering akustik bawaan, diverifikasi di Linux (Windows/
+  macOS belum diuji manual — lihat Batasan).
+- **Pembelajaran kamus pribadi**: koreksi manual pengguna pada transkrip
+  dipelajari dan diterapkan otomatis pada sesi berikutnya.
+- **Mesin notulen rapat berbasis LLM lokal**: Ollama lokal atau endpoint
+  kompatibel-OpenAI mana pun, map-reduce untuk rapat panjang, skema
+  keluaran ketat, periksa-fakta otomatis terhadap transkrip sumber, 4
+  templat (Lengkap/Ringkas/Risalah Resmi/Aksi), dan sekarang (Sprint 8)
+  mode **poin catatan** (notulen tanpa audio), **preset panjang**
+  (Ringkas/Sedang/Lengkap), **progres jujur** dengan tombol Coba lagi, dan
+  **konteks dokumen lokal** (txt/md/pdf) sebagai masukan tambahan ke LLM.
+- **Ekspor siap-SRIKANDI**: metadata arsip instansi pada ekspor DOCX/PDF.
+- **Paket kepatuhan PDP**: pemetaan UU PDP 27/2022 dan ISO/IEC 27001/27701,
+  diagram alur data, templat DPIA, prosedur retensi & penghapusan — lihat
+  `docs/compliance/` (bukan sertifikasi, lihat janji privasi di README).
+- **Sistem desain & kemasan rilis beta**: layar tanda tangan (setup wizard,
+  onboarding), rasa native per platform, skrip packaging macOS (DMG) dan
+  Windows (ZIP).
+- **Benchmark & alat ASR Bahasa Indonesia**: pipeline data, baseline WER
+  multi-model, kit pelatihan fine-tune (lihat Batasan — pelatihan
+  sungguhan belum dijalankan).
+- **Log audit PDP**: setiap ekspor dan pemakaian konteks dokumen dicatat
+  secara lokal saat mode PDP aktif.
+
+### Diperbaiki
+
+- `chunks_exact` → `as_chunks` dan idiom lain yang disyaratkan clippy
+  Rust 1.98 (CI) agar gerbang lokal dan CI sepakat.
+- Kerentanan keamanan `lopdf` (lewat `pdf-extract`) dinaikkan ke versi
+  aman; `cargo audit`/`cargo deny` hijau dengan satu pengecualian yang
+  didokumentasikan (`ttf-parser` belum terawat, tidak ada upstream aman).
+- Berbagai perbaikan gerbang CI (fixture bench notulen, tenggat uji
+  performa transcript view, format Rust antar-versi toolchain).
+
+### Batasan yang diketahui
+
+- **Fine-tune model Bahasa Indonesia khusus**: skrip dan dokumen siap,
+  konversi model dan pengukuran WER belum dijalankan (butuh GPU — lihat
+  `docs/INDONESIAN-MODEL.md`).
+- **Kit penyetelan halus mesin notulen**: NOT DONE — celah target sudah
+  terukur, menunggu GPU dan korpus asli untuk dijalankan.
+- **Pilot data risalah resmi (MK/DPR)**: 0 jam — kedua lembaga menolak
+  akses otomatis; butuh permintaan resmi lewat PPID, menunggu keputusan
+  pemilik produk.
+- **Code-switching Indonesia–Inggris**: set uji masih sintetis, belum ada
+  rekaman asli dengan consent.
+- **Diarization neural (sherpa-onnx) dan rendering jendela Windows**:
+  diverifikasi di Linux; verifikasi manual Windows/macOS belum diulang
+  sejak Sprint 4b dan perlu dikonfirmasi ulang sebelum rilis stabil.
+- **Progress notulen "≈N kata"**: kepatuhan panjang keluaran hanya bisa
+  diverifikasi lawan LLM sungguhan (tidak ada mock-HTTP di `rust_core`);
+  diuji sebatas "instruksi sampai ke prompt dengan angka benar".
+
 ## [1.0.0] — 2026-08-06
 
 ### Added
