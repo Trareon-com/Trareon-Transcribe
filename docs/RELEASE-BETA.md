@@ -76,6 +76,23 @@ alasan) per baris.
 - [ ] Format lain (Markdown, TXT, JSON, SRT, VTT, HTML, WAV) tetap
   reliabel (regresi dari ekspor atomic-write `1.0.0`).
 
+### 4b. Tindak Lanjut — checklist, .ics, .csv (F6, diverifikasi ulang Sprint 10)
+- [ ] Centang "selesai" pada satu baris tindak lanjut, tutup sesi, buka
+  lagi — status centang tetap tersimpan (sidecar `transcript.json`,
+  `action_items`).
+- [ ] **Ekspor .ics** menghasilkan berkas yang dibuka tanpa galat di
+  kalender desktop (GNOME Calendar/Thunderbird) dan setiap tugas dengan
+  tenggat yang bisa diurai muncul sebagai `VTODO` + `VEVENT` pada
+  tanggal yang benar. Tenggat yang tidak bisa diurai ("akhir bulan")
+  sengaja tidak menghasilkan `DUE`/`DTSTART` — lebih baik kosong
+  daripada tanggal yang ditebak salah.
+- [ ] **Ekspor .csv** membuka di LibreOffice Calc dengan kolom
+  `tugas, penanggung_jawab, tenggat, status` terisi benar, termasuk
+  baris yang kolom PJ/tenggatnya kosong.
+- [ ] Tugas tanpa penanggung jawab atau tanpa tenggat yang disebut di
+  rapat tetap kosong di checklist maupun di kedua ekspor — tidak pernah
+  ditebak oleh model.
+
 ### 5. Mode PDP (pelindungan data pribadi)
 - [ ] Mengaktifkan mode PDP di Pengaturan membuat log audit tercatat
   untuk ekspor dan pemakaian konteks dokumen.
