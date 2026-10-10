@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../state/models.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_shortcuts.dart';
 import '../theme/app_tokens.dart';
 import '../utils/format_time.dart';
 import '../theme/app_icons.dart';
@@ -233,7 +234,9 @@ class BookmarkBar extends StatelessWidget {
           Row(
             children: [
               Tooltip(
-                message: 'Tandai poin penting di posisi sekarang (Ctrl+B)',
+                message:
+                    'Tandai poin penting di posisi sekarang '
+                    '(${AppShortcuts.bookmark.shortcut.label})',
                 child: OutlinedButton.icon(
                   onPressed: live ? onAdd : null,
                   icon: const Icon(AppIcons.bookmarkAdd, size: IconSizes.md),

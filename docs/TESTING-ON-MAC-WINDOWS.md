@@ -222,3 +222,70 @@ terjangkau, lognya tetap ada di disk:
 
 Data rapat tidak pernah ikut terhapus oleh pencopotan. Hapus manual dari folder
 perpustakaan kalau memang diinginkan.
+
+---
+
+## 8. Build dari source di macOS (untuk developer)
+
+**Pakai rustup, BUKAN Rust dari Homebrew.** `brew install rust` memasang Rust
+1.95; proc-macro dylib yang dihasilkannya ditolak dyld pada toolchain build
+proyek ini. Pasang lewat [rustup.rs](https://rustup.rs/) dan pastikan
+`~/.cargo/bin` berada **di depan** `$PATH` (di depan direktori Homebrew),
+supaya `cargo`/`rustc` yang terpanggil adalah punya rustup:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+export PATH="$HOME/.cargo/bin:$PATH"   # taruh baris ini SEBELUM baris brew di shell profile
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+which cargo   # harus menunjuk ke ~/.cargo/bin/cargo, bukan /opt/homebrew/bin/cargo
+```
+
+**`librust_core.dylib` ditolak dyld ("mis-aligned LINKEDIT string pool").**
+Ditemukan 9 Okt 2026 di MacBook arm64 (macOS 27, Xcode 27): `Cargo.toml`
+men-set `strip = true` pada profil release, dan langkah strip eksternal yang
+dijalankan rustc di bawah skrip build Xcode 27 menghasilkan dylib yang rusak
+— `dyld_info -validate_only` gagal, dan app crash di `main()`
+(`tryLoadRustCoreLibrary`). Perbaikannya sudah diterapkan di
+`macos/Runner.xcodeproj/project.pbxproj` (fase build "Build rust_core
+dylib" memakai `CARGO_PROFILE_RELEASE_STRIP=none cargo build --release
+--lib`, lalu memvalidasi hasilnya dengan `dyld_info -validate_only` bila
+tersedia) dan di `scripts/package_macos.sh`. Build Linux/Windows tidak
+disentuh — hanya invokasi macOS yang di-override.
+
+**Tanda tangan rusak setelah build ("nested code is modified or
+invalid").** `librust_core.dylib` disalin ke bundle SETELAH Xcode
+menandatangani app secara otomatis, sehingga tanda tangan app tidak lagi
+cocok dengan isinya. `project.pbxproj` sekarang punya fase build terakhir
+("Re-sign after embedding rust_core dylib") yang menandatangani ulang app
+secara ad-hoc (atau dengan `MACOS_SIGN_IDENTITY` bila diset) memakai
+`macos/Runner/Release.entitlements`, setelah semua fase penyalinan selesai.
+`scripts/package_macos.sh` melakukan hal yang sama saat membuat DMG.
+Verifikasi dengan `codesign -v --verbose=2 "Trareon Transcribe.app"` —
+harus bersih tanpa pesan apa pun.
+
+> Kedua perbaikan di atas ditulis berdasarkan laporan uji nyata di Mac,
+> tetapi **belum bisa diverifikasi ulang di mesin Linux** yang menjalankan
+> sprint ini. Lihat "PERLU VERIFIKASI DI MAC" di `docs/SPRINT-REPORTS.md`.
+
+## 9. Hook screenshot jarak jauh (`TRAREON_SCREENSHOT_DIR`)
+
+`lib/utils/debug_screenshot.dart` menulis PNG tiap 2 detik (maksimum 120
+kali) selama env var `TRAREON_SCREENSHOT_DIR` diset — tanpa env var ini,
+perilaku app identik dengan build normal (tidak ada `RepaintBoundary`
+tambahan, tidak ada timer).
+
+Di macOS, app ter-*sandbox* (`com.apple.security.app-sandbox`), jadi
+direktori tujuan HARUS berada di dalam container aplikasi sendiri, bukan
+di `/tmp` biasa:
+
+```bash
+export TRAREON_SCREENSHOT_DIR="$HOME/Library/Containers/com.trareon.transcribe/Data/tmp/screenshots"
+mkdir -p "$TRAREON_SCREENSHOT_DIR"
+open "Trareon Transcribe.app"
+# ... tunggu, lalu:
+ls "$TRAREON_SCREENSHOT_DIR"   # shot-0000.png, shot-0001.png, ...
+```
+
+File ditulis atomik (temp lalu rename di direktori yang sama), jadi aman
+disalin (`scp`) sewaktu app masih berjalan — tidak akan terlihat file PNG
+yang setengah tertulis.

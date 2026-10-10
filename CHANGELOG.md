@@ -39,6 +39,43 @@ report for the full per-item audit.
   `denoise::set_enabled` lewat `apply_engine_settings`, bukan hanya
   menyimpan nilai di `AppSettings`.
 
+Sprint 12 fixed a live-path gap where the VAD gate failed open ("assume
+speech") whenever no Silero model was installed, closing it with an
+unconditional peak/RMS backstop (`rust_core/src/silence_gate.rs`) that
+runs regardless of which VAD model is or isn't present. Also fixed: a
+real timestamp bug where every live-chunk segment landed one overlap
+length early (3.0s reported for speech that actually started at 6.0s),
+a `low_confidence` threshold that was 0.5 in three independent places
+instead of the 0.70 it should have been, missing Malay-spelled
+hallucination phrases and whole-word decoder loops, a macOS menu bar
+with no application menu (no About/Services/Hide/Quit), and a mic/system
+-audio permission-missing banner that took up to a minute to appear.
+Measured end to end with the release `transcribe_cli`: a 300s fixture
+(2x15s real speech, rest digital silence) now produces exactly the two
+expected speech groups and zero hallucinated lines; a 30s -45dBFS noise
+clip produces zero segments; real speech is unaffected. See
+`docs/SPRINT-REPORTS.md` Sprint 12 report for the full per-item audit,
+before/after numbers, and the PERLU VERIFIKASI DI MAC list (build/signing
+and GPU-backend fixes could not be verified without real Apple Silicon
+hardware).
+
+### Diperbaiki
+
+- **Anti-halusinasi, jalur live**: gerbang senyap pra-ASR (`silence_gate.rs`)
+  yang tidak bergantung pada model VAD manapun; ambang `low_confidence`
+  disatukan ke 0,70 (sebelumnya 0,5 di tiga tempat independen); frasa
+  halusinasi Melayu dan deteksi loop kata utuh ditambahkan; rasio
+  kompresi gzip benar-benar dipakai di pipeline (sebelumnya hanya
+  dideklarasikan, tidak pernah dipanggil).
+- **Timestamp suara-sistem**: segmen pada sesi Webinar/dual-pass tidak
+  lagi mendarat satu detik lebih awal per chunk.
+- **macOS**: menu aplikasi standar (About, Pengaturan ⌘,, Services,
+  Hide/Quit) sekarang ada; dialog "Berhenti merekam?" dapat dioperasikan
+  penuh dari keyboard (Enter/Esc/Tab); deteksi izin mikrofon/audio sistem
+  yang belum diberikan sekarang tampil dalam 3 detik (sebelumnya hingga
+  1 menit) dengan tombol langsung ke Pengaturan Sistem; perbaikan
+  strip/signing dylib Rust (belum diverifikasi di hardware Mac nyata).
+
 Sprint 10 brief asked for structured action items, a follow-up checklist
 UI, and `.ics`/CSV export. Audit at the start of the sprint found all
 three already shipped in Sprint 4 (F6: `rust_core/src/actions.rs`,

@@ -165,7 +165,14 @@ pub fn transcribe_file_with(
         while chunk_start < *region_end {
             let chunk_end = (chunk_start + CHUNK_DURATION_SECS).min(*region_end);
             let chunk = slice_secs(&audio.samples, chunk_start, chunk_end);
-            if !chunk.is_empty() {
+            // Backstop (B1): even when `options.vad_gate` is off (every
+            // region above is just `(0.0, duration)`), digital silence or
+            // sub-noise-floor audio must never reach the decoder.
+            let silent = crate::silence_gate::is_below_speech_floor(
+                chunk,
+                crate::silence_gate::SILENCE_THRESHOLD_DBFS,
+            );
+            if !chunk.is_empty() && !silent {
                 all_segments.extend(engine.transcribe_chunk_with(
                     chunk,
                     "file",

@@ -471,7 +471,8 @@ impl WhisperEngine {
             // Whisper confidence: convert from log probability (typically -1.0 to 0.0)
             // to a 0..1 scale where 1.0 = high confidence.
             let confidence = (1.0 + avg_log_prob).clamp(0.0, 1.0);
-            let low_confidence = confidence < 0.5;
+            let low_confidence = confidence < crate::confidence::LOW_CONFIDENCE_THRESHOLD
+                || avg_log_prob < crate::confidence::LOW_CONFIDENCE_LOGPROB_THRESHOLD;
 
             // Decoder-side hallucination gate: the model's own verdict on
             // whether there was speech here at all, plus how sure it was of
