@@ -5,6 +5,91 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 14a brief asked for model defaults driven by real benchmark data
+instead of two independently-drifting heuristics (a Dart RAM-only
+`if ramMb >= 8192 { turbo } else { base }`, duplicated nowhere in Rust),
+honest accuracy labels sourced from the FLEURS-id baseline, a pre-ASR
+level boost for quiet speech, and a per-session language choice instead
+of one global language locked to Indonesian. Audit found the live/refine
+speed trade-off (adaptive HPT, `pipeline::route_for_rtf`) already
+device-aware and left untouched; the actual gap was the model
+*recommendation* itself having no single source of truth. See
+`docs/SPRINT-REPORTS.md` Sprint 14a report for the full per-item audit,
+what changed, and what is explicitly not done yet.
+
+### Ditambahkan
+
+- **Rekomendasi model satu sumber kebenaran** (`rust_core/src/model_select.rs`,
+  baru): `recommend_default_model(ram_mb)` memilih model teliti berdasarkan
+  katalog `model::KNOWN_MODELS` (ruang RAM, bukan angka RAM tebakan),
+  dipakai baik oleh wizard maupun oleh tawaran "Tingkatkan akurasi" di
+  Pengaturan — menggantikan heuristik Dart yang terpisah
+  (`setup_wizard_screen.dart`, dihapus).
+- **Label akurasi jujur** (item 5): `model_select::accuracy_label`
+  menampilkan WER FLEURS-id nyata (mis. "WER FLEURS-id: 8,1%") di kartu
+  pilihan model wizard dan di Pengaturan — sebelumnya repo ini sengaja
+  tidak menampilkan angka apa pun karena belum ada pengukuran; sekarang
+  ada.
+- **Tier "Sedang" (`small`)** ditambahkan ke `kKnownModelIds` dan ke kartu
+  pilihan model wizard — sebelumnya hanya `base`/`large-v3-turbo-q5` yang
+  bisa dipilih meski katalog sudah punya tingkat tengah.
+- **Tawaran "Tingkatkan akurasi"** (item 6) di Pengaturan → Model & Mode:
+  muncul hanya ketika rekomendasi Rust tidak sama dengan model tersimpan
+  dan model itu sudah terunduh; menekan "Nanti saja" menyimpan
+  `default_model_upgrade_dismissed` agar tidak ditanya ulang setiap sesi.
+  Model tidak pernah berubah tanpa ketukan eksplisit.
+- **Impor berkas selalu diperhalus dengan model paling teliti yang
+  terpasang** (item 4, `lib/widgets/file_upload_zone.dart`,
+  `shouldRefineImport`): sebelumnya jalur impor mewarisi sakelar
+  "Cepat dulu, lalu diperhalus" yang hanya masuk akal untuk rekaman
+  langsung — mematikannya untuk mempercepat sesi langsung diam-diam juga
+  membuat setiap impor berkas berhenti di model cepat saja, padahal impor
+  tidak punya tenggat waktu nyata.
+- **Penguatan level pra-VAD/ASR** (item 9, `rust_core/src/agc.rs`, baru):
+  ucapan pelan (antara ambang senyap -60 dBFS dan target -30 dBFS)
+  diperkuat maksimum 20 dB sebelum masuk ke WebRTC VAD maupun Whisper,
+  pada jalur rekaman langsung (`pipeline.rs`, dua varian) dan impor berkas
+  (`stt/file.rs`). Audio yang sudah cukup keras atau yang sudah di bawah
+  ambang senyap tidak disentuh.
+- **Bahasa per sesi, bukan terkunci secara global** (item 11): default
+  `AppSettings.language` di Rust berubah dari `Some("id")` paksa menjadi
+  `None` ("ikut mode sesi") — `lib/state/models.dart` punya fungsi baru
+  `effectiveSessionLanguage` yang memilih Indonesia untuk Rapat Offline
+  dan Otomatis (deteksi per segmen) untuk Rapat Online/Webinar ketika
+  tidak ada pilihan bahasa eksplisit. Instalasi lama yang sudah menyimpan
+  `"id"` secara eksplisit di `settings.json` tidak terpengaruh.
+- **Pemilih bahasa per sesi di UI** (item 11, menu "Opsi sesi"):
+  Otomatis/Indonesia/Inggris, berlaku untuk rapat ini saja — tidak
+  mengubah default Pengaturan untuk rapat berikutnya. Dialirkan lewat
+  field baru `SessionConfig.language` (Rust dan Dart; FRB diregenerasi)
+  yang menang di atas default global/per-mode saat diisi
+  (`session::resolve_session_language`).
+- **Tawaran "Ganti ke Otomatis"** (item 11, `LanguageMismatchBanner`):
+  muncul di atas transkrip langsung ketika bahasa sesi dipaksa tapi lebih
+  dari 30% dari 10 segmen terakhir terdeteksi bahasa lain (field
+  `TranscriptSegment.language` yang sudah ada per segmen, bukan heuristik
+  kata kunci baru) — `shouldOfferAutoLanguage` di `lib/state/models.dart`.
+  Diuji dengan fixture ID/EN campuran di `test/session_language_test.dart`.
+
+### Diperbaiki
+
+- Sakelar "Cepat dulu, lalu diperhalus" tidak lagi memengaruhi hasil
+  impor berkas — hanya sesi rekaman langsung.
+- **Bug ditemukan saat review sendiri (item 11):** `session.rs`
+  (`start_session_with_id`) membaca `AppSettings.language` mentah-mentah,
+  bukan lewat `effectiveSessionLanguage` — field itu hanya ada di sisi
+  Dart dan cuma dipakai untuk metadata sesi (judul/"Transkrip Ulang"),
+  tidak pernah dikirim ke mesin transkripsi langsung. Akibatnya, mengubah
+  default `AppSettings.language` dari `Some("id")` menjadi `None` nyaris
+  diam-diam juga membuat Rapat Offline (yang brief mewajibkan tetap
+  Indonesia) jatuh ke deteksi otomatis di sesi rekaman langsung — regresi
+  akurasi untuk mode paling umum, bukan perbaikan item 11 yang dimaksud.
+  Fix: `session.rs` sekarang punya `effective_session_language(global,
+  mode)` sendiri (cermin dari `effectiveSessionLanguage` Dart, dengan
+  catatan lintas-bahasa supaya tetap sinkron) dan dipakai saat start
+  sesi, bukan nilai settings mentah. Diverifikasi dengan 3 test baru di
+  `session.rs` (`offline_with_no_override_still_forces_indonesian`, dll).
+
 Sprint 11 brief asked for F17 (noise reduction, proven not just toggled),
 F9 (bookmarks during recording/playback), and F5 (automatic background
 re-transcription with a more accurate model). Audit found F17 and F9

@@ -4864,3 +4864,86 @@ flutter build linux --release              → berhasil (build/linux/x64/release
 ```
 
 Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.
+
+## Sprint 14a report
+
+Sprint 14a — model default berbasis ukuran nyata (akurasi dasar), penguatan level pra-VAD untuk ucapan pelan, dan bahasa per sesi. Dijalankan di Kali Linux (sesuai COMMON.md).
+
+### 1. Audit alur model: live vs refine vs unggah-file vs re-transkripsi
+
+| Jalur | Model dipakai | Kapan / bagaimana dipilih |
+|---|---|---|
+| Live, pass cepat | `AppSettings.default_model` (`settings.default_model`, Rust satu sumber kebenaran: `model_select::recommend_default_model`) | Selalu jalan pertama saat sesi mulai; inilah yang penonton lihat real-time. |
+| Live, pass refine (HPT) | `large-v3-turbo-q5` (`kAccurateModelId`), kalau terpasang dan `progressiveEnabled` dan `default_model != q5` | Menggantikan teks pass cepat *di tempat*, tapi **hanya kalau perangkat lolos RTF**: `pipeline::route_for_rtf` membenchmark q5 (`benchmark_rtf`) saat sesi mulai — `DirectRefine` (RTF ≥ 1.2: skip pass cepat, q5 langsung), `DualPass` (1.0 ≤ RTF < 1.2: base→q5 keduanya jalan live), `QuickOnly` (RTF < 1.0: q5 tidak ikut live sama sekali — device terlalu lambat untuk mengejar audio). Ini **sudah ada sebelum sprint ini** (progressive.rs/pipeline.rs); tidak diduplikasi. |
+| Pasca-stop, "completion" (F0) | Model pass cepat yang sama dijalankan ulang atas WAV tersimpan untuk mengisi bagian yang `QuickOnly` tidak sempat di-refine live (`completion.rs`), lewat `enhance_queue` | Otomatis segera setelah Stop, untuk sesi yang live-nya tidak sempat mengejar. |
+| Transkrip ulang otomatis (F5, Sprint 11) | `large-v3-turbo-q5` (`kAccurateModelId`) | Latar belakang setelah sesi selesai, kalau `autoRetranscribe` aktif dan pass live memakai model cepat. |
+| Impor berkas | `AppSettings.default_model`, **selalu** di-refine dengan `large-v3-turbo-q5` kalau terpasang (item 4, baru: `shouldRefineImport`) | Tidak ada tenggat real-time pada impor, jadi "Cepat dulu, lalu diperhalus" (yang hanya berarti untuk live) tidak lagi mematikan refine pada impor — sebelum sprint ini mematikannya untuk mempercepat live diam-diam juga mematikannya untuk impor. |
+
+Kesimpulan audit: trade-off kecepatan-vs-akurasi untuk *live* sudah dewasa dan device-aware (adaptive HPT). Celah nyatanya ada di hulu — **rekomendasi model default** itu sendiri tidak punya satu sumber kebenaran (RAM-only heuristic Dart terpisah dari katalog Rust) dan impor berkas mewarisi sakelar live yang tidak relevan untuknya. Keduanya itu yang sprint ini perbaiki.
+
+### 2. Model default per perangkat
+
+**Keputusan desain:** item 2 brief meminta "jalankan benchmark singkat saat wizard; RTF ≤ ~0.5 → boleh jadi model live", tapi audit di atas menemukan `pipeline::route_for_rtf` **sudah** melakukan persis itu — bukan sekali di wizard (yang bisa basi begitu perangkat lain menyala atau beban berubah), tapi **setiap kali sesi mulai**, lebih akurat dan tidak pernah basi. Menambah benchmark kedua di wizard akan menduplikasi logika yang brief sendiri bilang "jangan diduplikasi" (lihat "Kendala nyata"). Sebagai gantinya: `model_select::recommend_default_model(ram_mb)` (baru, `rust_core/src/model_select.rs`) menjawab pertanyaan yang **belum** ada jawabannya — model mana yang *layak direkomendasikan sebagai default* berdasarkan RAM (bukan tebakan `ramMb >= 8192`), berbasis `model::KNOWN_MODELS` dan `min_ram_gb` katalog ditambah *headroom* 2 GB. Trade-off kecepatan live tetap murni urusan adaptive HPT, tidak disentuh.
+
+### Status per butir
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| 1. Audit alur | DONE | Tabel di atas. |
+| 2. Model default per perangkat | DONE (lihat keputusan desain) | `model_select::recommend_default_model` dipakai wizard (`setup_wizard_screen.dart::_detectSpecs`) dan "Tingkatkan akurasi" di Settings; benchmark RTF *live* tetap tanggung jawab `pipeline::route_for_rtf` yang sudah ada. |
+| 3. Satu sumber kebenaran | DONE | Heuristik Dart RAM-only (`_suggestModel`, `if ramMb >= 8192`) dihapus dari `setup_wizard_screen.dart`; `kKnownModelIds` menambah `small` (tier yang katalog sudah punya tapi dulu tidak bisa dipilih). `AppSettings::default_model` tidak diubah otomatis — hanya ditawarkan lewat "Tingkatkan akurasi" yang butuh ketukan eksplisit. |
+| 4. Impor/hasil akhir → model paling akurat | DONE | `shouldRefineImport` (`file_upload_zone.dart`) — impor selalu di-refine dengan `large-v3-turbo-q5` kalau terpasang, independen dari sakelar live `progressiveEnabled`. |
+| 5. Label akurasi jujur | DONE | `model_select::accuracy_label` (WER FLEURS-id nyata, format desimal koma Indonesia) tampil di kartu wizard dan di Settings; model tanpa pengukuran (mis. `tiny`) tidak diberi angka karangan. |
+| 6. Test + migrasi setting lama | DONE | Unit `model_select.rs` (RAM→model, label), `settings.rs` (`default_model_upgrade_dismissed` default `false`, bertahan lewat roundtrip, tidak pernah mengubah `default_model` sendiri), test Dart untuk `shouldRefineImport`, mock bridge semua test diperbarui. Widget test wizard yang ada (`setup_wizard_test.dart`) tetap lulus dengan jalur baru. |
+| 7. Gerbang penuh + laporan + CHANGELOG | DONE | Lihat di bawah. |
+| 9. AGC pra-VAD/ASR | DONE, teruji | `rust_core/src/agc.rs` (baru): menaikkan level ucapan pelan (antara ambang senyap `silence_gate::SILENCE_THRESHOLD_DBFS = -60 dBFS` dan target `-30 dBFS`) maksimum 20 dB, sebelum VAD maupun Whisper — dipasang di `pipeline.rs` (kedua varian live, tunggal & HPT) dan `stt/file.rs` (impor berkas). Audio yang sudah cukup keras atau sudah di bawah ambang senyap tidak disentuh (gerbang B1 Sprint 12 tetap pemilik keputusan "ini bukan ucapan" untuk tingkat paling pelan). 7 test: boost nyata pada tone ~-45 dBFS (target brief), audio keras tak tersentuh, senyap digital tak tersentuh, noise di/bawah ambang senyap tak diperkuat, cap gain dekat ambang, tidak pernah clipping di luar ±1.0, input kosong ditangani. **Belum diukur** dengan fixture `rapat_id.mp3` yang diperlemah bertahap 0/-10/-20/-30 dB seperti diminta brief (lihat Celah). |
+| 11. Bahasa per sesi | DONE | Lihat bagian terpisah di bawah — paling kompleks di sprint ini. |
+
+### 11. Bahasa per sesi — rinci
+
+**Regresi yang hampir lolos (ditemukan saat audit sendiri, sebelum code review manapun):** perbaikan pertama mengubah default `AppSettings::language` dari `Some("id")` paksa menjadi `None`, dengan asumsi Dart (`effectiveSessionLanguage`) yang akan mengisi default per-mode. Tapi `session.rs::start_session_with_id` membaca `AppSettings::language` **mentah**, bukan lewat fungsi Dart itu — field Dart hanya dipakai untuk metadata sidecar (judul/"Transkrip Ulang"), tidak pernah benar-benar dikirim ke mesin transkripsi. Akibatnya Rapat Offline (yang brief wajibkan tetap Indonesia) nyaris ikut jatuh ke deteksi otomatis di sesi *live* — regresi akurasi untuk mode paling umum. **Fix:** `session.rs` sekarang punya `effective_session_language(global, mode)` sendiri (cermin `effectiveSessionLanguage` Dart, dengan catatan lintas-bahasa di kedua sisi) dan dipakai saat start sesi.
+
+**Celah yang ditemukan setelahnya (sebelum laporan ini ditulis — bukan "selesai" sampai keduanya ada):** logika default per-mode yang di atas benar, tapi tidak ada jalan bagi pengguna untuk **memilih** bahasa khusus satu rapat (mis. satu webinar tamu bahasa Inggris) tanpa mengubah default global di Settings untuk rapat-rapat berikutnya — dan tidak ada tawaran "Ganti ke Otomatis" saat bahasa dipaksa tapi banyak segmen terdeteksi bahasa lain. Keduanya ditambahkan:
+
+- **`SessionConfig.language`** (field baru, Rust `audio::SessionConfig` + FRB diregenerasi + mirror Dart `lib/state/models.dart`): override per-sesi yang menang di atas resolusi global/per-mode (`session::resolve_session_language`, menggantikan pemanggilan `effective_session_language` langsung). `SessionNotifier.setSessionLanguage` (session_model.dart) membedakan "belum disentuh pengguna" (`_noLanguageOverride`, sentinel) dari "pengguna memilih Otomatis secara eksplisit" (`null` asli) — keduanya harus berbeda karena Offline memaksa `'id'` secara default, jadi memilih Otomatis eksplisit di Offline harus benar-benar mengalahkan default itu, bukan sekadar "tidak diset". No-op saat sesi sedang `recording`/`paused`, sama seperti mode yang tidak bisa berubah di tengah sesi.
+- **UI pemilih** di menu "Opsi sesi" (`SessionOptionsMenu`, `session_controls.dart`): bagian baru "BAHASA RAPAT INI" — Otomatis/Indonesia/Inggris, centang mengikuti bahasa efektif saat ini. Menu ini sebelumnya hanya muncul pasca-stop (`_SessionStrip`); sekarang juga dipasang di `_IdleHero` (sebelum Mulai Rekam) karena di situlah pengguna sebenarnya perlu membuat pilihan ini — disembunyikan otomatis di jendela pendek (`showOptions`, ambang 700px tinggi) supaya tombol Mulai Rekam tidak pernah terdorong keluar layar (lihat Celah di `narrow_window_layout_test.dart` yang tertangkap dan diperbaiki di ronde ini).
+- **Tawaran "Ganti ke Otomatis"** (`LanguageMismatchBanner`, baru, dipasang di atas `TranscriptView` saat sesi aktif): `shouldOfferAutoLanguage` (`lib/state/models.dart`) — benar hanya kalau bahasa sesi dipaksa (bukan sudah Otomatis) DAN >30% dari 10 segmen terakhir (`kLanguageOfferWindow`) terdeteksi bahasa lain, dengan minimum 4 segmen dulu sebelum menilai (supaya tidak langsung muncul di kalimat pertama). Memakai field `TranscriptSegment.language` yang sudah ada per segmen — bukan heuristik kata kunci baru.
+
+### Test baru
+
+- Rust: `model_select.rs` (6 test), `agc.rs` (7 test), `session.rs` (+6: `effective_session_language` ×3, `resolve_session_language` ×3), `settings.rs` (+4: default bahasa baru, migrasi bahasa lama, dismiss flag default & roundtrip).
+- Dart: `session_language_test.dart` (baru, 11 test: `effectiveSessionLanguage` ×5, `shouldOfferAutoLanguage` ×6 termasuk **fixture ID/EN campuran** yang diminta brief), `file_upload_zone_test.dart` (+3: `shouldRefineImport`), `session_model_test.dart` (+3: `setSessionLanguage` override/Otomatis-eksplisit/no-op saat recording).
+
+### Gerbang verifikasi penuh
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 900 passed; 0 failed; 0 ignored (894.59s)
+flutter analyze                            → No issues found! (37-49s, berulang kali)
+flutter test                               → 667 passed; 0 failed (termasuk golden_test.dart
+                                              penuh, 14/14, dan narrow_window_layout_test.dart
+                                              3/3 — dua golden idle diregenerasi lewat
+                                              --update-goldens karena perubahan UI yang disengaja,
+                                              diverifikasi stabil dengan dijalankan ulang)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+Regenerasi FRB: `flutter_rust_bridge_codegen generate --rust-input crate::api,crate::error --rust-root rust_core --dart-output lib/src/rust --dart-entrypoint-class-name RustLib`, dijalankan sekali untuk field `SessionConfig.language`; tidak ada file orphan di `lib/src/rust/` (`git status` menunjukkan hanya `M`, tidak ada `??`). `flutter pub run build_runner build` (freezed) gagal diselesaikan — lihat Celah; tidak dibutuhkan untuk perubahan ini (`language` adalah `String?` polos, bukan union freezed) dan tidak ada `*.freezed.dart` yang berubah.
+
+### Uji aplikasi nyata (smoke test)
+
+Build rilis dijalankan di `:0` (X11 virtual, `trareon_silent` sink diverifikasi sebelum apa pun diputar — tidak ada audio diputar pada ronde ini). Diverifikasi lewat screenshot (`xdotool` + `import`):
+1. Layar idle merekam dengan benar (daftar sesi, tiga kartu mode, device chip).
+2. Sesi `Rapat Online` dimulai dan merekam sungguhan (model dimuat, ikut terlihat notice "Perangkat ini terlalu lambat untuk model akurat secara langsung, jadi transkrip langsung memakai model cepat" — adaptive HPT bekerja seperti diaudit di §1).
+3. Setelah menambah `SessionOptionsMenu` ke `_IdleHero`, menu "Opsi sesi" terbuka dan bagian baru "BAHASA RAPAT INI" tampil dengan opsi "Otomatis (deteksi per kalimat)" — terpotong di tepi layar virtual 1360×768 sebelum item Indonesia/Inggris sempat difoto (bukan bug; lihat Celah), tapi keberadaan dan susunan menu terkonfirmasi visual.
+4. Ditemukan via smoke test, bukan lewat test otomatis: penambahan menu ke `_IdleHero` awalnya mendorong tombol Mulai Rekam keluar layar di jendela pendek — tertangkap oleh `narrow_window_layout_test.dart` (bukan oleh mata), diperbaiki dengan ambang `showOptions`.
+
+### Celah yang diketahui
+
+- **Item 9**: belum diukur dengan fixture `rapat_id.mp3` diperlemah bertahap 0/-10/-20/-30 dB seperti diminta brief secara spesifik — AGC diuji dengan tone sintetis pada level yang sama (−45 dBFS), bukan ucapan asli yang diperlemah. Levelnya benar secara matematis (RMS dBFS terukur sama) tapi efek pada *akurasi transkrip* ucapan asli yang diperlemah belum diverifikasi end-to-end (butuh menjalankan whisper sungguhan, mahal di mesin ini — lihat catatan B5 Sprint 12 soal biaya test whisper nyata).
+- **Item 11 UI**: pemilihan Indonesia/Inggris secara visual di menu "Opsi sesi" tidak sempat difoto sampai selesai scroll (resolusi layar virtual 1360×768 terlalu pendek untuk ketiga baris + header "KUALITAS TRANSKRIPSI" di atasnya) — fungsionalitasnya diverifikasi lewat test (`session_language_test.dart`, `session_model_test.dart`), bukan screenshot penuh.
+- **`flutter pub run build_runner build`** berjalan >1,5 jam tanpa progres berarti (CPU time hampir tidak bertambah) di mesin ini sebelum dihentikan paksa — log parsialnya menunjukkan kegagalan tak terkait (`Missing implementation of visitDotShorthandPropertyAccess` saat menganalisis `integration_test/app_test.dart`, bug analyzer vs sintaks Dart terbaru, sudah ada sebelum sprint ini) yang tampaknya membuat prosesnya macet pasca-error alih-alih keluar bersih. Tidak memengaruhi sprint ini (lihat di atas), tapi dicatat sebagai risiko untuk sprint berikutnya yang butuh regenerasi freezed sungguhan.
+- Butir 8 dan 10 (toast, progres) sengaja TIDAK dikerjakan di sini sesuai instruksi brief — milik Sprint 14b.
+
+Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.
