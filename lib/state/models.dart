@@ -54,6 +54,66 @@ export '../src/rust/summary.dart'
 
 enum SessionMode { webinar, online, offline }
 
+/// Resolves what language to actually pass to the transcription engine for
+/// a new session (Sprint 14a item 11).
+///
+/// `globalLanguage` is [AppSettings.language]: `null` means "no explicit
+/// global override — decide per mode", and that per-mode decision is what
+/// fixed the reported bug ("audio berbahasa Inggris muncul di sesi
+/// berbahasa Indonesia" — a webinar with no override used to be forced to
+/// `'id'` because the old Rust default was `Some('id')` for every mode).
+/// A non-null `globalLanguage` is an explicit choice (made in Settings, or
+/// carried over from a pre-14a install that always wrote `'id'`) and wins
+/// outright — this function only fills in the gap when there is no
+/// explicit choice at all.
+String? effectiveSessionLanguage({
+  required String? globalLanguage,
+  required SessionMode mode,
+}) {
+  if (globalLanguage != null) return globalLanguage;
+  // Rapat Offline keeps a forced 'id': it is the one mode blueprint-listed
+  // as "Indonesia only" for accuracy, and it is also the mode with no
+  // second speaker whose language could differ from the room's.
+  return mode == SessionMode.offline ? 'id' : null;
+}
+
+/// How many of the most recent segments [shouldOfferAutoLanguage] looks at.
+/// Small enough to react within a few sentences of someone switching
+/// language, large enough that one stray misdetection doesn't trigger it.
+const int kLanguageOfferWindow = 10;
+
+/// Below this count there isn't enough evidence yet either way — showing
+/// the offer after one segment would fire on the very first sentence,
+/// before the speaker has even settled into a language.
+const int _kLanguageOfferMinSegments = 4;
+
+/// Above this fraction of the recent window detected as something other
+/// than the forced language, the mismatch is "many segments", not noise.
+const double _kLanguageOfferMismatchThreshold = 0.3;
+
+/// Sprint 14a item 11: whether to show the "Ganti ke Otomatis" offer.
+///
+/// `currentLanguage` is the language this session is forced to (`'id'` or
+/// `'en'`); `null` means the session is already Otomatis, in which case
+/// there is nothing to offer — Whisper is already choosing per window.
+/// Looks only at the most recent [kLanguageOfferWindow] segments, not the
+/// whole session, so a meeting that starts in English and settles into
+/// Indonesian doesn't keep nagging once the mismatch has passed.
+bool shouldOfferAutoLanguage({
+  required String? currentLanguage,
+  required List<TranscriptSegment> segments,
+}) {
+  if (currentLanguage == null) return false;
+  final recent = segments.length <= kLanguageOfferWindow
+      ? segments
+      : segments.sublist(segments.length - kLanguageOfferWindow);
+  if (recent.length < _kLanguageOfferMinSegments) return false;
+  final mismatched = recent
+      .where((s) => s.language.isNotEmpty && s.language != currentLanguage)
+      .length;
+  return mismatched / recent.length > _kLanguageOfferMismatchThreshold;
+}
+
 /// The AI-summary configuration a fresh install starts from: disabled, no
 /// key, pointing at a loopback Ollama. Mirrors `SummarySettings::default()`
 /// on the Rust side — FRB generates no Dart-side constructor default, so the
@@ -133,12 +193,14 @@ String _modelFileName(String modelId) => switch (modelId) {
   _ => 'ggml-$modelId.bin',
 };
 
-/// The only model ids the current 2-model bundle exposes in the UI (Settings
-/// dropdown, setup wizard). A model id can still have a cached file on disk
-/// after being dropped from this list (e.g. `tiny` from an earlier release)
-/// — [isModelAvailable] alone doesn't catch that, so callers that need a
-/// UI-selectable default (not just a playable file) must also check this.
-const List<String> kKnownModelIds = ['base', 'large-v3-turbo-q5'];
+/// The model ids the UI exposes as choices (Settings dropdown, setup
+/// wizard) — Sprint 14a added `small` as the mid-RAM tier recommended by
+/// `model_select::recommend_default_model`. A model id can still have a
+/// cached file on disk after being dropped from this list (e.g. `tiny`
+/// from an earlier release) — [isModelAvailable] alone doesn't catch that,
+/// so callers that need a UI-selectable default (not just a playable file)
+/// must also check this.
+const List<String> kKnownModelIds = ['base', 'small', 'large-v3-turbo-q5'];
 
 /// Resolves a model id to an absolute file path. The bare relative path
 /// `models/ggml-*.bin` only resolves by coincidence when a process happens
@@ -295,6 +357,14 @@ class SessionConfig {
   /// of transcript. Null disables the substitution.
   final String? fallbackModelPath;
 
+  /// Per-session language override (Sprint 14a item 11): set from the
+  /// session options menu, not Settings, so picking English for one
+  /// English-speaking webinar doesn't change every future meeting's
+  /// default. `null` means "no override" — Rust's
+  /// `session::resolve_session_language` then falls back to the global
+  /// setting and [mode] exactly as before this existed.
+  final String? language;
+
   const SessionConfig({
     required this.micEnabled,
     required this.speakerEnabled,
@@ -315,6 +385,7 @@ class SessionConfig {
       replacements: [],
     ),
     this.fallbackModelPath,
+    this.language,
   });
 
   factory SessionConfig.forMode(SessionMode mode, String modelPath) {
@@ -341,6 +412,7 @@ class SessionConfig {
     bool? audioToDisk,
     GlossaryConfig? glossary,
     Object? fallbackModelPath = _sentinel,
+    Object? language = _sentinel,
   }) {
     return SessionConfig(
       micEnabled: micEnabled ?? this.micEnabled,
@@ -361,6 +433,7 @@ class SessionConfig {
       fallbackModelPath: fallbackModelPath == _sentinel
           ? this.fallbackModelPath
           : fallbackModelPath as String?,
+      language: language == _sentinel ? this.language : language as String?,
     );
   }
 }
@@ -630,6 +703,12 @@ class AppSettings {
   /// `AppSettings::neural_diarization` in Rust.
   final bool neuralDiarization;
 
+  /// Whether the user dismissed the "Tingkatkan akurasi" offer shown when
+  /// the Rust-side model recommendation (`recommendDefaultModel`) disagrees
+  /// with [defaultModel]. Mirrors
+  /// `AppSettings::default_model_upgrade_dismissed` in Rust.
+  final bool defaultModelUpgradeDismissed;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -655,6 +734,7 @@ class AppSettings {
     this.pdp = kDefaultPdpSettings,
     this.noiseReduction = false,
     this.neuralDiarization = false,
+    this.defaultModelUpgradeDismissed = false,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -693,6 +773,7 @@ class AppSettings {
     PdpSettings? pdp,
     bool? noiseReduction,
     bool? neuralDiarization,
+    bool? defaultModelUpgradeDismissed,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -727,6 +808,8 @@ class AppSettings {
       pdp: pdp ?? this.pdp,
       noiseReduction: noiseReduction ?? this.noiseReduction,
       neuralDiarization: neuralDiarization ?? this.neuralDiarization,
+      defaultModelUpgradeDismissed:
+          defaultModelUpgradeDismissed ?? this.defaultModelUpgradeDismissed,
     );
   }
 }

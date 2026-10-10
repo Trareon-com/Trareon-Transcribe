@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_version.dart';
+import '../services/bridge_service.dart';
 import '../services/update_checker.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/enhance_queue_model.dart' show kAccurateModelId;
@@ -13,6 +14,7 @@ import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/model_labels.dart';
+import '../utils/system_specs.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/model_download_dialog.dart';
 import '../widgets/glossary_settings_section.dart';
@@ -474,6 +476,7 @@ class _CategoryContent extends ConsumerWidget {
             },
           ),
         ),
+        _ModelAccuracyAndUpgradeRow(settings: settings, notifier: notifier),
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.speed,
@@ -908,6 +911,106 @@ class _CategoryContent extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Shows the current default model's FLEURS-id accuracy figure and, when
+/// Rust's `recommend_default_model` (the single source of truth also used
+/// by the setup wizard) disagrees with the saved choice, an opt-in
+/// "Tingkatkan akurasi" offer — Sprint 14a items 5 and 6. Never changes
+/// `defaultModel` on its own: an existing `base` user who already
+/// dismissed the offer must not be asked again every time they open
+/// Settings, and must never have their model swapped without tapping it.
+class _ModelAccuracyAndUpgradeRow extends ConsumerWidget {
+  final AppSettings settings;
+  final SettingsNotifier notifier;
+
+  const _ModelAccuracyAndUpgradeRow({
+    required this.settings,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bridge = ref.read(rustBridgeProvider);
+    return FutureBuilder<_ModelAdvice>(
+      future: _loadAdvice(bridge),
+      builder: (context, snapshot) {
+        final advice = snapshot.data;
+        if (advice == null) return const SizedBox.shrink();
+        final colors =
+            Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+        final showOffer =
+            advice.recommended != settings.defaultModel &&
+            !settings.defaultModelUpgradeDismissed &&
+            isModelAvailable(
+              advice.recommended,
+              libraryPath: settings.libraryPath,
+            );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.md,
+            0,
+            Spacing.md,
+            Spacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (advice.currentLabel != null)
+                Text(
+                  advice.currentLabel!,
+                  style: TextStyle(
+                    color: colors.textTertiary,
+                    fontSize: FontSizes.caption,
+                  ),
+                ),
+              if (showOffer) ...[
+                Spacing.gapXs,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Komputer ini sanggup menjalankan '
+                        '${modelDisplayLabel(advice.recommended)} untuk '
+                        'akurasi lebih baik.',
+                        style: TextStyle(
+                          color: colors.text,
+                          fontSize: FontSizes.caption,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          notifier.setDefaultModel(advice.recommended),
+                      child: const Text('Tingkatkan akurasi'),
+                    ),
+                    TextButton(
+                      onPressed: notifier.dismissDefaultModelUpgradeOffer,
+                      child: const Text('Nanti saja'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<_ModelAdvice> _loadAdvice(RustBridge bridge) async {
+    final ram = await detectTotalRam();
+    final recommended = await bridge.recommendDefaultModel(ram.megabytes);
+    final currentLabel = await bridge.modelAccuracyLabel(settings.defaultModel);
+    return _ModelAdvice(recommended: recommended, currentLabel: currentLabel);
+  }
+}
+
+class _ModelAdvice {
+  final String recommended;
+  final String? currentLabel;
+
+  const _ModelAdvice({required this.recommended, this.currentLabel});
 }
 
 String _themeLabel(AppThemeMode mode) => switch (mode) {

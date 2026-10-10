@@ -1205,11 +1205,18 @@ class _Workspace extends StatelessWidget {
                   busyLabel: busyLabel,
                 )
               else
-                TranscriptView(
-                  segments: session.segments,
-                  revision: session.revision,
-                  onRenameSpeaker: notifier.renameSpeaker,
-                  tentativeText: session.tentativeText,
+                Column(
+                  children: [
+                    const LanguageMismatchBanner(),
+                    Expanded(
+                      child: TranscriptView(
+                        segments: session.segments,
+                        revision: session.revision,
+                        onRenameSpeaker: notifier.renameSpeaker,
+                        tentativeText: session.tentativeText,
+                      ),
+                    ),
+                  ],
                 ),
               if (showShortcuts)
                 Positioned(
@@ -1274,6 +1281,11 @@ class _IdleHero extends StatelessWidget {
         //    < 600: cards are name and glyph only
         final showIntro = constraints.maxHeight >= 660;
         final showExplanations = constraints.maxHeight >= 600;
+        // The quality/bahasa menu is optional (both have sensible
+        // defaults — the recommended model, and per-mode language), unlike
+        // the record button itself, so it is the first thing shed when
+        // height is tight.
+        final showOptions = constraints.maxHeight >= 700;
         final wide = constraints.maxWidth >= Measure.hero + Spacing.xxxl * 2;
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
@@ -1334,6 +1346,14 @@ class _IdleHero extends StatelessWidget {
                     speakerLevel: 0,
                     live: false,
                   ),
+                  if (showOptions) ...[
+                    Spacing.gapMd,
+                    // Quality (quick/akurat) and, since Sprint 14a,
+                    // per-session bahasa — the one place to set both before
+                    // pressing Mulai Rekam, since neither can change once
+                    // the session starts.
+                    const Center(child: SessionOptionsMenu()),
+                  ],
                   Spacing.gapXl,
                   Center(
                     child: RecordButton(

@@ -68,6 +68,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   bool _ramIsEstimate = false;
   String? _suggestedModel;
   bool _specDetected = false;
+  Map<String, String> _accuracyLabels = const {};
 
   static const _steps = _WizardStep.values;
   int get _stepIndex => _steps.indexOf(_step);
@@ -76,6 +77,21 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   void initState() {
     super.initState();
     Future.microtask(_detectSpecs);
+    Future.microtask(_loadAccuracyLabels);
+  }
+
+  /// WER figures for the model-choice cards (item 5, Sprint 14a): sourced
+  /// from Rust's `model_select::accuracy_label` (BASELINE_FLEURS), not
+  /// hardcoded here — a model with no measurement on file shows no label
+  /// rather than inventing a number.
+  Future<void> _loadAccuracyLabels() async {
+    final bridge = ref.read(rustBridgeProvider);
+    final labels = <String, String>{};
+    for (final m in _ModelChoiceStep.candidateIds) {
+      final label = await bridge.modelAccuracyLabel(m);
+      if (label != null) labels[m] = label;
+    }
+    if (mounted) setState(() => _accuracyLabels = labels);
   }
 
   Future<void> _detectSpecs() async {
@@ -118,23 +134,26 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     // (CIM); only if all three fail does this fall back to a guess, and
     // then it says so. See utils/system_specs.dart.
     final ram = await detectTotalRam(coreCount: cores);
+    // The actual recommendation lives in Rust (`model_select`), the single
+    // source of truth shared with the "Tingkatkan akurasi" offer in
+    // Settings — this used to be a second, RAM-only heuristic
+    // (`if ramMb >= 8192 { turbo } else { base }`) duplicated here that
+    // drifted from the catalog's own `min_ram_gb` and had no `small` tier.
+    final suggested = await ref
+        .read(rustBridgeProvider)
+        .recommendDefaultModel(ram.megabytes);
     return WizardSpecs(
       cpuCores: cores,
       ramMb: ram.megabytes,
-      suggestedModel: _suggestModel(ram.megabytes),
+      suggestedModel: suggested,
       ramIsEstimate: ram.isEstimate,
     );
-  }
-
-  String _suggestModel(int ramMb) {
-    if (ramMb >= 8192) return 'large-v3-turbo-q5'; // 8GB+
-    return 'base'; // < 8GB
   }
 
   String _availableModel(String preferred) {
     final libraryPath = ref.read(settingsProvider).libraryPath;
     if (isModelAvailable(preferred, libraryPath: libraryPath)) return preferred;
-    for (final candidate in ['base', 'large-v3-turbo-q5']) {
+    for (final candidate in ['small', 'base', 'large-v3-turbo-q5']) {
       if (isModelAvailable(candidate, libraryPath: libraryPath)) {
         return candidate;
       }
@@ -206,6 +225,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       case _WizardStep.modelChoice:
         return _ModelChoiceStep(
           selected: _selectedModel,
+          accuracyLabels: _accuracyLabels,
           onChanged: (id) {
             setState(() => _selectedModel = id);
             ref.read(settingsProvider.notifier).setDefaultModel(id);
@@ -546,19 +566,34 @@ class _SpecRow extends StatelessWidget {
 /// Step 2 — Model choice
 class _ModelChoiceStep extends StatelessWidget {
   final String selected;
+  final Map<String, String> accuracyLabels;
   final ValueChanged<String> onChanged;
 
-  const _ModelChoiceStep({required this.selected, required this.onChanged});
+  const _ModelChoiceStep({
+    required this.selected,
+    required this.onChanged,
+    this.accuracyLabels = const {},
+  });
 
-  // No accuracy percentages: nothing in this repository measures them,
-  // and the audit flagged the old "🇮🇩 ID: ~96%" as an unsupported claim
-  // (A.6, P3). Relative speed and size are things we do know.
+  static List<String> get candidateIds => _models.map((m) => m.$1).toList();
+
+  // Sprint 14a: a real WER figure (FLEURS-id, see `accuracyLabels`) is
+  // appended per card when one exists. Before this sprint nothing in the
+  // repository measured accuracy, and the audit flagged the old
+  // "🇮🇩 ID: ~96%" as an unsupported claim (A.6, P3) — the fix was to
+  // remove the number, not to make one up; now there is a real one.
   static const _models = [
     (
       'base',
       '⚡ Cepat',
       '142 MB · termasuk di aplikasi\nTranskrip muncul cepat, cocok untuk '
           'komputer ringan dan catatan sehari-hari.',
+    ),
+    (
+      'small',
+      '⚖️ Seimbang',
+      '488 MB · unduh sekali\nLebih teliti dari model cepat, tanpa seberat '
+          'model akurat. Pilihan tengah untuk komputer dengan RAM sedang.',
     ),
     (
       'large-v3-turbo-q5',
@@ -620,7 +655,9 @@ class _ModelChoiceStep extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            m.$3,
+                            accuracyLabels.containsKey(m.$1)
+                                ? '${m.$3}\n${accuracyLabels[m.$1]}'
+                                : m.$3,
                             style: TextStyle(
                               color: isSelected
                                   ? colors.primary
