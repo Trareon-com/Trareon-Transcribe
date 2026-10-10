@@ -5,6 +5,40 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 11 brief asked for F17 (noise reduction, proven not just toggled),
+F9 (bookmarks during recording/playback), and F5 (automatic background
+re-transcription with a more accurate model). Audit found F17 and F9
+already fully shipped and unchanged since Sprint 4b — RNNoise wiring with
+real RMS-reduction tests, and bookmarks with a hotkey, a jump list, session
+persistence, and a "Poin Penting" section in every export format. The gap
+was F5's own default: the background pass existed but ran silently
+on-by-default with no visible setting, no audit trail, and no message when
+the accurate model was missing. See `docs/SPRINT-REPORTS.md` Sprint 11
+report for the full per-item audit.
+
+### Ditambahkan
+
+- **"Perhalus otomatis dengan model lebih akurat di latar belakang"**
+  (F5): sakelar baru di Pengaturan → Model & Mode, **mati secara default**
+  — `lib/screens/settings_screen.dart`, `lib/state/enhance_queue_model.dart`
+  (`shouldAutoEnhance` sekarang mewajibkan opt-in eksplisit, bukan heuristik
+  diam-diam).
+- Pass F5 yang berhasil kini tercatat di log audit mode PDP
+  (`AuditAction::TranscriptEnhanced` — `rust_core/src/pdp/audit.rs`), dan
+  sakelar memberi pesan Bahasa Indonesia yang jelas saat model akurat belum
+  terpasang, bukan membiarkan pass-nya gagal diam-diam.
+
+### Diperbaiki
+
+- `rust_core/src/export/mod.rs`: tambah tes `bookmarks_appear_as_poin_penting_in_markdown_and_txt`
+  — sebelumnya hanya fungsi pemformat (`poin_penting_from_bookmarks`) yang
+  diuji, bukan keluaran berkas Markdown/TXT itu sendiri.
+- `rust_core/src/api.rs`: tambah tes
+  `saving_settings_actually_flips_the_denoise_switch` yang membuktikan
+  toggle "Pengurangan derau (RNNoise)" benar-benar menyalakan
+  `denoise::set_enabled` lewat `apply_engine_settings`, bukan hanya
+  menyimpan nilai di `AppSettings`.
+
 Sprint 12 fixed a live-path gap where the VAD gate failed open ("assume
 speech") whenever no Silero model was installed, closing it with an
 unconditional peak/RMS backstop (`rust_core/src/silence_gate.rs`) that

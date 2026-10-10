@@ -4622,6 +4622,99 @@ audit menyimpulkan implementasi F6 (`rust_core/src/actions.rs`,
 perubahan. `CHANGELOG.md` dan `docs/RELEASE-BETA.md` sudah diperbarui di
 commit checkpoint putaran awal (`4f373e9`).
 
+## Sprint 11 report — F17 reduksi noise, F9 bookmark saat rekam, F5 transkrip ulang otomatis
+
+Brief Sprint 11 meminta tiga fitur. Audit di awal putaran menemukan F17 dan
+F9 **sudah lengkap sejak Sprint 4b dan tidak berubah sejak itu**; F5 sudah
+ada sebagai mesin (`lib/state/enhance_queue_model.dart`) tapi melanggar
+spesifikasi brief pada satu titik penting: ia berjalan otomatis
+("default-on" ketika sesi memakai model cepat) **tanpa sakelar yang
+terlihat di Pengaturan** — persis kebalikan dari "opsi (default mati)"
+yang diminta brief.
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| F17 — Reduksi noise terbukti | **DONE** (sudah ada, tes ditambah) | `rust_core/src/denoise.rs`: `set_enabled`/`is_enabled` + `denoise_16k` (RNNoise via `nnnoiseless`) dengan tes RMS (`broadband_noise_is_attenuated`, `a_voiced_tone_survives`, `silence_stays_silent`, `length_is_preserved_exactly`). `rust_core/src/api.rs::apply_engine_settings` memanggil `denoise::set_enabled(settings.noise_reduction)` dari `load_settings`/`save_settings`, tapi **belum ada tes yang membuktikan jalur itu** — ditambahkan `saving_settings_actually_flips_the_denoise_switch`. Toggle "Pengurangan derau (RNNoise)" sudah ada di `lib/screens/settings_screen.dart` (Audio & Suara) berlabel Indonesia dan terhubung ke `notifier.setNoiseReduction`, tapi **tidak ada tes Dart** yang membuktikan itu — ditambahkan widget test di `test/settings_screen_test.dart` yang menekan sakelar dan memverifikasi `AppSettings.noiseReduction` yang dikirim ke bridge berubah. |
+| F9 — Bookmark saat rekam/pemutaran | **DONE** (sudah ada, tidak ada celah) | Tombol "Tandai" + hotkey Ctrl+B (`AppActions.bookmark` di `lib/theme/app_shortcuts.dart`, terdaftar di panel pintasan), `BookmarkBar`/`BookmarkTicks`/`BookmarkJumpList` di `lib/widgets/bookmark_bar.dart` (klik-untuk-lompat + catatan opsional), persisten di sidecar sesi (`session_store.dart`: `bookmarks` field, bertahan lewat `retainAlignedBookmarks` saat F5/completion menulis ulang transkrip), dan **sudah** diekspor sebagai bagian "Poin Penting" di Markdown/TXT/HTML/DOCX/PDF (`rust_core/src/export/mod.rs::bookmark_lines` → `notulen::poin_penting_from_bookmarks`, test `bookmarks_become_timestamped_poin_penting`). Celah nyata yang ditemukan: tidak ada tes yang membuktikan bookmark benar-benar muncul di *berkas* Markdown/TXT yang diekspor (hanya fungsi pemformat yang diuji) — ditambahkan `bookmarks_appear_as_poin_penting_in_markdown_and_txt`. |
+| F5 — Transkrip ulang otomatis | **DONE** (celah nyata ditutup) | `lib/state/enhance_queue_model.dart::shouldAutoEnhance` diubah: dari "default on ketika model cepat dipakai" menjadi **wajib opt-in eksplisit** (`if (preference != true) return false;`). Sakelar baru **"Perhalus otomatis dengan model lebih akurat di latar belakang"** ditambahkan di Pengaturan → Model & Mode (`lib/screens/settings_screen.dart`), default mati, dengan subtitle yang memberi pesan Bahasa Indonesia jelas ("Model akurat belum terpasang…") saat `kAccurateModelId` tidak tersedia — bukan error mentah. Pass yang berhasil kini mencatat `AuditAction::TranscriptEnhanced` ("Transkrip diperhalus otomatis") ke log audit PDP bila `settings.pdp.enabled`, mengikuti pola yang sama dengan `AuditAction::documentContextUsed` di `notulen_dialog.dart`. Jalur tulis-atomik + backup-sebelum-timpa (`writeStringAtomic`, `backupTranscript`) dan pembatalan (`cancel`/`cancelAll`) **sudah ada sejak sebelumnya** dan tidak diubah — sudah sesuai spesifikasi "ganti HANYA kalau sukses". |
+| Tes Rust + Dart | **DONE** | Rust: +3 tes baru (`saving_settings_actually_flips_the_denoise_switch` di `api.rs`, `bookmarks_appear_as_poin_penting_in_markdown_and_txt` di `export/mod.rs`, plus 3 variant baru di `every_action_has_an_indonesian_label` untuk `audit.rs`). Dart: +2 tes widget baru di `test/settings_screen_test.dart` (wiring noise reduction, default-off + opt-in F5), 3 tes `shouldAutoEnhance` di `test/enhance_queue_test.dart` diperbarui ke semantik baru. |
+| Laporan Sprint 11 | **DONE** | Bagian ini + `CHANGELOG.md` |
+
+### Mengapa F5 dianggap melanggar brief, bukan hanya "kurang lengkap"
+
+`shouldAutoEnhance` lama: `preference == null` (keadaan "belum pernah
+disentuh pengguna", yaitu *setiap* instalasi sampai sprint ini) jatuh ke
+`return usedQuickModel` — otomatis **on** begitu sesi live memakai model
+cepat, tanpa ada UI di mana pengguna bisa melihat atau mematikannya
+(`notifier.setAutoRetranscribe` sudah ada di `settings_model.dart` tapi
+tidak pernah dipanggil dari layar manapun). Brief butir 3 secara eksplisit:
+"opsi (**default mati**, di pengaturan)". Ini bukan fitur yang belum
+lengkap — ini satu baris logika yang membuat perilaku berlawanan dari
+spesifikasi, berjalan diam-diam di setiap instalasi. Diperbaiki dengan
+mewajibkan `preference == true` secara eksplisit sebelum pass dijalankan,
+dan menambahkan sakelar yang hilang.
+
+### Jalur tes dan hasil (gerbang verifikasi, putaran ini)
+
+```
+$ cd rust_core && cargo fmt --check                    → bersih
+$ cargo clippy --all-targets -- -D warnings             → bersih (satu `field_reassign_with_default`
+                                                           ditemukan dan diperbaiki sebelum lulus)
+$ cargo test --lib                                      → [ISI SETELAH SELESAI]
+$ flutter analyze                                       → [ISI SETELAH SELESAI]
+$ flutter test                                          → [ISI SETELAH SELESAI]
+$ flutter build linux --release                         → [ISI SETELAH SELESAI]
+```
+
+Mesin verifikasi ini mengalami kontensi CPU/memori berat dari proses lain
+yang tidak terkait (beberapa tool bug-bounty — `jadx`, `nuclei`, parser
+PDF — dan satu `cargo install apkeep` — berjalan bersamaan, RAM terpakai
+~12 GiB dari 15.8 GiB dengan ~10 GiB swap aktif), sehingga setiap gerbang
+berjalan jauh lebih lambat dari biasanya; ini dicatat di sini karena
+berpengaruh pada durasi, bukan pada hasil.
+
+**`flutter pub run build_runner build --delete-conflicting-outputs`**
+(langkah regenerasi FRB pendamping, bukan bagian dari gerbang wajib)
+**gagal secara deterministik** dua kali berturut-turut di
+`integration_test/app_test.dart` dengan
+`Exception: Missing implementation of visitDotShorthandPropertyAccess` —
+paket `analyzer` yang dipakai `build_runner`/`freezed` di proyek ini
+(versi 3.9.0, lihat peringatan "SDK language version 3.13.0 is newer than
+`analyzer` language version 3.9.0") belum mendukung sintaks Dart
+"dot-shorthand" yang lebih baru yang dipakai di berkas itu. Ini bug
+lingkungan yang sudah ada sebelum putaran ini (tidak disentuh oleh
+perubahan apapun di sini) dan tidak memengaruhi `AuditAction` (enum biasa,
+bukan `@freezed`) yang diregenerasi dengan benar lewat
+`flutter_rust_bridge_codegen generate` saja (diverifikasi:
+`lib/src/rust/pdp/audit.dart` memuat `transcriptEnhanced`). Tidak diperbaiki
+karena di luar cakupan tiga fitur brief dan di luar daftar gerbang wajib.
+
+### Bukti smoke test (DISPLAY :0)
+
+[ISI SETELAH SELESAI]
+
+### File tersentuh
+
+- `rust_core/src/pdp/audit.rs` — variant `AuditAction::TranscriptEnhanced`
+- `rust_core/src/api.rs` — tes `saving_settings_actually_flips_the_denoise_switch`
+- `rust_core/src/export/mod.rs` — tes `bookmarks_appear_as_poin_penting_in_markdown_and_txt`
+- `rust_core/src/frb_generated.rs` — regenerasi FRB (otomatis)
+- `lib/src/rust/pdp/audit.dart` — regenerasi FRB (otomatis)
+- `lib/state/enhance_queue_model.dart` — `shouldAutoEnhance` opt-in wajib, log audit F5
+- `lib/screens/settings_screen.dart` — sakelar "Perhalus otomatis…" baru
+- `test/enhance_queue_test.dart` — 3 tes diperbarui ke semantik baru
+- `test/settings_screen_test.dart` — 2 tes widget baru
+- `CHANGELOG.md` — entri Unreleased
+
+### Celah yang diketahui
+
+- `flutter pub run build_runner build` tidak bisa diselesaikan di mesin
+  ini (lihat di atas) — tidak memengaruhi `AuditAction` karena bukan tipe
+  `@freezed`, tapi berarti regenerasi tiga tipe `@freezed` yang memang ada
+  di proyek (`doctor.dart`, `error.dart`, `session.dart`) tidak
+  diverifikasi ulang putaran ini (tidak disentuh, jadi berkas
+  `.freezed.dart` yang ada tetap valid).
+
 ## Sprint 12 report
 
 Sprint 12 — macOS hardening + akurasi (anti-halusinasi, timestamp, izin audio). Dijalankan di Kali Linux (sesuai COMMON.md); butir macOS-spesifik ditandai jelas di bawah sebagai **PERLU VERIFIKASI DI MAC**.

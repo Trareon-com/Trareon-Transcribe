@@ -1685,6 +1685,33 @@ mod tests {
     }
 
     #[test]
+    fn saving_settings_actually_flips_the_denoise_switch() {
+        // F17: the settings toggle is worthless if it does not reach the
+        // engine. This proves the wiring end to end, not just that the
+        // switch itself holds a value — restores the prior process-global
+        // state afterward since other tests share it, and holds the lock
+        // denoise.rs's own test uses so the two cannot interleave.
+        let _guard = crate::denoise::ENABLED_TEST_LOCK.lock().unwrap();
+        let was_enabled = crate::denoise::is_enabled();
+
+        let on = AppSettings {
+            noise_reduction: true,
+            ..AppSettings::default()
+        };
+        apply_engine_settings(&on);
+        assert!(crate::denoise::is_enabled());
+
+        let off = AppSettings {
+            noise_reduction: false,
+            ..AppSettings::default()
+        };
+        apply_engine_settings(&off);
+        assert!(!crate::denoise::is_enabled());
+
+        crate::denoise::set_enabled(was_enabled);
+    }
+
+    #[test]
     fn list_models_includes_tiny() {
         let dir = std::env::temp_dir().to_string_lossy().to_string();
         let models = list_available_models(dir);

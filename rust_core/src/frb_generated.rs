@@ -4525,6 +4525,7 @@ impl SseDecode for crate::pdp::audit::AuditAction {
             9 => crate::pdp::audit::AuditAction::AuditExported,
             10 => crate::pdp::audit::AuditAction::ModelPulled,
             11 => crate::pdp::audit::AuditAction::DocumentContextUsed,
+            12 => crate::pdp::audit::AuditAction::TranscriptEnhanced,
             _ => unreachable!("Invalid variant for AuditAction: {}", inner),
         };
     }
@@ -7136,6 +7137,7 @@ impl flutter_rust_bridge::IntoDart for crate::pdp::audit::AuditAction {
             Self::AuditExported => 9.into_dart(),
             Self::ModelPulled => 10.into_dart(),
             Self::DocumentContextUsed => 11.into_dart(),
+            Self::TranscriptEnhanced => 12.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -9321,6 +9323,7 @@ impl SseEncode for crate::pdp::audit::AuditAction {
                 crate::pdp::audit::AuditAction::AuditExported => 9,
                 crate::pdp::audit::AuditAction::ModelPulled => 10,
                 crate::pdp::audit::AuditAction::DocumentContextUsed => 11,
+                crate::pdp::audit::AuditAction::TranscriptEnhanced => 12,
                 _ => {
                     unimplemented!("");
                 }

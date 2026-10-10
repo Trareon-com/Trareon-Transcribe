@@ -54,6 +54,12 @@ pub fn is_enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
 
+/// Serializes tests that exercise [`ENABLED`] — here and in `api.rs` — so
+/// cargo's parallel test runner cannot interleave two tests flipping the
+/// same process-global switch and read each other's intermediate state.
+#[cfg(test)]
+pub(crate) static ENABLED_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// 48 kHz / 16 kHz. The whole module exists in the gap between these.
 const UPSAMPLE: usize = 3;
 
@@ -164,6 +170,7 @@ mod tests {
 
     #[test]
     fn the_switch_is_off_until_something_turns_it_on() {
+        let _guard = ENABLED_TEST_LOCK.lock().unwrap();
         // Shipping with this on would change every existing install's
         // transcripts because the app updated.
         assert!(!is_enabled());

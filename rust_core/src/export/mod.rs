@@ -693,6 +693,44 @@ mod tests {
     }
 
     #[test]
+    fn bookmarks_appear_as_poin_penting_in_markdown_and_txt() {
+        // F9: a marker dropped during the meeting must actually reach the
+        // exported file, not just the in-memory formatting helper.
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_export_bookmarks_{}",
+            uuid::Uuid::new_v4()
+        ));
+        let segments = sample_segments();
+        let bookmarks = vec![Bookmark {
+            timestamp: 1.5,
+            note: "Keputusan penting".into(),
+        }];
+        let files = export_segments_full(
+            &segments,
+            &[ExportFormat::Markdown, ExportFormat::Txt],
+            &dir,
+            "Rapat Q3",
+            "",
+            &bookmarks,
+        )
+        .unwrap();
+        for f in &files {
+            let content = fs::read_to_string(&f.path).unwrap();
+            assert!(
+                content.contains("Poin Penting") || content.contains("POIN PENTING"),
+                "{} is missing its bookmark section:\n{content}",
+                f.path
+            );
+            assert!(
+                content.contains("Keputusan penting"),
+                "{} dropped the bookmark's note",
+                f.path
+            );
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn export_title_with_date_prefix_does_not_double_prefix() {
         let dir =
             std::env::temp_dir().join(format!("transcribe_export_date_{}", uuid::Uuid::new_v4()));
