@@ -223,15 +223,17 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                     widget.onDismiss();
                   },
                 ),
-              ] else ...[
-                Spacing.hXs,
-                AppIconButton(
-                  icon: AppIcons.close,
-                  tooltip: 'Tutup pemberitahuan',
-                  size: IconSizes.xs,
-                  onPressed: widget.onDismiss,
-                ),
               ],
+              // Always available, even alongside an action button: a toast
+              // with an action but no manual close was the one case that
+              // still "menetap" until acted on (Sprint 14b, item 8).
+              Spacing.hXs,
+              AppIconButton(
+                icon: AppIcons.close,
+                tooltip: 'Tutup pemberitahuan',
+                size: IconSizes.xs,
+                onPressed: widget.onDismiss,
+              ),
             ],
           ),
         ),

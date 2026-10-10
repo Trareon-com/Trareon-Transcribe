@@ -155,6 +155,104 @@ void main() {
     },
   );
 
+  test(
+    'the same condition does not re-show within the cooldown window',
+    () async {
+      final bridge = _FakeVuBridge();
+      var now = DateTime(2026, 1, 1);
+      final container = ProviderContainer(
+        overrides: [
+          rustBridgeProvider.overrideWithValue(bridge),
+          audioWatchdogProvider.overrideWith(
+            (ref) => AudioWatchdogNotifier(
+              ref,
+              silenceWarningDelay: const Duration(milliseconds: 10),
+              cooldown: const Duration(seconds: 60),
+              now: () => now,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(audioWatchdogProvider, (_, _) {});
+
+      await container.read(sessionProvider.notifier).start();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(container.read(audioWatchdogProvider), isNotNull);
+      expect(container.read(audioHealthIndicatorProvider), isTrue);
+
+      // Dismissed, as the toast's auto-dismiss / manual close would do.
+      container.read(audioWatchdogProvider.notifier).acknowledge();
+      expect(container.read(audioWatchdogProvider), isNull);
+      // The indicator survives dismissal: the condition has not resolved.
+      expect(container.read(audioHealthIndicatorProvider), isTrue);
+
+      // The periodic re-check fires again well within the cooldown window.
+      now = now.add(const Duration(seconds: 5));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(container.read(audioWatchdogProvider), isNull);
+    },
+  );
+
+  test('the same condition re-shows once the cooldown has elapsed', () async {
+    final bridge = _FakeVuBridge();
+    var now = DateTime(2026, 1, 1);
+    final container = ProviderContainer(
+      overrides: [
+        rustBridgeProvider.overrideWithValue(bridge),
+        audioWatchdogProvider.overrideWith(
+          (ref) => AudioWatchdogNotifier(
+            ref,
+            silenceWarningDelay: const Duration(milliseconds: 10),
+            cooldown: const Duration(seconds: 60),
+            now: () => now,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(audioWatchdogProvider, (_, _) {});
+
+    await container.read(sessionProvider.notifier).start();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(container.read(audioWatchdogProvider), isNotNull);
+    container.read(audioWatchdogProvider.notifier).acknowledge();
+
+    now = now.add(const Duration(seconds: 61));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(container.read(audioWatchdogProvider), isNotNull);
+  });
+
+  test(
+    'the indicator clears once real signal arrives after a warning',
+    () async {
+      final bridge = _FakeVuBridge();
+      final container = ProviderContainer(
+        overrides: [
+          rustBridgeProvider.overrideWithValue(bridge),
+          audioWatchdogProvider.overrideWith(
+            (ref) => AudioWatchdogNotifier(
+              ref,
+              silenceWarningDelay: const Duration(milliseconds: 10),
+              permissionCheckDelay: const Duration(milliseconds: 10),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(audioWatchdogProvider, (_, _) {});
+
+      await container.read(sessionProvider.notifier).start();
+      bridge.vuController.add(const VuLevel(micLevel: 0.0, speakerLevel: 0.0));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(container.read(audioHealthIndicatorProvider), isTrue);
+
+      bridge.vuController.add(const VuLevel(micLevel: 0.4, speakerLevel: 0.0));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(container.read(audioHealthIndicatorProvider), isFalse);
+    },
+  );
+
   test('acknowledge() clears the warning', () async {
     final bridge = _FakeVuBridge();
     final container = ProviderContainer(

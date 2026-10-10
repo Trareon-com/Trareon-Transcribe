@@ -830,7 +830,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       AppToast.show(
         context,
         warning.message,
-        type: ToastType.error,
+        // Not an error: the recording keeps going and the condition can
+        // resolve itself (permission granted mid-session). An error toast
+        // never auto-dismisses, which is exactly the "menetap dan menutupi
+        // layar" complaint this sprint item exists to fix — a permanent
+        // mic-with-dot marker in the status bar covers the "still broken"
+        // case instead (audioHealthIndicatorProvider).
+        type: ToastType.warning,
+        duration: kind == null
+            ? const Duration(seconds: 8)
+            : const Duration(seconds: 12),
         actionLabel: kind == null ? null : 'Buka Pengaturan Sistem',
         onAction: kind == null
             ? null
@@ -1592,7 +1601,14 @@ class _RecordingStrip extends StatelessWidget {
               // The waveform alone cannot distinguish "recording" from "open
               // but silent"; the badge is what says audio actually arrived
               // and was written.
-              CaptureConfirmationBadge(health: captureHealth),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CaptureConfirmationBadge(health: captureHealth),
+                  Spacing.hXs,
+                  const AudioHealthIndicator(),
+                ],
+              ),
             ],
           );
           final devices = DeviceGroup(

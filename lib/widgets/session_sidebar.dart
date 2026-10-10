@@ -352,16 +352,19 @@ class _SessionList extends ConsumerWidget {
       rows.add(_Row.entry(entry));
     }
 
-    final running = ref
-        .watch(enhanceQueueProvider)
-        .jobs
-        .where(
-          (j) =>
-              j.status == EnhanceJobStatus.queued ||
-              j.status == EnhanceJobStatus.running,
-        )
-        .map((j) => j.directoryPath)
-        .toSet();
+    // One job per directory, preferring the running one over a merely
+    // queued one — that is the one whose stage is worth showing.
+    final running = <String, EnhanceJob>{};
+    for (final job in ref.watch(enhanceQueueProvider).jobs) {
+      if (job.status != EnhanceJobStatus.queued &&
+          job.status != EnhanceJobStatus.running) {
+        continue;
+      }
+      final existing = running[job.directoryPath];
+      if (existing == null || existing.status != EnhanceJobStatus.running) {
+        running[job.directoryPath] = job;
+      }
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
@@ -379,7 +382,7 @@ class _SessionList extends ConsumerWidget {
             key: ValueKey(entry.dirPath),
             entry: entry,
             selected: entry.dirPath == selectedDirPath,
-            retranscribing: running.contains(entry.dirPath),
+            retranscribingJob: running[entry.dirPath],
             onTap: () => onSelect(entry),
           ),
         );
@@ -555,13 +558,17 @@ class _SessionRow extends StatelessWidget {
     super.key,
     required this.entry,
     required this.selected,
-    required this.retranscribing,
+    required this.retranscribingJob,
     required this.onTap,
   });
 
   final LibraryEntry entry;
   final bool selected;
-  final bool retranscribing;
+
+  /// The background pass currently queued or running for this session, if
+  /// any — carries the stage (Sprint 14b, item 10b) so the badge can say
+  /// *what* is happening rather than just that something is.
+  final EnhanceJob? retranscribingJob;
   final VoidCallback onTap;
 
   @override
@@ -571,19 +578,41 @@ class _SessionRow extends StatelessWidget {
       '${entry.segmentsCount} segmen',
     ].join('  ');
 
+    final job = retranscribingJob;
+    // Completion jobs (ITEM 0) don't set `stage` — they have only one
+    // phase — but they do carry a real `progress` fraction, which is worth
+    // showing here too rather than just for the F5 enhance pass.
+    final stage = job == null
+        ? null
+        : job.stage ??
+              (job.kind == EnhanceJobKind.complete &&
+                      job.status == EnhanceJobStatus.running
+                  ? 'Menyelesaikan ${sourceLabel(job.source)}'
+                  : null);
+    final stageLabel = job != null && stage != null
+        ? '$stage ${(job.progress.clamp(0.0, 1.0) * 100).round()}%'
+        : null;
+
     return AppListRow(
       title: entry.title,
       subtitle: entry.snippet.isEmpty ? entry.date : entry.snippet,
       selected: selected,
       onTap: onTap,
-      semanticLabel: '${entry.title}, ${entry.date}, $meta',
+      semanticLabel:
+          '${entry.title}, ${entry.date}, $meta'
+          '${stageLabel == null ? '' : ', $stageLabel'}',
       badges: [
         AppChip(label: meta, mono: true),
-        if (retranscribing)
-          const AppStatusBadge(
-            label: 'Ditranskrip ulang',
-            status: AppStatus.info,
-            icon: AppIcons.enhance,
+        if (job != null)
+          Tooltip(
+            message: stageLabel == null
+                ? 'Menunggu antrean untuk ditranskrip ulang.'
+                : 'Ditranskrip ulang: $stageLabel',
+            child: AppStatusBadge(
+              label: stageLabel ?? 'Ditranskrip ulang',
+              status: AppStatus.info,
+              icon: AppIcons.enhance,
+            ),
           ),
         if (entry.hasSummary)
           const AppStatusBadge(

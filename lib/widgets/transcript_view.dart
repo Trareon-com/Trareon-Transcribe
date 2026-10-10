@@ -579,7 +579,19 @@ class _TranscriptViewState extends State<TranscriptView> {
   }
 
   /// One row, addressed by its position in the *displayed* list.
-  Widget _buildRow(BuildContext context, AppColorSet colors, int position) {
+  ///
+  /// [firstPartialIndex] is the earliest still-partial segment in the whole
+  /// transcript (or -1), computed once per build rather than per row.
+  /// Refinement runs front-to-back, so that one row is "Diproses" and every
+  /// other partial row behind it is merely "Antre" (Sprint 14b, item 10b) —
+  /// a transcript with many segments open at once used to show a spinner on
+  /// every one of them with no sense of order.
+  Widget _buildRow(
+    BuildContext context,
+    AppColorSet colors,
+    int position, {
+    required int firstPartialIndex,
+  }) {
     final matches = _matches;
     final originalIndex = matches == null ? position : matches[position];
     final seg = widget.segments[originalIndex];
@@ -594,6 +606,7 @@ class _TranscriptViewState extends State<TranscriptView> {
       speakerColor: speakerColor(seg.speaker, colors),
       isActive: isActive,
       isSelected: isSelected,
+      isProcessingNow: originalIndex == firstPartialIndex,
       editController: isEditing ? _editController : null,
       editFocusNode: isEditing ? _editFocus : null,
       onSelect: () {
@@ -746,9 +759,13 @@ class _TranscriptViewState extends State<TranscriptView> {
                   Semantics(
                     liveRegion: true,
                     child: Text(
-                      _searchQuery.isEmpty
-                          ? '${widget.segments.length} segmen'
-                          : '$itemCount dari ${widget.segments.length} segmen',
+                      [
+                        _searchQuery.isEmpty
+                            ? '${widget.segments.length} segmen'
+                            : '$itemCount dari ${widget.segments.length} segmen',
+                        if (_partialCount > 0)
+                          '$_partialCount sedang diperbaiki',
+                      ].join(' · '),
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: FontSizes.caption,
@@ -871,6 +888,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                                   context,
                                   colors,
                                   anchor - 1 - index,
+                                  firstPartialIndex: _firstPartialIndex,
                                 ),
                                 childCount: anchor,
                               ),
@@ -885,8 +903,12 @@ class _TranscriptViewState extends State<TranscriptView> {
                             ),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
-                                (context, index) =>
-                                    _buildRow(context, colors, anchor + index),
+                                (context, index) => _buildRow(
+                                  context,
+                                  colors,
+                                  anchor + index,
+                                  firstPartialIndex: _firstPartialIndex,
+                                ),
                                 childCount: itemCount - anchor,
                               ),
                             ),
@@ -931,6 +953,14 @@ class _TranscriptViewState extends State<TranscriptView> {
   /// How many segments the engine flagged as uncertain.
   int get _lowConfidenceCount =>
       widget.segments.where((s) => s.lowConfidence).length;
+
+  /// How many segments a background refine pass has not finished yet
+  /// (Sprint 14b, item 10b) — shown once as a count rather than as one
+  /// spinner per row.
+  int get _partialCount => widget.segments.where((s) => s.isPartial).length;
+
+  /// Index of the earliest segment still partial, or -1 when none are.
+  int get _firstPartialIndex => widget.segments.indexWhere((s) => s.isPartial);
 }
 
 /// The one-line crib for the editing keys.
@@ -1012,6 +1042,11 @@ class TranscriptSegmentTile extends StatelessWidget {
   /// Seek to one word's start.
   final void Function(TranscriptWord word)? onSeekToWord;
 
+  /// True for the one partial segment currently being refined — the rest of
+  /// a session's partial segments are merely queued behind it (Sprint 14b,
+  /// item 10b).
+  final bool isProcessingNow;
+
   const TranscriptSegmentTile({
     super.key,
     required this.segment,
@@ -1030,6 +1065,7 @@ class TranscriptSegmentTile extends StatelessWidget {
     this.onStartInlineEdit,
     this.playheadSecs,
     this.onSeekToWord,
+    this.isProcessingNow = false,
   });
 
   bool get _isEditing => editController != null;
@@ -1217,20 +1253,33 @@ class TranscriptSegmentTile extends StatelessWidget {
                           _body(colors),
                         if (segment.isPartial) ...[
                           Spacing.gapXs,
+                          // Only the segment actually being refined gets a
+                          // spinner; every other queued one gets a plain
+                          // "Antre" label. A transcript with dozens of
+                          // partial segments open at once used to show
+                          // dozens of identical, meaningless spinners
+                          // (Sprint 14b, item 10b).
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox(
-                                width: 9,
-                                height: 9,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.4,
-                                  color: colors.primary,
+                              if (isProcessingNow)
+                                SizedBox(
+                                  width: 9,
+                                  height: 9,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.4,
+                                    color: colors.primary,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  AppIcons.clock,
+                                  size: 9,
+                                  color: colors.textTertiary,
                                 ),
-                              ),
                               Spacing.hXs,
                               Text(
-                                'Memperbaiki…',
+                                isProcessingNow ? 'Diproses…' : 'Antre',
                                 style: TextStyle(
                                   fontSize: FontSizes.overline,
                                   color: colors.textTertiary,

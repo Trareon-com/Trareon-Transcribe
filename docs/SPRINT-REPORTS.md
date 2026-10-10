@@ -4947,3 +4947,110 @@ Build rilis dijalankan di `:0` (X11 virtual, `trareon_silent` sink diverifikasi 
 - Butir 8 dan 10 (toast, progres) sengaja TIDAK dikerjakan di sini sesuai instruksi brief — milik Sprint 14b.
 
 Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.
+
+---
+
+# Sprint 14b report — branch `sprint/14b-progress-toast`
+
+Sprint 14b — toast peringatan audio yang hilang-sendiri, dan indikator progres untuk setiap proses yang bisa berjalan lebih dari 3 detik. Dijalankan di Kali Linux (sesuai COMMON.md), fresh dari `origin/main` setelah Sprint 14a merge (#24).
+
+## 8. Banner/toast peringatan tidak mengganggu
+
+**Temuan audit:** toast peringatan watchdog audio di `main_screen.dart` sudah memakai `AppToast` (bukan banner kuning statis mentah) — tapi dipanggil dengan `type: ToastType.error`, dan `AppToast` membuat toast `error` **tidak pernah auto-dismiss** (`lifetime: Duration.zero`). Jadi secara perilaku toast ini memang menetap selamanya persis seperti keluhan Master, walau secara kode sudah "pakai sistem toast".
+
+**Perbaikan:**
+- `lib/screens/main_screen.dart`: toast watchdog sekarang `ToastType.warning` dengan `duration` eksplisit — 8 detik untuk kasus generik, 12 detik untuk kasus izin (yang punya tombol aksi "Buka Pengaturan Sistem").
+- `lib/widgets/app_toast.dart`: tombol tutup (x) sekarang **selalu** ada, termasuk saat toast juga punya tombol aksi — sebelumnya toast beraksi hanya menampilkan tombol aksi tanpa cara menutup manual selain menunggu.
+- `lib/state/audio_watchdog_model.dart`: watchdog sekarang memeriksa kondisinya **berkala** (bukan sekali lewat `Timer` satu-tembakan) sepanjang sesi berjalan, tapi toast untuk kondisi yang **sama** tidak tampil ulang dalam 60 detik (`_emit`'s cooldown, keyed per kondisi: `mic`/`speaker`/`both`/`generic`). Kondisi yang **berubah** (mis. dari "mikrofon mati" ke "audio sistem juga mati") selalu tampil segera, tidak menunggu cooldown.
+- **Penanda permanen di bar status**: `AudioHealthIndicator` (baru, `lib/widgets/capture_health_view.dart`) — ikon mikrofon dengan titik kuning kecil, dipasang di sebelah `CaptureConfirmationBadge` di header sesi aktif. Didorong oleh `audioHealthIndicatorProvider` (`StateProvider<bool>`, baru) yang independen dari toast: tetap `true` selama kondisi belum teratasi walau toastnya sudah auto-dismiss atau ditutup manual, dan kembali `false` begitu sinyal nyata terdeteksi atau sesi berhenti.
+- Toast info/peringatan non-kritis lain di aplikasi **sudah** auto-dismiss sejak sebelum sprint ini (`ToastType.info`/`success`/`warning` default 3 detik, 6 detik kalau ada tombol aksi) — audit tidak menemukan toast non-kritis lain yang memakai `ToastType.error` secara keliru seperti watchdog ini. Kesalahan kritis (`sessionNoticeProvider` — sumber rekaman gagal/mati di tengah sesi) tetap `ToastType.error`/menetap, sesuai aturan brief.
+
+**Test baru:** `test/audio_watchdog_model_test.dart` (+3: cooldown menahan tampil ulang kondisi sama, kondisi sama tampil lagi setelah cooldown lewat, indikator status-bar hilang begitu sinyal nyata datang — `now` di-inject lewat `DateTime Function()` supaya waktu dikontrol test, bukan `Duration` nyata); `test/app_toast_test.dart` (baru, 5 test: auto-dismiss info, durasi kustom dihormati, error tidak pernah auto-dismiss, tombol tutup selalu ada walau ada tombol aksi, tombol aksi memanggil callback dan menutup).
+
+## 10. Indikator progres untuk semua proses > 3 detik
+
+### Audit: operasi panjang di Rust dan Dart
+
+| Operasi | Ambang 3 detik digerbang? | Status sebelum sprint | Status sesudah sprint |
+|---|---|---|---|
+| Unduh model (`model.rs`, `model_download_dialog.dart`) | Tidak (selalu tampil, operasi memang selalu lama) | DONE — persen determinate dari `downloadProgress()` stream | Tidak diubah — sudah baik |
+| Impor/batch transkripsi berkas (`stt/file.rs` `BatchProgressSnapshot`, `file_upload_zone.dart`) | Tidak | DONE — per-berkas: tahap (Antre/Membaca berkas/Transkripsi/Selesai/Gagal/Dibatalkan) + indeks file dari N | Tidak diubah — sudah baik, dan sekarang **jadi sumber data** untuk F5 (lihat di bawah) |
+| F5 "Memperhalus transkrip" (`enhance_queue_model.dart` `_runEnhancement`) | Tidak | **PARTIAL** — spinner tak tentu + teks statis "Memakai model akurat… transkrip lama tetap aman sampai selesai" tanpa angka — persis keluhan Master | **DONE** — kini memantau `batchProgress()` (slot sama file import), melaporkan tahap nyata (Menyiapkan model → Mentranskripsi → Menggabungkan → Selesai) + persen; dirender lewat `TaskProgressTile` baru |
+| F0 "completion" / re-transkripsi audio yang terlewat (`completion.rs`, `completionProgress()`) | Tidak | DONE — persen + ETA per sumber (mic/spk) | Tidak diubah secara fungsi, tapi sekarang dirender lewat `TaskProgressTile` yang sama dengan F5 (konsistensi visual) |
+| Live progressive refine per segmen ("Memperbaiki…") | Tidak | **PARTIAL** — satu spinner animasi + teks identik di **setiap** segmen partial sekaligus, tanpa urutan atau jumlah total | **PARTIAL, membaik** — hanya segmen partial paling awal (yang sedang benar-benar diproses, refine berjalan depan-ke-belakang) menampilkan spinner "Diproses…"; sisanya "Antre" tanpa spinner. Jumlah total ditampilkan di toolbar transkrip ("N sedang diperbaiki"). Masih **tidak ada** persentase atau tahap per segmen — mesin tidak melaporkan granularitas itu. |
+| F17 denoise | N/A | NOT DONE sebagai indikator berdiri sendiri — berjalan inline di dalam tahap decode/transcribe (live maupun impor), tidak punya sinyal progres terpisah dari mesin. Diam-diam tercakup oleh indikator induknya (live: real-time, tidak perlu indikator; impor: tahap "Membaca berkas" di atas). | Tidak disentuh sprint ini |
+| Diarisasi (pengelompokan pembicara) | N/A | NOT DONE sebagai indikator berdiri sendiri — sama seperti denoise, inline di pipeline transkripsi, tidak ada sinyal progres terpisah. | Tidak disentuh sprint ini |
+| Ringkasan AI (Ollama/OpenAI, `mapreduce.rs`) | Tidak | DONE — `MapReduceProgress` (tahap map/reduce + fraksi), dirender di `summary_panel.dart` | Tidak diubah — sudah baik |
+| Ekspor (PDF/DOCX/ICS/CSV, `export_dialog.dart`) | **Tidak digerbang** | **PARTIAL** — `CircularProgressIndicator` tak tentu murni, tanpa persen/tahap, tampil langsung tanpa ambang 3 detik | **Tidak diubah sprint ini** — lihat Celah |
+| Pemulihan sesi saat start (`_loadingRecoveries`, `main_screen.dart`) | **Tidak digerbang** | PARTIAL — `AppLinearProgress` tak tentu, tanpa teks tahap, bisa berkedip untuk pemindaian cepat | **Tidak diubah sprint ini** — lihat Celah |
+| Pengindeksan/pencarian arsip rapat (F12, `archive_chat_model.dart` `state.indexing`) | **Tidak digerbang** | PARTIAL — spinner tak tentu di `archive_chat_screen.dart`, tanpa persen/tahap | **Tidak diubah sprint ini** — lihat Celah |
+| Benchmark perangkat (`benchmark.rs`, `model_select.rs`) | N/A | Tidak ada pemicu UI interaktif ditemukan — benchmark RTF berjalan otomatis setiap sesi live mulai (`pipeline::route_for_rtf`), bukan operasi yang pengguna tunggu secara eksplisit dengan layar "sedang benchmark". **Tidak berlaku** untuk indikator progres bergaya ini. | Tidak disentuh |
+| Pemuatan daftar sesi besar (`session_sidebar.dart`, `libraryListProvider`) | **Tidak digerbang** | DONE — `AppSkeletonList` (6 baris skeleton) saat `library.loading && entries.isEmpty` | Tidak diubah — baik, walau tanpa ambang 3 detik (skeleton untuk list kosong jarang terasa sebagai "kedipan" karena bentuknya memang mirip konten) |
+| Simpan sesi saat berhenti / mulai sesi (muat model) | **Tidak digerbang** | PARTIAL — label generik tak tentu "Memulai…"/"Menyimpan…" (`_isStartingSession`/`_isStoppingSession`, `main_screen.dart`), tanpa tahap rinci (mis. "memuat model" vs "membuka perangkat" vs "menulis berkas") | **Tidak diubah sprint ini** — lihat Celah |
+
+### Komponen bersama: `TaskProgressTile` + `ProgressGate`
+
+`lib/widgets/ui/task_progress_tile.dart` (baru):
+- **`ProgressGate`**: widget pembungkus yang menyembunyikan `builder`-nya sampai `active` bernilai `true` secara terus-menerus selama `threshold` (default 3 detik); begitu `active` kembali `false`, langsung sembunyi lagi tanpa jeda. Ini infrastruktur ambang-3-detik generik yang diminta brief butir 10.2 — dipakai lewat test, **belum** dipasang ke operasi mana pun di aplikasi (lihat Celah: kandidat alami adalah dialog ekspor, pemulihan sesi, dan indeks arsip, yang ketiganya tak digerbang hari ini).
+- **`TaskProgressTile`**: satu baris progres dengan lima status (`queued`/`running`/`done`/`failed`/`cancelled`), mode determinate (ring persen + label ETA siap-format dari pemanggil) atau indeterminate (spinner + nama tahap), tombol batal (hanya saat `queued`/`running`) atau tombol sembunyikan (saat `failed`/`done`/`cancelled`), dan label semantik gabungan untuk pembaca layar.
+- **Dipakai nyata di:** `EnhanceQueueView` (`lib/widgets/enhance_queue_view.dart`) — baris F5 dan F0 di sidebar kini memakai `TaskProgressTile` yang sama, bukan `Row` kustom yang diduplikasi antara dua jenis job.
+- **Belum diadopsi di:** dialog ekspor, pemulihan sesi, indeks arsip (lihat tabel di atas dan Celah). Mengganti ketiganya butuh menyesuaikan sumber data progresnya masing-masing (yang sekarang semuanya *boolean* loading, bukan fraksi) — di luar jangkauan waktu sprint ini.
+
+### Status per butir
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| 8. Toast hilang-sendiri | DONE | Lihat bagian 8 di atas; test baru lulus. |
+| 10.1 Audit | DONE | Tabel di atas. |
+| 10.2 Komponen bersama (ambang 3 detik, determinate/indeterminate) | DONE (komponen), PARTIAL (adopsi) | `TaskProgressTile`/`ProgressGate` dibangun dan diuji penuh; dipakai nyata hanya di antrean F5/F0, belum di ekspor/pemulihan/indeks arsip. |
+| 10.3 Satu jalur data progres Rust→Dart, bisa dibatalkan | **PARTIAL** | F5 sekarang **memakai ulang** slot `batchProgress()` yang sudah ada (bukan jalur baru) — ini mengurangi duplikasi tapi **belum** satu stream FRB tunggal yang dipakai *semua* operasi (unduh model, batch file, completion, ringkasan masih punya slot pollingnya sendiri-sendiri). Menyatukan seluruhnya adalah migrasi arsitektur besar (mengubah signature FRB tiap fitur) yang tidak sempat diselesaikan dengan aman dalam sprint ini — lihat Celah. Pembatalan sudah ada di jalur yang disentuh (F5/F0 lewat `EnhanceQueueNotifier.cancel`). |
+| 10.4 Penempatan (panel latar belakang vs inline, tidak menutupi transkrip) | DONE untuk F5/F0 | Kartu `EnhanceQueueView` di sidebar, bukan modal; tidak menutupi transkrip. |
+| 10.5 Aksesibilitas | DONE untuk komponen baru | `TaskProgressTile` punya `Semantics.label` gabungan (`"$title: $statusLine"`) dan `liveRegion` saat berjalan; tidak bergantung warna saja (ikon + teks). |
+| 10.6 Test | DONE | Lihat di bawah. |
+| 10b.1 Progres determinate untuk "Memperhalus transkrip" | DONE | Lihat di atas. |
+| 10b.2 "Memperbaiki…" per segmen → penanda antrean bermakna | PARTIAL | "Antre"/"Diproses…" + hitung total di toolbar transkrip — **bukan** di "kartu sidebar" seperti disebut brief (pass live-refine-per-segmen ini terpisah secara mekanisme dari antrean F5 sidebar; menyatukan keduanya akan butuh mengekspos status kerja per segmen dari pipeline live yang saat ini tidak mengirim sinyal itu). |
+| 10b.3 Chip "Ditranskrip ulang" → tahap | DONE | Badge sidebar sesi menampilkan tahap + persen job yang sedang berjalan. |
+| Bahasa audio Inggris di sesi Indonesia | Sudah ditangani di Sprint 14a (deteksi/pilihan bahasa per sesi, `SessionOptionsMenu` + `LanguageMismatchBanner`) — tidak diulang di sprint ini. | |
+
+### Test baru
+
+- Dart: `test/task_progress_tile_test.dart` (baru, 10 test: `ProgressGate` ambang 3 detik tersembunyi/tampil/langsung-sembunyi-saat-nonaktif/operasi-cepat-tak-pernah-tampil; `TaskProgressTile` determinate vs indeterminate, tombol batal, tombol sembunyikan hilang saat belum/selesai, status override, label semantik gabungan).
+- `test/enhance_queue_test.dart` (+1: pass F5 melaporkan tahap "Mentranskripsi" dan persen nyata pertengahan proses, lewat bridge palsu yang menunda `batchTranscribeFiles` dan mengekspos `batchProgress()`).
+- `test/transcript_view_test.dart` (+2: hanya segmen partial paling awal berlabel "Diproses…", sisanya "Antre", toolbar menghitung total; tidak ada teks hitungan saat tidak ada segmen partial).
+- `test/audio_watchdog_model_test.dart` dan `test/app_toast_test.dart`: lihat bagian 8.
+
+### Gerbang verifikasi penuh
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 900 passed; 0 failed; 0 ignored (1002.86s) — tidak ada
+                                              perubahan Rust di sprint ini, angka sama dengan Sprint 14a
+flutter analyze                            → No issues found! (38.2s)
+flutter test                               → 688 passed; 0 failed (naik dari 667 di Sprint 14a: +21 test
+                                              baru — lihat "Test baru" di atas)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+Tidak ada perubahan Rust di sprint ini (hanya Dart/Flutter), jadi FRB tidak perlu diregenerasi.
+
+### Uji aplikasi nyata (smoke test)
+
+Build rilis dijalankan di `:0` (X11 virtual; `pactl get-default-sink`/`get-default-source` diverifikasi `trareon_silent`/`trareon_silent.monitor` sebelum apa pun, tidak ada audio diputar). Diverifikasi lewat screenshot (`xwininfo` untuk menemukan window id asli — `xdotool search --class transcribe` mengembalikan beberapa window placeholder 10x10, window asli 1280x800 ditemukan lewat `xwininfo -root -tree`):
+
+1. **Layar idle**: kartu "Menyelesaikan transkrip" di sidebar untuk sesi tersisa dari ronde sebelumnya menampilkan "Menyelesaikan audio sistem... 0%" lewat `TaskProgressTile` baru; badge "Ditranskrip ulang" di baris sesi yang sama awalnya statis tanpa angka — **ditemukan lewat smoke test** (bukan test otomatis) bahwa job `EnhanceJobKind.complete` tidak mengisi `job.stage`, jadi badge sidebar tidak menampilkan persen untuknya; diperbaiki langsung (`session_sidebar.dart`: fallback ke `'Menyelesaikan ${sourceLabel(job.source)}'` untuk job `complete` yang berjalan) dan diverifikasi ulang — badge sekarang menampilkan "Menyelesaikan audio sistem 0%".
+2. **Mulai sesi "Rapat Online"** (mikrofon alsa real yang di-mute sistem + "Suara sistem" = `trareon_silent`, keduanya otomatis membaca nol): setelah ~27 detik, dua kondisi muncul — toast watchdog Dart (pesan pendek, auto-dismiss, tidak difoto tepat saat muncul tapi terbukti sudah hilang di tangkapan berikutnya sementara toast kritis dari mesin Rust yang persisten tetap ada — bukti tidak langsung tapi konsisten dengan perilaku auto-dismiss) dan **penanda status-bar baru `AudioHealthIndicator`** (ikon mikrofon dengan titik oranye) muncul di sebelah lencana konfirmasi rekaman — dikonfirmasi lewat crop 400% zoom.
+3. **Toast kritis dari mesin** (`sessionNoticeProvider`, `ToastType.error`, tidak disentuh sprint ini): "Mikrofon/Audio sistem belum merekam suara apa pun sejak sesi dimulai (1 menit)" — tetap menetap di layar untuk durasi penuh pengujian (>1 menit), **dan sekarang punya tombol tutup (x)** yang sebelum sprint ini tidak ada untuk toast beraksi/tanpa aksi — perbaikan `app_toast.dart` berlaku universal, bukan hanya untuk watchdog.
+4. **Berhenti**: dialog "Sesi selesai, ada masalah" (fitur lama, tidak disentuh) muncul benar; sesi kosong itu lalu masuk antrean completion di sidebar (dua baris baru: satu `running` 0% lewat `TaskProgressTile`, satu `queued` "Menunggu antrean, ada audio yang belum ditranskripsi.") — mengonfirmasi redesain `EnhanceQueueView` bekerja dengan data nyata, bukan hanya di widget test.
+
+### Celah yang diketahui
+
+- **10.3 (jalur progres tunggal)**: F5 kini memakai ulang slot `batchProgress()` yang sudah ada, tapi aplikasi masih punya beberapa slot polling Rust→Dart terpisah (unduh model, batch file/F5, completion F0, ringkasan Ollama) alih-alih satu stream FRB tunggal untuk semua operasi. Menyatukan ini adalah migrasi arsitektur (mengubah signature FRB tiap fitur) yang berisiko tinggi untuk diselesaikan dengan aman dalam satu sprint — lihat tabel audit di atas untuk status per operasi.
+- **`ProgressGate`/`TaskProgressTile` belum diadopsi** di dialog ekspor, pemindaian pemulihan sesi saat start, dan pengindeksan arsip rapat (F12) — ketiganya tetap indeterminate murni tanpa ambang 3 detik, seperti sebelum sprint ini.
+- **10b.2 (antrean "Memperbaiki…" per segmen)**: perbaikan ("Antre"/"Diproses…" + hitung total) ditaruh di toolbar transkrip, **bukan** di "kartu sidebar" seperti disebut literal oleh brief — live-refine-per-segmen adalah mekanisme berbeda dari antrean F5/F0 di sidebar (`EnhanceQueueView`), dan pipeline live saat ini tidak mengirim sinyal "segmen mana yang sedang diproses secara eksplisit" ke Dart selain urutan `isPartial` itu sendiri.
+- **Pemuatan/inisialisasi model Whisper** dan **mulai/stop sesi langsung** masih memakai label generik "Memulai…"/"Menyimpan…" tanpa tahap rinci (mis. "memuat model" vs "membuka perangkat audio" vs "menulis berkas") atau ambang 3 detik — terlihat jelas di smoke test (langkah 2 di atas memakan >10 detik dengan hanya label "Memulai…" yang tidak berubah).
+- Toast watchdog Dart yang auto-dismiss tidak sempat difoto tepat saat tampil (jendela 8 detik terlalu sempit untuk screenshot manual berurutan) — perilakunya diverifikasi dengan pasti lewat test otomatis (`audio_watchdog_model_test.dart`, `app_toast_test.dart`), bukan screenshot, untuk klaim "auto-dismiss benar-benar terjadi".
+
+**Ditemukan dan diperbaiki, tidak terkait brief:** `git diff --stat` menunjukkan `lib/state/enhance_queue_model.dart` sebagai file biner setelah commit pertama sprint ini. Investigasi (`file`, `grep -aobP '\x00'`) menemukan **dua byte NUL** sudah ada di `String get id => '$directoryPath $audioPath ${kind.name}'` **sejak sebelum sprint ini** (terverifikasi lewat `git show HEAD:...`), menggantikan dua spasi literal — kemungkinan artefak encoding dari sprint lampau yang lolos karena `dart format`/`flutter analyze`/`cargo`/toolchain semuanya mentolerir NUL di tengah string literal tanpa keluhan. Diperbaiki (dua NUL diganti spasi biasa) dan diverifikasi ulang: `flutter analyze` bersih, `enhance_queue_test.dart` (22 test) tetap lulus, `flutter test` penuh (688 test) tetap lulus. `git diff` terhadap `HEAD` sebelum sprint ini tetap tercatat biner (blob lama di `HEAD` masih mengandung NUL), tapi commit sprint ini sendiri sudah bersih untuk diff berikutnya.
+
+Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.

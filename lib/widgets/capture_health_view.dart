@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../src/rust/session.dart' as rust_session;
+import '../state/audio_watchdog_model.dart';
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
 import '../theme/app_icons.dart';
@@ -81,6 +83,56 @@ class CaptureConfirmationBadge extends StatelessWidget {
             Text(
               label,
               style: TextStyle(color: color, fontSize: FontSizes.micro),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small permanent marker (mic icon with a dot) that replaces the old
+/// yellow banner for a no-audio/permission problem (Sprint 14b, item 8).
+///
+/// The toast itself now auto-dismisses after 8-12 s, which is the point —
+/// but the underlying condition (no mic permission, a dead source) usually
+/// outlives the toast, and the user needs *some* durable way to tell the
+/// problem is still open without the screen staying covered. This sits next
+/// to [CaptureConfirmationBadge] and stays as long as
+/// [audioHealthIndicatorProvider] is true, regardless of whether the last
+/// toast was dismissed or cooled down.
+class AudioHealthIndicator extends ConsumerWidget {
+  const AudioHealthIndicator({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active = ref.watch(audioHealthIndicatorProvider);
+    if (!active) return const SizedBox.shrink();
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    const label = 'Masalah audio belum teratasi';
+    return Semantics(
+      label: label,
+      child: Tooltip(
+        message:
+            '$label. Mikrofon atau audio sistem belum mengirim suara; lihat '
+            'pemberitahuan terakhir atau periksa Pengaturan Sistem.',
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(AppIcons.mic, size: IconSizes.sm, color: colors.textSecondary),
+            Positioned(
+              right: -1,
+              top: -1,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: colors.warning,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.surface, width: 1),
+                ),
+              ),
             ),
           ],
         ),

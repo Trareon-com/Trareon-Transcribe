@@ -50,12 +50,26 @@ rust_export.Segment rustSegment({
 
 /// A bridge whose accurate pass returns a fixed transcript.
 class _EnhanceBridge extends NoopBridge {
-  _EnhanceBridge(this.result, {this.error});
+  _EnhanceBridge(this.result, {this.error, this.delay});
 
   final List<rust_export.Segment> result;
   final String? error;
+
+  /// How long to keep the call pending, so a test can observe the sidebar
+  /// mid-pass. `null` resolves immediately.
+  final Duration? delay;
+
   int calls = 0;
   rust_glossary.GlossaryConfig? lastGlossary;
+
+  /// What [batchProgress] reports while [delay] has not yet elapsed —
+  /// Sprint 14b item 10b: the F5 pass now polls the same slot file import
+  /// does, instead of showing a bare spinner for however long it runs.
+  rust_stt_file.BatchProgressSnapshot? pollSnapshot;
+
+  @override
+  Future<rust_stt_file.BatchProgressSnapshot?> batchProgress() async =>
+      pollSnapshot;
 
   @override
   Future<List<rust_stt_file.BatchFileOutcome>> batchTranscribeFiles({
@@ -69,6 +83,8 @@ class _EnhanceBridge extends NoopBridge {
   }) async {
     calls++;
     lastGlossary = glossary;
+    final delay = this.delay;
+    if (delay != null) await Future<void>.delayed(delay);
     return [
       rust_stt_file.BatchFileOutcome(
         filename: files.first.split(Platform.pathSeparator).last,
@@ -299,6 +315,46 @@ void main() {
         }
       },
     );
+
+    test('reports a real stage and percentage while the pass is running '
+        '(Sprint 14b, item 10b)', () async {
+      final dir = await sessionWithAudio();
+      try {
+        final bridge =
+            _EnhanceBridge([
+                rustSegment(timestamp: 0, text: 'hasil akurat'),
+              ], delay: const Duration(milliseconds: 1200))
+              ..pollSnapshot = const rust_stt_file.BatchProgressSnapshot(
+                fileIndex: 0,
+                totalFiles: 1,
+                filename: 'mic.wav',
+                status: rust_stt_file.BatchFileStatus.transcribing,
+                progress: 0.5,
+              );
+        final queue = EnhanceQueueNotifier(
+          bridge,
+          () => AppSettings.defaults().copyWith(libraryPath: dir.path),
+        );
+
+        await queue.considerSession(handoff(dir.path));
+        // The sidebar polls every second; wait for at least one tick
+        // while the engine call is still pending.
+        await Future<void>.delayed(const Duration(milliseconds: 1100));
+
+        final running = queue.state.running;
+        expect(running, isNotNull);
+        expect(running!.stage, 'Mentranskripsi');
+        expect(running.progress, greaterThan(0.1));
+        expect(running.progress, lessThan(1.0));
+
+        await queue.idle;
+        expect(queue.state.jobs.single.status, EnhanceJobStatus.done);
+        // Finished jobs carry no stage — there is nothing left to show.
+        expect(queue.state.jobs.single.stage, isNull);
+      } finally {
+        await dir.delete(recursive: true);
+      }
+    });
 
     test('a failed pass leaves the transcript exactly as it was', () async {
       final dir = await sessionWithAudio();
