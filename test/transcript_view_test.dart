@@ -57,6 +57,85 @@ void main() {
     expect(find.text('B'), findsNothing);
   });
 
+  group('partial-segment queue indicator (Sprint 14b, item 10b)', () {
+    TranscriptSegment partial({
+      required double timestamp,
+      required String text,
+    }) => TranscriptSegment(
+      source: 'mic',
+      speaker: 'A',
+      text: text,
+      timestamp: timestamp,
+      duration: 1.0,
+      language: 'id',
+      confidence: 1.0,
+      isPartial: true,
+    );
+
+    testWidgets(
+      'only the earliest partial segment shows "Diproses"; the rest show '
+      '"Antre", and the toolbar counts all of them',
+      (tester) async {
+        final segments = [
+          partial(timestamp: 0, text: 'satu'),
+          partial(timestamp: 1, text: 'dua'),
+          partial(timestamp: 2, text: 'tiga'),
+        ];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              extensions: <ThemeExtension<dynamic>>[AppColors.light],
+            ),
+            home: Scaffold(body: TranscriptView(segments: segments)),
+          ),
+        );
+        // Not pumpAndSettle: the "Diproses" row's CircularProgressIndicator
+        // animates forever by design, so settling would time out.
+        await tester.pump();
+        tester.takeException();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.textContaining('3 sedang diperbaiki'), findsOneWidget);
+        expect(find.text('Diproses…'), findsOneWidget);
+        expect(find.text('Antre'), findsNWidgets(2));
+      },
+    );
+
+    testWidgets('no partial-count text when nothing is partial', (
+      tester,
+    ) async {
+      final segments = [
+        const TranscriptSegment(
+          source: 'mic',
+          speaker: 'A',
+          text: 'Halo',
+          timestamp: 0.0,
+          duration: 1.0,
+          language: 'id',
+          confidence: 1.0,
+          isPartial: false,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: <ThemeExtension<dynamic>>[AppColors.light],
+          ),
+          home: Scaffold(body: TranscriptView(segments: segments)),
+        ),
+      );
+      await tester.pump();
+      tester.takeException();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('sedang diperbaiki'), findsNothing);
+      expect(find.text('Diproses…'), findsNothing);
+      expect(find.text('Antre'), findsNothing);
+    });
+  });
+
   group('tail "sementara" (LocalAgreement-2)', () {
     const committed = TranscriptSegment(
       source: 'mic',
