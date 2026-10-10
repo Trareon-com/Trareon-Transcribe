@@ -179,6 +179,7 @@ class _AuditRow extends StatelessWidget {
     AuditAction.auditExported => AppIcons.table,
     AuditAction.modelPulled => AppIcons.cloudDownload,
     AuditAction.documentContextUsed => AppIcons.document,
+    AuditAction.transcriptEnhanced => AppIcons.autoFix,
   };
 }
 
@@ -201,6 +202,7 @@ String auditActionLabel(AuditAction action) => switch (action) {
   AuditAction.auditExported => 'Log audit diekspor',
   AuditAction.modelPulled => 'Model notulen diunduh',
   AuditAction.documentContextUsed => 'Konteks dokumen digunakan',
+  AuditAction.transcriptEnhanced => 'Transkrip diperhalus otomatis',
 };
 
 /// `DD/MM/YYYY HH:MM` in local time, without a bridge round trip.
