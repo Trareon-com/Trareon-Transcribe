@@ -44,10 +44,20 @@ const SILENCE_CAPTIONS: &[&str] = &[
     "terima kasih telah menyaksikan",
     "terima kasih",
     "sampai jumpa di video berikutnya",
+    "sampai jumpa di video selanjutnya",
     "jangan lupa like dan subscribe",
     "jangan lupa subscribe",
+    "jangan lupa like dan subscribe ya",
     "like dan subscribe",
     "subscribe",
+    "sama sama",
+    // Malay sign-offs — "kerana" (because) where Indonesian says
+    // "telah"/"sudah". Measured on a macOS session: the mic buffer was
+    // absolute digital silence (no permission granted) and Whisper still
+    // produced "Terima kasih kerana menonton!".
+    "terima kasih kerana menonton",
+    "terima kasih kerana menonton video ini",
+    "terima kasih kerana menyaksikan",
     // Subtitle credits
     "subtitle by",
     "subtitles by",
@@ -107,7 +117,7 @@ pub fn is_non_speech(text: &str) -> bool {
     // speech. Observed in a live session: four seconds of room tone before
     // the meeting started came back as one 59-character segment, at
     // confidence 0.75, which is far too high for any threshold to reject.
-    if is_degenerate_repeat(trimmed) {
+    if is_degenerate_repeat(trimmed) || is_whole_word_loop(trimmed) {
         return true;
     }
     let normalised = normalise(trimmed);
@@ -169,6 +179,36 @@ fn is_degenerate_repeat(text: &str) -> bool {
             tail.len() >= unit * 4 && tail.chunks(unit).all(|c| c == &tail[..c.len()])
         })
     })
+}
+
+/// Whether `text` is one whole word repeated three or more times, joined by
+/// hyphens and/or spaces: `"Pertama-Pertama-Pertama-…"`, the exact decoder
+/// loop a live macOS session produced. [`is_degenerate_repeat`] only looks
+/// inside a *single token* at the character level (unit length up to
+/// [`MAX_REPEAT_UNIT`]), so a loop built out of a whole 7-letter word never
+/// matched it; this catches that case without touching
+/// [`MAX_REPEAT_UNIT`], which would start swallowing short reduplicated
+/// words it must never touch.
+///
+/// Requires *three* repeats, not two, so Indonesian reduplication
+/// (`"kupu-kupu"`, `"masing-masing"`) — always exactly two — is untouched.
+fn is_whole_word_loop(text: &str) -> bool {
+    let tokens: Vec<String> = text
+        .split(|c: char| c == '-' || c.is_whitespace())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_lowercase())
+        .collect();
+    if tokens.len() < 3 {
+        return false;
+    }
+    let first = &tokens[0];
+    // Short units are already covered at the character level; leaving this
+    // check out at that length keeps the two detectors from double-judging
+    // the same short reduplicated word differently.
+    if first.chars().count() <= MAX_REPEAT_UNIT {
+        return false;
+    }
+    tokens.iter().all(|t| t == first)
 }
 
 /// Returns the inside of `text` when the whole string is one bracketed
@@ -280,6 +320,43 @@ mod tests {
         ] {
             assert!(is_non_speech(text), "{text} must be rejected");
         }
+    }
+
+    #[test]
+    fn malay_signoffs_are_rejected() {
+        // Measured on a macOS session with no mic permission granted (the
+        // buffer was absolute digital silence): Whisper still produced
+        // this exact Malay-spelled sign-off.
+        for text in [
+            "Terima kasih kerana menonton!",
+            "terima kasih kerana menonton video ini",
+            "Sama-sama!",
+        ] {
+            assert!(is_non_speech(text), "{text} must be rejected");
+        }
+    }
+
+    #[test]
+    fn sampai_jumpa_selanjutnya_variant_is_rejected() {
+        assert!(is_non_speech("Sampai jumpa di video selanjutnya."));
+    }
+
+    #[test]
+    fn a_whole_word_decoder_loop_is_rejected() {
+        // The exact segment a live macOS session produced: the same
+        // 7-letter word repeated, hyphen-joined, with no silence to blame
+        // (the character-level loop detector never sees a unit this long).
+        assert!(is_non_speech(
+            "Pertama-Pertama-Pertama-Pertama-Pertama-Pertama-Pertama"
+        ));
+        assert!(is_non_speech("Pertama Pertama Pertama Pertama"));
+    }
+
+    #[test]
+    fn two_repeats_of_a_long_word_is_not_a_loop() {
+        // Three is the floor: two is indistinguishable from a speaker
+        // repeating themselves for emphasis.
+        assert!(!is_non_speech("Pertama-Pertama"));
     }
 
     #[test]

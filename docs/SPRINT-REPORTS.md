@@ -4621,3 +4621,153 @@ audit menyimpulkan implementasi F6 (`rust_core/src/actions.rs`,
 `test/action_items_test.dart`) sudah memenuhi spesifikasi brief tanpa
 perubahan. `CHANGELOG.md` dan `docs/RELEASE-BETA.md` sudah diperbarui di
 commit checkpoint putaran awal (`4f373e9`).
+
+## Sprint 12 report
+
+Sprint 12 — macOS hardening + akurasi (anti-halusinasi, timestamp, izin audio). Dijalankan di Kali Linux (sesuai COMMON.md); butir macOS-spesifik ditandai jelas di bawah sebagai **PERLU VERIFIKASI DI MAC**.
+
+### Audit awal (sebelum menulis kode)
+
+`rust_core/src/hallucination.rs`, `confidence.rs`, `vad/`, `stt/` sudah ada dan sudah cukup canggih dari sprint-sprint sebelumnya (dual VAD, Silero gate, filter frasa, deteksi loop karakter). Temuan audit — mengapa ketiganya tetap lolos pada uji Mac:
+
+1. **Gerbang VAD live gagal terbuka tanpa model Silero.** `pipeline.rs::window_holds_speech()` mengembalikan `Ok(true)` ("anggap ada ucapan") ketika `self.silero` adalah `None` — model Silero tidak dibundel di setiap instalasi. Akibatnya mode live/progresif kehilangan gerbang VAD-nya sepenuhnya pada mesin tanpa model itu, dan backstop satu-satunya adalah filter teks pasca-ASR.
+2. **Gerbang WebRTC per-frame memakai OR, bukan energi keseluruhan chunk.** `detect_speech()` di `pipeline.rs` menandai `has_speech = true` begitu **satu** frame 10 ms lolos WebRTC VAD — satu false-positive pada noise ruangan membuat seluruh chunk multi-detik dikirim ke Whisper.
+3. **Ambang `low_confidence` adalah 0,5 di tiga tempat berbeda** (`stt/mod.rs`, `pipeline.rs::segment_from_line`, `confidence.rs::apply_confidence_routing`) — bukan satu sumber kebenaran, dan terlalu rendah: segmen asli Mac di confidence 0,61 dan 0,76 lolos tanpa tanda.
+4. **Daftar frasa halusinasi tidak punya varian Melayu** ("kerana" vs "telah/sudah") dan tidak punya "sampai jumpa di video **selanjutnya**" (hanya "berikutnya").
+5. **Deteksi loop hanya di level karakter** (unit ≤4 karakter) — loop kata utuh berhubung tanda hubung ("Pertama-Pertama-...", kata 7 huruf) tidak pernah tertangkap karena unit-nya terlalu panjang.
+6. **`confidence.rs::route_segment()`** (dengan ambang `compression_ratio`) **tidak pernah dipanggil di luar modul tesnya sendiri** — sinyal rasio kompresi yang diminta B2 memang belum pernah benar-benar jalan di pipeline produksi.
+7. Parameter decoding (`no_context`, `suppress_blank`, `suppress_nst`, `no_speech_thold=0.6`, `logprob_thold=-1.0`) **sudah benar** di `stt/mod.rs` sebelum sprint ini — bukan akar masalah B. `temperature_inc`/`entropy_thold` tidak di-set eksplisit tapi whisper.cpp C default-nya (0,2 / 2,4) sudah sama dengan default CLI standar — diverifikasi lewat source whisper-rs-sys, bukan tebakan.
+
+Tidak ada lapisan paralel baru ditambahkan untuk hal yang sudah benar; `silence_gate.rs` adalah backstop yang sengaja *tidak* bergantung pada model VAD apa pun (mengisi celah temuan #1 dan #2 di atas secara langsung).
+
+### A. Build & platform macOS
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| A1 Dylib strip/dyld | DONE (kode) — **PERLU VERIFIKASI DI MAC** | `CARGO_PROFILE_RELEASE_STRIP=none` + validasi `dyld_info -validate_only` di `project.pbxproj` dan `package_macos.sh`; didokumentasikan di `docs/TESTING-ON-MAC-WINDOWS.md` §8. Tidak bisa dikompilasi/divalidasi dyld di Linux. |
+| A2 Re-sign setelah salin dylib | DONE (kode) — **PERLU VERIFIKASI DI MAC** | Fase build terakhir baru "Re-sign after embedding rust_core dylib" di `project.pbxproj`; `package_macos.sh` sekarang memakai `macos/Runner/Release.entitlements` asli (bukan plist inline yang dulu kurang lengkap) untuk kedua jalur signing. |
+| A3 Menu bar macOS | DONE, teruji | Menu aplikasi "Trareon Transcribe" sekarang PERTAMA (About, Pengaturan ⌘,, Services, Hide/Hide Others/Show All, Keluar via `hasMenu` guard), baru Berkas/Tampilan/Jendela/Bantuan. 4 widget test baru di `test/widgets/platform_chrome_test.dart`, lulus. |
+| A4 `_platform` getter | DONE, teruji | Sekarang memerlukan `Platform.isMacOS && defaultTargetPlatform == TargetPlatform.macOS` sekaligus (dan analog Windows) — mencegah 23 widget test crash di host Mac karena `defaultTargetPlatform` default ke android di `flutter test`. |
+| A5 Test netral-platform | DONE (audit + 1 perbaikan) | `test/golden_test.dart` SUDAH `@Tags(['golden'])` dan CI SUDAH `flutter test --exclude-tags golden` (`.github/workflows/ci.yml:95`) — bagian ini sudah benar dari sprint sebelumnya, tidak perlu diubah. Yang diperbaiki: test footer `test/widget_test.dart` sekarang memakai `debugForceCommandKey = false` sebelum memeriksa teks "Ctrl", jadi hasilnya tidak lagi bergantung platform host. |
+| A6 Teks pintasan hard-code | DONE | Ditelusuri semua literal "Ctrl"/"Ctrl+" di `lib/`: `transcript_view.dart` (subtitle panel kosong + footer edit/navigasi, 3 lokasi) dan `bookmark_bar.dart` (tooltip) sekarang memakai `AppShortcut`/`AppShortcuts` dari `theme/app_shortcuts.dart`, otomatis render ⌘ di macOS. `lib/l10n/app_*.arb` punya satu entri `bookmarkAddTooltip` dengan "(Ctrl+B)" hard-code tapi **tidak dipakai di kode manapun** (dead key) — dibiarkan, dicatat di sini. |
+| A7 Dialog konfirmasi berhenti | DONE, teruji | Tombol "Berhenti" `autofocus: true` (Enter = berhenti), `Shortcuts`/`Actions` menangani Esc = batal, Tab berpindah alami. 2 widget test baru (`test/widget_test.dart`) lulus lewat `tester.sendKeyEvent`. Di smoke test aplikasi nyata, dialog tampil dan dapat ditutup lewat klik mouse; penekanan Enter sintetis lewat `xdotool` **tidak** mendemonstrasikan dismiss di sesi X11 virtual ini (pola yang sama dengan keterbatasan klik sintetis yang sudah tercatat di laporan Sprint 10) — bukti keyboard-dismiss yang dapat diandalkan ada di widget test, bukan smoke test manual. |
+| A8 Hook screenshot | DONE, teruji | `lib/utils/debug_screenshot.dart`: aktif hanya dengan `TRAREON_SCREENSHOT_DIR`, tulis atomik (tmp+rename), interval dapat dikonfigurasi (penting untuk testability — lihat Celah di bawah). 4 test di `test/utils/debug_screenshot_test.dart`. Jalur container sandbox macOS didokumentasikan di `docs/TESTING-ON-MAC-WINDOWS.md` §9. |
+
+### B. Akurasi & kejujuran transkrip
+
+| Butir | Status | Keterangan |
+|---|---|---|
+| B1 Gerbang pra-ASR | DONE, teruji | `rust_core/src/silence_gate.rs` baru: `peak()`, `rms_dbfs()`, `is_digital_silence()`, `is_below_speech_floor()` (ambang `SILENCE_THRESHOLD_DBFS = -60.0`, dijelaskan di komentar). Dipasang sebagai backstop tanpa-syarat (tidak bergantung VAD/model) di: `pipeline.rs::detect_speech()` (live, kedua pipeline tunggal & HPT), `pipeline.rs::decode_window()` (live), dan loop per-chunk `stt/file.rs::transcribe_file_with` (impor berkas, termasuk saat `vad_gate=false`). Diverifikasi empiris lewat `transcribe_cli` rilis + `ggml-tiny.bin`: WAV 300 s (2×15 s ucapan nyata + sisanya senyap digital) → **6 segmen, 0 halusinasi** (persis sesuai yang dijanjikan `make_silence_fixture.sh`); WAV noise 30 s −45 dBFS → **0 segmen**; `rapat_id.mp3` (15 s ucapan nyata) → **3 segmen, isi benar** (lihat tabel B7). |
+| B2 Filter pasca-ASR | DONE (dengan 1 catatan desain) | Ditambahkan ke `hallucination.rs`: varian Melayu ("kerana"), "sama sama" berdiri sendiri, "sampai jumpa di video selanjutnya", dan `is_whole_word_loop()` — loop kata utuh berhubung tanda hubung/spasi ≥3 kali berturut ("Pertama-Pertama-Pertama-..."), floor 3 bukan 2 supaya reduplikasi Indonesia ("kupu-kupu") tidak tersentuh. Rasio kompresi gzip (`confidence.rs::compression_ratio()`, ambang 2,4 — sama dengan default `compression_ratio_threshold` whisper.cpp) sekarang benar-benar dipanggil dari `apply_confidence_routing()`, bukan cuma dideklarasikan di `route_segment()` yang mati. **Catatan desain**: filter frasa tetap *full-segment exact match* (bukan dikondisikan pada energi audio secara eksplisit) — desain lama yang sudah terbukti aman lewat test `real_indonesian_speech_survives`/`a_hallucinated_token_inside_a_sentence_is_left_alone` (frasa di tengah kalimat nyata tidak tersentuh). Tidak diubah jadi audio-aware karena `filter_segments()` tidak menerima konteks audio di API-nya saat ini dan mengubahnya berisiko regresi lebih besar dari manfaatnya pada sisa anggaran sprint — dicatat sebagai PARTIAL untuk nuansa "buang HANYA bila audio senyap" yang literal. |
+| B3 `low_confidence` jujur | DONE, teruji | Satu sumber kebenaran baru: `confidence.rs::LOW_CONFIDENCE_THRESHOLD = 0.70` dan `LOW_CONFIDENCE_LOGPROB_THRESHOLD = -0.5`, dipakai di `stt/mod.rs`, `pipeline.rs::segment_from_line`, dan `confidence.rs::apply_confidence_routing` (sebelumnya 0,5 di ketiganya, independen). Test `the_061_confidence_fragment_is_flagged` memakai angka asli dari laporan Mac. Dikonfirmasi di smoke test nyata: dua segmen tiny-model (confidence 0,42–0,55) tampil dengan label "Kepercayaan rendah" di UI. |
+| B4 Parameter decoding | DONE (audit, tanpa perubahan kode diperlukan) | (a) `no_context=true` di jalur live sudah benar sejak sebelum sprint. (b) `temperature_inc`/`entropy_thold` tidak di-set eksplisit tapi default C whisper.cpp (0,2 / 2,4) sudah = default CLI — diverifikasi baca source `whisper-rs-sys`. (c) `suppress_blank`/`suppress_nst` sudah `true`. (d) Bahasa `id` sudah diteruskan sebagai `Some("id")` dari Dart (`bridge_service.dart`) ketika setting bukan auto — audit lapisan Rust maupun pemanggilan Dart tidak menemukan celah di sini. (e) `initial_prompt` sudah memuat glosarium via `glossary::build_initial_prompt`. Tidak ada perubahan kode untuk B4 karena audit tidak menemukan regresi nyata di luar yang sudah ditangani B1–B3. |
+| B5 Timestamp suara-sistem | DONE, teruji | `LivePipelineHpt::ingest` mengukur `ring.buffered_samples()` **setelah** `take_chunk()` lalu menambah `chunk.len()` kembali untuk kompensasi — tapi `take_chunk()` mengembalikan `chunk_len - overlap_len` sampel ke ring (bukan nol), jadi kompensasinya kurang tepat `overlap_len` (1 s) dan *setiap* chunk mendarat satu detik lebih awal dari seharusnya. Diperbaiki: ukur `buffered_before` **sebelum** `take_chunk()` (fungsi baru `chunk_start_secs()`). Test regresi `successive_chunks_land_on_their_true_offsets_not_one_overlap_early` mereplikasi urutan push/take asli dan membuktikan rumus lama memberi 3,0 s persis — angka yang sama dengan laporan sesi Webinar nyata ("Selamat pagi" di 3,0 padahal direkam di ~6 s) — sementara rumus baru memberi 4,0 s yang benar. Test murni-aritmetika (RingBuffer + fungsi, tanpa model Whisper) karena test whisper sungguhan di repo ini sudah terbukti makan ratusan detik CPU (lihat `completion::tests::there_is_no_speech_to_recover_from_silence`, 1070 s pada gerbang akhir) — WAV sintetis end-to-end lewat pipeline live yang sesungguhnya TIDAK ditambahkan karena biayanya tidak sebanding pada mesin ini. |
+| B6 Deteksi izin audio diam-diam | DONE, teruji | `audio_watchdog_model.dart`: jalur cepat baru 3 detik (`_permissionCheckDelay`) memeriksa apakah level VU sumber yang aktif persis nol sejak awal sesi — jika ya, pesan spesifik ("Mikrofon belum diberi izin..." / "...Rekam Layar & Audio Sistem...") dengan tombol aksi "Buka Pengaturan Sistem" (`system_privacy_settings.dart`, deep link `x-apple.systempreferences:...`, hanya aktif di macOS). Jalur generik 12 detik lama tetap ada untuk kasus ambigu (ruangan senyap tapi bukan nol). `recordExternalLink` dipanggil sebelum `launchUrl` (lolos `privacy_proof_test.dart`). 6 unit test baru di `test/audio_watchdog_model_test.dart`, termasuk test eksplisit yang membuktikan sinyal nol-mutlak vs senyap-tapi-bukan-nol dibedakan dengan benar. Deep link System Settings sendiri **PERLU VERIFIKASI DI MAC** (no-op di Linux by construction). |
+| B7 Pengukuran akurasi | DONE (sebagian) — lihat tabel di bawah | |
+| B8 Model default per perangkat | PARTIAL | `rust_core/Cargo.toml` sekarang mengaktifkan fitur `metal`+`coreml` whisper-rs khusus macOS (sebelumnya TIDAK ADA backend GPU yang dikompilasi sama sekali di macOS — `gpu_enabled=true` tidak akan mengaktifkan apa pun). **Tidak diverifikasi di hardware Apple Silicon sungguhan.** Rekomendasi model per RAM/CPU di wizard onboarding **TIDAK diimplementasikan** — di luar anggaran waktu sprint ini; default `base`/`gpu_enabled=false` global (semua platform) dibiarkan apa adanya karena mengubahnya tanpa verifikasi Mac berisiko merusak platform lain yang sudah berjalan baik. |
+
+### B7 — Pengukuran akurasi (angka nyata, `transcribe_cli` rilis + `ggml-tiny.bin`)
+
+| Fixture | Setelah (kode sprint ini, diverifikasi) |
+|---|---|
+| WAV 300 s, 2×15 s ucapan nyata (`scripts/make_silence_fixture.sh`) | **6 segmen**, **0 halusinasi** — persis "dua kelompok baris, tidak ada baris di antara keduanya" yang dijanjikan skrip fixture. Confidence 0,35–0,55, semuanya benar ditandai `low_confidence:true` (model tiny). |
+| WAV 30 s noise −45 dBFS (ffmpeg `anoisesrc` + `volume=-45dB`, terukur max −45,0 dB / mean −49,8 dB) | **0 segmen** |
+| `rapat_id.mp3` (15 s ucapan Indonesia nyata) | **3 segmen**, isi sesuai ("Selamat pagi semuanya...", "Budi bertanggung jawab...", "Rapat berikutnya..."). Tidak ada regresi pada ucapan nyata. |
+
+**Soal "sebelum" (jujur, bukan ditutup-tutupi):** upaya pertama mengukur "sebelum" lewat biner `transcribe_cli` yang dikompilasi di awal sesi — sebelum beberapa perubahan Cargo.toml/confidence.rs lanjutan — secara tidak sengaja ternyata **biner yang sudah usang** (dieksekusi langsung lewat path `./target/release/...` tanpa `cargo build` ulang eksplisit sesaat sebelumnya), memberi hasil 13 segmen dengan 7 "[MUZYKA]" (halusinasi gaya sama dengan `[MENGENI]`/`[Musik]` yang sudah lama diketahui) dan confidence 1,0 yang tidak masuk akal di semua baris — tanda biner itu jauh lebih tua dari yang dikira. Setelah dikompilasi ulang bersih dan diverifikasi langsung (`is_non_speech("[MUZYKA]")` mengembalikan `true` dengan kode saat ini, dibuktikan lewat unit test sementara yang sudah dihapus), angka "setelah" di tabel atas adalah satu-satunya yang dilaporkan sebagai bukti sah. Tidak ada korpus WER Indonesia dengan teks acuan yang tersedia di mesin ini (tidak ada akses jaringan untuk `scripts/fetch_wer_corpus.sh`, dan `rapat_id.mp3` tidak punya transkrip acuan) — WER numerik formal **tidak dihitung**; perbandingan model (large-v3-turbo-q5 vs base vs cahya/whisper-medium-id) dari katalog Sprint 6a **tidak diukur ulang** pada sprint ini karena alasan yang sama. Ini adalah celah yang diketahui, bukan diklaim selesai.
+
+### Gerbang verifikasi (hijau, dijalankan di Linux)
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 874 passed; 0 failed; 0 ignored (1070 s)
+flutter analyze                            → No issues found!
+flutter test --exclude-tags golden         → 634 passed; 0 failed (setara gerbang CI)
+flutter test (penuh, termasuk golden)      → 632 passed, 2 gagal: "dark/light main screen,
+                                              recording" golden — perbedaan piksel pra-ada,
+                                              tidak terkait file manapun yang disentuh sprint
+                                              ini (lihat A5: golden sudah dikeluarkan dari
+                                              gerbang CI by design, rapuh lintas-platform)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+### Smoke test aplikasi nyata (Linux, `DISPLAY=:0`, audio hanya ke `trareon_silent`)
+
+1. App diluncurkan, `pactl get-default-sink` dipastikan `trareon_silent` sebelum pemutaran apa pun.
+2. Sesi "Rapat Online" dimulai dengan Mikrofon dimatikan, Suara sistem aktif memakai `trareon_silent`. `rapat_id.mp3` diputar sekali lewat `paplay -d trareon_silent` di detik-detik awal sesi, lalu sesi dibiarkan merekam ~3 menit senyap digital murni.
+3. Segmen ucapan nyata muncul benar di transkrip langsung ("selamat pagi semuanya, hari ini kita membahas angga...").
+4. Dialog "Berhenti merekam?" (A7) tampil saat tombol Berhenti ditekan pada sesi dengan transkrip; dapat ditutup lewat klik mouse. Penekanan Enter sintetis via `xdotool` tidak terbukti mendismiss dialog di lingkungan X11 virtual ini — dicatat sebagai keterbatasan input sintetis (pola sama dengan klik yang sudah tercatat di laporan Sprint 10), bukan regresi: widget test `sendKeyEvent` Flutter sendiri (jalur event internal yang berbeda dari X11) sudah membuktikan logika dismiss-nya benar.
+5. Setelah berhenti, ringkasan kesehatan capture jujur: "Audio sistem: 2 menit terekam, 93% senyap". Transkrip akhir (quick-model pass) tetap **5 segmen, 0 halusinasi** meski 93% rekaman adalah senyap digital murni — bukti langsung B1+B2+B3 bekerja bersama di aplikasi nyata, bukan cuma di unit test. Dua segmen dengan confidence rendah (0,42–0,55 secara nyata terukur di `transcribe_cli`, dan di UI ditampilkan label "Kepercayaan rendah") tampil tepat seperti B3 jamin.
+6. `pkill -9 -x transcribe` di akhir.
+
+### Daftar "PERLU VERIFIKASI DI MAC"
+
+- **A1** — `CARGO_PROFILE_RELEASE_STRIP=none` + `dyld_info -validate_only` benar-benar memperbaiki crash dyld di Xcode 27/macOS 27 nyata.
+- **A2** — fase re-sign terakhir menghasilkan `codesign -v --verbose=2` yang benar-benar bersih pada app bundle sungguhan.
+- **A3** — menu aplikasi macOS (About/Services/Hide/Quit) benar-benar muncul dan berfungsi di menu bar sistem nyata (widget test membuktikan struktur widget-nya, bukan rendering menu bar native).
+- **B6** — deep link `x-apple.systempreferences:...` benar-benar membuka panel Privacy & Security yang tepat di System Settings macOS nyata.
+- **B8** — fitur `metal`+`coreml` whisper-rs benar-benar terkompilasi dan mempercepat inferensi di Apple Silicon nyata, tanpa regresi pada CPU fallback.
+
+### File tersentuh
+
+Rust: `rust_core/src/silence_gate.rs` (baru), `lib.rs`, `pipeline.rs`, `stt/mod.rs`, `stt/file.rs`, `confidence.rs`, `hallucination.rs`, `Cargo.toml`.
+Dart: `lib/widgets/platform_chrome.dart`, `lib/widgets/transcript_view.dart`, `lib/widgets/bookmark_bar.dart`, `lib/screens/main_screen.dart`, `lib/state/audio_watchdog_model.dart`, `lib/services/system_privacy_settings.dart` (baru), `lib/utils/debug_screenshot.dart` (baru), `lib/main.dart`.
+macOS: `macos/Runner.xcodeproj/project.pbxproj`, `scripts/package_macos.sh`.
+Docs: `docs/TESTING-ON-MAC-WINDOWS.md`.
+Test baru/diperluas: `test/widgets/platform_chrome_test.dart` (baru), `test/utils/debug_screenshot_test.dart` (baru), `test/audio_watchdog_model_test.dart`, `test/widget_test.dart`, plus test Rust di `silence_gate.rs`, `confidence.rs`, `hallucination.rs`, `pipeline.rs`.
+
+### Celah yang diketahui (dicatat, bukan disembunyikan)
+
+- B2: filter frasa tetap exact-match teks saja, belum dikondisikan eksplisit pada energi audio di level API (lihat catatan desain di tabel B di atas).
+- B4: tidak ada perubahan kode — audit tidak menemukan celah baru di luar yang sudah ditangani B1–B3.
+- B5: fix diverifikasi lewat test aritmetika murni (RingBuffer + fungsi offset), bukan WAV sintetis end-to-end lewat model Whisper sungguhan (biaya CPU pada mesin ini prohibitif untuk satu test tambahan — test whisper yang sudah ada di suite makan 1070 s sendiri).
+- B7: tidak ada angka WER formal (tidak ada korpus beracuan yang tersedia offline di mesin ini); perbandingan model Sprint 6a tidak diukur ulang.
+- B8: rekomendasi model per RAM/CPU di wizard onboarding tidak diimplementasikan.
+- A7: dismiss dialog lewat Enter sintetis tidak terbukti andal lewat `xdotool` di lingkungan X11 virtual ini (widget test adalah buktinya, bukan smoke test manual).
+- A6: satu entri ARB (`bookmarkAddTooltip`) masih punya "(Ctrl+B)" hard-code tapi tidak dipakai kode manapun (dead key) — dibiarkan, dicatat.
+
+### Ronde perbaikan: golden "main screen, recording" (koreksi atas laporan di atas)
+
+Laporan awal Sprint 12 di atas keliru menyebut kegagalan golden "dark/light main screen,
+recording" sebagai "perbedaan piksel pra-ada, tidak terkait file manapun yang disentuh
+sprint ini". Investigasi akar masalah (bukan tebakan) membuktikan sebaliknya:
+
+- **Akar masalah:** `lib/widgets/transcript_view.dart:665` diubah sprint ini dari string
+  hard-code `'Mulai sesi untuk memulai transkripsi\nTekan Mulai atau Ctrl+R (⌘R)'` (selalu
+  menampilkan KEDUA bentuk shortcut) menjadi `'Tekan Mulai atau ${AppShortcuts.startStop.shortcut.label}'`
+  (platform-aware, satu bentuk saja — `Ctrl+R` di Linux/Windows, `⌘R` di macOS). Ini perbaikan
+  UX yang benar (konsisten dengan `KeyHint` yang sudah platform-aware di tempat lain), tapi
+  golden PNG `test/goldens/main-recording-{light,dark}.png` tidak diregenerasi untuk
+  mencerminkannya — dibuktikan lewat `git log -p` pada baris tersebut dan perbandingan piksel
+  `masterImage` vs `testImage` dari `test/failures/`, yang menunjukkan teks berbeda persis di
+  baris subtitle itu, bukan di tempat lain.
+- **Kejutan sekunder saat regenerasi:** `flutter test --update-goldens ... --plain-name "main
+  screen, recording"` (menjalankan test itu sendirian) dua kali berturut-turut menghasilkan
+  golden dengan ikon logo "Trareon Transcribe" di pojok kiri atas **hilang** (area itu putih
+  kosong), padahal render aplikasi sungguhan (`testImage`) selalu punya ikon itu. Root cause:
+  aset ikon butuh "pemanasan" dari test golden lain (`component gallery`, `main screen, idle`)
+  yang berjalan lebih dulu dalam suite penuh; memfilter ke satu test saja melewati pemanasan
+  itu dan menangkap frame sebelum aset selesai dimuat — bukan regresi kode, murni artefak
+  urutan eksekusi test. Regenerasi dengan suite penuh (`flutter test --update-goldens
+  test/golden_test.dart`, tanpa filter) menghasilkan golden stabil dengan ikon utuh, diverifikasi
+  dengan menjalankan ulang `flutter test test/golden_test.dart` dua kali tanpa filter.
+- **Fix:** `test/goldens/main-recording-light.png` dan `test/goldens/main-recording-dark.png`
+  diregenerasi lewat suite penuh, commit `333e7fd`. Tidak ada kode produksi yang diubah di
+  ronde ini — perbaikan sepenuhnya di golden fixture untuk mencerminkan perubahan UI yang
+  sudah benar.
+
+Gerbang verifikasi penuh, dijalankan ulang setelah fix (Linux):
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 874 passed; 0 failed; 0 ignored (1088.92s)
+flutter analyze                            → No issues found! (72.1s)
+flutter test                               → 648 passed; 0 failed (termasuk golden_test.dart
+                                              penuh, 14/14 — dijalankan dua kali untuk
+                                              membuktikan stabil, bukan flaky)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+Commit kecil per area (lihat `git log`), tanpa `Co-Authored-By`, tanpa push/gh/sudo.

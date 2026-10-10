@@ -74,6 +74,7 @@ pub mod progressive;
 pub mod provenance;
 pub mod session;
 pub mod settings;
+pub mod silence_gate;
 pub mod singleton;
 /// Metadata sidecar for registering a notulen in SRIKANDI by hand.
 /// Local-only: there is no SRIKANDI API to call.

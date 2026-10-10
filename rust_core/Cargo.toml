@@ -54,6 +54,11 @@ path = "src/bin/complete_probe.rs"
 
 [dependencies]
 thiserror = "2"
+# Text compression-ratio signal (B2): a decoder loop compresses far better
+# than real sentences do. Was dev-only (used by wer_bench's fixtures);
+# promoted to a real dependency now that confidence.rs uses it in the
+# actual pipeline, not just in tests.
+flate2 = "1.1.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
@@ -136,6 +141,23 @@ features = ["openmp"]
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# B8 (Sprint 12): whisper-rs/whisper.cpp's Metal and CoreML backends exist
+# and are real crate features, but nothing in this file enabled either —
+# so `EngineOptions { use_gpu: true, .. }` on macOS asked whisper.cpp to
+# use a GPU backend that was never compiled in, which `stt::best_backend()`
+# "coreml"/"metal" naming only *describes*, it does not enable. `metal`
+# accelerates general ops; `coreml` additionally offloads the encoder to
+# the Neural Engine on Apple Silicon when whisper.cpp finds a matching
+# `.mlmodelc` next to the ggml model — the two are complementary, not
+# alternatives, so both are enabled together rather than switched on
+# `best_backend()`'s per-chip guess.
+#
+# NOT verified on real Apple Silicon hardware — this sprint ran on Linux.
+# See "PERLU VERIFIKASI DI MAC" in docs/SPRINT-REPORTS.md.
+[target.'cfg(target_os = "macos")'.dependencies.whisper-rs]
+version = "0.16"
+features = ["metal", "coreml"]
+
 [target.'cfg(target_os = "macos")'.dependencies]
 screencapturekit = "8"
 
@@ -165,10 +187,6 @@ windows = { version = "0.62", features = [
     "Win32_System_Com_StructuredStorage",
     "Win32_Foundation",
 ]}
-
-[dev-dependencies]
-flate2 = "1.1.10"
-
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ["cfg(frb_expand)"] }

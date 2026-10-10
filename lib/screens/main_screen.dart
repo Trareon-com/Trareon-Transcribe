@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/global_hotkey_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
+import '../services/system_privacy_settings.dart';
 import '../services/tray_service.dart';
 import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/session.dart' as rust_session;
@@ -15,6 +17,7 @@ import '../state/audio_watchdog_model.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
 import '../state/models.dart';
+import '../state/privacy_report_model.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -472,22 +475,45 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (segments.isNotEmpty && !skipConfirmation) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Berhenti merekam?'),
-          content: Text(
-            'Sesi ini punya ${segments.length} segmen transkrip. '
-            'Sesi akan disimpan otomatis saat berhenti.',
+        builder: (context) => Shortcuts(
+          // `showDialog` does not bind Esc to dismiss on its own; A7 asks
+          // for a dialog a keyboard-only user can actually drive: Esc
+          // cancels, Enter confirms (via the autofocused button below),
+          // Tab moves between the two.
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+          },
+          child: Actions(
+            actions: {
+              DismissIntent: CallbackAction<DismissIntent>(
+                onInvoke: (intent) {
+                  Navigator.of(context).pop(false);
+                  return null;
+                },
+              ),
+            },
+            child: AlertDialog(
+              title: const Text('Berhenti merekam?'),
+              content: Text(
+                'Sesi ini punya ${segments.length} segmen transkrip. '
+                'Sesi akan disimpan otomatis saat berhenti.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Batal'),
+                ),
+                FilledButton(
+                  // Initial focus on the primary action, not the first
+                  // action in tab order: Enter must stop the recording,
+                  // which is what the user almost always came here to do.
+                  autofocus: true,
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Berhenti'),
+                ),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Berhenti'),
-            ),
-          ],
         ),
       );
       if (confirmed != true) return;
@@ -800,7 +826,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // audio_watchdog_model.dart for why this can happen silently).
     ref.listen(audioWatchdogProvider, (_, warning) {
       if (warning == null) return;
-      AppToast.show(context, warning, type: ToastType.error);
+      final kind = warning.permissionKind;
+      AppToast.show(
+        context,
+        warning.message,
+        type: ToastType.error,
+        actionLabel: kind == null ? null : 'Buka Pengaturan Sistem',
+        onAction: kind == null
+            ? null
+            : () => openPrivacySettings(
+                kind,
+                ref.read(privacyReportProvider.notifier).recordExternalLink,
+              ),
+      );
       ref.read(audioWatchdogProvider.notifier).acknowledge();
     });
 

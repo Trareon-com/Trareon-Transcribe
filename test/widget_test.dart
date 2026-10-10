@@ -1,11 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/state/models.dart';
+import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/widgets/session_sidebar.dart';
+import 'package:transcribe/widgets/ui/key_hint.dart';
 
 import 'test_helpers.dart';
+
+/// [NoopBridge] with a controllable `transcriptStream`, so a test can make
+/// a session carry a real segment and exercise the stop-confirmation
+/// dialog (A7) rather than the empty-session "stop with nothing to lose"
+/// path, which is all [NoopBridge] alone can reach.
+class _SegmentBridge extends NoopBridge {
+  final segmentController = StreamController<TranscriptSegment>.broadcast();
+
+  @override
+  Stream<TranscriptSegment> transcriptStream(String sessionId) =>
+      segmentController.stream;
+}
 
 void main() {
   void sizeViewport(WidgetTester tester, [Size size = const Size(1440, 900)]) {
@@ -227,10 +243,109 @@ void main() {
       expect(find.text('Mulai Rekam'), findsOneWidget);
     });
 
+    testWidgets(
+      'the stop-confirmation dialog is operable from the keyboard (A7)',
+      (WidgetTester tester) async {
+        sizeViewport(tester);
+        final bridge = _SegmentBridge();
+        await tester.pumpWidget(
+          buildTestAppWithOverrides(
+            overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Mulai Rekam'));
+        await tester.pump();
+        // A real segment, so stopping asks for confirmation.
+        bridge.segmentController.add(
+          const TranscriptSegment(
+            source: 'MIC',
+            speaker: 'MIC',
+            text: 'Halo dunia',
+            timestamp: 0,
+            duration: 1,
+            language: 'id',
+            confidence: 0.9,
+            isPartial: false,
+          ),
+        );
+        await tester.pump();
+
+        // Not `pumpAndSettle`: recording's own pulse animation keeps
+        // repeating behind the modal dialog (stopping is still pending the
+        // user's confirmation), which `pumpAndSettle` would wait on
+        // forever. A couple of pumps are enough to settle the dialog's own
+        // entrance transition.
+        await tester.tap(find.text('Berhenti'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Berhenti merekam?'), findsOneWidget);
+
+        // Enter confirms: the primary action is autofocused.
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.text('Berhenti merekam?'), findsNothing);
+        expect(find.text('Mulai Rekam'), findsOneWidget);
+      },
+    );
+
+    testWidgets('Esc cancels the stop-confirmation dialog (A7)', (
+      WidgetTester tester,
+    ) async {
+      sizeViewport(tester);
+      final bridge = _SegmentBridge();
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mulai Rekam'));
+      await tester.pump();
+      bridge.segmentController.add(
+        const TranscriptSegment(
+          source: 'MIC',
+          speaker: 'MIC',
+          text: 'Halo dunia',
+          timestamp: 0,
+          duration: 1,
+          language: 'id',
+          confidence: 0.9,
+          isPartial: false,
+        ),
+      );
+      await tester.pump();
+
+      // Not `pumpAndSettle` anywhere in this test: the recording pulse
+      // animation keeps running throughout (this scenario never actually
+      // stops the session), which `pumpAndSettle` would wait on forever.
+      await tester.tap(find.text('Berhenti'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Berhenti merekam?'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // Cancelled: the dialog is gone and the session is still recording.
+      expect(find.text('Berhenti merekam?'), findsNothing);
+      expect(find.text('Berhenti'), findsOneWidget);
+    });
+
     testWidgets('the footer offers the shortcut hint when idle', (
       WidgetTester tester,
     ) async {
       sizeViewport(tester);
+      // The keycap text is platform-aware (⌘ on macOS, Ctrl elsewhere) —
+      // see `lib/widgets/ui/key_hint.dart`. Pinned to the non-macOS
+      // rendering here so this assertion is about the app's own logic, not
+      // about which OS happens to be running the test suite: before this
+      // fix, running `flutter test` on a macOS host made this fail because
+      // the real `Platform.isMacOS` flipped the caps to '⌘'.
+      debugForceCommandKey = false;
+      addTearDown(() => debugForceCommandKey = null);
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
 
