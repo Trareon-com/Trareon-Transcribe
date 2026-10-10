@@ -5,6 +5,65 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 14b brief asked for two things: the no-audio-detected banner turned
+into a self-dismissing toast instead of a persistent one, and a visible
+progress indicator for every operation that can run longer than 3 seconds.
+See `docs/SPRINT-REPORTS.md` Sprint 14b report for the full per-item audit,
+including the table of every long-running operation and whether it has a
+real indicator.
+
+### Ditambahkan
+
+- **Toast peringatan audio tidak lagi menetap** (`lib/state/audio_watchdog_model.dart`,
+  `lib/screens/main_screen.dart`): peringatan "Belum ada suara terdeteksi" /
+  izin mikrofon-audio-sistem sekarang `ToastType.warning` dengan auto-dismiss
+  (8 detik generik, 12 detik untuk kasus izin dengan tombol aksi) alih-alih
+  `ToastType.error` yang menetap selamanya. Kondisi yang sama tidak tampil
+  ulang dalam 60 detik (`_emit`'s cooldown); tombol tutup (x) sekarang selalu
+  ada walau toast punya tombol aksi (`lib/widgets/app_toast.dart`).
+- **Penanda permanen di bar status** (`AudioHealthIndicator`,
+  `lib/widgets/capture_health_view.dart`): ikon mikrofon dengan titik kuning
+  muncul di sebelah lencana konfirmasi rekaman selama kondisi audio belum
+  teratasi, independen dari toast yang sudah auto-dismiss
+  (`audioHealthIndicatorProvider`).
+- **Komponen progres bersama** (`TaskProgressTile` + `ProgressGate`,
+  `lib/widgets/ui/task_progress_tile.dart`, baru): satu tile determinate
+  (persen + ETA) / indeterminate (spinner + tahap) dipakai bersama oleh
+  semua fitur progres latar belakang, dengan status jelas
+  (queued/running/done/failed/cancelled) dan tombol batal. `ProgressGate`
+  menyembunyikan indikator sampai aktif selama >= 3 detik, supaya operasi
+  cepat tidak berkedip.
+- **Progres nyata untuk "Memperhalus transkrip" (F5)**
+  (`lib/state/enhance_queue_model.dart`): pass akurat sekarang memantau
+  `batchProgress()` (slot yang sama dipakai impor berkas) dan melaporkan
+  tahap (Menyiapkan model → Mentranskripsi → Menggabungkan → Selesai) dan
+  persentase nyata — sebelumnya teks statis "Memakai model akurat…" tanpa
+  angka, persis keluhan Master di screenshot sesi 49 menit / 189 segmen.
+  Kartu sidebar (`EnhanceQueueView`) sekarang memakai `TaskProgressTile`.
+- **Lencana "Ditranskrip ulang" menampilkan tahap** (`lib/widgets/session_sidebar.dart`):
+  badge di daftar sesi sekarang menampilkan tahap + persen job yang sedang
+  berjalan untuk sesi itu, bukan hanya label statis.
+- **Antrean segmen "Memperbaiki…" lebih bermakna** (`lib/widgets/transcript_view.dart`):
+  hanya segmen partial paling awal yang menampilkan spinner "Diproses…";
+  segmen partial lain menampilkan "Antre" tanpa spinner — puluhan spinner
+  identik tanpa konteks diganti satu penanda yang berarti. Jumlah total
+  segmen yang sedang diperbaiki ditampilkan di toolbar transkrip
+  ("N sedang diperbaiki").
+
+### Celah yang diketahui (lihat tabel audit di SPRINT-REPORTS.md)
+
+- Komponen progres bersama (`TaskProgressTile`/`ProgressGate`) belum dipakai
+  di dialog ekspor, pemindaian pemulihan sesi saat start, atau pengindeksan
+  arsip (F12) — ketiganya masih indeterminate murni tanpa ambang 3 detik.
+- Tidak ada jalur progres tunggal dari Rust ke Dart yang dipakai *semua*
+  operasi (brief butir 10.3): setiap fitur (unduh model, batch file,
+  completion pass, ringkasan) masih memantau slot progres Rust-nya sendiri-
+  sendiri. Menyatukan ini jadi satu stream FRB adalah migrasi lebih besar
+  yang tidak sempat diselesaikan di sprint ini.
+- Pemuatan/inisialisasi model Whisper dan mulai/stop sesi langsung masih
+  memakai label generik "Memulai…"/"Menyimpan…" tanpa tahap rinci atau
+  ambang 3 detik.
+
 Sprint 14a brief asked for model defaults driven by real benchmark data
 instead of two independently-drifting heuristics (a Dart RAM-only
 `if ramMb >= 8192 { turbo } else { base }`, duplicated nowhere in Rust),
