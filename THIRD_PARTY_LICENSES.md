@@ -51,9 +51,12 @@ below).
   could look like, but this app's pipeline keeps mic and system-audio
   tracks separate all the way through transcription (see
   `rust_core/src/session.rs`'s `mic.wav`/`speaker.wav` convention) — there
-  is no mixed signal anywhere for a mixer/ducker/normalizer to act on, so
-  adopting that module would have meant building a new, unused signal
-  path. See Sprint 13 report, items A2/A3 (NOT DONE, with this reasoning).
+  is no mixed signal anywhere for a `DuckingProcessor` to act on, so
+  adopting that shape would have meant building a new, unused signal
+  path. See Sprint 13 report, item A2 (NOT DONE, with this reasoning).
+  `normalizer.rs`'s target-RMS idea is already implemented independently
+  in `rust_core/src/agc.rs::apply_gain` (Sprint 14a, hardened by this
+  sprint's A1 limiter) — see Sprint 13 report, item A3 (DONE, pre-existing).
 
 ## MIT License text (applies to both repositories above, per their own copyright lines)
 
