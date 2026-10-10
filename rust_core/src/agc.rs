@@ -36,6 +36,37 @@
 
 use crate::silence_gate::{rms_dbfs, SILENCE_THRESHOLD_DBFS};
 
+/// Level, in dBFS, above which the soft limiter starts rounding peaks
+/// instead of letting [`apply_gain`]'s boost hit a hard wall. Chosen just
+/// under full scale: material below the knee passes through exactly as
+/// the gain stage produced it.
+const LIMITER_KNEE: f32 = 0.891_251; // -1 dBFS, 10^(-1/20)
+
+/// Soft-knee limiter: anything inside `[-LIMITER_KNEE, LIMITER_KNEE]`
+/// passes unchanged; past that, `tanh` rounds the peak toward `[-1, 1]`
+/// instead of the hard wall a bare `.clamp()` would produce.
+///
+/// Not adapted from Meetily's `audio_v2/limiter.rs` (checked while
+/// surveying it for Sprint 13 A1: as of SHA `a2cb62e`, that module is an
+/// unimplemented `TODO: Implement in Phase 3` placeholder whose `process()`
+/// does the same hard `.max(-limit).min(limit)` clamp this replaces) — the
+/// tanh soft knee here is this crate's own, standard-DSP approach.
+///
+/// Why this exists: [`apply_gain`] used to clamp its boosted output
+/// straight to `[-1.0, 1.0]`, which is a hard wall — a boosted sample that
+/// overshoots by even a little gets its waveform flattened at the peak,
+/// which is audible as a crackle on sibilants and plosives. A soft knee
+/// rounds the same overshoot instead of flattening it.
+fn soft_limit(sample: f32) -> f32 {
+    if sample.abs() <= LIMITER_KNEE {
+        return sample;
+    }
+    let sign = sample.signum();
+    let over = sample.abs() - LIMITER_KNEE;
+    let headroom = 1.0 - LIMITER_KNEE;
+    sign * (LIMITER_KNEE + headroom * (over / headroom).tanh())
+}
+
 /// RMS level this module tries to bring quiet audio up to. Chosen well
 /// clear of webrtc-vad's practical sensitivity floor (empirically well
 /// below -34 dBFS) without pushing boosted noise anywhere near a level
@@ -50,8 +81,8 @@ pub const MAX_GAIN_DB: f32 = 20.0;
 
 /// Returns `samples` unchanged if it is already at/above [`TARGET_DBFS`] or
 /// at/below [`SILENCE_THRESHOLD_DBFS`] (nothing to safely boost); otherwise
-/// a gain-adjusted copy, clamped to `[-1.0, 1.0]` so boosting never
-/// introduces clipping distortion.
+/// a gain-adjusted copy, passed through [`soft_limit`] so an occasional
+/// transient overshoot is rounded rather than hard-clipped.
 pub fn apply_gain(samples: &[f32]) -> Vec<f32> {
     let level = rms_dbfs(samples);
     if !level.is_finite() || level <= SILENCE_THRESHOLD_DBFS || level >= TARGET_DBFS {
@@ -59,10 +90,7 @@ pub fn apply_gain(samples: &[f32]) -> Vec<f32> {
     }
     let gain_db = (TARGET_DBFS - level).min(MAX_GAIN_DB);
     let gain = 10f32.powf(gain_db / 20.0);
-    samples
-        .iter()
-        .map(|s| (s * gain).clamp(-1.0, 1.0))
-        .collect()
+    samples.iter().map(|s| soft_limit(s * gain)).collect()
 }
 
 #[cfg(test)]
@@ -148,5 +176,56 @@ mod tests {
     #[test]
     fn empty_input_is_handled() {
         assert_eq!(apply_gain(&[]), Vec::<f32>::new());
+    }
+
+    #[test]
+    fn samples_under_the_knee_pass_through_unchanged() {
+        assert_eq!(soft_limit(0.5), 0.5);
+        assert_eq!(soft_limit(-0.5), -0.5);
+        assert_eq!(soft_limit(0.0), 0.0);
+    }
+
+    #[test]
+    fn overshoot_is_rounded_not_flattened() {
+        // Two different overshoots that a hard clamp would both flatten to
+        // 1.0 must come out as two different values — that is the whole
+        // point of a soft knee over `.clamp()`.
+        let a = soft_limit(1.05);
+        let b = soft_limit(1.3);
+        assert!(
+            a < 1.0 && b < 1.0,
+            "soft limiter must never hit 1.0: {a} {b}"
+        );
+        assert!(
+            a < b,
+            "a larger overshoot must still round to a larger peak: {a} vs {b}"
+        );
+    }
+
+    #[test]
+    fn soft_limiter_never_exceeds_full_scale_even_for_extreme_overshoot() {
+        for amplitude in [1.01, 2.0, 10.0, 1000.0] {
+            let out = soft_limit(amplitude);
+            assert!((-1.0..=1.0).contains(&out), "{amplitude} -> {out}");
+            let out_neg = soft_limit(-amplitude);
+            assert!((-1.0..=1.0).contains(&out_neg), "{amplitude} -> {out_neg}");
+        }
+    }
+
+    #[test]
+    fn gain_boosted_transient_is_softly_rounded_in_apply_gain() {
+        // A mostly-quiet buffer (so its RMS sits below the target and gets
+        // boosted) with a handful of near-full-scale transient spikes —
+        // plosives/claps have exactly this high peak-to-RMS shape. The old
+        // hard `.clamp()` would flatten the boosted spikes at 1.0.
+        let mut samples = vec![0.0005f32; 16_000];
+        for s in samples.iter_mut().step_by(1_600).take(10) {
+            *s = 0.9;
+        }
+        let boosted = apply_gain(&samples);
+        assert!(boosted.iter().all(|&s| (-1.0..=1.0).contains(&s)));
+        let max = boosted.iter().fold(0.0f32, |a, &b| a.max(b.abs()));
+        assert!(max > LIMITER_KNEE, "expected the limiter to engage: {max}");
+        assert!(max < 1.0, "must never hard-clip: {max}");
     }
 }

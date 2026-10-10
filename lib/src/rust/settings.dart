@@ -99,6 +99,14 @@ class AppSettings {
   /// explicit tap on the offer.
   final bool defaultModelUpgradeDismissed;
 
+  /// The user dismissed the consent-reminder banner ("Pastikan semua
+  /// peserta tahu rapat direkam") with "jangan tampilkan lagi" (Sprint
+  /// 13 E1). Only hides the reminder; it never substitutes for it — the
+  /// per-session acknowledgement in the audit log
+  /// ([`crate::pdp::acknowledge_consent`]) still happens independently
+  /// of whether the banner is shown.
+  final bool consentBannerDismissed;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -123,6 +131,7 @@ class AppSettings {
     required this.noiseReduction,
     required this.neuralDiarization,
     required this.defaultModelUpgradeDismissed,
+    required this.consentBannerDismissed,
   });
 
   @override
@@ -149,7 +158,8 @@ class AppSettings {
       pdp.hashCode ^
       noiseReduction.hashCode ^
       neuralDiarization.hashCode ^
-      defaultModelUpgradeDismissed.hashCode;
+      defaultModelUpgradeDismissed.hashCode ^
+      consentBannerDismissed.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -178,7 +188,8 @@ class AppSettings {
           pdp == other.pdp &&
           noiseReduction == other.noiseReduction &&
           neuralDiarization == other.neuralDiarization &&
-          defaultModelUpgradeDismissed == other.defaultModelUpgradeDismissed;
+          defaultModelUpgradeDismissed == other.defaultModelUpgradeDismissed &&
+          consentBannerDismissed == other.consentBannerDismissed;
 }
 
 /// A summary template the user wrote or duplicated (F8).

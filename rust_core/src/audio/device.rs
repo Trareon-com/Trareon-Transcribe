@@ -193,6 +193,55 @@ pub fn get_loopback_device(name_hint: &str) -> Result<AudioDeviceInfo, Transcrib
         })
 }
 
+/// Sample rate below which a mic's best-offered rate is considered too low
+/// for reliable transcription (narrowband telephony quality — HFP Bluetooth
+/// headset profiles typically cap out at 8 kHz).
+const LOW_QUALITY_SAMPLE_RATE_HZ: u32 = 16_000;
+
+/// Non-blocking advisory for a selected microphone's expected transcription
+/// quality (Sprint 13 B7). Returns `None` when the device looks fine.
+///
+/// Two independent signals, either one enough to warn: the device's best
+/// sample rate is below [`LOW_QUALITY_SAMPLE_RATE_HZ`] (narrowband audio —
+/// Whisper was trained on 16 kHz+ wideband speech), or its name carries a
+/// Bluetooth indication (`bluez` on Linux's PulseAudio/PipeWire naming, or a
+/// bare MAC-address-shaped name, which is how some Bluetooth stacks label
+/// unpaired-profile devices). This is advisory only — callers decide how to
+/// present it (a dismissible banner, never a block on starting the session).
+pub fn mic_quality_advisory(name: &str, sample_rates: &[u32]) -> Option<String> {
+    let best_rate = sample_rates.iter().copied().max().unwrap_or(0);
+    let low_rate = best_rate > 0 && best_rate < LOW_QUALITY_SAMPLE_RATE_HZ;
+    let bluetooth = is_bluetooth_device_name(name);
+    if !low_rate && !bluetooth {
+        return None;
+    }
+    Some(
+        "Mic Bluetooth/kualitas rendah terdeteksi — transkrip mungkin kurang akurat \
+         saat rapat berlangsung, disarankan headset wired untuk rapat penting."
+            .to_string(),
+    )
+}
+
+/// Whether `name` looks like a Bluetooth audio device by naming
+/// convention: PulseAudio/PipeWire's `bluez_*` card/source names on Linux,
+/// or a bare MAC-address-shaped name (`aa:bb:cc:dd:ee:ff`) some stacks fall
+/// back to before a friendly name is resolved.
+fn is_bluetooth_device_name(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    if lower.contains("bluez") || lower.contains("bluetooth") {
+        return true;
+    }
+    is_mac_address_shaped(&lower)
+}
+
+fn is_mac_address_shaped(name: &str) -> bool {
+    let parts: Vec<&str> = name.split(':').collect();
+    parts.len() == 6
+        && parts
+            .iter()
+            .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +301,36 @@ mod tests {
             1,
             "exactly one default expected, so 'default else first' cannot mispick"
         );
+    }
+
+    #[test]
+    fn narrowband_sample_rate_triggers_the_advisory() {
+        assert!(mic_quality_advisory("USB Microphone", &[8_000]).is_some());
+    }
+
+    #[test]
+    fn wideband_sample_rate_is_fine() {
+        assert!(mic_quality_advisory("USB Microphone", &[16_000]).is_none());
+    }
+
+    #[test]
+    fn modern_multi_rate_device_is_fine() {
+        assert!(mic_quality_advisory("Built-in Microphone", &[44_100, 48_000]).is_none());
+    }
+
+    #[test]
+    fn bluez_name_triggers_the_advisory_even_at_a_good_rate() {
+        assert!(mic_quality_advisory("bluez_input.AA_BB_CC_DD_EE_FF", &[48_000]).is_some());
+    }
+
+    #[test]
+    fn mac_address_shaped_name_triggers_the_advisory() {
+        assert!(mic_quality_advisory("aa:bb:cc:dd:ee:ff", &[48_000]).is_some());
+    }
+
+    #[test]
+    fn empty_sample_rates_relies_on_the_name_only() {
+        assert!(mic_quality_advisory("bluez_input.headset", &[]).is_some());
+        assert!(mic_quality_advisory("Built-in Microphone", &[]).is_none());
     }
 }

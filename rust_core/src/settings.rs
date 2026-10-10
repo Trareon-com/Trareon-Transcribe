@@ -113,6 +113,14 @@ pub struct AppSettings {
     /// explicit tap on the offer.
     #[serde(default)]
     pub default_model_upgrade_dismissed: bool,
+    /// The user dismissed the consent-reminder banner ("Pastikan semua
+    /// peserta tahu rapat direkam") with "jangan tampilkan lagi" (Sprint
+    /// 13 E1). Only hides the reminder; it never substitutes for it — the
+    /// per-session acknowledgement in the audit log
+    /// ([`crate::pdp::acknowledge_consent`]) still happens independently
+    /// of whether the banner is shown.
+    #[serde(default)]
+    pub consent_banner_dismissed: bool,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -292,6 +300,7 @@ impl Default for AppSettings {
             noise_reduction: false,
             neural_diarization: false,
             default_model_upgrade_dismissed: false,
+            consent_banner_dismissed: false,
         }
     }
 }
@@ -680,6 +689,49 @@ mod tests {
         assert!(loaded.default_model_upgrade_dismissed);
         // Dismissing the offer must never itself change the model.
         assert_eq!(loaded.default_model, "base");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A settings file from before Sprint 13 has no
+    /// `consent_banner_dismissed` key. It must load as `false` (banner
+    /// shown), not fail to parse.
+    #[test]
+    fn missing_consent_banner_dismissed_flag_defaults_to_false() {
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_settings_13e_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let mut value =
+            serde_json::to_value(AppSettings::default()).expect("settings serialise to JSON");
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("consent_banner_dismissed");
+        std::fs::write(&path, serde_json::to_string_pretty(&value).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert!(!loaded.consent_banner_dismissed);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dismissing_the_consent_banner_survives_a_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_13e_dismiss_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let saved = AppSettings {
+            consent_banner_dismissed: true,
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert!(loaded.consent_banner_dismissed);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

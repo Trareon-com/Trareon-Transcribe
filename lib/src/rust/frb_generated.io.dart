@@ -103,6 +103,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppSettings dco_decode_box_autoadd_app_settings(dynamic raw);
 
   @protected
+  AudioDeviceInfo dco_decode_box_autoadd_audio_device_info(dynamic raw);
+
+  @protected
   BatchProgressSnapshot dco_decode_box_autoadd_batch_progress_snapshot(
     dynamic raw,
   );
@@ -653,6 +656,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AppSettings sse_decode_box_autoadd_app_settings(SseDeserializer deserializer);
+
+  @protected
+  AudioDeviceInfo sse_decode_box_autoadd_audio_device_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BatchProgressSnapshot sse_decode_box_autoadd_batch_progress_snapshot(
@@ -1305,6 +1313,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_app_settings(
     AppSettings self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_audio_device_info(
+    AudioDeviceInfo self,
     SseSerializer serializer,
   );
 

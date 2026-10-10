@@ -24,7 +24,10 @@ pub mod wav_writer;
 use serde::{Deserialize, Serialize};
 
 pub use capture::AudioCapture;
-pub use device::{get_loopback_device, list_input_devices, list_output_devices, AudioDeviceInfo};
+pub use device::{
+    get_loopback_device, list_input_devices, list_output_devices, mic_quality_advisory,
+    AudioDeviceInfo,
+};
 pub use ring_buffer::RingBuffer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

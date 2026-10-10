@@ -73,6 +73,13 @@ Future<List<AudioDeviceInfo>> listAudioDevices() =>
 Future<List<AudioDeviceInfo>> listOutputAudioDevices() =>
     RustLib.instance.api.crateApiListOutputAudioDevices();
 
+/// Non-blocking advisory for the selected microphone's expected
+/// transcription quality (Sprint 13 B7) — `None` when nothing is worth
+/// telling the user. The caller (a device picker or session start screen)
+/// decides how to present it; this never blocks starting a session.
+Future<String?> micQualityAdvisory({required AudioDeviceInfo device}) =>
+    RustLib.instance.api.crateApiMicQualityAdvisory(device: device);
+
 Future<String> startSession({required SessionConfig config}) =>
     RustLib.instance.api.crateApiStartSession(config: config);
 

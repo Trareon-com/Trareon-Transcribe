@@ -363,6 +363,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     label: 'Tawaran tingkatkan akurasi',
   );
 
+  /// Dismisses the pre-recording consent reminder with "jangan tampilkan
+  /// lagi" (Sprint 13 E1). Persisted so the reminder does not reappear on
+  /// every session start; the per-session audit acknowledgement still
+  /// happens regardless, via `acknowledgeConsent` on the bridge.
+  Future<void> dismissConsentBanner() => _apply(
+    state.copyWith(consentBannerDismissed: true),
+    label: 'Pengingat persetujuan perekaman',
+  );
+
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
     minutes == null
         ? state.copyWith(clearAutoStop: true)

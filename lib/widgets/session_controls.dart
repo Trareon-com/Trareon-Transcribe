@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../state/models.dart';
 import '../state/session_model.dart';
@@ -432,6 +433,108 @@ class LanguageMismatchBanner extends ConsumerWidget {
   }
 }
 
+/// Non-blocking warning that the currently selected microphone looks like a
+/// Bluetooth device or caps out below wideband (16 kHz) — Sprint 13 B7.
+/// Informational only: it never blocks starting a session, and it is not
+/// persisted (it re-evaluates whenever the mic selection changes).
+class MicQualityBanner extends ConsumerWidget {
+  const MicQualityBanner({super.key, required this.device});
+
+  final rust_device.AudioDeviceInfo? device;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final device = this.device;
+    if (device == null) return const SizedBox.shrink();
+    return FutureBuilder<String?>(
+      future: _adviseOrNull(device),
+      builder: (context, snapshot) {
+        final message = snapshot.data;
+        if (message == null) return const SizedBox.shrink();
+        final colors = context.colors;
+        return Material(
+          color: colors.info.withValues(alpha: 0.12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
+            ),
+            child: Row(
+              children: [
+                Icon(AppIcons.mic, size: IconSizes.sm, color: colors.info),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: FontSizes.caption,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// No engine (widget tests) or the native call otherwise fails: the
+  /// banner just stays hidden rather than the screen failing to build —
+  /// same reasoning as `_DeviceGroupState._loadDevices`'s catch.
+  static Future<String?> _adviseOrNull(rust_device.AudioDeviceInfo device) async {
+    try {
+      return await rust_api.micQualityAdvisory(device: device);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// Reminder shown before a session starts: "make sure everyone in the
+/// meeting knows it is being recorded" (Sprint 13 E1). Dismissible for the
+/// rest of the install via "jangan tampilkan lagi" — the per-session audit
+/// acknowledgement in the recording start flow happens independently of
+/// whether this banner is shown or dismissed.
+class ConsentReminderBanner extends ConsumerWidget {
+  const ConsentReminderBanner({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    if (settings.consentBannerDismissed) return const SizedBox.shrink();
+
+    final colors = context.colors;
+    return Material(
+      color: colors.info.withValues(alpha: 0.12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(AppIcons.info, size: IconSizes.sm, color: colors.info),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Text(
+                'Pastikan semua peserta tahu rapat ini direkam.',
+                style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.read(settingsProvider.notifier).dismissConsentBanner(),
+              child: const Text('Jangan tampilkan lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Mic and system audio, each as a status chip: on/off, the device that will
 /// actually be recorded, and a live level while the session runs.
 class DeviceGroup extends ConsumerStatefulWidget {
@@ -527,8 +630,36 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
         ),
       ],
     );
-    if (widget.compact) return chips;
-    return ControlGroup(title: 'Perangkat', child: chips);
+    final selectedMic = _selectedInput(settings.micDeviceId);
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chips,
+        if (widget.micEnabled) MicQualityBanner(device: selectedMic),
+      ],
+    );
+    // Compact mode is used inside a plain Row (the recording strip), which
+    // gives non-flex children unbounded width; IntrinsicWidth gives the
+    // stretched Column a finite width to stretch to instead of infinity.
+    if (widget.compact) return IntrinsicWidth(child: body);
+    return ControlGroup(title: 'Perangkat', child: body);
+  }
+
+  /// The input device the mic chip actually records from: the one matching
+  /// [micDeviceId], else whichever the OS reports as the default, else
+  /// `null` when nothing has been enumerated yet.
+  rust_device.AudioDeviceInfo? _selectedInput(String? micDeviceId) {
+    if (_inputs.isEmpty) return null;
+    if (micDeviceId != null) {
+      for (final device in _inputs) {
+        if (device.name == micDeviceId) return device;
+      }
+    }
+    for (final device in _inputs) {
+      if (device.isDefault) return device;
+    }
+    return _inputs.first;
   }
 }
 
