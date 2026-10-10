@@ -202,6 +202,13 @@ struct SessionState {
     /// each `LivePipeline` only ever sees its own source (see
     /// `pipeline` module doc comment). Trimmed to a rolling window.
     recent_emitted: Vec<Segment>,
+    /// Device-health events (Sprint 13 B6); `None` if the watchdog could not
+    /// be started. Drained in [`SessionState::collect_worker_events`].
+    watchdog_rx: Option<mpsc::Receiver<crate::watchdog::WatchdogEvent>>,
+    /// Shuts the watchdog thread down on [`stop_session`]. Dropping the
+    /// sender would do the same (the thread's `try_recv` sees a closed
+    /// channel), but sending an explicit stop avoids relying on that.
+    watchdog_stop_tx: Option<mpsc::Sender<()>>,
 }
 
 /// Segments older than this relative to the newest one are dropped from
@@ -232,6 +239,10 @@ struct CaptureChannel {
     /// produces one notice and not one per poll. Re-armed when audio
     /// comes back.
     silence_warned: bool,
+    /// Kept so the speaker channel can be respawned in place (same model,
+    /// same language, same everything) when [`reopen_speaker_capture`]
+    /// re-opens the stream after a `DeviceReconnected` watchdog event.
+    worker_config: LiveWorkerConfig,
 }
 
 /// Audio a stopped session left behind, waiting for the caller (Dart, via
@@ -499,7 +510,6 @@ fn start_capture(
     }
     let source = worker_config.source.clone();
     let (raw_tx, raw_rx) = mpsc::channel();
-    let (samples_tx, samples_rx) = mpsc::channel();
     // Speaker (loopback) uses platform-specific capture (WASAPI / CoreAudio
     // Process Tap / PulseAudio monitor). Mic uses cpal, except on Linux with
     // a sound server, where it also goes through PulseAudio/PipeWire.
@@ -546,26 +556,61 @@ fn start_capture(
     let sink = Arc::new(Mutex::new(sink));
     let sink_errors = Arc::new(Mutex::new(sink_errors));
 
-    let sink_writer = Arc::clone(&sink);
-    let health_writer = Arc::clone(&health);
-    let errors_writer = Arc::clone(&sink_errors);
+    let (worker, events_rx) = spawn_tee_and_worker(
+        source.clone(),
+        raw_rx,
+        Arc::clone(&sink),
+        Arc::clone(&health),
+        Arc::clone(&sink_errors),
+        worker_config.clone(),
+    )?;
+    Ok((
+        Some(CaptureChannel {
+            capture,
+            worker,
+            source,
+            events_rx,
+            sink,
+            health,
+            sink_errors,
+            silence_warned: false,
+            worker_config,
+        }),
+        CaptureAttempt::Started,
+    ))
+}
+
+/// The tee thread (fan the raw stream out to the WAV sink / health counters
+/// while also forwarding it to the STT worker) plus the worker itself.
+///
+/// Factored out of [`start_capture`] so [`reopen_speaker_capture`] can spawn
+/// a fresh capture thread against the *same* sink/health/errors a session
+/// already had open — re-opening the stream must not start a second WAV
+/// file or reset the channel's health counters.
+fn spawn_tee_and_worker(
+    source: String,
+    raw_rx: mpsc::Receiver<Vec<f32>>,
+    sink: Arc<Mutex<AudioSink>>,
+    health: Arc<ChannelHealth>,
+    sink_errors: Arc<Mutex<Vec<String>>>,
+    worker_config: LiveWorkerConfig,
+) -> Result<(LiveWorker, mpsc::Receiver<LiveEvent>), TranscribeError> {
+    let (samples_tx, samples_rx) = mpsc::channel::<Vec<f32>>();
     let tee_source = source.clone();
-    // Tee: every chunk forwarded to the STT worker (unchanged) is also
-    // written out for later WAV export and folded into the health counters.
     // Isolated to its own thread so the live transcription pipeline
     // (samples_rx consumer) is untouched — this thread simply exits once
     // `raw_tx` (owned by AudioCapture) is dropped, i.e. when capture stops.
     std::thread::spawn(move || {
         while let Ok(chunk) = raw_rx.recv() {
-            health_writer.observe(&chunk, unix_ms_now().unwrap_or(0));
-            if let Ok(mut sink) = sink_writer.lock() {
+            health.observe(&chunk, unix_ms_now().unwrap_or(0));
+            if let Ok(mut sink) = sink.lock() {
                 if let Err(e) = sink.append(&chunk, TARGET_SAMPLE_RATE) {
                     // Reported once (the sink latches), never fatal: losing
                     // the rest of the audio file must not also cost the
                     // transcript, and what is already on disk stays.
                     tracing::error!(source = %tee_source, %e, "captured audio could not be stored");
-                    health_writer.note_write_failure();
-                    if let Ok(mut errors) = errors_writer.lock() {
+                    health.note_write_failure();
+                    if let Ok(mut errors) = sink_errors.lock() {
                         errors.push(format!(
                             "Audio {} berhenti tersimpan: {e}. Transkrip tetap berjalan.",
                             source_label(&tee_source)
@@ -584,19 +629,88 @@ fn start_capture(
     // file) MUST propagate so the caller surfaces it to the user instead of
     // silently starting a session that never transcribes anything.
     let worker = LiveWorker::spawn(worker_config, samples_rx, events_tx)?;
-    Ok((
-        Some(CaptureChannel {
-            capture,
-            worker,
-            source,
-            events_rx,
-            sink,
-            health,
-            sink_errors,
-            silence_warned: false,
-        }),
-        CaptureAttempt::Started,
-    ))
+    Ok((worker, events_rx))
+}
+
+/// Re-opens the speaker (loopback) capture against whatever the OS default
+/// output device is right now, reusing the session's existing WAV sink and
+/// health counters so the audio file and `ChannelHealth` stay continuous.
+///
+/// Called when the watchdog reports `DeviceReconnected` (Sprint 13 B6): a
+/// TWS/Bluetooth profile switch (A2DP↔HFP) or sleep/wake changes the
+/// system's default sink, but the old `start_loopback` stream keeps reading
+/// from the now-dead `<old-sink>.monitor` — silently, with no error, just
+/// silence forever. The old stream is dropped here and a new one opened
+/// against the current default, mirroring exactly what `start_capture` does
+/// at session start.
+fn reopen_speaker_capture(state: &mut SessionState) -> Option<SessionEvent> {
+    if !state.config.speaker_enabled {
+        return None;
+    }
+    let old = state.speaker_capture.take()?;
+    let CaptureChannel {
+        capture,
+        worker,
+        sink,
+        health,
+        sink_errors,
+        worker_config,
+        ..
+    } = old;
+    // Closes the old stream/process first: otherwise two loopback captures
+    // (one dead, one new) could both try to read the same monitor source.
+    drop(capture);
+    drop(worker);
+
+    let (raw_tx, raw_rx) = mpsc::channel();
+    let device_name = state.config.speaker_device_id.clone();
+    let new_capture = match crate::audio::loopback::start_loopback(device_name, raw_tx) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(%e, "speaker capture could not be re-opened after reconnect");
+            return Some(SessionEvent::Notice {
+                level: NoticeLevel::Error,
+                source: "spk".to_string(),
+                message: format!(
+                    "Audio sistem tidak bisa dibuka ulang setelah perangkat tersambung \
+                     kembali ({e}). Suara sistem berhenti terekam."
+                ),
+            });
+        }
+    };
+    let (worker, events_rx) = match spawn_tee_and_worker(
+        "spk".to_string(),
+        raw_rx,
+        Arc::clone(&sink),
+        Arc::clone(&health),
+        Arc::clone(&sink_errors),
+        worker_config.clone(),
+    ) {
+        Ok(pair) => pair,
+        Err(e) => {
+            tracing::warn!(%e, "STT worker could not be respawned for the re-opened speaker capture");
+            return Some(SessionEvent::Notice {
+                level: NoticeLevel::Error,
+                source: "spk".to_string(),
+                message: format!(
+                    "Audio sistem tersambung kembali tetapi transkripsinya gagal dimulai ulang ({e})."
+                ),
+            });
+        }
+    };
+    state.speaker_capture = Some(CaptureChannel {
+        capture: new_capture,
+        worker,
+        source: "spk".to_string(),
+        events_rx,
+        sink,
+        health,
+        sink_errors,
+        silence_warned: false,
+        worker_config,
+    });
+    tracing::info!("speaker capture re-opened after device reconnect");
+    None
 }
 
 /// Indonesian label for a capture source, for user-facing messages.
@@ -616,6 +730,10 @@ pub fn stop_session(session_id: &str) -> Result<(), TranscribeError> {
         .remove(session_id)
         .ok_or_else(|| TranscribeError::SessionNotFound(session_id.to_string()))?;
     drop(reg);
+
+    if let Some(stop_tx) = state.watchdog_stop_tx.take() {
+        let _ = stop_tx.send(());
+    }
 
     // Last fsync before the journal is closed: everything emitted up to
     // this moment is on the platter, not merely in the page cache.
@@ -1084,6 +1202,21 @@ fn start_session_with_id(
     };
 
     let segments_count = resume.segments.len() as u32;
+    // Monitor whichever device names are actually configured; an empty hint
+    // list still works (watchdog.rs treats it as "any input + any output
+    // present"), it just can't tell a sink swap from a device that was
+    // never there. Only worth running at all if some capture is live.
+    let watchdog_hints: Vec<String> = [&config.mic_device_id, &config.speaker_device_id]
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect();
+    let (watchdog_rx, watchdog_stop_tx) = if config.mic_enabled || config.speaker_enabled {
+        let (rx, tx) = crate::watchdog::start_watchdog(2, watchdog_hints);
+        (Some(rx), Some(tx))
+    } else {
+        (None, None)
+    };
     let state = SessionState {
         session_id: id.clone(),
         config,
@@ -1103,6 +1236,8 @@ fn start_session_with_id(
         // new speech against text from before the crash, which is not an
         // echo of anything currently playing.
         recent_emitted: Vec::new(),
+        watchdog_rx,
+        watchdog_stop_tx,
     };
     registry()
         .lock()
@@ -1268,6 +1403,26 @@ impl SessionState {
     fn collect_worker_events(&mut self) {
         let dedupe_enabled = self.config.mode.echo_dedupe_enabled();
         let offset = self.resume_offset_secs;
+
+        // Device-health: a `DeviceReconnected` means the OS's default
+        // output device changed (TWS profile switch, sleep/wake) and the
+        // speaker capture may still be silently reading a dead monitor
+        // source — re-open it against whatever is default now. Collected
+        // into a Vec first since `reopen_speaker_capture` needs `&mut
+        // self` while this loop is reading `self.watchdog_rx`.
+        let reconnected = self.watchdog_rx.as_ref().is_some_and(|rx| {
+            rx.try_iter().any(|event| {
+                matches!(
+                    event,
+                    crate::watchdog::WatchdogEvent::DeviceReconnected { .. }
+                )
+            })
+        });
+        if reconnected {
+            if let Some(notice) = reopen_speaker_capture(self) {
+                self.pending_events.push(notice);
+            }
+        }
 
         // PRIORITY QUEUE: drain ALL mic events entirely before touching
         // speaker events. This ensures mic segments (direct user speech)
@@ -1774,6 +1929,36 @@ mod tests {
         stop_session(&id).unwrap();
         assert!(get_status(&id).is_err());
     }
+
+    /// Sprint 13 B6: a `DeviceReconnected` watchdog event must not try to
+    /// re-open a speaker capture the user never turned on. Real
+    /// loopback/cpal I/O is deliberately kept out of this module's tests
+    /// (see `test_config`'s comment) so this only covers the two
+    /// environment-independent short-circuits; the actual re-open against
+    /// a real device swap was exercised manually (see Sprint 13 report).
+    #[test]
+    fn reopen_speaker_capture_is_a_noop_when_speaker_is_disabled() {
+        let id = start_session(test_config()).unwrap();
+        let notice = {
+            let mut reg = registry().lock().unwrap();
+            let state = reg.get_mut(&id).unwrap();
+            assert!(!state.config.speaker_enabled);
+            reopen_speaker_capture(state)
+        };
+        assert!(notice.is_none());
+        stop_session(&id).unwrap();
+    }
+
+    // The "speaker enabled but nothing currently in `speaker_capture`"
+    // branch (`let Some(old) = state.speaker_capture.take() else { return
+    // None }`) is not separately tested end-to-end here: on Linux,
+    // `start_loopback` deliberately recovers from an unmatched device hint
+    // by falling back to the default monitor (see the comment on
+    // `a_refused_start_surfaces_as_an_audio_device_error`), so there is no
+    // hardware-independent way to force speaker capture to fail to start
+    // on this platform the way the mic/cpal path can. The branch itself is
+    // a single `Option::take().else` short-circuit, covered by code
+    // inspection rather than a brittle environment-dependent test.
 
     /// Scopes `RECOVERY_DIR_OVERRIDE` (thread-local, so each test gets its
     /// own) to a fresh temp directory and cleans it up afterwards.
