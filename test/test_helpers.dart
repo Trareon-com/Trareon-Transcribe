@@ -395,6 +395,13 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
       false;
 
   @override
+  Future<String> recommendDefaultModel(int ramMb) async =>
+      ramMb >= 6144 ? 'large-v3-turbo-q5' : (ramMb >= 4096 ? 'small' : 'base');
+
+  @override
+  Future<String?> modelAccuracyLabel(String modelId) async => null;
+
+  @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
       const [];
 

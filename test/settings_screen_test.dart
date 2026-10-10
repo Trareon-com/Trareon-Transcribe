@@ -96,6 +96,10 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
   Future<bool> isModelDownloaded(String modelsDir, String modelId) async =>
       false;
   @override
+  Future<String> recommendDefaultModel(int ramMb) async => 'base';
+  @override
+  Future<String?> modelAccuracyLabel(String modelId) async => null;
+  @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
       const [];
 
