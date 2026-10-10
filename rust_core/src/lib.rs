@@ -16,6 +16,7 @@ compile_error!(
 /// Structured action items (tugas / PJ / tenggat / status) with .ics
 /// and CSV export.
 pub mod actions;
+pub mod agc;
 pub mod api;
 /// Local full-text index over every session ("Tanya arsip rapat").
 pub mod archive;
@@ -60,6 +61,7 @@ pub mod llm_setup;
 pub mod mapreduce;
 pub mod memory;
 pub mod model;
+pub mod model_select;
 /// Mesin notulen: templat naskah dinas, skema JSON ketat, periksa fakta,
 /// dan pemeriksa ragam bahasa baku. Local-only — the model round trip
 /// itself belongs to `summary`.

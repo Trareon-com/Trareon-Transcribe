@@ -104,6 +104,15 @@ pub struct AppSettings {
     /// that most sessions are.
     #[serde(default)]
     pub neural_diarization: bool,
+    /// The user dismissed the "Tingkatkan akurasi" offer (Sprint 14a) that
+    /// appears when `model_select::recommend_default_model` disagrees with
+    /// `default_model`. Without this, every app start would recompute the
+    /// same disagreement and show the banner again — an existing `base`
+    /// user who already said "no thanks" once must not be asked every
+    /// session; the model itself is still never changed without an
+    /// explicit tap on the offer.
+    #[serde(default)]
+    pub default_model_upgrade_dismissed: bool,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -259,7 +268,16 @@ impl Default for AppSettings {
             auto_save_interval_secs: 10,
             vad_enabled: true,
             echo_dedupe_enabled: true,
-            language: Some("id".to_string()),
+            // `None` means "ikut mode sesi" (Dart's `syncDefaultSettings`
+            // picks Indonesia for Rapat Offline, Otomatis — Whisper's own
+            // per-window detection — for Rapat Online/Webinar). Before
+            // Sprint 14a this was hardcoded `Some("id")` for every mode,
+            // which is the item 11 bug: an English-speaking webinar guest
+            // got forced into Indonesian decoding because a brand-new
+            // install had no way to mean "decide per session." A settings
+            // file saved before this change already has `"id"` written out
+            // explicitly, so no existing user's choice changes.
+            language: None,
             gpu_enabled: false,
             gpu_device: 0,
             auto_stop_minutes: None,
@@ -273,6 +291,7 @@ impl Default for AppSettings {
             pdp: crate::pdp::PdpSettings::default(),
             noise_reduction: false,
             neural_diarization: false,
+            default_model_upgrade_dismissed: false,
         }
     }
 }
@@ -330,6 +349,37 @@ mod tests {
         assert_eq!(s.default_model, "base");
         assert!(s.vad_enabled);
         assert!(!s.library_path.is_empty());
+    }
+
+    /// Sprint 14a item 11: a brand-new install has no global language
+    /// override, so Dart's per-mode default decides (Indonesia for
+    /// offline, Otomatis otherwise) — see `syncDefaultSettings`.
+    #[test]
+    fn a_fresh_install_has_no_global_language_override() {
+        assert_eq!(AppSettings::default().language, None);
+    }
+
+    /// A settings.json saved before Sprint 14a always has `"language":"id"`
+    /// written out explicitly (the old hardcoded default) — that must
+    /// survive, not be reinterpreted as "ikut mode sesi".
+    #[test]
+    fn a_pre_14a_explicit_indonesian_choice_survives_the_default_change() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_14a_lang_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let saved = AppSettings {
+            language: Some("id".to_string()),
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert_eq!(loaded.language, Some("id".to_string()));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -587,6 +637,51 @@ mod tests {
             config.prioritised_terms(),
             vec!["Musrenbang".to_string(), "Kemenkeu".to_string()]
         );
+    }
+
+    /// A settings file from before Sprint 14a has no
+    /// `default_model_upgrade_dismissed` key. It must load as `false`
+    /// (banner shown once), not fail to parse.
+    #[test]
+    fn missing_upgrade_dismissed_flag_defaults_to_false() {
+        let dir =
+            std::env::temp_dir().join(format!("transcribe_settings_14a_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let mut value =
+            serde_json::to_value(AppSettings::default()).expect("settings serialise to JSON");
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("default_model_upgrade_dismissed");
+        std::fs::write(&path, serde_json::to_string_pretty(&value).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert!(!loaded.default_model_upgrade_dismissed);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dismissing_the_upgrade_offer_survives_a_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "transcribe_settings_14a_dismiss_{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        let saved = AppSettings {
+            default_model_upgrade_dismissed: true,
+            ..AppSettings::default()
+        };
+        std::fs::write(&path, serde_json::to_string_pretty(&saved).unwrap()).unwrap();
+
+        let loaded = load_settings_from(&Some(path));
+        assert!(loaded.default_model_upgrade_dismissed);
+        // Dismissing the offer must never itself change the model.
+        assert_eq!(loaded.default_model, "base");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

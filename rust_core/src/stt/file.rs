@@ -165,6 +165,11 @@ pub fn transcribe_file_with(
         while chunk_start < *region_end {
             let chunk_end = (chunk_start + CHUNK_DURATION_SECS).min(*region_end);
             let chunk = slice_secs(&audio.samples, chunk_start, chunk_end);
+            // Sprint 14a item 9: same pre-ASR boost the live pipeline gets
+            // (`crate::agc`) — quiet-but-real speech in an imported file is
+            // exactly as liable to read as silence as it is live.
+            let chunk = crate::agc::apply_gain(chunk);
+            let chunk = chunk.as_slice();
             // Backstop (B1): even when `options.vad_gate` is off (every
             // region above is just `(0.0, duration)`), digital silence or
             // sub-noise-floor audio must never reach the decoder.

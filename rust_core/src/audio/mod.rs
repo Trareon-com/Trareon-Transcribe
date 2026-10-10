@@ -119,6 +119,16 @@ pub struct SessionConfig {
     /// transcript. `None` disables the substitution.
     #[serde(default)]
     pub fallback_model_path: Option<String>,
+    /// Per-session language override (Sprint 14a item 11): `Some("id")` /
+    /// `Some("en")` forces that language for this session only; `Some`
+    /// with any other value or `None` means "no override, decide from
+    /// `AppSettings::language` and `mode`" (see
+    /// `session::effective_session_language`). Distinct from the global
+    /// `AppSettings::language` persisted on disk — this lets one meeting
+    /// in a mostly-Indonesian install be transcribed in English (or vice
+    /// versa) without changing every future session's default.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 fn default_audio_to_disk() -> bool {
@@ -143,6 +153,7 @@ impl SessionConfig {
             audio_to_disk: true,
             glossary: crate::glossary::GlossaryConfig::default(),
             fallback_model_path: None,
+            language: None,
         }
     }
 

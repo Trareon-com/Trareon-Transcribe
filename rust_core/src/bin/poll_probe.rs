@@ -30,6 +30,7 @@ fn main() {
         audio_to_disk: true,
         glossary: rust_core::glossary::GlossaryConfig::default(),
         fallback_model_path: None,
+        language: None,
     };
 
     let session_id = rust_core::api::start_session(config).expect("start_session");
