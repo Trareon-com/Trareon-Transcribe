@@ -5,6 +5,54 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 13 brief asked the team to study two MIT-licensed peer projects
+(Meetily, Anarlog — see `THIRD_PARTY_LICENSES.md`) for patterns worth
+adopting: an audio limiter, acoustic echo cancellation, VAD masking,
+cross-meeting semantic search, and a recording-consent reminder. See
+`docs/SPRINT-REPORTS.md` Sprint 13 report for the full per-item audit,
+including what was deliberately **not** done and why.
+
+### Ditambahkan
+
+- **Soft-knee limiter pada AGC** (`rust_core/src/agc.rs::soft_limit`):
+  gain yang diterapkan `apply_gain` sekarang dibatasi secara lembut
+  (tanh di atas -3 dBFS) alih-alih hard clamp, jadi transien keras tidak
+  terdistorsi kasar.
+- **Peringatan kualitas mikrofon** (`MicQualityBanner`,
+  `rust_core/src/audio/device.rs::mic_quality_advisory`): sebelum/saat
+  sesi, chip mikrofon menampilkan info non-blocking kalau perangkat aktif
+  punya sample rate maksimum < 16 kHz atau namanya menunjukkan Bluetooth
+  (`bluez`, pola MAC address) — "disarankan headset wired untuk rapat
+  penting".
+- **Pengingat persetujuan perekaman** (`ConsentReminderBanner`,
+  `AppSettings.consentBannerDismissed`): banner "Pastikan semua peserta
+  tahu rapat ini direkam" di layar idle, dengan "Jangan tampilkan lagi"
+  yang bertahan lintas sesi; penanda audit per-sesi
+  (`rust_api.acknowledgeConsent` → `pdp::acknowledge_consent`) tercatat
+  independen dari status banner.
+- **Audio sistem dibuka ulang otomatis setelah perangkat tersambung
+  kembali** (`rust_core/src/session.rs::reopen_speaker_capture`): sesi
+  sekarang menjalankan device watchdog, dan event `DeviceReconnected`
+  (TWS ganti profil A2DP↔HFP, sleep/wake) memicu pembukaan ulang capture
+  loopback mengikuti sink default yang baru — sebelumnya stream lama yang
+  sudah mati terus "merekam" senyap tanpa error terlihat.
+
+### Diperbaiki
+
+- **Toast error mentah saat mulai rekam** (`lib/screens/main_screen.dart`):
+  panggilan audit `acknowledgeConsent` bisa melempar secara sinkron
+  (bridge belum siap) sebelum sempat mengembalikan `Future`, jadi
+  `.catchError` tidak pernah terpasang dan galatnya lolos sebagai toast
+  teknis mentah di atas sesi yang sedang berjalan — sekarang dibungkus
+  `try`/`catch` yang sebenarnya dan hanya dicatat ke log.
+- **`DeviceGroup` ringkas (strip rekaman) melempar `BoxConstraints`
+  infinite width** (`lib/widgets/session_controls.dart`): menambahkan
+  `MicQualityBanner` membuat mode ringkas mengembalikan `Column`
+  (`crossAxisAlignment: stretch`) alih-alih `Wrap` telanjang; ditempatkan
+  di dalam `Row` tak terbatas (strip rekaman), `Column` yang stretch itu
+  mencoba memberi `Wrap` lebar tak hingga dan merusak seluruh layar
+  rekaman. Dibungkus `IntrinsicWidth`.
+
 Sprint 14b brief asked for two things: the no-audio-detected banner turned
 into a self-dismissing toast instead of a persistent one, and a visible
 progress indicator for every operation that can run longer than 3 seconds.

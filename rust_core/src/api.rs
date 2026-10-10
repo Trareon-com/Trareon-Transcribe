@@ -105,6 +105,14 @@ pub fn list_output_audio_devices() -> Result<Vec<AudioDeviceInfo>, TranscribeErr
     crate::audio::list_output_devices()
 }
 
+/// Non-blocking advisory for the selected microphone's expected
+/// transcription quality (Sprint 13 B7) — `None` when nothing is worth
+/// telling the user. The caller (a device picker or session start screen)
+/// decides how to present it; this never blocks starting a session.
+pub fn mic_quality_advisory(device: AudioDeviceInfo) -> Option<String> {
+    crate::audio::mic_quality_advisory(&device.name, &device.sample_rates)
+}
+
 // --- Session control -----------------------------------------------------
 
 pub fn start_session(config: SessionConfig) -> Result<String, TranscribeError> {

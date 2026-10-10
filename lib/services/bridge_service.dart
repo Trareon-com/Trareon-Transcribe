@@ -1847,6 +1847,7 @@ class RustEngineBridge implements RustBridge {
       noiseReduction: settings.noiseReduction,
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
+      consentBannerDismissed: settings.consentBannerDismissed,
     );
   }
 
@@ -1876,6 +1877,7 @@ class RustEngineBridge implements RustBridge {
       noiseReduction: settings.noiseReduction,
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
+      consentBannerDismissed: settings.consentBannerDismissed,
     );
   }
 }

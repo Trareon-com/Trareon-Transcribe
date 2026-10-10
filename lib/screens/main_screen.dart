@@ -10,6 +10,7 @@ import '../services/library_index.dart';
 import '../services/session_store.dart';
 import '../services/system_privacy_settings.dart';
 import '../services/tray_service.dart';
+import '../src/rust/api.dart' as rust_api;
 import '../src/rust/disk.dart' as rust_disk;
 import '../src/rust/session.dart' as rust_session;
 import '../state/audio_stream_model.dart';
@@ -660,12 +661,32 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (id != null) {
         _startHealthPolling(id);
         _startDiskWatch();
+        final title = ref.read(sessionProvider).sessionTitle;
+        final date = DateTime.now().toIso8601String().substring(0, 10);
+        // Audit bookkeeping, not part of the recording path: a failure here
+        // (e.g. no native engine, a locked audit log) must not surface as a
+        // raw error toast over an already-running session. The call itself
+        // can throw synchronously (accessing the bridge before it is ready),
+        // not just reject its Future, so this needs a real try/catch rather
+        // than `.catchError`.
+        unawaited(_acknowledgeConsentQuietly(title, date));
       }
     } catch (e) {
       if (!context.mounted) return;
       AppToast.show(context, '$e');
     } finally {
       if (mounted) setState(() => _isStartingSession = false);
+    }
+  }
+
+  Future<void> _acknowledgeConsentQuietly(String title, String date) async {
+    try {
+      await rust_api.acknowledgeConsent(
+        title: title.isNotEmpty ? title : 'Sesi $date',
+        note: 'Pengingat persetujuan ditampilkan saat mulai rekam.',
+      );
+    } catch (e) {
+      debugPrint('gagal mencatat audit persetujuan: $e');
     }
   }
 
@@ -1201,17 +1222,24 @@ class _Workspace extends StatelessWidget {
           child: Stack(
             children: [
               if (idle)
-                _IdleHero(
-                  titleController: titleController,
-                  mode: session.config.mode,
-                  onModeChanged: notifier.setMode,
-                  micEnabled: session.config.micEnabled,
-                  speakerEnabled: session.config.speakerEnabled,
-                  onMicToggled: notifier.toggleMic,
-                  onSpeakerToggled: notifier.toggleSpeaker,
-                  onStart: onStartBerhenti,
-                  busy: isBusy,
-                  busyLabel: busyLabel,
+                Column(
+                  children: [
+                    const ConsentReminderBanner(),
+                    Expanded(
+                      child: _IdleHero(
+                        titleController: titleController,
+                        mode: session.config.mode,
+                        onModeChanged: notifier.setMode,
+                        micEnabled: session.config.micEnabled,
+                        speakerEnabled: session.config.speakerEnabled,
+                        onMicToggled: notifier.toggleMic,
+                        onSpeakerToggled: notifier.toggleSpeaker,
+                        onStart: onStartBerhenti,
+                        busy: isBusy,
+                        busyLabel: busyLabel,
+                      ),
+                    ),
+                  ],
                 )
               else
                 Column(

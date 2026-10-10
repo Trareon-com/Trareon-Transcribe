@@ -709,6 +709,13 @@ class AppSettings {
   /// `AppSettings::default_model_upgrade_dismissed` in Rust.
   final bool defaultModelUpgradeDismissed;
 
+  /// Whether the user dismissed the pre-recording consent reminder with
+  /// "jangan tampilkan lagi" (Sprint 13 E1). Mirrors
+  /// `AppSettings::consent_banner_dismissed` in Rust. Only hides the
+  /// reminder banner — it has no effect on the per-session audit record
+  /// written by `acknowledgeConsent`.
+  final bool consentBannerDismissed;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -735,6 +742,7 @@ class AppSettings {
     this.noiseReduction = false,
     this.neuralDiarization = false,
     this.defaultModelUpgradeDismissed = false,
+    this.consentBannerDismissed = false,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -774,6 +782,7 @@ class AppSettings {
     bool? noiseReduction,
     bool? neuralDiarization,
     bool? defaultModelUpgradeDismissed,
+    bool? consentBannerDismissed,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -810,6 +819,8 @@ class AppSettings {
       neuralDiarization: neuralDiarization ?? this.neuralDiarization,
       defaultModelUpgradeDismissed:
           defaultModelUpgradeDismissed ?? this.defaultModelUpgradeDismissed,
+      consentBannerDismissed:
+          consentBannerDismissed ?? this.consentBannerDismissed,
     );
   }
 }
