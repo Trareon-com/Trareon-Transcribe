@@ -6,6 +6,40 @@ import 'package:transcribe/state/batch_upload_model.dart';
 import 'package:transcribe/widgets/file_upload_zone.dart';
 
 void main() {
+  group('shouldRefineImport', () {
+    // Sprint 14a item 4: an import has no real-time deadline, so it must
+    // refine with the accurate model whenever one is installed —
+    // regardless of the live-only "Cepat dulu, lalu diperhalus" toggle,
+    // which this function deliberately takes no parameter for.
+    test('refines when the accurate model is installed and not already chosen', () {
+      expect(
+        shouldRefineImport(modelId: 'base', refineModelAvailable: true),
+        isTrue,
+      );
+      expect(
+        shouldRefineImport(modelId: 'small', refineModelAvailable: true),
+        isTrue,
+      );
+    });
+
+    test('does not refine when the accurate model is not installed', () {
+      expect(
+        shouldRefineImport(modelId: 'base', refineModelAvailable: false),
+        isFalse,
+      );
+    });
+
+    test('does not double-refine when the accurate model is already chosen', () {
+      expect(
+        shouldRefineImport(
+          modelId: 'large-v3-turbo-q5',
+          refineModelAvailable: true,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   testWidgets(
     'shows cleanup controls only when queue has items and removes done files',
     (WidgetTester tester) async {

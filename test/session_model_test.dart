@@ -107,6 +107,12 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
       false;
 
   @override
+  Future<String> recommendDefaultModel(int ramMb) async => 'base';
+
+  @override
+  Future<String?> modelAccuracyLabel(String modelId) async => null;
+
+  @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async =>
       const [];
 
@@ -184,6 +190,74 @@ void main() {
 
     expect(notifier.state.segments.first.text, 'satu');
     expect(notifier.state.segments.last.text, 'dua diperbarui');
+  });
+
+  // Sprint 14a item 11: the per-session language override lives on the
+  // notifier (not `AppSettings`), so a choice made from the session
+  // options menu reaches `SessionConfig.language` — what actually gets
+  // sent to Rust — without touching the global default.
+  test(
+    'setSessionLanguage overrides the config language for this session',
+    () {
+      final notifier = SessionNotifier(
+        _NoopBridge(),
+        SessionMode.offline,
+        modelPathForId('tiny'),
+      );
+
+      notifier.setSessionLanguage('en');
+
+      expect(notifier.state.config.language, 'en');
+      expect(notifier.languageChoice, 'en');
+    },
+  );
+
+  test('setSessionLanguage(null) means true Otomatis, not just unset', () async {
+    // Offline with no global override resolves to forced 'id' — go through
+    // syncDefaultSettings (via the provider) so that default is actually in
+    // effect, the same way it is for a real session.
+    final bridge = _NoopBridge(
+      settings: AppSettings.defaults().copyWith(
+        defaultMode: SessionMode.offline,
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+    );
+    addTearDown(container.dispose);
+
+    String? language = container.read(sessionProvider).config.language;
+    for (var i = 0; i < 20 && language != 'id'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      language = container.read(sessionProvider).config.language;
+    }
+    expect(language, 'id');
+
+    container.read(sessionProvider.notifier).setSessionLanguage(null);
+
+    // Not 'id': an explicit Otomatis pick must win over Offline's default,
+    // otherwise the menu option would be a no-op in Offline mode.
+    expect(container.read(sessionProvider).config.language, isNull);
+  });
+
+  test('setSessionLanguage is a no-op once the session is recording', () {
+    final notifier = SessionNotifier(
+      _NoopBridge(),
+      SessionMode.online,
+      modelPathForId('tiny'),
+    );
+    notifier.setSessionLanguage('en');
+    // Simulate an already-recording session: the capture/decode threads
+    // are configured and the mode cannot change either, for the same
+    // reason.
+    notifier.state = notifier.state.copyWith(
+      lifecycle: SessionLifecycle.recording,
+      sessionId: 'already-recording-session',
+    );
+
+    notifier.setSessionLanguage('id');
+
+    expect(notifier.state.config.language, 'en');
   });
 
   test('initial session config uses the provided model path', () {

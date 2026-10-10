@@ -17,6 +17,11 @@ import 'settings_model.dart';
 
 enum SessionLifecycle { idle, recording, paused, stopped }
 
+/// Sentinel distinguishing "the user hasn't opened the per-session language
+/// menu yet" from an explicit `null` ("Otomatis") choice. See
+/// `SessionNotifier._languageOverride`.
+const Object _noLanguageOverride = Object();
+
 /// Thrown by [SessionNotifier.stop] when the session stopped cleanly but
 /// the transcript failed to export — distinct from other stop() failures
 /// so the UI can show a save-specific message instead of a generic one.
@@ -149,6 +154,30 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   // "Transkrip Ulang" know what produced the transcript.
   String? _language;
   String _modelId = 'base';
+
+  /// The persisted global language setting, cached from the last
+  /// [syncDefaultSettings] call so [setMode] can re-resolve [_language]
+  /// for the new mode without needing a settings reference of its own.
+  String? _globalLanguage;
+
+  /// Per-session language choice (Sprint 14a item 11), set from the
+  /// session options menu rather than Settings. Holds [_noLanguageOverride]
+  /// until the user actually opens that menu, which means "decide from the
+  /// global setting and mode" ([syncDefaultSettings], same as before this
+  /// existed) — a `String?` alone could not tell that apart from the user
+  /// explicitly choosing "Otomatis" (`null`, true per-window detection,
+  /// which must win even in Offline mode where the *default* is forced
+  /// Indonesian).
+  ///
+  /// Kept separate from [_language] (which is always the *effective*
+  /// value actually sent to the engine) because [syncDefaultSettings] runs
+  /// on every settings change while idle and must not silently clobber a
+  /// choice the user already made for the session about to start.
+  Object? _languageOverride = _noLanguageOverride;
+
+  /// The language choice shown in the session options menu: `null` for
+  /// Otomatis, `'id'`/`'en'` for a forced language.
+  String? get languageChoice => _language;
 
   SessionNotifier(
     this._bridge,
@@ -766,11 +795,22 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     // Update mode AND apply mode's default mic/speaker toggles
     // (Blueprint: Webinar=Mic OFF/SPK ON, Online=Both ON, Offline=Mic ON/SPK OFF)
     final (mic, speaker) = mode.defaultToggles;
+    // Sprint 14a item 11: Offline's "stay Indonesian" default (and
+    // Online/Webinar's Otomatis) is per-mode, so switching mode must
+    // re-resolve it too — unless the user explicitly overrode the
+    // language for this session, which outranks the mode switch.
+    if (_languageOverride == _noLanguageOverride) {
+      _language = effectiveSessionLanguage(
+        globalLanguage: _globalLanguage,
+        mode: mode,
+      );
+    }
     state = state.copyWith(
       config: state.config.copyWith(
         mode: mode,
         micEnabled: mic,
         speakerEnabled: speaker,
+        language: _language,
       ),
     );
   }
@@ -782,7 +822,13 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       return;
     }
     _autoStopMinutes = settings.autoStopMinutes;
-    _language = settings.language;
+    _globalLanguage = settings.language;
+    _language = _languageOverride == _noLanguageOverride
+        ? effectiveSessionLanguage(
+            globalLanguage: settings.language,
+            mode: settings.defaultMode,
+          )
+        : _languageOverride as String?;
     _modelId = settings.defaultModel;
     _glossarySettings = settings.glossary;
     _progressiveEnabled = settings.progressiveEnabled;
@@ -829,8 +875,26 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
                 exclude: quickPath,
                 libraryPath: settings.libraryPath,
               ),
+        language: _language,
       ),
     );
+  }
+
+  /// Sets the language for the *next* session only (Sprint 14a item 11) —
+  /// e.g. "Inggris" for one English-speaking webinar guest, without
+  /// changing the Settings default every other meeting still uses. `null`
+  /// clears the override back to Otomatis/per-mode behaviour. A no-op
+  /// while a session is already running: the mode cannot change mid-session
+  /// either, for the same reason (the capture/decode threads are already
+  /// configured).
+  void setSessionLanguage(String? language) {
+    if (state.lifecycle == SessionLifecycle.recording ||
+        state.lifecycle == SessionLifecycle.paused) {
+      return;
+    }
+    _languageOverride = language;
+    _language = language;
+    state = state.copyWith(config: state.config.copyWith(language: language));
   }
 
   void setTitle(String title) {

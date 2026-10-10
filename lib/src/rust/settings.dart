@@ -90,6 +90,15 @@ class AppSettings {
   /// that most sessions are.
   final bool neuralDiarization;
 
+  /// The user dismissed the "Tingkatkan akurasi" offer (Sprint 14a) that
+  /// appears when `model_select::recommend_default_model` disagrees with
+  /// `default_model`. Without this, every app start would recompute the
+  /// same disagreement and show the banner again — an existing `base`
+  /// user who already said "no thanks" once must not be asked every
+  /// session; the model itself is still never changed without an
+  /// explicit tap on the offer.
+  final bool defaultModelUpgradeDismissed;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -113,6 +122,7 @@ class AppSettings {
     required this.pdp,
     required this.noiseReduction,
     required this.neuralDiarization,
+    required this.defaultModelUpgradeDismissed,
   });
 
   @override
@@ -138,7 +148,8 @@ class AppSettings {
       autoRetranscribe.hashCode ^
       pdp.hashCode ^
       noiseReduction.hashCode ^
-      neuralDiarization.hashCode;
+      neuralDiarization.hashCode ^
+      defaultModelUpgradeDismissed.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -166,7 +177,8 @@ class AppSettings {
           autoRetranscribe == other.autoRetranscribe &&
           pdp == other.pdp &&
           noiseReduction == other.noiseReduction &&
-          neuralDiarization == other.neuralDiarization;
+          neuralDiarization == other.neuralDiarization &&
+          defaultModelUpgradeDismissed == other.defaultModelUpgradeDismissed;
 }
 
 /// A summary template the user wrote or duplicated (F8).

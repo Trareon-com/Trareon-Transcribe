@@ -272,6 +272,13 @@ class SessionOptionsMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
+    final sessionNotifier = ref.read(sessionProvider.notifier);
+    // Rebuild when the per-session language choice changes, even though
+    // it lives on the notifier rather than `settings` — `sessionProvider`
+    // is watched for exactly that.
+    final sessionLanguage = ref.watch(
+      sessionProvider.select((s) => s.config.language),
+    );
     final colors = context.colors;
     final isAccurate = settings.defaultModel == _accurateId;
 
@@ -299,6 +306,12 @@ class SessionOptionsMenu extends ConsumerWidget {
             chooseModel(_accurateId);
           case 'vad':
             notifier.setVadEnabled(!settings.vadEnabled);
+          case 'lang_auto':
+            sessionNotifier.setSessionLanguage(null);
+          case 'lang_id':
+            sessionNotifier.setSessionLanguage('id');
+          case 'lang_en':
+            sessionNotifier.setSessionLanguage('en');
         }
       },
       entries: [
@@ -317,6 +330,22 @@ class SessionOptionsMenu extends ConsumerWidget {
           value: 'vad',
           label: 'Lewati jeda sunyi',
           checked: settings.vadEnabled,
+        ),
+        const AppMenuEntry.header('Bahasa rapat ini'),
+        AppMenuEntry(
+          value: 'lang_auto',
+          label: 'Otomatis (deteksi per kalimat)',
+          checked: sessionLanguage == null,
+        ),
+        AppMenuEntry(
+          value: 'lang_id',
+          label: 'Indonesia',
+          checked: sessionLanguage == 'id',
+        ),
+        AppMenuEntry(
+          value: 'lang_en',
+          label: 'Inggris',
+          checked: sessionLanguage == 'en',
         ),
       ],
       child: Container(
@@ -344,6 +373,57 @@ class SessionOptionsMenu extends ConsumerWidget {
               AppIcons.expandMore,
               size: IconSizes.sm,
               color: colors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Terdeteksi banyak bahasa lain" (Sprint 14a item 11).
+///
+/// When the session is forced to one language but recent segments keep
+/// coming back detected as the other one, that is Whisper fighting the
+/// override rather than mis-transcribing — the fix is Otomatis, not a
+/// better model. Shows nothing while the session is already Otomatis or
+/// while there isn't yet enough evidence either way; see
+/// [shouldOfferAutoLanguage].
+class LanguageMismatchBanner extends ConsumerWidget {
+  const LanguageMismatchBanner({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final show = shouldOfferAutoLanguage(
+      currentLanguage: session.config.language,
+      segments: session.segments,
+    );
+    if (!show) return const SizedBox.shrink();
+
+    final colors = context.colors;
+    return Material(
+      color: colors.warning.withValues(alpha: 0.12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(AppIcons.translate, size: IconSizes.sm, color: colors.warning),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Text(
+                'Banyak kalimat terakhir terdeteksi bukan bahasa yang '
+                'dipilih untuk sesi ini.',
+                style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+              ),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.read(sessionProvider.notifier).setSessionLanguage(null),
+              child: const Text('Ganti ke Otomatis'),
             ),
           ],
         ),

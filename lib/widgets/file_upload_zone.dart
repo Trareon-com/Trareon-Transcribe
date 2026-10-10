@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/batch_upload_model.dart';
+import '../state/enhance_queue_model.dart' show kAccurateModelId;
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -27,6 +28,23 @@ const List<String> kImportExtensions = [
   'mov',
   'mkv',
 ];
+
+/// Whether a file import should run the two-pass (HPT) refine on top of
+/// [modelId] (Sprint 14a item 4).
+///
+/// Unlike live recording, an import has no real-time deadline, so it
+/// always refines with the accurate model when one is installed —
+/// independent of "Cepat dulu, lalu diperhalus" (`progressiveEnabled`),
+/// which exists only to manage *live* latency. Before this function
+/// existed, the import path read that live-only toggle directly, so
+/// turning Progressive Mode off (to make live recording single-pass)
+/// silently made every import single-pass too.
+bool shouldRefineImport({
+  required String modelId,
+  required bool refineModelAvailable,
+}) {
+  return modelId != kAccurateModelId && refineModelAvailable;
+}
 
 String formatBytes(int bytes) {
   if (bytes >= 1024 * 1024 * 1024) {
@@ -218,13 +236,14 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
       if (!downloaded) return;
     }
 
-    // Progressive Mode used to apply only to live recording — imports always
-    // ran the single default model, so turning it on did nothing here.
-    const refineId = 'large-v3-turbo-q5';
-    final useProgressive =
-        settings.progressiveEnabled &&
-        modelId != refineId &&
-        isModelAvailable(refineId, libraryPath: settings.libraryPath);
+    final useProgressive = shouldRefineImport(
+      modelId: modelId,
+      refineModelAvailable: isModelAvailable(
+        kAccurateModelId,
+        libraryPath: settings.libraryPath,
+      ),
+    );
+    const refineId = kAccurateModelId;
 
     await batch.processBatch(
       ref.read(rustBridgeProvider),

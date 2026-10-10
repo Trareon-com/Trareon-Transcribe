@@ -944,6 +944,36 @@ struct ResumeState {
     speaker_counters: ChannelCounters,
 }
 
+/// What language to actually transcribe a live session with (Sprint 14a
+/// item 11). Mirrors Dart's `effectiveSessionLanguage`
+/// (`lib/state/models.dart`) — the two must stay in sync, because this is
+/// the copy that governs what the engine actually decodes with, while the
+/// Dart copy only labels the saved session for "Transkrip Ulang".
+///
+/// `global` is the persisted `AppSettings::language`: `None` means no
+/// explicit override, in which case only `Offline` (no second speaker
+/// whose language could differ from the room's, and the one mode the
+/// blueprint lists as "Indonesia only" for accuracy) still forces `"id"`.
+/// A `Some` value is an explicit choice — made in Settings, or carried
+/// over from a pre-14a install that always wrote `"id"` — and always wins.
+fn effective_session_language(global: Option<String>, mode: SessionMode) -> Option<String> {
+    global.or_else(|| (mode == SessionMode::Offline).then(|| "id".to_string()))
+}
+
+/// What to actually decode a session with, folding in the per-session
+/// override on top of [`effective_session_language`] (Sprint 14a item 11).
+/// `config_language` — `SessionConfig::language` — is an explicit choice
+/// made for *this meeting only* (via the session options menu, not
+/// Settings) and always wins when present; otherwise the global/per-mode
+/// resolution applies exactly as before.
+fn resolve_session_language(
+    config_language: Option<String>,
+    global: Option<String>,
+    mode: SessionMode,
+) -> Option<String> {
+    config_language.or_else(|| effective_session_language(global, mode))
+}
+
 fn start_session_with_id(
     id: String,
     config: SessionConfig,
@@ -951,7 +981,11 @@ fn start_session_with_id(
 ) -> Result<String, TranscribeError> {
     let now = std::time::Instant::now();
     let now_unix_ms = unix_ms_now()?;
-    let language = crate::settings::load_settings().language;
+    let language = resolve_session_language(
+        config.language.clone(),
+        crate::settings::load_settings().language,
+        config.mode,
+    );
     let refine_model_path = config
         .refine_model_path
         .clone()
@@ -1538,6 +1572,75 @@ mod tests {
         cfg.mic_enabled = false;
         cfg.speaker_enabled = false;
         cfg
+    }
+
+    /// Sprint 14a item 11: before this, `start_session_with_id` read
+    /// `AppSettings::language` raw, so changing its default from
+    /// `Some("id")` to `None` (so Online/Webinar stop forcing Indonesian)
+    /// would have silently also stopped Offline forcing it — the one mode
+    /// the brief requires to stay Indonesian by default.
+    #[test]
+    fn offline_with_no_override_still_forces_indonesian() {
+        assert_eq!(
+            effective_session_language(None, SessionMode::Offline),
+            Some("id".to_string())
+        );
+    }
+
+    #[test]
+    fn online_and_webinar_with_no_override_are_auto() {
+        assert_eq!(effective_session_language(None, SessionMode::Online), None);
+        assert_eq!(effective_session_language(None, SessionMode::Webinar), None);
+    }
+
+    #[test]
+    fn an_explicit_global_choice_wins_in_every_mode() {
+        for mode in [
+            SessionMode::Webinar,
+            SessionMode::Online,
+            SessionMode::Offline,
+        ] {
+            assert_eq!(
+                effective_session_language(Some("en".to_string()), mode),
+                Some("en".to_string())
+            );
+        }
+    }
+
+    /// Sprint 14a item 11: a per-session override (the options menu, not
+    /// Settings) must win even over Offline's hardcoded Indonesian default
+    /// and over an explicit global choice — it is the most specific of the
+    /// three.
+    #[test]
+    fn a_per_session_override_wins_over_offlines_forced_indonesian() {
+        assert_eq!(
+            resolve_session_language(Some("en".to_string()), None, SessionMode::Offline),
+            Some("en".to_string())
+        );
+    }
+
+    #[test]
+    fn a_per_session_override_wins_over_an_explicit_global_choice() {
+        assert_eq!(
+            resolve_session_language(
+                Some("en".to_string()),
+                Some("id".to_string()),
+                SessionMode::Online
+            ),
+            Some("en".to_string())
+        );
+    }
+
+    #[test]
+    fn no_per_session_override_falls_back_to_the_global_resolution() {
+        assert_eq!(
+            resolve_session_language(None, None, SessionMode::Online),
+            None
+        );
+        assert_eq!(
+            resolve_session_language(None, None, SessionMode::Offline),
+            Some("id".to_string())
+        );
     }
 
     #[test]

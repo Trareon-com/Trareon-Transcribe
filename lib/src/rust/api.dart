@@ -158,6 +158,19 @@ Future<bool> isModelDownloaded({
   modelId: modelId,
 );
 
+/// The single source of truth for "which model should this device default
+/// to" (Sprint 14a) — most accurate catalog model whose RAM requirement
+/// fits `ram_mb`. Used by both the setup wizard's live-model suggestion and
+/// the file-import default; see `model_select` for why one function serves
+/// both.
+Future<String> recommendDefaultModel({required BigInt ramMb}) =>
+    RustLib.instance.api.crateApiRecommendDefaultModel(ramMb: ramMb);
+
+/// A human-readable Indonesian accuracy label for `model_id`
+/// (e.g. `"WER FLEURS-id: 8,1%"`), or `None` when no measurement exists.
+Future<String?> modelAccuracyLabel({required String modelId}) =>
+    RustLib.instance.api.crateApiModelAccuracyLabel(modelId: modelId);
+
 Future<void> downloadModel({
   required String modelsDir,
   required String modelId,

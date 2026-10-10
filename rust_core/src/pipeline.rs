@@ -1052,6 +1052,11 @@ impl<'a> LivePipeline<'a> {
             return Ok(LiveOutcome::default());
         }
 
+        // Sprint 14a item 9: boost quiet-but-real audio before either the
+        // VAD vote or the window sees it — see `crate::agc` for why this
+        // runs here rather than lowering a threshold downstream.
+        let samples = crate::agc::apply_gain(samples);
+        let samples = samples.as_slice();
         let has_speech = detect_speech(&mut self.vad, self.vad_enabled, samples)?;
         self.window.push(samples);
         self.samples_seen = self.samples_seen.saturating_add(samples.len() as u64);
@@ -1374,6 +1379,9 @@ impl<'a> LivePipelineHpt<'a> {
             return Ok((Vec::new(), Vec::new()));
         }
 
+        // Sprint 14a item 9: same pre-VAD boost as the single-model pipeline.
+        let samples = crate::agc::apply_gain(samples);
+        let samples = samples.as_slice();
         let has_speech = detect_speech(&mut self.vad, self.vad_enabled, samples)?;
         self.ring.push(samples);
         self.samples_seen = self.samples_seen.saturating_add(samples.len() as u64);

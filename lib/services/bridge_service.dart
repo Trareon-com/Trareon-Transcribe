@@ -89,6 +89,16 @@ abstract class RustBridge {
 
   /// Whether [modelId]'s file already exists under [modelsDir].
   Future<bool> isModelDownloaded(String modelsDir, String modelId);
+
+  /// The single source of truth for "which model should this device
+  /// default to" (Sprint 14a): most accurate catalog model whose RAM
+  /// requirement fits [ramMb]. Used by the setup wizard and by the
+  /// "Tingkatkan akurasi" offer in Settings.
+  Future<String> recommendDefaultModel(int ramMb);
+
+  /// A human-readable Indonesian accuracy label for [modelId]
+  /// (e.g. "WER FLEURS-id: 8,1%"), or `null` when no measurement exists.
+  Future<String?> modelAccuracyLabel(String modelId);
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices();
   Future<List<rust_device.AudioDeviceInfo>> listOutputAudioDevices();
 
@@ -720,6 +730,13 @@ class RustBridgeMock implements RustBridge {
       false;
 
   @override
+  Future<String> recommendDefaultModel(int ramMb) async =>
+      ramMb >= 6144 ? 'large-v3-turbo-q5' : (ramMb >= 4096 ? 'small' : 'base');
+
+  @override
+  Future<String?> modelAccuracyLabel(String modelId) async => null;
+
+  @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() async => [
     rust_device.AudioDeviceInfo(
       name: 'Built-in Microphone',
@@ -1349,6 +1366,14 @@ class RustEngineBridge implements RustBridge {
       rust_api.isModelDownloaded(modelsDir: modelsDir, modelId: modelId);
 
   @override
+  Future<String> recommendDefaultModel(int ramMb) =>
+      rust_api.recommendDefaultModel(ramMb: BigInt.from(ramMb));
+
+  @override
+  Future<String?> modelAccuracyLabel(String modelId) =>
+      rust_api.modelAccuracyLabel(modelId: modelId);
+
+  @override
   Future<List<rust_device.AudioDeviceInfo>> listAudioDevices() =>
       rust_api.listAudioDevices();
 
@@ -1774,6 +1799,7 @@ class RustEngineBridge implements RustBridge {
       audioToDisk: config.audioToDisk,
       glossary: config.glossary,
       fallbackModelPath: config.fallbackModelPath,
+      language: config.language,
     );
   }
 
@@ -1820,6 +1846,7 @@ class RustEngineBridge implements RustBridge {
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
       neuralDiarization: settings.neuralDiarization,
+      defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
     );
   }
 
@@ -1848,6 +1875,7 @@ class RustEngineBridge implements RustBridge {
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
       neuralDiarization: settings.neuralDiarization,
+      defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
     );
   }
 }

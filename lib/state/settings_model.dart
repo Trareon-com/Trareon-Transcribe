@@ -132,12 +132,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   // NOTE: this intentionally accepts any available model, not just
-  // kKnownModelIds (the 2 models the Settings dropdown lists) — power users
-  // can have 'tiny'/'small'/'medium' etc. on disk (e.g. via an older
-  // release, or a manual download) and those should keep working for
-  // transcription. The Settings dropdown itself is what clamps display to
-  // kKnownModelIds (see settings_side_panel.dart) so an out-of-catalog
-  // value can't crash it, without discarding the user's actual selection.
+  // kKnownModelIds (the models the Settings dropdown lists) — power users
+  // can have 'tiny'/'medium' etc. on disk (e.g. via an older release, or a
+  // manual download) and those should keep working for transcription. The
+  // Settings dropdown itself is what clamps display to kKnownModelIds (see
+  // settings_screen.dart) so an out-of-catalog value can't crash it,
+  // without discarding the user's actual selection.
   AppSettings _sanitizeDefaultModel(AppSettings settings) {
     if (isModelAvailable(
       settings.defaultModel,
@@ -353,6 +353,14 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setNoiseReduction(bool enabled) => _apply(
     state.copyWith(noiseReduction: enabled),
     label: 'Pengurangan derau',
+  );
+
+  /// Dismisses the "Tingkatkan akurasi" offer without changing
+  /// [AppSettings.defaultModel]. Persisted so the offer does not reappear
+  /// every time Settings is opened (Sprint 14a item 6).
+  Future<void> dismissDefaultModelUpgradeOffer() => _apply(
+    state.copyWith(defaultModelUpgradeDismissed: true),
+    label: 'Tawaran tingkatkan akurasi',
   );
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(

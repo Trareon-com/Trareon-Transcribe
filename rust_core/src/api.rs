@@ -196,6 +196,21 @@ pub fn is_model_downloaded(models_dir: String, model_id: String) -> bool {
     crate::model::is_model_downloaded(&PathBuf::from(models_dir), &model_id)
 }
 
+/// The single source of truth for "which model should this device default
+/// to" (Sprint 14a) — most accurate catalog model whose RAM requirement
+/// fits `ram_mb`. Used by both the setup wizard's live-model suggestion and
+/// the file-import default; see `model_select` for why one function serves
+/// both.
+pub fn recommend_default_model(ram_mb: u64) -> String {
+    crate::model_select::recommend_default_model(ram_mb).to_string()
+}
+
+/// A human-readable Indonesian accuracy label for `model_id`
+/// (e.g. `"WER FLEURS-id: 8,1%"`), or `None` when no measurement exists.
+pub fn model_accuracy_label(model_id: String) -> Option<String> {
+    crate::model_select::accuracy_label(&model_id)
+}
+
 pub async fn download_model(models_dir: String, model_id: String) -> Result<(), TranscribeError> {
     let models_path = PathBuf::from(models_dir);
     let info = crate::model::resolve_model_info(&models_path, &model_id)?;
