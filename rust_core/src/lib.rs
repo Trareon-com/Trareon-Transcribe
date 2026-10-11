@@ -16,6 +16,9 @@ compile_error!(
 /// Structured action items (tugas / PJ / tenggat / status) with .ics
 /// and CSV export.
 pub mod actions;
+/// Acoustic echo cancellation (NLMS adaptive filter, Sprint 13 B1-B4
+/// revisited — classical DSP, no ONNX model/license dependency).
+pub mod aec;
 pub mod agc;
 pub mod api;
 /// Local full-text index over every session ("Tanya arsip rapat").
@@ -74,6 +77,12 @@ pub mod privacy;
 pub mod progressive;
 /// Summary citations back into the transcript.
 pub mod provenance;
+/// Hybrid lexical+semantic search over the meeting archive (Sprint 13
+/// D1-D4, revisited) — `vec0` storage + RRF, on top of `archive`'s
+/// existing FTS5/BM25 index. [`EmbeddingProvider`] deliberately has no
+/// implementation here yet (see module doc for the model candidates
+/// researched and why wiring one in needs an explicit owner go-ahead).
+pub mod semantic_search;
 pub mod session;
 pub mod settings;
 pub mod silence_gate;

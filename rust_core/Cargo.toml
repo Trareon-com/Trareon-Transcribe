@@ -80,6 +80,16 @@ strsim = "0.11"
 # was built with it is not something an offline desktop app can check at
 # install time.
 rusqlite = { version = "0.37", features = ["bundled"] }
+# Vector similarity search as a SQLite virtual table (`vec0`), for hybrid
+# lexical+semantic search over the meeting archive (Sprint 13 D1-D4,
+# revisited). Pinned to the latest *stable* release, not the 0.1.10-alpha
+# series — this sits underneath every session's archive index, so it
+# stays on the release channel the project actually ships, not a
+# prerelease. Requires rusqlite's "bundled" feature (already enabled
+# above) so `sqlite3_auto_extension` registers against the same SQLite
+# build every connection opens against — a mismatched system SQLite would
+# silently fail to expose `vec0`.
+sqlite-vec = "0.1.9"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "stream", "json"] }
 futures-util = "0.3"
 bytes = "1"
