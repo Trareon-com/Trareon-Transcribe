@@ -1696,6 +1696,43 @@ pub fn flight_set_enabled(enabled: bool) {
     crate::flight_recorder::set_enabled(enabled);
 }
 
+// ── "Ekspor/Impor arsip sesi" (F26/F27, Sprint 16) ──────────────────────
+
+/// Zips every file in `session_dir` into `destination` as a `.zip`.
+/// Returns the path written. See `session_archive::write_session_archive`.
+pub fn export_session_archive(
+    session_dir: String,
+    destination: String,
+) -> Result<String, TranscribeError> {
+    let path = crate::session_archive::write_session_archive(
+        std::path::Path::new(&session_dir),
+        std::path::Path::new(&destination),
+    )
+    .map_err(TranscribeError::from)?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Entry names inside `archive_path`, without extracting anything.
+pub fn session_archive_entries(archive_path: String) -> Result<Vec<String>, TranscribeError> {
+    crate::session_archive::list_archive_entries(std::path::Path::new(&archive_path))
+        .map_err(TranscribeError::from)
+}
+
+/// Extracts `archive_path` into `destination_dir`, flattened. The caller
+/// (Dart) is responsible for extracting into a scratch directory and
+/// validating/moving the result — this only does the mechanical unzip.
+/// Returns the file names written.
+pub fn import_session_archive(
+    archive_path: String,
+    destination_dir: String,
+) -> Result<Vec<String>, TranscribeError> {
+    crate::session_archive::extract_archive(
+        std::path::Path::new(&archive_path),
+        std::path::Path::new(&destination_dir),
+    )
+    .map_err(TranscribeError::from)
+}
+
 // --- Singleton instance lock -----------------------------------------------------
 
 pub fn acquire_instance_lock() -> Result<(), TranscribeError> {

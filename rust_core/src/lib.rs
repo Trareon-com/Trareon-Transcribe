@@ -98,6 +98,10 @@ pub mod provenance;
 /// researched and why wiring one in needs an explicit owner go-ahead).
 pub mod semantic_search;
 pub mod session;
+/// "Ekspor/Impor arsip sesi" (F26/F27, Sprint 16): zips a whole session
+/// folder into one `.zip` for manual cross-device transfer, and extracts
+/// one back. See module doc.
+pub mod session_archive;
 pub mod settings;
 pub mod silence_gate;
 pub mod singleton;
