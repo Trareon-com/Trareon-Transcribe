@@ -11,6 +11,7 @@ import '../src/rust/archive.dart' as rust_archive;
 import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
+import '../src/rust/calendar_import.dart' as rust_calendar;
 import '../src/rust/completion.dart' as rust_completion;
 import '../src/rust/coverage.dart' as rust_coverage;
 import '../src/rust/disk.dart' as rust_disk;
@@ -75,6 +76,17 @@ abstract class RustBridge {
   /// Mirrors the session title into the recovery snapshot, so a crashed
   /// session shows up in the recovery dialog under its name.
   Future<void> setSessionTitle(String sessionId, String title);
+
+  /// Current system RAM usage, 0.0-1.0 (F23). The same ratio the
+  /// auto-split logic already watches, surfaced to the resource indicator.
+  Future<double> systemMemoryUsageRatio();
+
+  /// Whether [ratio] is high enough to warn the user, per the engine's own
+  /// auto-split threshold.
+  Future<bool> isMemoryUsageHigh(double ratio);
+
+  /// Parses the `VEVENT`s out of an imported `.ics` calendar invite (F22).
+  Future<List<rust_calendar.CalendarEvent>> parseIcsInvite(String ics);
 
   /// Free space on the volume holding [path], and whether that is enough
   /// to keep recording. Three hours of "Rapat Online" is ~1.4 GB of WAV.
@@ -651,6 +663,16 @@ class RustBridgeMock implements RustBridge {
 
   @override
   Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<double> systemMemoryUsageRatio() async => 0.0;
+
+  @override
+  Future<bool> isMemoryUsageHigh(double ratio) async => ratio >= 0.8;
+
+  @override
+  Future<List<rust_calendar.CalendarEvent>> parseIcsInvite(String ics) async =>
+      const [];
 
   /// The mock never touches the filesystem, so it reports plenty of room
   /// rather than blocking a UI test on the host machine's free space.
@@ -1273,6 +1295,17 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<void> setSessionTitle(String sessionId, String title) =>
       rust_api.setSessionTitle(sessionId: sessionId, title: title);
+
+  @override
+  Future<double> systemMemoryUsageRatio() => rust_api.systemMemoryUsageRatio();
+
+  @override
+  Future<bool> isMemoryUsageHigh(double ratio) =>
+      rust_api.isMemoryUsageHigh(ratio: ratio);
+
+  @override
+  Future<List<rust_calendar.CalendarEvent>> parseIcsInvite(String ics) =>
+      rust_api.parseIcsInvite(ics: ics);
 
   @override
   Future<rust_disk.DiskSpaceStatus> diskSpace(String path) =>

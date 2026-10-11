@@ -8,6 +8,7 @@ import 'api.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'calendar_import.dart';
 import 'capabilities.dart';
 import 'completion.dart';
 import 'coverage.dart';
@@ -169,6 +170,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  CalendarEvent dco_decode_calendar_event(dynamic raw);
+
+  @protected
   Capability dco_decode_capability(dynamic raw);
 
   @protected
@@ -275,6 +279,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Bookmark> dco_decode_list_bookmark(dynamic raw);
+
+  @protected
+  List<CalendarEvent> dco_decode_list_calendar_event(dynamic raw);
 
   @protected
   List<Capability> dco_decode_list_capability(dynamic raw);
@@ -748,6 +755,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  CalendarEvent sse_decode_calendar_event(SseDeserializer deserializer);
+
+  @protected
   Capability sse_decode_capability(SseDeserializer deserializer);
 
   @protected
@@ -866,6 +876,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<Bookmark> sse_decode_list_bookmark(SseDeserializer deserializer);
+
+  @protected
+  List<CalendarEvent> sse_decode_list_calendar_event(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<Capability> sse_decode_list_capability(SseDeserializer deserializer);
@@ -1425,6 +1440,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_calendar_event(CalendarEvent self, SseSerializer serializer);
+
+  @protected
   void sse_encode_capability(Capability self, SseSerializer serializer);
 
   @protected
@@ -1585,6 +1603,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_bookmark(List<Bookmark> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_calendar_event(
+    List<CalendarEvent> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_capability(

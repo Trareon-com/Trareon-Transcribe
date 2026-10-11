@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/src/rust/api.dart' as rust_api;
+import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
@@ -307,6 +308,16 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<double> systemMemoryUsageRatio() async => 0.0;
+
+  @override
+  Future<bool> isMemoryUsageHigh(double ratio) async => ratio >= 0.8;
+
+  @override
+  Future<List<rust_calendar.CalendarEvent>> parseIcsInvite(String ics) async =>
+      const [];
 
   @override
   Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>

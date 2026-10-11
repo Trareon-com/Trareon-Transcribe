@@ -270,6 +270,8 @@ abstract final class AppIcons {
 
   static const IconData settings = Icons.settings_rounded;
 
+  static const IconData share = Icons.ios_share_rounded;
+
   static const IconData shield = Icons.shield_outlined;
 
   static const IconData shortText = Icons.short_text_rounded;
@@ -468,6 +470,7 @@ abstract final class AppIcons {
     'searchOff': searchOff,
     'segments': segments,
     'settings': settings,
+    'share': share,
     'shield': shield,
     'shortText': shortText,
     'show': show,
