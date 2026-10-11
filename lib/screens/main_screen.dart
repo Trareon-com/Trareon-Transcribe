@@ -1343,6 +1343,11 @@ class _IdleHero extends StatelessWidget {
         // the record button itself, so it is the first thing shed when
         // height is tight.
         final showOptions = constraints.maxHeight >= 700;
+        // The template/calendar-invite shortcuts (F22, F24) are a faster
+        // path to the same form fields a user can still fill by hand, so
+        // they are shed with the other conveniences rather than pushing
+        // the record button below the fold.
+        final showTemplateRow = constraints.maxHeight >= 700;
         final wide = constraints.maxWidth >= Measure.hero + Spacing.xxxl * 2;
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
@@ -1385,37 +1390,44 @@ class _IdleHero extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Spacing.gapXs,
-                  Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            final template = await showMeetingTemplatePicker(
-                              context,
-                            );
-                            if (template != null) onApplyTemplate(template);
-                          },
-                          icon: const Icon(AppIcons.event, size: IconSizes.sm),
-                          label: const Text('Mulai dari template'),
-                        ),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final event = await importCalendarInvite(context);
-                            if (event != null) {
-                              titleController.text = event.summary;
-                            }
-                          },
-                          icon: const Icon(
-                            AppIcons.fileUpload,
-                            size: IconSizes.sm,
+                  if (showTemplateRow) ...[
+                    Spacing.gapXs,
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final template = await showMeetingTemplatePicker(
+                                context,
+                              );
+                              if (template != null) onApplyTemplate(template);
+                            },
+                            icon: const Icon(
+                              AppIcons.event,
+                              size: IconSizes.sm,
+                            ),
+                            label: const Text('Mulai dari template'),
                           ),
-                          label: const Text('Impor undangan (.ics)'),
-                        ),
-                      ],
+                          TextButton.icon(
+                            onPressed: () async {
+                              final event = await importCalendarInvite(
+                                context,
+                              );
+                              if (event != null) {
+                                titleController.text = event.summary;
+                              }
+                            },
+                            icon: const Icon(
+                              AppIcons.fileUpload,
+                              size: IconSizes.sm,
+                            ),
+                            label: const Text('Impor undangan (.ics)'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                   Spacing.gapLg,
                   _ModeCards(
                     mode: mode,

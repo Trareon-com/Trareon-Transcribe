@@ -86,7 +86,7 @@ class ResourceIndicator extends ConsumerWidget {
             Icon(AppIcons.warning, size: IconSizes.sm, color: colors.warning),
             const SizedBox(width: Spacing.xs),
             Text(
-              'Tinggi — pertimbangkan tutup aplikasi lain',
+              'Tinggi, pertimbangkan tutup aplikasi lain',
               style: AppText.caption.c(colors.warning),
             ),
           ],

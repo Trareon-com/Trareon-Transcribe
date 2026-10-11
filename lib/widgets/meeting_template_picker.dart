@@ -114,7 +114,7 @@ class _TemplatePickerDialogState
           if (templates.isEmpty) ...[
             Spacing.gapSm,
             Text(
-              'Template tidak wajib — "Rapat baru" tetap memulai sesi '
+              'Template tidak wajib. "Rapat baru" tetap memulai sesi '
               'kosong seperti biasa.',
               style: AppText.caption.c(colors.textTertiary),
             ),

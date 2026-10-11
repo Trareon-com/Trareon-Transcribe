@@ -174,7 +174,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       for (final item in items)
         '- ${item.tugas}'
             '${item.penanggungJawab.isEmpty ? '' : ' (PJ: ${item.penanggungJawab})'}'
-            '${item.tenggat.isEmpty ? '' : ' — tenggat ${item.tenggat}'}'
+            '${item.tenggat.isEmpty ? '' : ', tenggat ${item.tenggat}'}'
             ' [${actionStatusLabel(item.status)}]',
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n')));

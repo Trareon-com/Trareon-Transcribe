@@ -81,7 +81,9 @@ pub fn parse_ics_invite(ics: &str) -> Vec<CalendarEvent> {
             }
             continue;
         }
-        let Some(event) = current.as_mut() else { continue };
+        let Some(event) = current.as_mut() else {
+            continue;
+        };
 
         if let Some(value) = line.strip_prefix("SUMMARY:") {
             event.summary = value.trim().to_string();
