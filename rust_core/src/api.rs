@@ -173,6 +173,28 @@ pub fn set_session_title(session_id: String, title: String) -> Result<(), Transc
     crate::session::set_session_title(&session_id, &title)
 }
 
+/// Parses the `VEVENT`s out of an `.ics` calendar invite (F22) — the
+/// manual-import half of calendar integration: `SUMMARY`, `ATTENDEE` and
+/// `DTSTART` only, which is what "pra-isi judul + peserta sebelum
+/// merekam" needs.
+pub fn parse_ics_invite(ics: String) -> Vec<crate::calendar_import::CalendarEvent> {
+    crate::calendar_import::parse_ics_invite(&ics)
+}
+
+/// Current system RAM usage, 0.0-1.0. Backs the resource indicator (F23);
+/// the same ratio the auto-split logic already watches, now surfaced.
+pub fn system_memory_usage_ratio() -> f32 {
+    crate::memory::system_memory_usage_ratio()
+}
+
+/// Whether [system_memory_usage_ratio] is high enough that the resource
+/// indicator should warn the user. Mirrors the auto-split trigger
+/// (`memory::MEMORY_PRESSURE_THRESHOLD`) so the indicator and the backend
+/// never disagree about what counts as "tinggi".
+pub fn is_memory_usage_high(ratio: f32) -> bool {
+    crate::memory::is_under_memory_pressure(ratio)
+}
+
 // --- Disk space -----------------------------------------------------
 
 /// Free space on the volume holding `path`, plus whether that is enough to

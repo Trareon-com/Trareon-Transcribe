@@ -7,6 +7,7 @@ import 'actions.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'calendar_import.dart';
 import 'capabilities.dart';
 import 'completion.dart';
 import 'coverage.dart';
@@ -138,6 +139,25 @@ Future<void> setSessionTitle({
   sessionId: sessionId,
   title: title,
 );
+
+/// Parses the `VEVENT`s out of an `.ics` calendar invite (F22) — the
+/// manual-import half of calendar integration: `SUMMARY`, `ATTENDEE` and
+/// `DTSTART` only, which is what "pra-isi judul + peserta sebelum
+/// merekam" needs.
+Future<List<CalendarEvent>> parseIcsInvite({required String ics}) =>
+    RustLib.instance.api.crateApiParseIcsInvite(ics: ics);
+
+/// Current system RAM usage, 0.0-1.0. Backs the resource indicator (F23);
+/// the same ratio the auto-split logic already watches, now surfaced.
+Future<double> systemMemoryUsageRatio() =>
+    RustLib.instance.api.crateApiSystemMemoryUsageRatio();
+
+/// Whether [system_memory_usage_ratio] is high enough that the resource
+/// indicator should warn the user. Mirrors the auto-split trigger
+/// (`memory::MEMORY_PRESSURE_THRESHOLD`) so the indicator and the backend
+/// never disagree about what counts as "tinggi".
+Future<bool> isMemoryUsageHigh({required double ratio}) =>
+    RustLib.instance.api.crateApiIsMemoryUsageHigh(ratio: ratio);
 
 /// Free space on the volume holding `path`, plus whether that is enough to
 /// keep recording. Called before a session starts and periodically while

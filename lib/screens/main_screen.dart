@@ -17,6 +17,7 @@ import '../state/audio_stream_model.dart';
 import '../state/audio_watchdog_model.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
+import '../state/meeting_templates.dart';
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/session_model.dart';
@@ -31,10 +32,13 @@ import '../theme/app_typography.dart';
 import '../utils/format_time.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/bookmark_bar.dart';
+import '../widgets/calendar_invite_import.dart';
 import '../widgets/capture_health_view.dart';
 import '../widgets/platform_chrome.dart';
+import '../widgets/meeting_template_picker.dart';
 import '../widgets/record_button.dart';
 import '../widgets/recovery_dialog.dart';
+import '../widgets/resource_indicator.dart';
 import '../widgets/session_controls.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/transcript_view.dart';
@@ -1237,6 +1241,11 @@ class _Workspace extends StatelessWidget {
                         onStart: onStartBerhenti,
                         busy: isBusy,
                         busyLabel: busyLabel,
+                        onApplyTemplate: (template) {
+                          titleController.text = template.name;
+                          notifier.setMode(template.mode);
+                          notifier.setSessionLanguage(template.language);
+                        },
                       ),
                     ),
                   ],
@@ -1261,6 +1270,12 @@ class _Workspace extends StatelessWidget {
                   left: 0,
                   right: 0,
                   child: _ShortcutsPanel(onClose: onCloseShortcuts),
+                ),
+              if (!idle)
+                const Positioned(
+                  top: Spacing.sm,
+                  right: Spacing.sm,
+                  child: ResourceIndicator(),
                 ),
             ],
           ),
@@ -1290,6 +1305,7 @@ class _IdleHero extends StatelessWidget {
     required this.onStart,
     required this.busy,
     required this.busyLabel,
+    required this.onApplyTemplate,
   });
 
   final TextEditingController titleController;
@@ -1302,6 +1318,10 @@ class _IdleHero extends StatelessWidget {
   final VoidCallback onStart;
   final bool busy;
   final String busyLabel;
+
+  /// F24: applies a saved meeting template's title, mode and language to
+  /// this not-yet-started session.
+  final ValueChanged<MeetingTemplate> onApplyTemplate;
 
   @override
   Widget build(BuildContext context) {
@@ -1323,6 +1343,11 @@ class _IdleHero extends StatelessWidget {
         // the record button itself, so it is the first thing shed when
         // height is tight.
         final showOptions = constraints.maxHeight >= 700;
+        // The template/calendar-invite shortcuts (F22, F24) are a faster
+        // path to the same form fields a user can still fill by hand, so
+        // they are shed with the other conveniences rather than pushing
+        // the record button below the fold.
+        final showTemplateRow = constraints.maxHeight >= 700;
         final wide = constraints.maxWidth >= Measure.hero + Spacing.xxxl * 2;
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
@@ -1365,6 +1390,44 @@ class _IdleHero extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (showTemplateRow) ...[
+                    Spacing.gapXs,
+                    Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final template = await showMeetingTemplatePicker(
+                                context,
+                              );
+                              if (template != null) onApplyTemplate(template);
+                            },
+                            icon: const Icon(
+                              AppIcons.event,
+                              size: IconSizes.sm,
+                            ),
+                            label: const Text('Mulai dari template'),
+                          ),
+                          TextButton.icon(
+                            onPressed: () async {
+                              final event = await importCalendarInvite(
+                                context,
+                              );
+                              if (event != null) {
+                                titleController.text = event.summary;
+                              }
+                            },
+                            icon: const Icon(
+                              AppIcons.fileUpload,
+                              size: IconSizes.sm,
+                            ),
+                            label: const Text('Impor undangan (.ics)'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   Spacing.gapLg,
                   _ModeCards(
                     mode: mode,

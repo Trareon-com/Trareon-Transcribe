@@ -13,6 +13,7 @@ import '../utils/model_labels.dart';
 import '../utils/segment_lookup.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
+import '../state/meeting_templates.dart';
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
@@ -932,6 +933,11 @@ class _TranscriptPlayerScreenState
             ),
             actions: [
               IconButton(
+                icon: const Icon(AppIcons.event, size: IconSizes.lg),
+                tooltip: 'Simpan sebagai template rapat',
+                onPressed: _saveAsTemplate,
+              ),
+              IconButton(
                 icon: const Icon(AppIcons.keyboard, size: IconSizes.lg),
                 tooltip:
                     'Pintasan: Spasi putar/jeda · ←/→ 5 detik · J/K/L 10 detik',
@@ -1434,6 +1440,26 @@ class _TranscriptPlayerScreenState
         ),
       ),
     );
+  }
+
+  /// Offers to save this session's title and speaker list as a reusable
+  /// template (F24) — the "setelah sesi selesai" direction the brief
+  /// asks for, using whatever names the speaker manager (F10) already
+  /// assigned rather than re-asking for participants.
+  Future<void> _saveAsTemplate() async {
+    final speakers = speakersIn(widget.segments)
+        .map((s) => s.label)
+        .where((label) => label.trim().isNotEmpty)
+        .toList();
+    final template = MeetingTemplate(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: widget.title,
+      participants: speakers,
+      language: widget.meta.language,
+    );
+    await ref.read(meetingTemplatesProvider.notifier).upsert(template);
+    if (!mounted) return;
+    AppToast.show(context, 'Template "${widget.title}" disimpan.');
   }
 
   void _showShortcutHelp(BuildContext context, AppColorSet colors) {

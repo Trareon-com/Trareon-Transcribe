@@ -22,6 +22,7 @@ import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../utils/atomic_file.dart';
+import '../utils/share_file.dart';
 import 'app_toast.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_typography.dart';
@@ -94,26 +95,31 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
   /// Atomic (temp + rename in the same directory) like every other
   /// persisted file here: a calendar half-written because the disk filled
   /// up imports as a corrupt calendar, not as nothing.
-  Future<void> _write(String filename, String content, String what) async {
+  /// Returns the written path on success, `null` on failure (already
+  /// toasted) — callers that need to hand the file to the share sheet
+  /// have no other way to know where it went.
+  Future<String?> _write(String filename, String content, String what) async {
     setState(() => _exporting = true);
     try {
       final path = '${widget.sessionDirPath}${Platform.pathSeparator}$filename';
       await writeStringAtomic(File(path), content);
-      if (!mounted) return;
+      if (!mounted) return path;
       AppToast.show(context, '$what disimpan: $filename');
+      return path;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       AppToast.show(
         context,
         'Gagal menyimpan $what: $e',
         type: ToastType.error,
       );
+      return null;
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
   }
 
-  Future<void> _exportIcs(List<ActionItem> items) async {
+  Future<String?> _exportIcs(List<ActionItem> items) async {
     final bridge = ref.read(rustBridgeProvider);
     final now = DateTime.now();
     final today =
@@ -126,22 +132,40 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
         calendarName: 'Tindak Lanjut: ${widget.sessionTitle}',
         today: today,
       );
-      await _write('tindak-lanjut.ics', ics, 'Kalender tindak lanjut');
+      return await _write('tindak-lanjut.ics', ics, 'Kalender tindak lanjut');
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       AppToast.show(context, 'Gagal membuat .ics: $e', type: ToastType.error);
+      return null;
     }
   }
 
-  Future<void> _exportCsv(List<ActionItem> items) async {
+  Future<String?> _exportCsv(List<ActionItem> items) async {
     final bridge = ref.read(rustBridgeProvider);
     try {
       final csv = await bridge.actionItemsToCsv(items);
-      await _write('tindak-lanjut.csv', csv, 'Tabel tindak lanjut');
+      return await _write('tindak-lanjut.csv', csv, 'Tabel tindak lanjut');
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       AppToast.show(context, 'Gagal membuat .csv: $e', type: ToastType.error);
+      return null;
     }
+  }
+
+  /// Exports [items] to [filename] via [export] (ics or csv), then hands
+  /// the result straight to the share sheet (F21) — one tap, not
+  /// "export, then go find the file".
+  Future<void> _exportAndShare(
+    Future<String?> Function(List<ActionItem>) export,
+    List<ActionItem> items,
+  ) async {
+    final path = await export(items);
+    if (path == null || !mounted) return;
+    await shareExportedFile(
+      context,
+      path,
+      subject: 'Tindak Lanjut: ${widget.sessionTitle}',
+    );
   }
 
   Future<void> _copyAsText(List<ActionItem> items) async {
@@ -150,7 +174,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       for (final item in items)
         '- ${item.tugas}'
             '${item.penanggungJawab.isEmpty ? '' : ' (PJ: ${item.penanggungJawab})'}'
-            '${item.tenggat.isEmpty ? '' : ' — tenggat ${item.tenggat}'}'
+            '${item.tenggat.isEmpty ? '' : ', tenggat ${item.tenggat}'}'
             ' [${actionStatusLabel(item.status)}]',
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n')));
@@ -301,6 +325,19 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                         label: const Text('Ekspor CSV'),
                       ),
                       OutlinedButton.icon(
+                        key: const ValueKey('bagikan-csv'),
+                        onPressed: exportable.isEmpty || _exporting
+                            ? null
+                            : () {
+                                actionItemExportSettled = _exportAndShare(
+                                  _exportCsv,
+                                  exportable,
+                                );
+                              },
+                        icon: const Icon(AppIcons.share, size: IconSizes.sm),
+                        label: const Text('Bagikan CSV'),
+                      ),
+                      OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () {
@@ -312,6 +349,19 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                               },
                         icon: const Icon(AppIcons.event, size: IconSizes.sm),
                         label: const Text('Ekspor .ics'),
+                      ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('bagikan-ics'),
+                        onPressed: exportable.isEmpty || _exporting
+                            ? null
+                            : () {
+                                actionItemExportSettled = _exportAndShare(
+                                  _exportIcs,
+                                  exportable,
+                                );
+                              },
+                        icon: const Icon(AppIcons.share, size: IconSizes.sm),
+                        label: const Text('Bagikan .ics'),
                       ),
                     ],
                   ),

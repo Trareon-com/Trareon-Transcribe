@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/transcript_player_screen.dart';
+import 'package:transcribe/state/meeting_templates.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_icons.dart';
+
+import 'test_helpers.dart';
 
 /// Find text inside [RichText] widgets which [find.text] does not match.
 ///
@@ -201,5 +204,70 @@ void main() {
     expect(findRichText('Agenda pertama adalah budgeting'), findsOneWidget);
     expect(findRichText('Agenda kedua adalah roadmap'), findsNothing);
     // Search count not shown in new design
+  });
+
+  group('save as template (F24)', () {
+    const multiSpeakerSegments = [
+      TranscriptSegment(
+        source: 'mic',
+        speaker: 'Budi Santoso',
+        text: 'Mari kita mulai.',
+        timestamp: 0,
+        duration: 2,
+        language: 'id',
+        confidence: 0.9,
+        isPartial: false,
+      ),
+      TranscriptSegment(
+        source: 'speaker',
+        speaker: 'Sari Wulandari',
+        text: 'Siap.',
+        timestamp: 2,
+        duration: 1,
+        language: 'id',
+        confidence: 0.9,
+        isPartial: false,
+      ),
+    ];
+
+    testWidgets(
+      'saves the title and renamed speakers as a reusable template',
+      (tester) async {
+        // Bounded pump()s rather than pumpAndSettle(): this screen's
+        // playback position stream keeps scheduling frames and never
+        // "settles", the same reason every other test in this file
+        // avoids it too.
+        await tester.pumpWidget(
+          buildTestAppWithOverrides(
+            overrides: [
+              meetingTemplatesProvider.overrideWith(
+                (ref) => MeetingTemplateNotifier(
+                  store: InMemoryTemplateStore(),
+                ),
+              ),
+            ],
+            child: const TranscriptPlayerScreen(
+              title: 'Rapat Anggaran Mingguan',
+              durationSeconds: 120,
+              segments: multiSpeakerSegments,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        await tester.tap(find.byTooltip('Simpan sebagai template rapat'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          find.textContaining('Template "Rapat Anggaran Mingguan" disimpan'),
+          findsOneWidget,
+        );
+
+        // Let the confirmation toast's dismissal timer expire.
+        await tester.pump(const Duration(seconds: 4));
+      },
+    );
   });
 }

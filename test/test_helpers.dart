@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/state/library_model.dart';
+import 'package:transcribe/state/meeting_templates.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/theme/app_theme.dart';
@@ -12,6 +13,7 @@ import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
+import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
 import 'package:transcribe/src/rust/actions.dart' as rust_actions;
 import 'package:transcribe/src/rust/archive.dart' as rust_archive;
 import 'package:transcribe/src/rust/capabilities.dart' as rust_capabilities;
@@ -35,6 +37,27 @@ import 'package:transcribe/src/rust/model.dart' as rust_model;
 /// can touch the network, so a test that reaches it by accident must fail
 /// loudly instead of quietly passing on fabricated Markdown. Individual
 /// doubles override whichever members their test actually exercises.
+/// A [MeetingTemplateStore] that never touches disk. `DartPrefs.save()`
+/// goes through `path_provider`'s real platform channel, which hangs
+/// rather than failing fast in this sandboxed test runner — the same
+/// class of issue the clipboard fallback in `share_file.dart` works
+/// around. Any test that upserts a [MeetingTemplate] through the real
+/// provider needs this, not the default store.
+class InMemoryTemplateStore extends MeetingTemplateStore {
+  InMemoryTemplateStore();
+
+  List<MeetingTemplate> _saved = const [];
+
+  @override
+  Future<List<MeetingTemplate>> load() async => _saved;
+
+  @override
+  Future<bool> saveAll(List<MeetingTemplate> templates) async {
+    _saved = templates;
+    return true;
+  }
+}
+
 mixin SummaryBridgeStubs {
   Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
     required List<TranscriptSegment> segments,
@@ -365,6 +388,16 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<void> setSessionTitle(String sessionId, String title) async {}
+
+  @override
+  Future<double> systemMemoryUsageRatio() async => 0.0;
+
+  @override
+  Future<bool> isMemoryUsageHigh(double ratio) async => ratio >= 0.8;
+
+  @override
+  Future<List<rust_calendar.CalendarEvent>> parseIcsInvite(String ics) async =>
+      const [];
 
   @override
   Future<rust_disk.DiskSpaceStatus> diskSpace(String path) async =>
