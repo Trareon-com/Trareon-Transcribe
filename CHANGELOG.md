@@ -5,6 +5,31 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 16: ekspor/impor arsip sesi lintas-device (.zip), implementasi dari
+rekomendasi audit F25 Sprint 15. Lihat `docs/SPRINT-REPORTS.md` Sprint 16
+report untuk detail lengkap.
+
+### Ditambahkan (Sprint 16)
+
+- **Ekspor sesi sebagai arsip (.zip)** (F26, `rust_core/src/session_archive.rs`,
+  `lib/services/session_archive_service.dart`): tombol "Ekspor sebagai arsip
+  (.zip)" di kartu sesi men-zip seluruh folder sesi (audio, transkrip,
+  sidecar, backup transkrip bila ada) menjadi satu `.zip` bernama dari
+  judul+tanggal sesi. Zip/unzip dikerjakan di Rust (crate `zip`, sudah jadi
+  dependency lewat `flight_recorder.rs`'s "Ekspor Log Diagnostik") — tidak
+  ada dependency Dart baru.
+- **Impor arsip sesi (.zip)** (F27, modul yang sama): tombol "Impor arsip
+  sesi (.zip)" di tab "Impor Berkas" layar perpustakaan mengekstrak ke
+  folder sementara di dalam `libraryPath`, memvalidasi (transkrip ada,
+  sidecar terbaca lewat `SessionMeta.fromJson` yang sudah tolerant-of-garbage
+  — tidak ada parser baru) sebelum pindah atomik (rename) ke posisi akhir.
+  Arsip yang bukan sesi Trareon atau rusak ditolak dengan pesan jelas tanpa
+  meninggalkan file parsial. Nama yang sudah dipakai sesi lain memicu dialog
+  "Lewati" / "Impor sebagai duplikat" / "Timpa".
+- Keduanya manual dan sekali-jalan sesuai prinsip privasi-lokal: tidak ada
+  akun, server, atau watch-folder — user yang menekan tombol dan memindahkan
+  `.zip` sendiri.
+
 Sprint 15: quick-share, impor undangan kalender, indikator resource, dan
 template rapat rutin. Lihat `docs/SPRINT-REPORTS.md` Sprint 15 report untuk
 audit per-butir lengkap, termasuk gap yang disengaja.

@@ -317,6 +317,16 @@ mixin SummaryBridgeStubs {
 
   Future<int> diagnosticLogFileCount() async => 1;
 
+  Future<String> exportSessionArchive({
+    required String sessionDir,
+    required String destination,
+  }) async => destination;
+
+  Future<List<String>> importSessionArchive({
+    required String archivePath,
+    required String destinationDir,
+  }) async => const [];
+
   Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) async => [
     for (final bookmark in bookmarks)
       '[${(bookmark.timestamp ~/ 60).toString().padLeft(2, '0')}:'

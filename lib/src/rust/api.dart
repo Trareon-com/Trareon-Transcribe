@@ -1030,6 +1030,34 @@ Future<int> flightLogFileCount() =>
 Future<void> flightSetEnabled({required bool enabled}) =>
     RustLib.instance.api.crateApiFlightSetEnabled(enabled: enabled);
 
+/// Zips every file in `session_dir` into `destination` as a `.zip`.
+/// Returns the path written. See `session_archive::write_session_archive`.
+Future<String> exportSessionArchive({
+  required String sessionDir,
+  required String destination,
+}) => RustLib.instance.api.crateApiExportSessionArchive(
+  sessionDir: sessionDir,
+  destination: destination,
+);
+
+/// Entry names inside `archive_path`, without extracting anything.
+Future<List<String>> sessionArchiveEntries({required String archivePath}) =>
+    RustLib.instance.api.crateApiSessionArchiveEntries(
+      archivePath: archivePath,
+    );
+
+/// Extracts `archive_path` into `destination_dir`, flattened. The caller
+/// (Dart) is responsible for extracting into a scratch directory and
+/// validating/moving the result — this only does the mechanical unzip.
+/// Returns the file names written.
+Future<List<String>> importSessionArchive({
+  required String archivePath,
+  required String destinationDir,
+}) => RustLib.instance.api.crateApiImportSessionArchive(
+  archivePath: archivePath,
+  destinationDir: destinationDir,
+);
+
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
 
