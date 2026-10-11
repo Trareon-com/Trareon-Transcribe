@@ -46,6 +46,7 @@ pub mod confidence;
 pub mod doctor;
 pub mod error;
 mod frb_generated;
+pub mod gpu_autodetect;
 /// F16 bagian A: deteksi window rapat (Zoom/Meet/Teams) aktif di OS.
 pub mod meeting_detect;
 
