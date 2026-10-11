@@ -27,6 +27,10 @@ abstract final class AppIcons {
 
   static const IconData appearance = Icons.palette_rounded;
 
+  static const IconData archive = Icons.folder_zip_rounded;
+
+  static const IconData archiveImport = Icons.drive_folder_upload_rounded;
+
   static const IconData arrowRight = Icons.arrow_forward_rounded;
 
   static const IconData article = Icons.article_rounded;

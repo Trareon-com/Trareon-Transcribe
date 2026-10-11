@@ -15,6 +15,10 @@ class SessionCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onExport;
+
+  /// "Ekspor sebagai arsip (.zip)" (F26) — packs the whole session folder,
+  /// not just one document, for moving to another device.
+  final VoidCallback? onExportArchive;
   final VoidCallback? onRename;
 
   /// Shows the "Ringkasan" badge when this session has a saved AI summary.
@@ -34,6 +38,7 @@ class SessionCard extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onExport,
+    this.onExportArchive,
     this.onRename,
     this.hasSummary = false,
     this.matchSnippet,
@@ -226,6 +231,16 @@ class SessionCard extends StatelessWidget {
                 tooltip: 'Ekspor',
                 onPressed: onExport,
               ),
+              if (onExportArchive != null)
+                IconButton(
+                  icon: Icon(
+                    AppIcons.archive,
+                    size: IconSizes.md,
+                    color: colors.textTertiary,
+                  ),
+                  tooltip: 'Ekspor sebagai arsip (.zip)',
+                  onPressed: onExportArchive,
+                ),
               IconButton(
                 icon: Icon(
                   AppIcons.delete,
@@ -248,6 +263,7 @@ class SessionCardFromSummary extends StatelessWidget {
   final SessionSummary session;
   final VoidCallback onTap;
   final VoidCallback onExport;
+  final VoidCallback? onExportArchive;
   final VoidCallback onDelete;
   final VoidCallback? onRename;
   final bool hasSummary;
@@ -258,6 +274,7 @@ class SessionCardFromSummary extends StatelessWidget {
     required this.session,
     required this.onTap,
     required this.onExport,
+    this.onExportArchive,
     required this.onDelete,
     this.onRename,
     this.hasSummary = false,
@@ -275,6 +292,7 @@ class SessionCardFromSummary extends StatelessWidget {
       onTap: onTap,
       onDelete: onDelete,
       onExport: onExport,
+      onExportArchive: onExportArchive,
       onRename: onRename,
       hasSummary: hasSummary,
       matchSnippet: matchSnippet,

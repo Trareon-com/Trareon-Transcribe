@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../services/library_index.dart';
+import '../services/session_archive_service.dart';
 import '../services/session_store.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/models.dart';
@@ -332,6 +334,124 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// "Ekspor sebagai arsip (.zip)" (F26): the whole session folder — audio,
+  /// transcript, sidecar, backup if any — as one portable `.zip`.
+  Future<void> _exportSessionArchive(LibraryEntry session) async {
+    final destination = await FilePicker.platform.saveFile(
+      dialogTitle: 'Simpan arsip sesi',
+      fileName: archiveFilenameFor(title: session.title, date: session.date),
+      type: FileType.custom,
+      allowedExtensions: const ['zip'],
+    );
+    if (destination == null || !mounted) return;
+    try {
+      final written = await ref
+          .read(rustBridgeProvider)
+          .exportSessionArchive(
+            sessionDir: session.dirPath,
+            destination: destination,
+          );
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        'Arsip sesi tersimpan: $written',
+        type: ToastType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        'Gagal mengekspor arsip sesi: $e',
+        type: ToastType.error,
+      );
+    }
+  }
+
+  /// "Impor arsip sesi (.zip)" (F27): picks a `.zip`, extracts it to a
+  /// scratch folder and validates it before ever touching the visible
+  /// library — see `session_archive_service.dart` for why that order
+  /// matters.
+  Future<void> _importSessionArchive() async {
+    final libraryPath = widget.libraryPath;
+    if (libraryPath == null) return;
+    final picked = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Pilih arsip sesi (.zip)',
+      type: FileType.custom,
+      allowedExtensions: const ['zip'],
+    );
+    final archivePath = picked?.files.single.path;
+    if (archivePath == null || !mounted) return;
+
+    final bridge = ref.read(rustBridgeProvider);
+    ValidatedSessionImport validated;
+    try {
+      validated = await extractAndValidateSessionArchive(
+        bridge,
+        archivePath,
+        libraryPath,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.show(context, '$e', type: ToastType.error);
+      return;
+    }
+
+    final finalPath = await finalizeSessionImport(
+      validated,
+      libraryPath,
+      onConflict: () => _askImportConflict(validated.suggestedDirName),
+    );
+    if (!mounted) return;
+    if (finalPath == null) {
+      AppToast.show(context, 'Impor arsip sesi dilewati.');
+      return;
+    }
+    AppToast.show(
+      context,
+      'Sesi "${validated.suggestedDirName}" diimpor.',
+      type: ToastType.success,
+    );
+    await _loadFromDisk();
+  }
+
+  /// Asks what to do when an import's target name already exists in the
+  /// library. Defaults to "Lewati" if the dialog is dismissed without a
+  /// choice — silently overwriting or duplicating must never be the
+  /// fallback for a dismissed dialog.
+  Future<SessionImportConflictChoice> _askImportConflict(String name) async {
+    final choice = await showDialog<SessionImportConflictChoice>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Sesi sudah ada'),
+        content: Text(
+          'Sesi dengan nama "$name" sudah ada di perpustakaan ini. '
+          'Apa yang ingin dilakukan?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(
+              dialogCtx,
+            ).pop(SessionImportConflictChoice.skip),
+            child: const Text('Lewati'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(
+              dialogCtx,
+            ).pop(SessionImportConflictChoice.duplicate),
+            child: const Text('Impor sebagai duplikat'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(
+              dialogCtx,
+            ).pop(SessionImportConflictChoice.overwrite),
+            child: const Text('Timpa'),
+          ),
+        ],
+      ),
+    );
+    return choice ?? SessionImportConflictChoice.skip;
+  }
+
   Future<void> _openSession(LibraryEntry session) async {
     final record = await loadSessionRecord(session.dirPath);
     if (!mounted) return;
@@ -510,6 +630,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               matchSnippet: _snippetFor(session),
                               onDelete: () => _deleteSession(session),
                               onExport: () => _exportSession(session),
+                              onExportArchive: () =>
+                                  _exportSessionArchive(session),
                               onRename: () => _renameSession(session),
                               onTap: () => _openSession(session),
                             );
@@ -522,7 +644,25 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             // Upload tab
             Padding(
               padding: const EdgeInsets.all(Spacing.md),
-              child: FileUploadZone(onProcessed: _loadFromDisk),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Separate from FileUploadZone below: this imports a
+                  // *complete* session (transcript + sidecar) exported from
+                  // another device, not raw audio to transcribe.
+                  OutlinedButton.icon(
+                    onPressed: widget.libraryPath == null
+                        ? null
+                        : _importSessionArchive,
+                    icon: const Icon(AppIcons.archiveImport),
+                    label: const Text('Impor arsip sesi (.zip)'),
+                  ),
+                  Spacing.gapMd,
+                  Expanded(
+                    child: FileUploadZone(onProcessed: _loadFromDisk),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

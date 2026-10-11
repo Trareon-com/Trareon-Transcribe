@@ -430,6 +430,23 @@ abstract class RustBridge {
 
   /// How many flight-recorder files (active + rotated) an export would carry.
   Future<int> diagnosticLogFileCount();
+
+  /// "Ekspor sesi sebagai arsip" (F26): zips every file in [sessionDir]
+  /// into [destination]. Returns the path written.
+  Future<String> exportSessionArchive({
+    required String sessionDir,
+    required String destination,
+  });
+
+  /// "Impor arsip sesi" (F27): extracts [archivePath] into
+  /// [destinationDir], flattened. Returns the file names written. The
+  /// caller is responsible for extracting into a scratch directory and
+  /// validating/moving the result — this only does the mechanical unzip,
+  /// and throws if [archivePath] is not a readable zip.
+  Future<List<String>> importSessionArchive({
+    required String archivePath,
+    required String destinationDir,
+  });
 }
 
 /// A glossary that changes nothing — the default for every call site that
@@ -1132,6 +1149,18 @@ class RustBridgeMock implements RustBridge {
   Future<int> diagnosticLogFileCount() async => 1;
 
   @override
+  Future<String> exportSessionArchive({
+    required String sessionDir,
+    required String destination,
+  }) async => destination;
+
+  @override
+  Future<List<String>> importSessionArchive({
+    required String archivePath,
+    required String destinationDir,
+  }) async => const [];
+
+  @override
   Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) async => [
     for (final bookmark in bookmarks)
       '[${_mmss(bookmark.timestamp)}] '
@@ -1575,6 +1604,24 @@ class RustEngineBridge implements RustBridge {
 
   @override
   Future<int> diagnosticLogFileCount() => rust_api.flightLogFileCount();
+
+  @override
+  Future<String> exportSessionArchive({
+    required String sessionDir,
+    required String destination,
+  }) => rust_api.exportSessionArchive(
+    sessionDir: sessionDir,
+    destination: destination,
+  );
+
+  @override
+  Future<List<String>> importSessionArchive({
+    required String archivePath,
+    required String destinationDir,
+  }) => rust_api.importSessionArchive(
+    archivePath: archivePath,
+    destinationDir: destinationDir,
+  );
 
   @override
   Future<List<String>> formatBookmarks(List<Bookmark> bookmarks) =>
