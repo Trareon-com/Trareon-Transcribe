@@ -5126,3 +5126,58 @@ Build rilis dijalankan di `:0` (X11 virtual; `pactl get-default-sink` diverifika
 - AEC (B1-B5) dan pencarian semantik (D1-D4) **belum dikerjakan sama sekali** — keduanya realistis sprint tersendiri, bukan kelalaian dalam sprint ini.
 - A2 (ducking) ditolak secara sadar — tidak ada sinyal tercampur dalam arsitektur saat ini untuk diterapkan.
 - B6 (reopen loopback) diimplementasikan dan diuji secara unit, tapi skenario tukar-profil TWS fisik belum diverifikasi hardware nyata — item terpisah untuk Master.
+
+---
+
+## Sprint 15 report — Quick-share, kalender dua-arah, indikator resource, template rapat, audit sync lintas-device
+
+Branch `sprint/15-quickshare-calendar-resource-template`, dari origin/main
+(`8ef4f08`). Pekerjaan sempat terdampar di commit lokal `9351f06` setelah
+branch di-reset ke origin/main oleh proses lain; dipulihkan lewat
+`git cherry-pick` (bersih, tanpa konflik) sebelum verifikasi gerbang
+dimulai — tidak ada file yang hilang dari checkpoint itu.
+
+### Status per butir
+
+| Butir | Status | Catatan |
+|---|---|---|
+| F21. Quick-share satu-ketuk | **PARTIAL** | `lib/utils/share_file.dart::shareExportedFile` memanggil `share_plus` (`SharePlus.instance.share` dengan `XFile`), dengan fallback eksplisit di Linux (platform check, bukan try/catch — backend Linux `share_plus` melempar `UnimplementedError` untuk file, dan `url_launcher_linux` di sandbox test bisa *hang* alih-alih gagal cepat): salin path ke clipboard + toast "Berbagi file tidak didukung di platform ini. Path disalin: …", tidak pernah mengklaim berbagi berhasil padahal hanya disalin. Terpasang dan **dikonfirmasi lewat smoke test nyata** pada tombol "Bagikan CSV"/"Bagikan .ics" di `action_items_panel.dart`. **Gap jujur**: brief minta tombol Bagikan juga di ringkasan/notulen dan ekspor transkrip penuh (`_exportTranscript`/`showEksporDialog` di `transcript_player_screen.dart`) — itu belum disambungkan, hanya action items yang punya tombol Bagikan. 4 test (`share_file_test.dart`) menguji jalur sukses (di-mock lewat seam `copyToClipboard`) dan fallback Linux; test action items lain menguji pemanggilan dengan path berkas yang benar. |
+| F22. Integrasi kalender dua-arah | **PARTIAL (sesuai opsi yang diizinkan brief)** | Arah masuk yang dibangun: **impor manual `.ics`** sebelum mulai sesi. Parser RFC 5545 baru (`rust_core/src/calendar_import.rs`): unfold baris lipat (CRLF + spasi/tab lanjutan), ekstrak `SUMMARY`, `DTSTART` (lokal & UTC `Z`), dan `ATTENDEE` (nama dari `CN=`, fallback ke alamat kalau tidak ada `CN`) per `VEVENT`. UI: tombol "Impor undangan (.ics)" di layar mulai sesi (`calendar_invite_import.dart`) → file picker → dialog konfirmasi yang menampilkan judul, waktu, dan daftar peserta undangan → kalau dikonfirmasi, mengisi `titleController` (judul sesi) dari `SUMMARY`. **Tidak dibangun** (secara sadar, sesuai opsi PARTIAL yang brief izinkan secara eksplisit): watch-folder, auto-tawar saat event kalender cocok ±15 menit dari waktu sekarang. **Gap tambahan**: `ATTENDEE` di-parse dan ditampilkan di dialog konfirmasi tapi **tidak** diisi ke field manapun di form sesi — form mulai sesi saat ini tidak punya field "peserta" berdiri sendiri (peserta ditetapkan belakangan lewat speaker manager F10 setelah sesi selesai), jadi tidak ada tempat untuk mengisinya secara otomatis tanpa menambah field baru di luar lingkup sprint ini. 11 test parser (`calendar_import.rs`, unfold, SUMMARY/ATTENDEE/DTSTART, CN fallback, event tanpa SUMMARY) + widget test alur konfirmasi (`calendar_invite_import_test.dart`). |
+| F23. Indikator resource saat rekam | **DONE** | `system_memory_usage_ratio()` dan `is_memory_usage_high()` (ambang dari `memory.rs::MEMORY_PRESSURE_THRESHOLD`, dipakai ulang bukan diduplikasi) di-expose lewat FRB (`rust_core/src/api.rs`, binding diregenerasi). `ResourceIndicator` (`lib/widgets/resource_indicator.dart`): pill non-intrusive di pojok layar rekam, poll tiap 15 detik lewat `StreamProvider.autoDispose`, **tidak tampil sama sekali** saat normal (bukan badge "Normal" yang permanen — disengaja, layar rekam fokus ke transkrip), tampil "Tinggi, pertimbangkan tutup aplikasi lain" (bahasa kualitatif, tanpa angka RAM mentah) saat ratio melewati ambang. Diverifikasi di smoke test nyata: tidak tampil saat rekaman berjalan normal (perilaku benar — mesin tidak dalam tekanan memori saat diuji). CPU belum ditambahkan (sesuai prioritas brief: RAM dulu). 4 test widget (`resource_indicator_test.dart`: normal vs tinggi, polling, dispose). |
+| F24. Template rapat rutin | **DONE** | Model `MeetingTemplate` baru (`lib/state/meeting_templates.dart`: nama, peserta default, agenda default, bahasa, mode sesi) disimpan lewat `DartPrefs` (JSON, atomic write — konsisten dengan penyimpanan lokal lain yang sudah ada), terpisah total dari `NotulenTemplate` lama (`notulen_templates.dart`) yang merupakan template *format dokumen*, bukan *setup rapat* — tidak ada duplikasi/tabrakan. UI: "Mulai dari template" di layar mulai sesi (`meeting_template_picker.dart`, dropdown pilih template atau buat baru → pra-isi judul/mode/bahasa) dan "Simpan sebagai template" di appBar pemutar transkrip (`transcript_player_screen.dart::_saveAsTemplate`, memakai judul+peserta yang sudah ada dari sesi yang baru direkam). 2 test widget picker/creator (`meeting_template_picker_test.dart`), 7 test model simpan/muat/toleransi data rusak (`meeting_templates_test.dart`), 1 test save-as-template dari pemutar transkrip (`transcript_player_screen_test.dart`). |
+| F25. Audit sinkronisasi/handoff lintas-device | **DONE (audit-only, sesuai brief)** | `docs/MULTI_DEVICE_HANDOFF_AUDIT.md`: dikonfirmasi langsung dari kode (`session_store.dart`, `library_index.dart`, `library_screen.dart`) bahwa **tidak ada** jalur pindah sesi antar device hari ini selain menyalin folder sesi manual lewat file manager, tanpa panduan UI. Diusulkan opsi paling ringan — ekspor sesi sebagai arsip `.zip` (audio+transkrip+sidecar) dan impor arsip dengan validasi — dengan tabel trade-off eksplisit melawan sync otomatis (effort besar, **melanggar** prinsip privasi-lokal yang jadi moat produk ini vs kompetitor cloud). Rekomendasi: opsi manual `.zip`, tapi **tidak diimplementasikan** — brief eksplisit melarang ini, keputusan butuh persetujuan Master karena menyentuh klaim privasi produk. |
+
+### Bug ditemukan & diperbaiki lewat gerbang verifikasi (bukan hanya smoke test)
+
+1. **Em-dash di tiga string salinan baru** (`resource_indicator.dart`, `action_items_panel.dart`, `meeting_template_picker.dart`) melanggar `copy_lint_test.dart` (`DESIGN-SYSTEM.md` §10 — em-dash adalah penanda "ditulis model" dalam bahasa Indonesia). Diganti dengan koma/titik.
+2. **Baris "Mulai dari template"/"Impor undangan (.ics)" mendorong tombol Mulai Rekam keluar layar** di jendela sempit (800×600, 900×700) — ditemukan lewat `narrow_window_layout_test.dart` yang sudah ada (menjaga kontrak "tombol utama selalu di layar" sejak Sprint 2). Diperbaiki dengan menambahkan `showTemplateRow` (ambang `maxHeight >= 700`, sama dengan `showOptions`) ke mekanisme "shedding" bertahap yang sudah ada di `_IdleHero`, bukan membangun ulang — baris ini disembunyikan lebih dulu sebagai kenyamanan opsional, bukan tombol rekam.
+3. **4 golden image usang** (`main-idle-{light,dark}.png`, `player-{light,dark}.png`) setelah tombol-tombol baru di atas ditambahkan ke layar idle dan appBar pemutar transkrip — diregenerasi dengan `--update-goldens`, diperiksa visual (lihat `/tmp/trareon_main.png` kelas pemeriksaan selama sprint) sebelum commit.
+4. `cargo fmt` pada `calendar_import.rs` (gaya `let-else` multi-baris) — ketahuan dari `cargo fmt --check`, bukan pelanggaran fungsional.
+
+### Gerbang verifikasi penuh
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 929 passed; 0 failed; 0 ignored (330.1s)
+flutter analyze                            → No issues found! (40-46s)
+flutter test                               → 708 passed; 0 failed (setelah perbaikan em-dash,
+                                              narrow-window overflow, dan regenerasi 4 golden di atas)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+### Uji aplikasi nyata (smoke test)
+
+Build rilis dijalankan di `:0` (`pactl get-default-sink` dikonfirmasi `trareon_silent` sebelum apa pun; mic hardware dikonfirmasi `Mute: yes` lewat `pactl get-source-mute` sebelum sesi rekam dicoba — aman meski perangkat mic fisik terpilih di UI).
+
+1. **Layar idle**: tombol "Mulai dari template" dan "Impor undangan (.ics)" tampil benar di bawah field judul sesi (lihat screenshot pemulihan golden `main-idle-light.png`).
+2. **Pemutar transkrip**: tombol "Bagikan CSV"/"Bagikan .ics" tampil di panel Tindak Lanjut berdampingan dengan ekspor yang sudah ada; ikon kalender (simpan sebagai template, F24) tampil di appBar. Diklik — tidak ada crash, tidak ada exception di log (sesi tanpa action items sehingga tidak ada payload untuk dibagikan, perilaku yang diharapkan).
+3. **Sesi rekam**: dimulai dengan mode "Rapat Online", `ResourceIndicator` **tidak tampil** (benar — memori tidak dalam tekanan di mesin uji), tidak ada crash layout atau exception baru di log selama ~22 detik rekam. Dihentikan dengan benar, dialog "Sesi selesai, ada masalah" melaporkan mic/speaker tanpa suara — perilaku yang diharapkan (tidak ada audio nyata diputar, sesuai OFFICE AUDIO RULES).
+4. Tidak ada pengujian audio langsung (live mic/loopback) di luar `trareon_silent`/mute hardware yang dilakukan sprint ini.
+
+### Celah yang diketahui
+
+- F21: tombol Bagikan belum menjangkau ekspor ringkasan/notulen dan transkrip penuh, hanya action items.
+- F22: hanya arah impor manual (`.ics`); watch-folder dan auto-tawar ±15 menit tidak dibangun (sesuai opsi PARTIAL yang diizinkan brief). Peserta undangan ditampilkan tapi tidak diisi otomatis ke field manapun (tidak ada field peserta di form mulai sesi saat ini).
+- F23: hanya RAM; CPU belum ditambahkan (sesuai prioritas brief).
+- F25: audit-only sesuai brief — **menunggu persetujuan Master** sebelum opsi ekspor/impor `.zip` yang direkomendasikan dikerjakan.

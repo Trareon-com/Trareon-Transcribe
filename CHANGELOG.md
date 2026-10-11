@@ -5,6 +5,33 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 15: quick-share, impor undangan kalender, indikator resource, dan
+template rapat rutin. Lihat `docs/SPRINT-REPORTS.md` Sprint 15 report untuk
+audit per-butir lengkap, termasuk gap yang disengaja.
+
+### Ditambahkan (Sprint 15)
+
+- **Bagikan sekali ketuk** (`lib/utils/share_file.dart`): ekspor CSV/.ics
+  action items sekarang punya tombol "Bagikan" yang memanggil share sheet
+  platform (`share_plus`); di Linux (tidak ada share sheet native) jatuh ke
+  salin path ke clipboard dengan toast yang jujur soal apa yang terjadi.
+- **Impor undangan kalender (.ics)** (`rust_core/src/calendar_import.rs`,
+  `lib/widgets/calendar_invite_import.dart`): parser RFC 5545 baru (unfold,
+  `SUMMARY`/`ATTENDEE`/`DTSTART`) dan tombol "Impor undangan (.ics)" di
+  layar mulai sesi yang pra-isi judul dari undangan setelah konfirmasi.
+- **Indikator tekanan memori saat rekam** (`lib/widgets/resource_indicator.dart`):
+  `system_memory_usage_ratio()`/`is_memory_usage_high()` yang sudah ada di
+  `memory.rs` untuk auto-split kini diekspos lewat FRB dan ditampilkan
+  sebagai pill non-intrusive ("Tinggi, pertimbangkan tutup aplikasi lain")
+  di layar rekam saat ambang terlampaui.
+- **Template rapat rutin** (`lib/state/meeting_templates.dart`,
+  `lib/widgets/meeting_template_picker.dart`): simpan peserta/agenda/bahasa/
+  mode sesi sebagai template bernama, "Mulai dari template" di layar mulai
+  sesi, "Simpan sebagai template" di pemutar transkrip.
+- **Audit handoff lintas-device** (`docs/MULTI_DEVICE_HANDOFF_AUDIT.md`):
+  dokumen audit-only (tanpa implementasi) merekomendasikan ekspor/impor
+  arsip sesi `.zip` manual, bukan sync otomatis — butuh persetujuan Master.
+
 Sprint 13 brief asked the team to study two MIT-licensed peer projects
 (Meetily, Anarlog — see `THIRD_PARTY_LICENSES.md`) for patterns worth
 adopting: an audio limiter, acoustic echo cancellation, VAD masking,
