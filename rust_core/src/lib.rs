@@ -12,6 +12,19 @@ compile_error!(
      whisper.cpp's built-in Silero VAD (vad::whisper_silero, no feature \
      required) alongside `neural-diarization`."
 );
+#[cfg(all(feature = "semantic-embedding", feature = "neural-diarization"))]
+compile_error!(
+    "features `semantic-embedding` and `neural-diarization` cannot be \
+     enabled together: both statically link an ONNX Runtime (`ort` vs \
+     `sherpa-onnx-sys`) and the symbols collide at link time, same as the \
+     `silero-onnx` + `neural-diarization` conflict above."
+);
+
+/// Local ONNX sentence-embedding model wired into
+/// `semantic_search::EmbeddingProvider`. Off by default — see
+/// `semantic-embedding` in Cargo.toml.
+#[cfg(feature = "semantic-embedding")]
+pub mod embedding;
 
 /// Structured action items (tugas / PJ / tenggat / status) with .ics
 /// and CSV export.

@@ -90,6 +90,10 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 # build every connection opens against — a mismatched system SQLite would
 # silently fail to expose `vec0`.
 sqlite-vec = "0.1.9"
+# Fast tokenizer for the semantic-search embedding model (loads the
+# model's own tokenizer.json from HuggingFace Hub directly, no Python
+# dependency) — same crate family HuggingFace itself uses.
+tokenizers = { version = "0.20", default-features = false, features = ["onig"], optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "stream", "json"] }
 futures-util = "0.3"
 bytes = "1"
@@ -125,6 +129,16 @@ default = []
 # ONNX Silero model on disk, but it is no longer the gate the app relies
 # on. Cannot be combined with `neural-diarization` — see below.
 silero-onnx = ["dep:ort"]
+# Local sentence-embedding inference for the hybrid search's semantic leg
+# (`semantic_search.rs`'s `EmbeddingProvider` trait). Uses the same `ort`
+# ONNX Runtime as `silero-onnx` above (not a second runtime, so no new
+# linker conflict) plus HuggingFace's `tokenizers` crate to run the
+# model's own tokenizer.json. Off by default for the same reason as
+# `silero-onnx`: nothing should force an ONNX Runtime download onto a
+# contributor who never opts in. Model files are downloaded manually by
+# the user into the app's model cache dir — never bundled, never
+# auto-fetched by this crate.
+semantic-embedding = ["dep:ort", "dep:tokenizers"]
 pyannote = []  # Enable pyannote.audio Python integration for neural diarization
 gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via Vulkan (NVIDIA/AMD/Intel)
 # "Pemisahan pembicara akurat": sherpa-onnx offline diarization
