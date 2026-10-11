@@ -168,6 +168,16 @@ abstract class RustBridge {
   /// Throws if the model cannot be loaded.
   Future<double> benchmarkRtf(String modelPath);
 
+  /// One-time setup-wizard check (Sprint 15/16): measures `modelPath`'s RTF
+  /// with and without GPU inference on this device and returns whether GPU
+  /// should be the default. Replaces the old blanket "GPU off unless the
+  /// user flips it on" default — see `gpu_autodetect.rs` for why neither
+  /// assumption is safe across real hardware. Two bounded ~6s calibration
+  /// runs; does not throw (a model that won't load on either backend is a
+  /// model problem, not a GPU-decision one, and the caller already has
+  /// `benchmarkRtf` surfacing that).
+  Future<bool> recommendGpu(String modelPath);
+
   /// Two-pass (HPT) transcription of a single file: a quick pass from the
   /// base model, then a refined pass from large-v3-turbo-q5 carrying the same
   /// `(source, timestamp)` keys. Used by file import when Progressive Mode is
@@ -814,6 +824,9 @@ class RustBridgeMock implements RustBridge {
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
 
   @override
+  Future<bool> recommendGpu(String modelPath) async => false;
+
+  @override
   Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
     required List<TranscriptSegment> segments,
     required String outputDir,
@@ -1220,6 +1233,10 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<double> benchmarkRtf(String modelPath) =>
       rust_api.benchmarkRtf(modelPath: modelPath);
+
+  @override
+  Future<bool> recommendGpu(String modelPath) =>
+      rust_api.recommendGpu(modelPath: modelPath);
 
   @override
   Future<void> toggleMic(String sessionId, bool enabled) =>

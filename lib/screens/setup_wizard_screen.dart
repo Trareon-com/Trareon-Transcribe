@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -70,6 +72,14 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   bool _specDetected = false;
   Map<String, String> _accuracyLabels = const {};
 
+  /// Guards against firing a second GPU calibration while one is still
+  /// running — switching the model choice back and forth on a slow device
+  /// (where calibration itself takes the full ~12s bound) must not pile up
+  /// overlapping Rust-side model loads.
+  bool _gpuCalibrationInFlight = false;
+  String? _gpuCalibratedForModel;
+
+
   static const _steps = _WizardStep.values;
   int get _stepIndex => _steps.indexOf(_step);
 
@@ -125,6 +135,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       if (shouldAutoApply) {
         ref.read(settingsProvider.notifier).setDefaultModel(suggested);
       }
+      unawaited(_calibrateGpuInBackground(_selectedModel));
     }
   }
 
@@ -159,6 +170,34 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       }
     }
     return 'base';
+  }
+
+  /// Runs `recommendGpu` for `modelId` in the background and applies the
+  /// result to settings — fire-and-forget by design (Sprint 15/16): the
+  /// two bounded ~6s calibration runs would otherwise stall "Lanjut" on
+  /// exactly the slow devices this exists to help. Silently gives up on
+  /// error rather than surfacing a dialog — GPU stays at its current
+  /// setting (safe default: off) and the user can still toggle it by hand
+  /// in Settings, same as before this existed.
+  Future<void> _calibrateGpuInBackground(String modelId) async {
+    if (_gpuCalibrationInFlight || _gpuCalibratedForModel == modelId) return;
+    final libraryPath = ref.read(settingsProvider).libraryPath;
+    if (!isModelAvailable(modelId, libraryPath: libraryPath)) return;
+    final modelPath = modelPathForId(modelId, libraryPath: libraryPath);
+    _gpuCalibrationInFlight = true;
+    try {
+      final bridge = ref.read(rustBridgeProvider);
+      final useGpu = await bridge.recommendGpu(modelPath);
+      if (!mounted) return;
+      _gpuCalibratedForModel = modelId;
+      await ref.read(settingsProvider.notifier).setGpuEnabled(useGpu);
+    } catch (_) {
+      // Calibration itself failing (e.g. model file disappeared between
+      // the availability check and the load) is not worth surfacing here;
+      // GPU just stays at whatever it already was.
+    } finally {
+      _gpuCalibrationInFlight = false;
+    }
   }
 
   void _next() {
@@ -229,6 +268,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
           onChanged: (id) {
             setState(() => _selectedModel = id);
             ref.read(settingsProvider.notifier).setDefaultModel(id);
+            unawaited(_calibrateGpuInBackground(id));
           },
         );
       case _WizardStep.audioSetup:
