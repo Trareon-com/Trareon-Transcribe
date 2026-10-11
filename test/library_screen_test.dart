@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/library_screen.dart';
@@ -114,6 +115,61 @@ void main() {
 
     expect(find.textContaining('dihapus'), findsOneWidget);
     expect(find.text('Urungkan'), findsOneWidget);
+  });
+
+  testWidgets('session card offers an "ekspor arsip" action', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const sessions = [
+      SessionSummary(
+        id: '1',
+        title: 'Rapat Q3',
+        date: '2026-07-25',
+        durationSeconds: 1800,
+        segmentsCount: 1,
+      ),
+    ];
+    await tester.pumpWidget(
+      const MaterialApp(home: LibraryScreen(sessions: sessions)),
+    );
+    await tester.pumpAndSettle();
+
+    final archiveButton = find.byIcon(AppIcons.archive);
+    expect(archiveButton, findsOneWidget);
+    expect(
+      find.byTooltip('Ekspor sebagai arsip (.zip)'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Impor Berkas tab offers an "impor arsip sesi" button', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: LibraryScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Impor Berkas'));
+    await tester.pumpAndSettle();
+
+    final importButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Impor arsip sesi (.zip)'),
+    );
+    expect(
+      importButton.onPressed,
+      isNull,
+      reason: 'no libraryPath is configured, so the button has nowhere to '
+          'import into',
+    );
   });
 
   test('buildSessionShareText produces correct output', () {
