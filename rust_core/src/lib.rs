@@ -24,6 +24,7 @@ pub mod archive;
 #[cfg(test)]
 pub mod bench_fixture;
 pub mod benchmark;
+pub mod gpu_autodetect;
 pub mod capabilities;
 pub mod confidence;
 pub mod doctor;

@@ -196,6 +196,18 @@ pub fn benchmark_rtf(model_path: String) -> Result<f64, TranscribeError> {
     Ok(crate::benchmark::benchmark_rtf(&engine))
 }
 
+/// One-time setup-wizard check (Sprint 15/16): measures the chosen model's
+/// realtime factor with and without GPU inference on this specific device,
+/// and recommends the faster one. Replaces the previous blanket
+/// `gpu_enabled: false` default — see `gpu_autodetect.rs` for why neither
+/// "always off" nor "always on" is safe to assume across real hardware.
+/// Two bounded ~6s calibration runs, so this is fast enough to call before
+/// the first recording starts, unlike `benchmark_rtf` which can take
+/// minutes on a slow device with a heavy model.
+pub fn recommend_gpu(model_path: String) -> bool {
+    crate::gpu_autodetect::recommend_gpu(std::path::Path::new(&model_path))
+}
+
 pub fn list_available_models(models_dir: String) -> Vec<ModelInfo> {
     crate::model::list_available_models(&PathBuf::from(models_dir))
 }
