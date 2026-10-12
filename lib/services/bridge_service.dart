@@ -19,6 +19,7 @@ import '../src/rust/export.dart' as rust_export;
 import '../src/rust/export/notulen.dart' as rust_notulen;
 import '../src/rust/glossary.dart' as rust_glossary;
 import '../src/rust/mapreduce.dart' as rust_mapreduce;
+import '../src/rust/meeting_detect.dart' as rust_meeting_detect;
 import '../src/rust/model.dart' as rust_model;
 import '../src/rust/provenance.dart' as rust_provenance;
 import '../src/rust/session.dart' as rust_session;
@@ -118,6 +119,12 @@ abstract class RustBridge {
   /// or meeting app name) via AppleScript. Falls back to empty string on
   /// other platforms or if detection fails.
   Future<String> detectFrontmostWindowTitle();
+
+  /// F16 bagian A: window rapat (Zoom/Google Meet/Microsoft Teams) yang
+  /// sedang aktif (foreground) saat ini, atau `null` kalau tidak ada.
+  /// Nyata di Linux; selalu `null` di macOS/Windows (belum
+  /// diimplementasikan — lihat `rust_core/src/meeting_detect.rs`).
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow();
 
   /// Polls download progress for an active model download.
   /// Returns a stream of 0.0–1.0 ratios. Completes when progress reaches 1.0.
@@ -808,6 +815,10 @@ class RustBridgeMock implements RustBridge {
   Future<String> detectFrontmostWindowTitle() async => ''; // Mock: no real window detection
 
   @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() async =>
+      null; // Mock: no real window detection
+
+  @override
   Stream<double> downloadProgress() => Stream.periodic(
     const Duration(milliseconds: 300),
     (i) => (i + 1) / 10.0,
@@ -1455,6 +1466,17 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
 
+  /// F16 bagian A. Unlike [detectFrontmostWindowTitle] above, this does not
+  /// read arbitrary window titles — only whether the active window matches
+  /// one of three known meeting apps (Zoom/Google Meet/Microsoft Teams);
+  /// the actual title text never leaves `rust_core::meeting_detect` or
+  /// reaches Dart. Gated by `AppSettings.meetingAutoDetectEnabled`, default
+  /// on but easy to switch off from Pengaturan — see
+  /// `docs/PRIVACY-REPORT.md`.
+  @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() =>
+      rust_api.detectMeetingWindow();
+
   @override
   Stream<double> downloadProgress() =>
       pollDownloadProgress(rust_api.getDownloadProgress);
@@ -1928,6 +1950,8 @@ class RustEngineBridge implements RustBridge {
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
       consentBannerDismissed: settings.consentBannerDismissed,
+      meetingAutoDetectEnabled: settings.meetingAutoDetectEnabled,
+      silenceAutoStopMinutes: settings.silenceAutoStopMinutes,
     );
   }
 
@@ -1958,6 +1982,8 @@ class RustEngineBridge implements RustBridge {
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
       consentBannerDismissed: settings.consentBannerDismissed,
+      meetingAutoDetectEnabled: settings.meetingAutoDetectEnabled,
+      silenceAutoStopMinutes: settings.silenceAutoStopMinutes,
     );
   }
 }

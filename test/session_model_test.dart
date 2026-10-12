@@ -8,6 +8,8 @@ import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
+import 'package:transcribe/src/rust/meeting_detect.dart' as rust_meeting_detect;
+
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/audio.dart' as rust_audio;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
@@ -133,6 +135,10 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
+
+  @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() async =>
+      null;
 
   @override
   Stream<double> downloadProgress() => const Stream.empty();

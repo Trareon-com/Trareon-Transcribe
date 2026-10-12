@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/src/rust/api.dart' as rust_api;
 import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
+import 'package:transcribe/src/rust/meeting_detect.dart' as rust_meeting_detect;
+
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
@@ -350,6 +352,10 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
       [];
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
+
+  @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() async =>
+      null;
   @override
   Stream<double> downloadProgress() => const Stream.empty();
   @override

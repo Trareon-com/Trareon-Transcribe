@@ -1649,6 +1649,10 @@ pub fn flight_log_auto_stop(session_id: String, minutes: u64) {
     crate::flight_recorder::log_auto_stop(&session_id, minutes);
 }
 
+pub fn flight_log_auto_stop_silence(session_id: String, silent_minutes: u64) {
+    crate::flight_recorder::log_auto_stop_silence(&session_id, silent_minutes);
+}
+
 pub fn flight_log_system(event: String, details: Option<HashMap<String, String>>) {
     let pairs = details.map(|m| m.into_iter().collect::<Vec<(String, String)>>());
     crate::flight_recorder::log_system(&event, pairs);
@@ -1737,6 +1741,17 @@ pub fn import_session_archive(
 
 pub fn acquire_instance_lock() -> Result<(), TranscribeError> {
     crate::singleton::acquire_lock()
+}
+
+/// F16 bagian A: cek apakah window rapat (Zoom/Google Meet/Microsoft
+/// Teams) sedang aktif (foreground) saat ini. Dipanggil Dart secara
+/// berkala (polling) saat tidak ada sesi yang sedang merekam.
+///
+/// Status per platform ada di dokumentasi
+/// [`crate::meeting_detect::detect_active_meeting_window`]: nyata di
+/// Linux, selalu `None` di macOS/Windows (belum diimplementasikan).
+pub fn detect_meeting_window() -> Option<crate::meeting_detect::DetectedMeeting> {
+    crate::meeting_detect::detect_active_meeting_window()
 }
 
 #[cfg(test)]

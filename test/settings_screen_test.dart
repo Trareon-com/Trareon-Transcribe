@@ -9,6 +9,8 @@ import 'package:transcribe/state/settings_model.dart';
 import 'package:transcribe/screens/settings_screen.dart';
 import 'package:transcribe/widgets/settings_controls.dart' show SettingsSwitch;
 import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
+import 'package:transcribe/src/rust/meeting_detect.dart' as rust_meeting_detect;
+
 import 'package:transcribe/src/rust/disk.dart' as rust_disk;
 import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
@@ -119,6 +121,10 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
       const [];
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
+
+  @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() async =>
+      null;
 
   @override
   Stream<double> downloadProgress() => const Stream.empty();

@@ -93,6 +93,17 @@ class FlightRecorder {
     } catch (_) {}
   }
 
+  /// F16 bagian B: sesi dihentikan otomatis karena tidak ada suara sama
+  /// sekali selama [silentMinutes] menit.
+  Future<void> logAutoStopSilence(String sessionId, int silentMinutes) async {
+    try {
+      await rust_api.flightLogAutoStopSilence(
+        sessionId: sessionId,
+        silentMinutes: BigInt.from(silentMinutes),
+      );
+    } catch (_) {}
+  }
+
   /// Number of log files an export would contain (active + rotated).
   Future<int> logFileCount() async {
     try {

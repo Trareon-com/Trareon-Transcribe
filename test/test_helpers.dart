@@ -18,6 +18,8 @@ import 'package:transcribe/src/rust/actions.dart' as rust_actions;
 import 'package:transcribe/src/rust/archive.dart' as rust_archive;
 import 'package:transcribe/src/rust/capabilities.dart' as rust_capabilities;
 import 'package:transcribe/src/rust/mapreduce.dart' as rust_mapreduce;
+import 'package:transcribe/src/rust/meeting_detect.dart' as rust_meeting_detect;
+
 import 'package:transcribe/src/rust/provenance.dart' as rust_provenance;
 import 'package:transcribe/src/rust/completion.dart' as rust_completion;
 import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
@@ -454,6 +456,10 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<String> detectFrontmostWindowTitle() async => '';
+
+  @override
+  Future<rust_meeting_detect.DetectedMeeting?> detectMeetingWindow() async =>
+      null;
 
   @override
   Stream<double> downloadProgress() => const Stream.empty();
