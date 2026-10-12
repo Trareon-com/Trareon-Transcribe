@@ -5234,3 +5234,72 @@ Build rilis dijalankan di `:0` (`pactl get-default-sink` dikonfirmasi `trareon_s
 
 - Tidak ada gap fungsional yang disengaja pada F26/F27 — keduanya diimplementasikan penuh sesuai brief (ekspor + impor, validasi, konflik nama, atomik).
 - Satu-satunya celah adalah **bukti visual** smoke test UI untuk dialog native (lihat "PERLU VERIFIKASI LINGKUNGAN" di atas) — ditutup dengan bukti pengganti yang setara (verifikasi langsung terhadap data sesi nyata lewat lapisan Rust, plus cakupan test Dart penuh untuk orkestrasi di sekitarnya), tapi bukan screenshot dialog file benar-benar terbuka.
+
+## Sprint 18 report — Sambungkan F16 ke UI (perbaikan gap Sprint 17)
+
+### Kenapa sprint ini ada
+
+Sprint 17 (`a516ce2`, #29) menulis backend F16 penuh — `rust_core::meeting_detect` (deteksi window Zoom/Meet/Teams via `xdotool`) dan `SilenceAutoStopNotifier` (peringatan sunyi berkepanjangan) — dengan gate hijau, tapi audit manual menemukan **nol** referensi ke `detectMeetingWindow()` atau `silenceAutoStopProvider` di `lib/screens/*`. Backend-nya berjalan dan lulus test, tapi tidak ada yang pernah memanggilnya dari UI — dialog "Terdeteksi rapat" dan peringatan sunyi tidak pernah muncul ke pengguna. Sprint ini murni menyambungkan wiring yang hilang; **tidak ada perubahan** pada `meeting_detect.rs` atau `silence_auto_stop_model.dart` — keduanya sudah benar sejak Sprint 17.
+
+### Status per item
+
+**Bagian A — F16a, deteksi rapat ke UI: DONE.**
+- `lib/screens/main_screen.dart`: `Timer.periodic` 4 detik (`_meetingDetectTimer`) memanggil `rustBridgeProvider.detectMeetingWindow()`, aktif HANYA saat `meetingAutoDetectEnabled` true DAN `SessionLifecycle` bukan `recording`/`paused` (`_refreshMeetingDetectWatch`, dipanggil dari `initState()` dan dari dua `ref.listen` di `build()` — satu untuk `settingsProvider.meetingAutoDetectEnabled`, satu untuk `sessionProvider.lifecycle` — sehingga toggle setting atau mulai/berhenti rekam langsung menyalakan/mematikan poll tanpa menunggu rebuild berikutnya).
+- Match pertama kali per `windowId` memicu `AlertDialog` "Rapat terdeteksi" — "Terdeteksi rapat ([app]). Mulai rekam?" dengan tombol "Mulai Rekam" (memanggil `_toggleStartBerhenti`, jalur mulai-rekam yang sama persis dengan tombol manual) dan "Abaikan". `_meetingWindowsHandled` (Set<String> window id) mencegah dialog muncul ulang untuk window yang sama selama window itu masih terdeteksi aktif; set ini dikosongkan begitu `detectMeetingWindow()` kembali `null` (window hilang dari deteksi), sehingga window baru (atau window yang sama dibuka ulang) ditawarkan lagi — sesuai perilaku yang diminta brief, bukan ditawarkan sekali lalu diam selamanya.
+- Polling berhenti total saat merekam (tidak ada guna mendeteksi ulang rapat yang sudah direkam).
+
+**Bagian B — F16b, peringatan auto-stop sunyi ke UI: DONE.**
+- `ref.listen(silenceAutoStopProvider, ...)` di `build()` MainScreen memicu `_showSilenceAutoStopDialog` begitu state berubah non-null. Dialognya sendiri dibungkus `Consumer` yang terus mengamati `silenceAutoStopProvider` — kalau sunyi berhenti dengan sendirinya (suara kembali) atau sesi auto-stop, provider kembali `null` dan dialog menutup sendiri lewat `addPostFrameCallback` tanpa pengguna harus menekan apa pun.
+- Tombol "Lanjutkan" memanggil `silenceAutoStopProvider.notifier.continueRecording()` — method publik yang sudah ada dari Sprint 17, tidak ada method baru ditambahkan di notifier.
+- Teks dialog memakai field asli `SilenceAutoStopWarning.silentMinutes`, tidak menebak teks baru.
+
+### File yang diubah
+
+- `lib/screens/main_screen.dart`: import `meeting_detect.dart`, `silence_auto_stop_model.dart`; field `_meetingDetectTimer`, `_meetingWindowsHandled`, `_silenceDialogShowing`; method `_refreshMeetingDetectWatch`, `_checkMeetingDetection`, `_showMeetingDetectedDialog`, `_showSilenceAutoStopDialog`; dua `ref.listen` baru + satu panggilan `_refreshMeetingDetectWatch` di `initState()`; `_meetingDetectTimer?.cancel()` ditambahkan ke `dispose()`.
+- `test/main_screen_f16_test.dart` (baru): 6 widget test.
+- `docs/sprint-evidence/sprint18-rapat-terdeteksi.png` (baru): screenshot smoke test nyata.
+- `docs/SPRINT-REPORTS.md`, `CHANGELOG.md`: laporan ini.
+
+Tidak ada perubahan di `rust_core/` — F16a/F16b backend sudah lengkap dari Sprint 17, sprint ini murni Dart UI wiring.
+
+### Test — diverifikasi dialog BENAR-BENAR muncul di widget test end-to-end, bukan cuma provider logic terisolasi
+
+`test/main_screen_f16_test.dart`, 6 test, semua me-render `MainScreen()` penuh lewat `buildTestAppWithOverrides` (bukan widget dummy terpisah) dan mengecek dialog muncul di `pumpWidget`-tree yang sama:
+
+1. **"dialog 'Terdeteksi rapat' muncul begitu window rapat terdeteksi"** — bridge palsu (`_MeetingDetectBridge`) mengembalikan `DetectedMeeting(app: 'Zoom', windowId: 'win-1')`; sebelum `tester.pump(Duration(seconds:4))` dialog belum ada (`findsNothing`), setelah satu tick poll dialog "Rapat terdeteksi" + teks "Terdeteksi rapat (Zoom)" muncul (`findsOneWidget`) — bukti polling nyata lewat `Timer.periodic` di widget tree asli, bukan memanggil method privat secara langsung.
+2. **"'Mulai Rekam' pada dialog benar-benar memulai sesi rekam"** — tap tombol dialog (discoped lewat `find.descendant(of: find.byType(AlertDialog), ...)` karena ada tombol "Mulai Rekam" lain di layar utama), lalu verifikasi lewat `ProviderScope.containerOf(...).read(sessionProvider).lifecycle == SessionLifecycle.recording` — bukti jalur UI penuh dari dialog sampai sesi benar-benar mulai, bukan cuma callback terpanggil.
+3. **"'Abaikan' tidak menawarkan lagi untuk window yang sama selama masih terdeteksi"** — tap "Abaikan", lalu dua poll tick lagi dengan `windowId` yang sama → dialog tidak muncul lagi (`findsNothing`).
+4. **"dialog 'Tidak ada suara' muncul saat silenceAutoStopProvider berubah non-null"** — `silenceAutoStopProvider` di-override dengan `_FakeSilenceAutoStopNotifier` (subclass nyata dari `SilenceAutoStopNotifier`, bukan mock terpisah) yang bisa dipaksa set state lewat `forceWarning()`; dialog "Tidak ada suara" + "5 menit" muncul di widget tree `MainScreen` yang sama dengan layar rekam asli.
+5. **"'Lanjutkan' memanggil continueRecording() dan menutup dialog"** — tap "Lanjutkan" → `fakeNotifier.continueCalled == true` (lewat override yang memanggil `super.continueRecording()`, jadi logic Sprint 17 yang asli tetap dieksekusi, bukan di-stub habis) dan dialog hilang dari tree.
+6. **"dialog menutup sendiri saat suara kembali sebelum pengguna menekan apa pun"** — provider dikembalikan ke `null` tanpa interaksi pengguna → dialog menutup sendiri, membuktikan `Consumer` di dalam dialog benar-benar reaktif terhadap provider, bukan snapshot statis saat dialog dibuka.
+
+Kenapa F16b tidak diuji lewat ambang sunyi nyata (menunggu `silenceAutoStopMinutes` default 5 menit + grace 1 menit): tidak praktis dalam widget test maupun smoke test manual tanpa mem-fake jam `SilenceAutoStopNotifier`, dan brief secara eksplisit menandai verifikasi widget-tree end-to-end (poin 4–6 di atas) sebagai yang "PALING PENTING" dibanding smoke test waktu-nyata — jalur reaktif dari provider ke dialog sampai ke tombol aksi sudah tercakup penuh lewat jalur itu.
+
+### Gerbang verifikasi
+
+```
+cd rust_core && cargo fmt --check          → bersih (tidak ada perubahan Rust sprint ini)
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 938 passed; 0 failed; 0 ignored (62.87s)
+flutter analyze                            → No issues found! (25.8s)
+flutter test                               → 730 passed; 0 failed (termasuk 6 test baru main_screen_f16_test.dart)
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+### Uji aplikasi nyata (smoke test) — F16a
+
+Build rilis dijalankan di `:0` (`pactl get-default-sink` dikonfirmasi `trareon_silent` sebelum apa pun — tidak ada audio diputar sprint ini, murni interaksi window manager). Window Trareon asli: `xdotool search --class transcribe` → id `96468995` (geometry 1280×800; id `96468993` 10×10 diabaikan sesuai catatan di COMMON.md).
+
+1. Dibuka `xterm` palsu dengan judul window persis `"Zoom Meeting"` (`xterm -T "Zoom Meeting"`) — ini memicu jalur deteksi **nyata** di `rust_core::meeting_detect::classify_title`, bukan mock: fungsi itu membaca judul window aktif lewat `xdotool getactivewindow getwindowname` apa adanya, dan string "Zoom Meeting" cocok pola yang sama yang akan cocok dengan window Zoom asli.
+2. `xdotool windowactivate --sync` pada xterm itu membuatnya jadi window aktif di X11; dikonfirmasi lewat `xdotool getactivewindow getwindowname` dua kali (jeda 5 detik, melewati satu interval poll 4 detik) agar poll Trareon menangkapnya saat benar-benar aktif.
+3. Window Trareon diangkat ke depan (`xdotool windowraise`) — ini TIDAK memengaruhi deteksi karena deteksi berjalan di background terlepas dari window mana yang terlihat, hanya diperlukan supaya `import -window` bisa menangkap tampilan dialog di belakangnya.
+4. Screenshot (`docs/sprint-evidence/sprint18-rapat-terdeteksi.png`) menunjukkan dialog "Rapat terdeteksi" dengan isi persis **"Terdeteksi rapat (Zoom). Mulai rekam?"** dan tombol "Abaikan"/"Mulai Rekam" — bukti end-to-end nyata dari `xdotool` OS-level sampai dialog Flutter di layar, tanpa satu pun bagian yang di-mock.
+5. Dibersihkan: `xdotool windowkill` pada xterm palsu, `pkill -9 -x transcribe`.
+
+F16b (peringatan sunyi) tidak di-smoke-test lewat waktu nyata — lihat penjelasan di bagian Test di atas; dicakup penuh lewat widget test end-to-end.
+
+### Celah yang diketahui
+
+- Tidak ada gap fungsional yang disengaja pada F16a/F16b — keduanya tersambung penuh ke UI sesuai brief.
+- F16b hanya diverifikasi lewat widget test (provider dipaksa ke state tertentu) dan bukan lewat smoke test manual menunggu 5+1 menit sunyi nyata — lihat alasan di bagian Test.
+- Deteksi rapat (F16a) tetap Linux-only (warisan Sprint 17, `detect_active_meeting_window` mengembalikan `None` di macOS/Windows) — wiring UI sprint ini otomatis tidak aktif di platform itu karena `detectMeetingWindow()` selalu mengembalikan `null` di sana, bukan perilaku baru yang perlu didokumentasikan ulang.
