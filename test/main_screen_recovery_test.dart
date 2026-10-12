@@ -35,6 +35,7 @@ class RecoveryBridge extends NoopBridge {
       resumeOffsetSecs: 5400,
       micAudioSecs: 5400,
       speakerAudioSecs: 0,
+      notes: snapshot.notes,
     );
   }
 }
@@ -58,6 +59,7 @@ rust_session.RecoverableSession recoverable({
   return rust_session.RecoverableSession(
     snapshot: rust_session.SessionRecoverySnapshot(
       sessionId: id,
+      notes: '',
       config: const rust_audio.SessionConfig(
         micEnabled: true,
         speakerEnabled: false,

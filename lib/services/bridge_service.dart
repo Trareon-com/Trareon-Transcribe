@@ -78,6 +78,11 @@ abstract class RustBridge {
   /// session shows up in the recovery dialog under its name.
   Future<void> setSessionTitle(String sessionId, String title);
 
+  /// Mirrors the notulis's personal notes (F11) into the recovery
+  /// snapshot on every debounced edit, so a crash mid-meeting loses no
+  /// more of the user's own writing than it loses of the transcript.
+  Future<void> setSessionNotes(String sessionId, String notes);
+
   /// Current system RAM usage, 0.0-1.0 (F23). The same ratio the
   /// auto-split logic already watches, surfaced to the resource indicator.
   Future<double> systemMemoryUsageRatio();
@@ -300,6 +305,7 @@ abstract class RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   });
 
   /// How far a map-reduce summary has got, or null when none is running.
@@ -337,6 +343,7 @@ abstract class RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   });
 
   /// Every capability, where it runs and whether it is on (F14).
@@ -689,6 +696,9 @@ class RustBridgeMock implements RustBridge {
   Future<void> setSessionTitle(String sessionId, String title) async {}
 
   @override
+  Future<void> setSessionNotes(String sessionId, String notes) async {}
+
+  @override
   Future<double> systemMemoryUsageRatio() async => 0.0;
 
   @override
@@ -731,6 +741,7 @@ class RustBridgeMock implements RustBridge {
       resumeOffsetSecs: 0,
       micAudioSecs: 0,
       speakerAudioSecs: 0,
+      notes: snapshot.notes,
     );
   }
 
@@ -989,6 +1000,7 @@ class RustBridgeMock implements RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
 
@@ -997,6 +1009,7 @@ class RustBridgeMock implements RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) async =>
       throw UnsupportedError('RustBridgeMock does not generate summaries');
 
@@ -1335,6 +1348,10 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<void> setSessionTitle(String sessionId, String title) =>
       rust_api.setSessionTitle(sessionId: sessionId, title: title);
+
+  @override
+  Future<void> setSessionNotes(String sessionId, String notes) =>
+      rust_api.setSessionNotes(sessionId: sessionId, notes: notes);
 
   @override
   Future<double> systemMemoryUsageRatio() => rust_api.systemMemoryUsageRatio();
@@ -1790,10 +1807,12 @@ class RustEngineBridge implements RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) => rust_api.generateSummary(
     segments: segments.map(toRustSegment).toList(),
     config: config,
     bookmarks: bookmarks,
+    personalNotes: personalNotes,
   );
 
   @override
@@ -1801,10 +1820,12 @@ class RustEngineBridge implements RustBridge {
     required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) => rust_api.generateSummaryLong(
     segments: segments.map(toRustSegment).toList(),
     config: config,
     bookmarks: bookmarks,
+    personalNotes: personalNotes,
   );
 
   @override

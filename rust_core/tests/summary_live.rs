@@ -112,7 +112,7 @@ async fn summarises_an_indonesian_meeting_transcript() {
         "transcript: {transcript}"
     );
 
-    let summary = generate_summary(config(), transcript, Vec::new())
+    let summary = generate_summary(config(), transcript, Vec::new(), None)
         .await
         .expect("summary generation should succeed");
 

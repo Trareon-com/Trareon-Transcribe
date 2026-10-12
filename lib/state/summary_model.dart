@@ -55,6 +55,18 @@ class SummaryUiState {
   /// request was a single round trip.
   final MapReduceProgress? progress;
 
+  /// What "Enhance" (F11) produced by combining the notulis's personal
+  /// notes with the transcript. Empty until the user presses Enhance at
+  /// least once. Deliberately separate from [text]: the brief is explicit
+  /// that the AI's merged result must never overwrite the user's own
+  /// draft, so both are visible at once.
+  final String enhancedNotes;
+
+  /// True while an "Enhance" request is in flight. Separate from
+  /// [SummaryStatus.generating] so the ordinary "Buat Ringkasan" button and
+  /// the "Enhance" button can show independent busy states.
+  final bool enhancing;
+
   const SummaryUiState({
     this.status = SummaryStatus.empty,
     this.text = '',
@@ -65,6 +77,8 @@ class SummaryUiState {
     this.actionItems = const [],
     this.provenance,
     this.progress,
+    this.enhancedNotes = '',
+    this.enhancing = false,
   });
 
   /// Citations the engine refused to trust, across the whole summary.
@@ -81,6 +95,8 @@ class SummaryUiState {
     List<ActionItem>? actionItems,
     Object? provenance = _keep,
     Object? progress = _keep,
+    String? enhancedNotes,
+    bool? enhancing,
   }) {
     return SummaryUiState(
       status: status ?? this.status,
@@ -98,6 +114,8 @@ class SummaryUiState {
       progress: progress == _keep
           ? this.progress
           : progress as MapReduceProgress?,
+      enhancedNotes: enhancedNotes ?? this.enhancedNotes,
+      enhancing: enhancing ?? this.enhancing,
     );
   }
 }
@@ -131,6 +149,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
                initialMeta.summaryTemplate ?? SummaryTemplate.notulenRapat,
            customTemplateId: initialMeta.summaryCustomTemplateId,
            actionItems: initialMeta.actionItems,
+           enhancedNotes: initialMeta.enhancedNotes,
          ),
        );
 
@@ -383,6 +402,62 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     }
   }
 
+  /// "Enhance" (F11): combines [personalNotes] — whatever the notulis typed
+  /// in the split-screen panel while the meeting ran — with the transcript
+  /// into one merged document, and stores the result in [enhancedNotes]
+  /// *separate* from both the raw notes and [text] (the ordinary AI
+  /// summary) — the brief is explicit that the user's own draft must stay
+  /// visible next to what the AI made of it, never overwritten by it.
+  ///
+  /// An empty [personalNotes] (the user wrote nothing) is not a blocker:
+  /// it falls through to an ordinary transcript-only summary, same as F6.
+  Future<void> enhance({
+    required List<TranscriptSegment> segments,
+    required AppSettings settings,
+    required String personalNotes,
+    List<Bookmark> bookmarks = const [],
+  }) async {
+    if (!settings.summary.isUsable) {
+      state = state.copyWith(
+        error:
+            'Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan → Ringkasan AI.',
+      );
+      return;
+    }
+    if (segments.isEmpty) {
+      state = state.copyWith(
+        error: 'Transkrip kosong, tidak ada yang bisa digabung.',
+      );
+      return;
+    }
+    state = state.copyWith(enhancing: true, clearError: true);
+    final config = settings.summary.toConfig(
+      language: settings.language,
+      template: state.template,
+    );
+    onNetworkRequest?.call(settings.summary.baseUrl);
+    _startProgressPoll();
+    try {
+      final merged = await _bridge.generateSummaryLong(
+        segments: segments,
+        config: config,
+        bookmarks: bookmarks,
+        personalNotes: personalNotes.trim().isEmpty ? null : personalNotes,
+      );
+      if (!mounted) return;
+      state = state.copyWith(enhancedNotes: merged, clearError: true);
+      await save();
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(
+        error: 'Gagal menggabungkan catatan dengan transkrip: $e',
+      );
+    } finally {
+      _stopProgressPoll();
+      if (mounted) state = state.copyWith(enhancing: false);
+    }
+  }
+
   /// Mirrors the engine's map-reduce progress into the UI.
   ///
   /// Polled rather than streamed because the engine publishes it into a
@@ -425,6 +500,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
             for (final item in state.actionItems)
               if (item.tugas.trim().isNotEmpty) item,
           ],
+          enhancedNotes: state.enhancedNotes,
         ),
       );
       if (!mounted) return;

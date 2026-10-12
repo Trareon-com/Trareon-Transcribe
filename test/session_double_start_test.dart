@@ -37,6 +37,7 @@ class _SlowLaunchBridge extends NoopBridge {
       resumeOffsetSecs: 0,
       micAudioSecs: 0,
       speakerAudioSecs: 0,
+      notes: snapshot.notes,
     );
   }
 }
@@ -142,6 +143,7 @@ class _ThrowingStartBridge extends NoopBridge {
 rust_session.SessionRecoverySnapshot recoverySnapshot(String id) =>
     rust_session.SessionRecoverySnapshot(
       sessionId: id,
+      notes: '',
       config: const rust_audio.SessionConfig(
         micEnabled: true,
         speakerEnabled: false,

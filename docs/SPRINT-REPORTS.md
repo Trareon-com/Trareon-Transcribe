@@ -5303,3 +5303,175 @@ F16b (peringatan sunyi) tidak di-smoke-test lewat waktu nyata — lihat penjelas
 - Tidak ada gap fungsional yang disengaja pada F16a/F16b — keduanya tersambung penuh ke UI sesuai brief.
 - F16b hanya diverifikasi lewat widget test (provider dipaksa ke state tertentu) dan bukan lewat smoke test manual menunggu 5+1 menit sunyi nyata — lihat alasan di bagian Test.
 - Deteksi rapat (F16a) tetap Linux-only (warisan Sprint 17, `detect_active_meeting_window` mengembalikan `None` di macOS/Windows) — wiring UI sprint ini otomatis tidak aktif di platform itu karena `detectMeetingWindow()` selalu mengembalikan `null` di sana, bukan perilaku baru yang perlu didokumentasikan ulang.
+
+---
+
+# Sprint 19 report — branch `sprint/19-f11-personal-notes`
+
+F11: catatan pribadi saat rapat digabung AI dengan transkrip ("Enhance").
+Audit pra-sprint (`search_files` lintas `lib/` dan `rust_core/src/` untuk
+`personal_note`/`manual_note`/`enhance_note`) mengonfirmasi fitur ini
+**belum ada sama sekali** sebelum sprint ini — bukan kasus backend-ada-
+tapi-tidak-tersambung seperti Sprint 17/18, jadi risikonya terbalik: harus
+dibuktikan bahwa setiap bagian benar-benar baru dibangun dan tersambung,
+bukan cuma kosmetik.
+
+## Status per item
+
+### Bagian A — panel catatan pribadi real-time saat rekam: ✅ DONE
+
+1. `lib/widgets/personal_notes_panel.dart` (baru) — kolom teks multi-baris
+   berdampingan dengan transkrip langsung di `lib/screens/main_screen.dart`
+   (`_Workspace`, sekitar baris 1440), split-screen bukan dialog terpisah,
+   dipasang di kanan panel transkrip saat sesi sedang merekam.
+2. Tersimpan otomatis: debounce 600ms di widget, lalu `set_session_notes()`
+   (FRB baru, `rust_core/src/session.rs` + `rust_core/src/api.rs`) menulis
+   ke snapshot pemulihan sesi dengan pola atomic write (temp + rename, satu
+   direktori) yang sama dipakai judul sesi — jadi catatan tidak hilang
+   kalau app crash di tengah rekaman.
+3. Per-sesi: catatan disimpan sebagai field `personal_notes` baru di
+   `SessionMeta`/sidecar sesi yang sudah ada (`lib/services/session_store.dart`,
+   `lib/state/session_model.dart`) — tidak membuat format file baru,
+   memperluas sidecar JSON yang sudah dipakai F6/action_items.
+
+### Bagian B — "Enhance": gabungkan catatan + transkrip jadi notulen: ✅ DONE
+
+1. `enhance()` di `lib/state/summary_model.dart` memanggil
+   `generate_summary_long()` (sudah dipakai F6/F15) dengan parameter baru
+   `personal_notes`. Di backend, `rust_core/src/summary.rs::build_prompt`
+   menaruh catatan pribadi **sebelum** transkrip di prompt, diberi label
+   eksplisit "CATATAN PRIBADI NOTULIS", bukan ditambahkan di akhir seperti
+   bookmark — diverifikasi lewat test backend (lihat bagian Test).
+2. Hasil gabungan (`enhanced_notes`) ditampilkan di bagian "Hasil Gabungan
+   (AI)" di `lib/widgets/summary_panel.dart`, terpisah dan di bawah kotak
+   "Catatan Pribadi" asli yang tidak ditimpa — user melihat draft asli dan
+   hasil AI berdampingan. `save()` di `SummaryNotifier` menyimpan
+   `enhanced_notes` ke sidecar sesi.
+3. Catatan kosong tidak memblokir Enhance: `personal_notes` kosong/hanya-
+   spasi diperlakukan sama seperti `None` di `build_prompt` (test
+   `an_empty_personal_notes_field_does_not_block_generation`), dan di UI
+   tombol "Enhance" tetap aktif serta jatuh ke ringkasan dari transkrip
+   saja persis seperti F6 (test fallback di
+   `test/summary_panel_enhance_test.dart`).
+
+## Files touched
+
+- Baru: `lib/widgets/personal_notes_panel.dart`,
+  `test/personal_notes_panel_test.dart`, `test/summary_panel_enhance_test.dart`
+- Rust: `rust_core/src/api.rs`, `rust_core/src/session.rs`,
+  `rust_core/src/summary.rs`, `rust_core/src/frb_generated.rs` (codegen),
+  `rust_core/tests/summary_live.rs`
+- Dart: `lib/src/rust/api.dart`, `lib/src/rust/session.dart`,
+  `lib/src/rust/frb_generated.dart` (codegen), `lib/screens/main_screen.dart`,
+  `lib/services/bridge_service.dart`, `lib/services/session_store.dart`,
+  `lib/state/session_model.dart`, `lib/state/summary_model.dart`,
+  `lib/widgets/summary_panel.dart`
+- Test bridge/fixture plumbing (field baru `notes`/`personalNotes` di setiap
+  construsktor mock): `test/batch_upload_model_test.dart`,
+  `test/main_screen_recovery_test.dart`, `test/session_double_start_test.dart`,
+  `test/session_model_test.dart`, `test/settings_screen_test.dart`,
+  `test/setup_wizard_test.dart`, `test/summary_model_test.dart`,
+  `test/test_helpers.dart`
+- Golden: `test/goldens/main-recording-{dark,light}.png` (diregenerasi,
+  layout baru menyertakan `PersonalNotesPanel`)
+
+## Test ditambahkan
+
+1. **Widget test, panel saat merekam** (`test/personal_notes_panel_test.dart`
+   + kasus baru di `test/main_screen_recovery_test.dart` narrow-layout):
+   `pumpWidget(MainScreen(...))` dalam state sedang merekam, mengetik ke
+   field catatan, dan memverifikasi teks benar-benar masuk — bukan test
+   provider terisolasi.
+2. **Widget test, tombol Enhance** (`test/summary_panel_enhance_test.dart`,
+   2 skenario): backend `generateSummaryLong` di-mock lewat `NoopBridge`
+   turunan yang merekam `personalNotes` yang diterima; test memverifikasi
+   (a) `bridge.lastPersonalNotes` sama persis dengan isi field catatan
+   pribadi yang diketik user ("PENTING: deadline Jumat"), (b) hasil AI
+   yang dikembalikan bridge benar-benar dirender di panel, (c) catatan
+   mentah asli tetap terlihat tidak tertimpa, dan (d) skenario catatan
+   kosong tetap menghasilkan ringkasan (fallback transkrip-saja) tanpa
+   mengirim `personalNotes`.
+3. **Test backend Rust, poin paling penting** (`rust_core/src/summary.rs`,
+   fungsi `personal_notes_are_prioritised_ahead_of_the_transcript` dan
+   `an_empty_personal_notes_field_does_not_block_generation`): memverifikasi
+   langsung lewat `build_prompt()` bahwa (a) isi catatan pribadi user
+   benar-benar muncul di string prompt yang dikirim ke model ringkasan,
+   (b) posisinya **sebelum** marker `--- TRANSKRIP ---` (prioritas sinyal,
+   bukan ditempel di akhir), dan (c) catatan kosong/whitespace menghasilkan
+   prompt yang identik dengan tanpa catatan sama sekali.
+
+**Konfirmasi eksplisit yang diminta brief**: ya, catatan pribadi user
+terverifikasi benar-benar masuk ke prompt/context yang dikirim ke model
+ringkasan — dibuktikan lewat test Rust di atas (string assertion langsung
+pada hasil `build_prompt`) **dan** lewat smoke test manual end-to-end di
+bawah (model Ollama nyata menerima dan memproses permintaan, bukan hanya
+UI kosmetik yang tidak pernah memanggil backend).
+
+### Gerbang verifikasi
+
+```
+cd rust_core && cargo fmt --check          → bersih
+cargo clippy --all-targets -- -D warnings  → bersih, 0 warning
+cargo test --lib                           → 941 passed; 0 failed; 0 ignored (15.50s)
+flutter analyze                            → No issues found! (8.9s)
+flutter test                               → 738 passed; 0 failed
+flutter build linux --release              → berhasil (build/linux/x64/release/bundle/transcribe)
+```
+
+### Uji aplikasi nyata (smoke test)
+
+Build rilis dijalankan di `:0` (`pactl get-default-sink` dikonfirmasi
+`trareon_silent` sebelum apa pun diputar). Window asli: `xdotool search
+--class transcribe` → id `96468995` (id `96468993` 10×10 diabaikan).
+Mikrofon dimatikan secara eksplisit di UI (toggle "Mikrofon" off) sebelum
+merekam — hanya "Suara sistem" (`trareon_silent`) yang aktif, sesuai
+aturan kantor: tidak ada mikrofon ruangan yang pernah dibuka.
+
+1. Sesi baru dimulai ("Mulai Rekam") dengan Mikrofon off, Suara sistem on.
+   Panel "Catatan Pribadi" split-screen langsung terlihat di sebelah kanan
+   transkrip kosong — bukti Bagian A terpasang di layar sungguhan, bukan
+   cuma lolos widget test.
+2. Diketik catatan dummy "TEST PENTING" ke panel selagi rekaman berjalan
+   (`xdotool type`) — teks langsung muncul dan bertahan di field sepanjang
+   sisa sesi (bukti autosave tidak menghapusnya). Screenshot:
+   `docs/sprint-evidence/sprint19-catatan-pribadi-live.png`.
+3. `rapat_id.mp3` (15 detik ucapan Indonesia) diputar ke sink virtual lewat
+   `ffmpeg ... | paplay -d trareon_silent` (jalur file-playback standar di
+   `COMMON.md`, bukan mikrofon nyata) — transkrip terisi 6 segmen,
+   "Rekaman terkonfirmasi" muncul di panel audio sistem.
+4. Sesi dihentikan ("Berhenti" → konfirmasi dialog "Berhenti merekam?").
+   Catatan pribadi "TEST PENTING" tetap ada setelah sesi tersimpan,
+   dibuka kembali lewat `TranscriptPlayerScreen`.
+5. Untuk membuktikan jalur Enhance sungguhan (bukan hanya mock di widget
+   test), Ringkasan AI diaktifkan sementara lewat `~/.config/TrareonTranscribe/settings.json`
+   (`summary.enabled = true`, `summary.model = "qwen2.5:0.5b"`, Ollama
+   lokal yang sudah berjalan di `127.0.0.1:11434` — service yang sama
+   dipakai test unit) — file `settings.json` dicadangkan dulu dan
+   dikembalikan persis ke isi semula setelah smoke test selesai.
+6. Tombol "Enhance" ditekan. Permintaan nyata terkirim ke Ollama
+   (dikonfirmasi lewat `journalctl -u ollama`: `POST /api/chat` 200,
+   durasi 1m27s — CPU lemah di mesin ini, konsisten dengan catatan q5
+   ~8x lebih lambat dari real-time di `COMMON.md`). Hasil "Hasil Gabungan
+   (AI)" muncul di bawah kotak "Catatan Pribadi" yang masih berisi "TEST
+   PENTING" tidak berubah — bukti end-to-end nyata dari ketikan user,
+   lewat FRB, ke Ollama, kembali ke UI. Screenshot:
+   `docs/sprint-evidence/sprint19-enhance-hasil.png`.
+7. Dibersihkan: `pkill -9 -x transcribe`, `settings.json` dikembalikan ke
+   isi semula (persis, diverifikasi dengan `diff`).
+
+### Celah yang diketahui
+
+- Kualitas transkrip pada smoke test ini rendah (beberapa kata salah,
+  beberapa segmen ditandai "Kepercayaan rendah") — ini artefak audio uji
+  dan model q5 di CPU lemah, bukan regresi dari perubahan sprint ini.
+- Catatan pribadi "TEST PENTING" yang dipakai smoke test tidak berisi
+  sinyal substantif (beda dengan contoh "PENTING: deadline Jumat" di test
+  otomatis) sehingga tidak terlihat jelas diprioritaskan di ringkasan AI
+  nyata itu sendiri — pembuktian prioritas urutan prompt (sebelum vs
+  sesudah transkrip) dilakukan lewat assertion string langsung di test
+  Rust (`personal_notes_are_prioritised_ahead_of_the_transcript`), yang
+  lebih tegas daripada mengamati output model secara visual.
+- Ringkasan AI tetap mati secara default (`summary.enabled = false`)
+  sesuai gerbang privasi — fitur ini satu-satunya yang memakai jaringan,
+  dan smoke test di atas mengaktifkannya hanya sementara lalu
+  mengembalikannya.

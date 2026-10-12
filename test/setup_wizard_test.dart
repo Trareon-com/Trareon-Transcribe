@@ -67,6 +67,7 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
     resumeOffsetSecs: 0,
     micAudioSecs: 0,
     speakerAudioSecs: 0,
+    notes: '',
   );
 
   @override
