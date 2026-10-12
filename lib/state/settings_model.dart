@@ -357,6 +357,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     label: 'Pengurangan derau',
   );
 
+  Future<void> setAgcEnabled(bool enabled) => _apply(
+    state.copyWith(agcEnabled: enabled),
+    label: 'Penguatan suara otomatis',
+  );
+
   /// Dismisses the "Tingkatkan akurasi" offer without changing
   /// [AppSettings.defaultModel]. Persisted so the offer does not reappear
   /// every time Settings is opened (Sprint 14a item 6).

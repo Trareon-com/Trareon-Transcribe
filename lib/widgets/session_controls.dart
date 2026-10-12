@@ -69,6 +69,7 @@ class SessionControlGroup extends ConsumerWidget {
     required this.onModeChanged,
     required this.modeLocked,
     this.showMode = true,
+    this.attendees = const [],
   });
 
   final TextEditingController titleController;
@@ -84,44 +85,92 @@ class SessionControlGroup extends ConsumerWidget {
   /// space belongs to the timer.
   final bool showMode;
 
+  /// Peserta pre-filled from a confirmed calendar invite (F22 follow-up,
+  /// Sprint 22 celah C). Read-only here — attendees come from the `.ics`
+  /// file, not something retyped in this form.
+  final List<String> attendees;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ControlGroup(
       title: 'Sesi',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: Spacing.sm,
+            runSpacing: Spacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: Measure.sidebar,
+                child: AppTextField(
+                  controller: titleController,
+                  placeholder: 'Judul sesi…',
+                  prefixIcon: AppIcons.edit,
+                  onChanged: onTitleChanged,
+                  onSubmitted: onTitleChanged,
+                  reserveHelperSpace: false,
+                ),
+              ),
+              if (showMode)
+                AppSegmented<SessionMode>(
+                  semanticLabel: 'Mode sesi',
+                  enabled: !modeLocked,
+                  selected: mode,
+                  onChanged: onModeChanged,
+                  segments: [
+                    for (final m in kModeOrder)
+                      AppSegment(
+                        value: m,
+                        label: m.label,
+                        icon: modeIcon(m),
+                        semanticLabel: modeSemantics(m),
+                      ),
+                  ],
+                ),
+              const SessionOptionsMenu(),
+              const SessionGlossaryPill(),
+            ],
+          ),
+          AttendeesChips(attendees: attendees),
+        ],
+      ),
+    );
+  }
+}
+
+/// Read-only peserta chips pre-filled from a confirmed calendar invite (F22
+/// follow-up, Sprint 22 celah C). Renders nothing when there are none, so a
+/// session not started from an invite looks exactly as it did before this
+/// existed.
+class AttendeesChips extends StatelessWidget {
+  const AttendeesChips({super.key, required this.attendees});
+
+  final List<String> attendees;
+
+  @override
+  Widget build(BuildContext context) {
+    if (attendees.isEmpty) return const SizedBox.shrink();
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.xs),
       child: Wrap(
-        spacing: Spacing.sm,
-        runSpacing: Spacing.sm,
+        spacing: Spacing.xs,
+        runSpacing: Spacing.xs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          SizedBox(
-            width: Measure.sidebar,
-            child: AppTextField(
-              controller: titleController,
-              placeholder: 'Judul sesi…',
-              prefixIcon: AppIcons.edit,
-              onChanged: onTitleChanged,
-              onSubmitted: onTitleChanged,
-              reserveHelperSpace: false,
+          Icon(AppIcons.people, size: IconSizes.xs, color: colors.textTertiary),
+          Text('Peserta:', style: AppText.caption.c(colors.textSecondary)),
+          for (final name in attendees)
+            Chip(
+              label: Text(name, style: AppText.caption.c(colors.text)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: colors.surfaceSunken,
+              side: BorderSide.none,
             ),
-          ),
-          if (showMode)
-            AppSegmented<SessionMode>(
-              semanticLabel: 'Mode sesi',
-              enabled: !modeLocked,
-              selected: mode,
-              onChanged: onModeChanged,
-              segments: [
-                for (final m in kModeOrder)
-                  AppSegment(
-                    value: m,
-                    label: m.label,
-                    icon: modeIcon(m),
-                    semanticLabel: modeSemantics(m),
-                  ),
-              ],
-            ),
-          const SessionOptionsMenu(),
-          const SessionGlossaryPill(),
         ],
       ),
     );

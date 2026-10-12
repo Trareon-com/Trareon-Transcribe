@@ -77,6 +77,9 @@ pub struct SessionStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum NoticeLevel {
+    /// Purely informational: nothing is wrong, the engine just has
+    /// something to tell the user (e.g. a dropped device coming back).
+    Info,
     /// The session is running, but with less than the user asked for.
     Warning,
     /// Something the user asked for has stopped working.
@@ -724,7 +727,11 @@ fn reopen_speaker_capture(state: &mut SessionState) -> Option<SessionEvent> {
         worker_config,
     });
     tracing::info!("speaker capture re-opened after device reconnect");
-    None
+    Some(SessionEvent::Notice {
+        level: NoticeLevel::Info,
+        source: "spk".to_string(),
+        message: "Perangkat audio tersambung ulang — rekaman dilanjutkan.".to_string(),
+    })
 }
 
 /// Indonesian label for a capture source, for user-facing messages.

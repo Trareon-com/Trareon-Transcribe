@@ -5,6 +5,26 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 22: empat celah kecil-menengah dari audit lanjutan Sprint 1–18
+(search_files manual pada `lib/`, bukan laporan sprint).
+
+### Ditambahkan (Sprint 22)
+
+- **Toggle "Penguatan suara otomatis (AGC)"** di Pengaturan → Audio &
+  Suara: `agc.rs` (Sprint 14a item 9) berjalan tanpa syarat sejak
+  dibuat, tanpa kontrol UI. Default tetap aktif (perilaku lama
+  dipertahankan), bisa dimatikan.
+- **Tombol "Bagikan"** di dialog ekspor (toast sukses) dan panel
+  Ringkasan AI — `shareExportedFile()` (F21) sebelumnya hanya
+  dipanggil dari panel tindak lanjut.
+- **Peserta undangan** ditampilkan di form sesi (chip read-only), diisi
+  otomatis saat sesi dimulai dari undangan kalender yang dikonfirmasi.
+- **Notice spesifik saat perangkat audio tersambung ulang**
+  ("Perangkat audio tersambung ulang — rekaman dilanjutkan.",
+  ditampilkan sebagai info, bukan error) — sebelumnya reconnect sukses
+  tidak mengirim notice sama sekali, dan notice apa pun selalu
+  ditampilkan sebagai toast error.
+
 Sprint 21: "Tanya Langsung" — tanya rapat saat masih berlangsung,
 dijawab dari transkrip yang sedang tumbuh. Diferensiator baru per
 `docs/COMPETITOR-RESEARCH.md` §1.18 (Google AI Edge Foresight punya

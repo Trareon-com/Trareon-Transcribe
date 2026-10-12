@@ -593,6 +593,10 @@ class VuLevel {
 
 /// Severity of a [SessionNotice].
 enum SessionNoticeLevel {
+  /// Nothing is wrong; the engine just has something to tell the user
+  /// (e.g. a dropped device coming back).
+  info,
+
   /// The session is running, but with fewer sources than requested.
   warning,
 
@@ -693,6 +697,12 @@ class AppSettings {
   /// default; see rust_core/src/denoise.rs for the trade-off.
   final bool noiseReduction;
 
+  /// Pre-VAD/ASR automatic gain control: boosts quiet-but-real audio
+  /// before the VAD stages see it (Sprint 14a item 9). On by default — it
+  /// was always on, process-wide, before this field existed. Mirrors
+  /// `AppSettings::agc_enabled` in Rust.
+  final bool agcEnabled;
+
   /// "Pemisahan pembicara akurat": sherpa-onnx neural diarization on the
   /// import, re-transcribe and post-stop paths instead of the lightweight
   /// acoustic clustering.
@@ -751,6 +761,7 @@ class AppSettings {
     this.autoRetranscribe,
     this.pdp = kDefaultPdpSettings,
     this.noiseReduction = false,
+    this.agcEnabled = true,
     this.neuralDiarization = false,
     this.defaultModelUpgradeDismissed = false,
     this.consentBannerDismissed = false,
@@ -793,6 +804,7 @@ class AppSettings {
     Object? autoRetranscribe = _sentinel,
     PdpSettings? pdp,
     bool? noiseReduction,
+    bool? agcEnabled,
     bool? neuralDiarization,
     bool? defaultModelUpgradeDismissed,
     bool? consentBannerDismissed,
@@ -832,6 +844,7 @@ class AppSettings {
           : autoRetranscribe as bool?,
       pdp: pdp ?? this.pdp,
       noiseReduction: noiseReduction ?? this.noiseReduction,
+      agcEnabled: agcEnabled ?? this.agcEnabled,
       neuralDiarization: neuralDiarization ?? this.neuralDiarization,
       defaultModelUpgradeDismissed:
           defaultModelUpgradeDismissed ?? this.defaultModelUpgradeDismissed,

@@ -4852,6 +4852,7 @@ impl SseDecode for crate::settings::AppSettings {
         let mut var_autoRetranscribe = <Option<bool>>::sse_decode(deserializer);
         let mut var_pdp = <crate::pdp::PdpSettings>::sse_decode(deserializer);
         let mut var_noiseReduction = <bool>::sse_decode(deserializer);
+        let mut var_agcEnabled = <bool>::sse_decode(deserializer);
         let mut var_neuralDiarization = <bool>::sse_decode(deserializer);
         let mut var_defaultModelUpgradeDismissed = <bool>::sse_decode(deserializer);
         let mut var_consentBannerDismissed = <bool>::sse_decode(deserializer);
@@ -4879,6 +4880,7 @@ impl SseDecode for crate::settings::AppSettings {
             auto_retranscribe: var_autoRetranscribe,
             pdp: var_pdp,
             noise_reduction: var_noiseReduction,
+            agc_enabled: var_agcEnabled,
             neural_diarization: var_neuralDiarization,
             default_model_upgrade_dismissed: var_defaultModelUpgradeDismissed,
             consent_banner_dismissed: var_consentBannerDismissed,
@@ -6142,8 +6144,9 @@ impl SseDecode for crate::session::NoticeLevel {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::session::NoticeLevel::Warning,
-            1 => crate::session::NoticeLevel::Error,
+            0 => crate::session::NoticeLevel::Info,
+            1 => crate::session::NoticeLevel::Warning,
+            2 => crate::session::NoticeLevel::Error,
             _ => unreachable!("Invalid variant for NoticeLevel: {}", inner),
         };
     }
@@ -7582,6 +7585,7 @@ impl flutter_rust_bridge::IntoDart for crate::settings::AppSettings {
             self.auto_retranscribe.into_into_dart().into_dart(),
             self.pdp.into_into_dart().into_dart(),
             self.noise_reduction.into_into_dart().into_dart(),
+            self.agc_enabled.into_into_dart().into_dart(),
             self.neural_diarization.into_into_dart().into_dart(),
             self.default_model_upgrade_dismissed
                 .into_into_dart()
@@ -8581,8 +8585,9 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::NeuralDiarizationStatus>
 impl flutter_rust_bridge::IntoDart for crate::session::NoticeLevel {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            Self::Warning => 0.into_dart(),
-            Self::Error => 1.into_dart(),
+            Self::Info => 0.into_dart(),
+            Self::Warning => 1.into_dart(),
+            Self::Error => 2.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -9906,6 +9911,7 @@ impl SseEncode for crate::settings::AppSettings {
         <Option<bool>>::sse_encode(self.auto_retranscribe, serializer);
         <crate::pdp::PdpSettings>::sse_encode(self.pdp, serializer);
         <bool>::sse_encode(self.noise_reduction, serializer);
+        <bool>::sse_encode(self.agc_enabled, serializer);
         <bool>::sse_encode(self.neural_diarization, serializer);
         <bool>::sse_encode(self.default_model_upgrade_dismissed, serializer);
         <bool>::sse_encode(self.consent_banner_dismissed, serializer);
@@ -10885,8 +10891,9 @@ impl SseEncode for crate::session::NoticeLevel {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::session::NoticeLevel::Warning => 0,
-                crate::session::NoticeLevel::Error => 1,
+                crate::session::NoticeLevel::Info => 0,
+                crate::session::NoticeLevel::Warning => 1,
+                crate::session::NoticeLevel::Error => 2,
                 _ => {
                     unimplemented!("");
                 }

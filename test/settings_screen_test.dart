@@ -377,6 +377,45 @@ void main() {
     },
   );
 
+  // Sprint 22 celah A: `agc.rs` (Sprint 14a item 9) ran unconditionally on
+  // every chunk with zero UI control. Proves the new "Penguatan suara
+  // otomatis (AGC)" switch is wired all the way to the `AppSettings` the
+  // bridge saves — the same reach `apply_engine_settings` in Rust now
+  // flips `crate::agc::set_enabled` from.
+  testWidgets(
+    'the AGC switch reaches the settings sent to the bridge',
+    (WidgetTester tester) async {
+      _sizeViewport(tester, const Size(1440, 900));
+      final bridge = _TestBridge();
+      await tester.pumpWidget(_host(bridge));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Audio & Suara'));
+      await tester.pumpAndSettle();
+
+      // On by default (see settings.rs's doc comment: this was always on,
+      // process-wide, before the toggle existed).
+      expect(bridge.savedSettings.agcEnabled, isTrue);
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(
+            SettingsSwitch,
+            'Penguatan suara otomatis (AGC)',
+          ),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(bridge.savedSettings.agcEnabled, isFalse);
+      expect(
+        find.textContaining('Audio ditranskrip pada volume aslinya'),
+        findsOneWidget,
+        reason: 'subtitle should flip to describe the now-inactive switch',
+      );
+    },
+  );
+
   // F5: off by default, and flipping it reaches the settings the
   // background enhance queue reads its preference from.
   group('"Perhalus otomatis" (F5)', () {

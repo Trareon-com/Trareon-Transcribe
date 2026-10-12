@@ -146,6 +146,10 @@ class ChannelCounters {
 }
 
 enum NoticeLevel {
+  /// Purely informational: nothing is wrong, the engine just has
+  /// something to tell the user (e.g. a dropped device coming back).
+  info,
+
   /// The session is running, but with less than the user asked for.
   warning,
 

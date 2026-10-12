@@ -8,6 +8,8 @@ import 'package:transcribe/state/audio_stream_model.dart';
 import 'package:transcribe/state/models.dart';
 import 'package:transcribe/state/session_model.dart';
 import 'package:transcribe/state/settings_model.dart';
+import 'package:transcribe/theme/app_icons.dart';
+import 'package:transcribe/widgets/app_toast.dart';
 
 import 'test_helpers.dart';
 
@@ -37,6 +39,11 @@ class _NoticeBridge extends NoopBridge {
 }
 
 void main() {
+  // `AppToast` tracks its live toasts and overlay host in static state, so
+  // a previous test's toast (and a now-disposed overlay host) can otherwise
+  // leak into this one and silently swallow a toast this test expects.
+  setUp(AppToast.clear);
+
   /// The GUI bug this guards: the record button sat on "⚡ Memulai..." while
   /// the engine was wedged, so the user had no way to tell a slow start from
   /// a dead one and no way back to idle.
@@ -128,6 +135,58 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'a device-reconnect notice is shown as info, not a sticky error toast',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final bridge = _NoticeBridge();
+      addTearDown(bridge.notices.close);
+
+      await tester.pumpWidget(
+        buildTestAppWithOverrides(
+          overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mulai Rekam'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Berhenti'), findsOneWidget);
+
+      bridge.notices.add(
+        const SessionNotice(
+          level: SessionNoticeLevel.info,
+          source: 'spk',
+          message: 'Perangkat audio tersambung ulang — rekaman dilanjutkan.',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.textContaining('tersambung ulang'),
+        findsOneWidget,
+        reason: 'the reconnect notice has to reach the user',
+      );
+
+      // Rendered with the info icon, not the error icon the old generic
+      // handling always used — the distinguishing signal a user actually
+      // sees, without racing the toast's own dismiss timer against the
+      // session's concurrent elapsed-time ticker.
+      expect(find.byIcon(AppIcons.info), findsOneWidget);
+      expect(find.byIcon(AppIcons.error), findsNothing);
+
+      await tester.tap(find.text('Berhenti'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+    },
+  );
 
   test(
     'a failed start leaves the session model idle, not half-recording',

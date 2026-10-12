@@ -92,6 +92,13 @@ pub struct AppSettings {
     /// consonant. See `crate::denoise` for the trade-off in full.
     #[serde(default)]
     pub noise_reduction: bool,
+    /// Pre-VAD/ASR automatic gain (Sprint 14a item 9): boosts quiet-but-real
+    /// audio toward `crate::agc::TARGET_DBFS` before either VAD stage sees
+    /// it. On by default — it was always on, process-wide, before this
+    /// field existed; this field only makes that choice visible and
+    /// reversible in Pengaturan.
+    #[serde(default = "default_true")]
+    pub agc_enabled: bool,
     /// "Pemisahan pembicara akurat": run sherpa-onnx neural diarization
     /// (pyannote segmentation + CAM++ embeddings) on the post-stop, import
     /// and re-transcribe paths instead of the lightweight acoustic
@@ -313,6 +320,7 @@ impl Default for AppSettings {
             auto_retranscribe: None,
             pdp: crate::pdp::PdpSettings::default(),
             noise_reduction: false,
+            agc_enabled: true,
             neural_diarization: false,
             default_model_upgrade_dismissed: false,
             consent_banner_dismissed: false,

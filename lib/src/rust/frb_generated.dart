@@ -5087,8 +5087,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppSettings dco_decode_app_settings(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 26)
-      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
+    if (arr.length != 27)
+      throw Exception('unexpected arr length: expect 27 but see ${arr.length}');
     return AppSettings(
       theme: dco_decode_theme(arr[0]),
       defaultModel: dco_decode_String(arr[1]),
@@ -5111,11 +5111,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       autoRetranscribe: dco_decode_opt_box_autoadd_bool(arr[18]),
       pdp: dco_decode_pdp_settings(arr[19]),
       noiseReduction: dco_decode_bool(arr[20]),
-      neuralDiarization: dco_decode_bool(arr[21]),
-      defaultModelUpgradeDismissed: dco_decode_bool(arr[22]),
-      consentBannerDismissed: dco_decode_bool(arr[23]),
-      meetingAutoDetectEnabled: dco_decode_bool(arr[24]),
-      silenceAutoStopMinutes: dco_decode_opt_box_autoadd_u_32(arr[25]),
+      agcEnabled: dco_decode_bool(arr[21]),
+      neuralDiarization: dco_decode_bool(arr[22]),
+      defaultModelUpgradeDismissed: dco_decode_bool(arr[23]),
+      consentBannerDismissed: dco_decode_bool(arr[24]),
+      meetingAutoDetectEnabled: dco_decode_bool(arr[25]),
+      silenceAutoStopMinutes: dco_decode_opt_box_autoadd_u_32(arr[26]),
     );
   }
 
@@ -7015,6 +7016,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_autoRetranscribe = sse_decode_opt_box_autoadd_bool(deserializer);
     var var_pdp = sse_decode_pdp_settings(deserializer);
     var var_noiseReduction = sse_decode_bool(deserializer);
+    var var_agcEnabled = sse_decode_bool(deserializer);
     var var_neuralDiarization = sse_decode_bool(deserializer);
     var var_defaultModelUpgradeDismissed = sse_decode_bool(deserializer);
     var var_consentBannerDismissed = sse_decode_bool(deserializer);
@@ -7044,6 +7046,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       autoRetranscribe: var_autoRetranscribe,
       pdp: var_pdp,
       noiseReduction: var_noiseReduction,
+      agcEnabled: var_agcEnabled,
       neuralDiarization: var_neuralDiarization,
       defaultModelUpgradeDismissed: var_defaultModelUpgradeDismissed,
       consentBannerDismissed: var_consentBannerDismissed,
@@ -9459,6 +9462,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_bool(self.autoRetranscribe, serializer);
     sse_encode_pdp_settings(self.pdp, serializer);
     sse_encode_bool(self.noiseReduction, serializer);
+    sse_encode_bool(self.agcEnabled, serializer);
     sse_encode_bool(self.neuralDiarization, serializer);
     sse_encode_bool(self.defaultModelUpgradeDismissed, serializer);
     sse_encode_bool(self.consentBannerDismissed, serializer);
