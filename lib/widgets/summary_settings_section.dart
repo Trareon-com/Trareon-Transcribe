@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../screens/llm_setup_wizard_screen.dart';
 import '../src/rust/api.dart' show llmDefaultModel;
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -8,6 +9,7 @@ import '../theme/app_colors.dart';
 import 'settings_controls.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
+import 'ui/app_button.dart';
 
 /// Settings for the opt-in AI summary.
 ///
@@ -72,6 +74,16 @@ class _SummarySettingsSectionState
     _modelController.dispose();
     _customPromptController.dispose();
     super.dispose();
+  }
+
+  /// Opens the first-run setup wizard manually from Settings. The wizard
+  /// writes the chosen model straight into [settingsProvider] on success,
+  /// so this only needs to refresh the local controller to match.
+  Future<void> _openSetupWizard() async {
+    final tag = await openLlmSetupWizard(context);
+    if (tag == null || !mounted) return;
+    _modelController.text = tag;
+    setState(() {});
   }
 
   SummarySettings get _summary => ref.read(settingsProvider).summary;
@@ -287,6 +299,15 @@ class _SummarySettingsSectionState
                   color: colors.error,
                   fontSize: FontSizes.micro,
                 ),
+              ),
+            ),
+          if (summary.provider == SummaryProvider.ollama)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.md),
+              child: AppButton(
+                label: 'Siapkan Model AI (deteksi, pasang, unduh)…',
+                icon: AppIcons.download,
+                onPressed: () => _openSetupWizard(),
               ),
             ),
           _Field(
