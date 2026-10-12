@@ -133,6 +133,22 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     }
   }
 
+  /// "Enhance" (F11): combines the personal notes saved alongside this
+  /// session with its transcript. An empty notes field is not a blocker —
+  /// [SummaryNotifier.enhance] falls back to a transcript-only pass, same
+  /// as F6 already does.
+  Future<void> _enhance() async {
+    final settings = ref.read(settingsProvider);
+    await ref
+        .read(_provider.notifier)
+        .enhance(
+          segments: widget.segments(),
+          settings: settings,
+          personalNotes: widget.initialMeta.personalNotes,
+          bookmarks: widget.bookmarks,
+        );
+  }
+
   Future<void> _save() async {
     await ref.read(_provider.notifier).save();
     if (!mounted) return;
@@ -392,6 +408,14 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         ),
                       ],
                     ),
+                    Spacing.gapMd,
+                    _PersonalNotesSection(
+                      personalNotes: widget.initialMeta.personalNotes,
+                      enhancedNotes: state.enhancedNotes,
+                      enhancing: state.enhancing,
+                      onEnhance: _enhance,
+                      colors: colors,
+                    ),
                   ],
                   if (state.error != null) ...[
                     Spacing.gapSm,
@@ -429,6 +453,80 @@ class _Notice extends StatelessWidget {
         Icon(icon, size: IconSizes.sm, color: color),
         Spacing.hSm,
         Expanded(child: Text(message, style: AppText.caption.c(color))),
+      ],
+    );
+  }
+}
+
+/// F11: the notulis's raw personal notes next to the "Enhance" action and,
+/// once pressed, the AI's merged document — kept as two separate blocks
+/// (draft vs AI output) rather than one, per the brief: the user's own
+/// writing must never be silently overwritten by what the model made of it.
+class _PersonalNotesSection extends StatelessWidget {
+  const _PersonalNotesSection({
+    required this.personalNotes,
+    required this.enhancedNotes,
+    required this.enhancing,
+    required this.onEnhance,
+    required this.colors,
+  });
+
+  final String personalNotes;
+  final String enhancedNotes;
+  final bool enhancing;
+  final VoidCallback onEnhance;
+  final AppColorSet colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNotes = personalNotes.trim().isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(AppIcons.edit, size: IconSizes.sm, color: colors.primary),
+            Spacing.hSm,
+            Text('Catatan Pribadi', style: AppText.bodyStrong.c(colors.text)),
+            const Spacer(),
+            AppButton.ghost(
+              onPressed: enhancing ? null : onEnhance,
+              loading: enhancing,
+              icon: AppIcons.enhance,
+              label: 'Enhance',
+            ),
+          ],
+        ),
+        if (hasNotes) ...[
+          Spacing.gapXs,
+          AppSurface(
+            width: double.infinity,
+            padding: const EdgeInsets.all(Spacing.sm),
+            radius: Radii.mdAll,
+            child: Text(personalNotes, style: AppText.body.c(colors.text)),
+          ),
+        ] else ...[
+          Spacing.gapXs,
+          Text(
+            'Tidak ada catatan yang ditulis selama rapat. Enhance tetap '
+            'bisa dipakai, hasilnya akan berupa ringkasan dari transkrip saja.',
+            style: AppText.caption.c(colors.textTertiary),
+          ),
+        ],
+        if (enhancedNotes.trim().isNotEmpty) ...[
+          Spacing.gapMd,
+          Text(
+            'Hasil Gabungan (AI)',
+            style: AppText.bodyStrong.c(colors.text),
+          ),
+          Spacing.gapXs,
+          AppSurface(
+            width: double.infinity,
+            padding: const EdgeInsets.all(Spacing.sm),
+            radius: Radii.mdAll,
+            child: Text(enhancedNotes, style: AppText.body.c(colors.text)),
+          ),
+        ],
       ],
     );
   }

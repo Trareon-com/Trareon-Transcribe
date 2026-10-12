@@ -178,6 +178,7 @@ mixin SummaryBridgeStubs {
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) async => throw UnsupportedError('test bridge does not generate summaries');
 
   // ── Tindak lanjut & provenans (F6/F7/F15) ──────────────────────────
@@ -190,7 +191,11 @@ mixin SummaryBridgeStubs {
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) async => throw UnsupportedError('test bridge does not generate summaries');
+
+  // F11: inert like setSessionTitle below.
+  Future<void> setSessionNotes(String sessionId, String notes) async {}
 
   Future<rust_mapreduce.MapReduceProgress?> summaryProgress() async => null;
 
@@ -383,6 +388,7 @@ class NoopBridge with SummaryBridgeStubs implements RustBridge {
     resumeOffsetSecs: 0,
     micAudioSecs: 0,
     speakerAudioSecs: 0,
+    notes: snapshot.notes,
   );
 
   @override

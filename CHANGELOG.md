@@ -5,6 +5,30 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 19: F11, catatan pribadi saat rapat digabung AI dengan transkrip
+("Enhance") — fitur baru sepenuhnya, belum ada sama sekali sebelum sprint
+ini (bukan kasus backend-ada-tapi-tidak-tersambung seperti Sprint 17/18).
+Lihat `docs/SPRINT-REPORTS.md` Sprint 19 report untuk detail lengkap.
+
+### Ditambahkan (Sprint 19)
+
+- **Panel catatan pribadi saat rekam** (F11 Bagian A, `lib/widgets/personal_notes_panel.dart`,
+  `lib/screens/main_screen.dart`): split-screen berdampingan dengan
+  transkrip langsung selama sesi rekam, bukan dialog terpisah. Tersimpan
+  otomatis (debounce 600ms) ke snapshot pemulihan sesi lewat
+  `set_session_notes()` (Rust, pola atomic write temp+rename yang sama
+  dengan judul sesi), lalu ke sidecar sesi (`personal_notes`) saat sesi
+  berhenti.
+- **"Enhance"** (F11 Bagian B, `rust_core/src/summary.rs`, `lib/state/summary_model.dart`,
+  `lib/widgets/summary_panel.dart`): menggabungkan catatan pribadi dengan
+  transkrip lewat jalur ringkasan AI yang sama dengan F6/F15
+  (`generate_summary_long`), dengan catatan pribadi diprioritaskan di
+  prompt sebelum transkrip sebagai sinyal "apa yang penting", bukan
+  ditambahkan di akhir seperti poin penting rapat. Hasil gabungan
+  (`enhanced_notes`) tersimpan terpisah dari catatan asli, keduanya tetap
+  terlihat di panel ringkasan. Catatan kosong tidak menghalangi Enhance,
+  otomatis jatuh ke ringkasan dari transkrip saja seperti F6.
+
 Sprint 18: sambungkan backend F16 (deteksi rapat otomatis + auto-stop
 sunyi, ditulis Sprint 17) ke UI — backend-nya sudah ada sejak Sprint 17
 tapi tidak pernah dipanggil dari layar manapun. Lihat

@@ -178,6 +178,9 @@ struct SessionState {
     /// User-facing session title, mirrored here so the recovery dialog can
     /// name a crashed session instead of showing a UUID.
     title: String,
+    /// The notulis's personal notes (F11), mirrored here the same way
+    /// `title` is, so they survive a crash.
+    notes: String,
     started_at: std::time::Instant,
     started_at_unix_ms: u64,
     last_split_at: std::time::Instant,
@@ -313,6 +316,11 @@ pub struct SessionRecoverySnapshot {
     pub mic_counters: ChannelCounters,
     #[serde(default)]
     pub speaker_counters: ChannelCounters,
+    /// The notulis's personal notes (F11), mirrored here the same way
+    /// [`SessionRecoverySnapshot::title`] is — so a crash loses no more of
+    /// the user's own writing than it loses of the transcript.
+    #[serde(default)]
+    pub notes: String,
 }
 
 /// How much audio one source has delivered, and how much of it was above
@@ -365,6 +373,9 @@ pub struct RecoveredSession {
     pub resume_offset_secs: f64,
     pub mic_audio_secs: f64,
     pub speaker_audio_secs: f64,
+    /// The notulis's personal notes (F11), carried over from the crashed
+    /// run so recovery never silently drops what the user was writing.
+    pub notes: String,
 }
 
 /// Live capture health for one source. Drives both the "rekaman
@@ -479,6 +490,7 @@ pub fn recover_session(
         .max(speaker_audio_secs)
         .max(journal::last_segment_end_secs(&segments));
 
+    let notes = snapshot.notes.clone();
     let resume = ResumeState {
         title: snapshot.title.clone(),
         segments: segments.clone(),
@@ -486,6 +498,7 @@ pub fn recover_session(
         elapsed_secs: snapshot.elapsed_secs.max(resume_offset_secs),
         mic_counters: snapshot.mic_counters,
         speaker_counters: snapshot.speaker_counters,
+        notes: notes.clone(),
     };
     let session_id = start_session_with_id(snapshot.session_id, snapshot.config, resume)?;
 
@@ -495,6 +508,7 @@ pub fn recover_session(
         resume_offset_secs,
         mic_audio_secs,
         speaker_audio_secs,
+        notes,
     })
 }
 
@@ -818,6 +832,14 @@ pub fn set_session_title(session_id: &str, title: &str) -> Result<(), Transcribe
     persist_session_snapshot(session_id)
 }
 
+/// Mirrors the notulis's personal notes (F11) into the recovery snapshot on
+/// every debounced edit, so a crash mid-meeting loses no more of the user's
+/// own writing than it loses of the transcript itself.
+pub fn set_session_notes(session_id: &str, notes: &str) -> Result<(), TranscribeError> {
+    with_session_mut(session_id, |s| s.notes = notes.to_string())?;
+    persist_session_snapshot(session_id)
+}
+
 /// Call periodically (e.g. every minute) from the live capture loop. If it
 /// returns `Some`, the caller should flush the current chunk to disk and
 /// start a new file segment, then call [`mark_split`].
@@ -1060,6 +1082,7 @@ struct ResumeState {
     elapsed_secs: f64,
     mic_counters: ChannelCounters,
     speaker_counters: ChannelCounters,
+    notes: String,
 }
 
 /// What language to actually transcribe a live session with (Sprint 14a
@@ -1221,6 +1244,7 @@ fn start_session_with_id(
         session_id: id.clone(),
         config,
         title: resume.title,
+        notes: resume.notes,
         started_at: now,
         started_at_unix_ms: now_unix_ms,
         last_split_at: now,
@@ -1275,6 +1299,7 @@ fn persist_session_snapshot(session_id: &str) -> Result<(), TranscribeError> {
             elapsed_secs: state.elapsed_secs(),
             mic_counters: counters_of(state.mic_capture.as_ref()),
             speaker_counters: counters_of(state.speaker_capture.as_ref()),
+            notes: state.notes.clone(),
         }
     };
     write_snapshot_file(&snapshot)
@@ -2030,6 +2055,7 @@ mod tests {
                 voiced_samples: TARGET_SAMPLE_RATE as u64 * 120,
             },
             speaker_counters: ChannelCounters::default(),
+            notes: "PENTING: tindak lanjut anggaran".to_string(),
         };
         std::fs::write(
             dir.join(SNAPSHOT_FILE),
@@ -2077,6 +2103,11 @@ mod tests {
             recovered.resume_offset_secs
         );
         assert!((recovered.mic_audio_secs - 30.0).abs() < 0.01);
+        assert_eq!(
+            recovered.notes, "PENTING: tindak lanjut anggaran",
+            "personal notes (F11) must survive a crash exactly like the \
+             title does"
+        );
 
         let status = get_status(&recovered.session_id).unwrap();
         assert_eq!(status.segments_count, 2, "the count is restored too");
@@ -2336,6 +2367,17 @@ mod tests {
 
         let snapshot = load_snapshot_file(&home.path().join(&id).join(SNAPSHOT_FILE)).unwrap();
         assert_eq!(snapshot.title, "Rapat Koordinasi");
+        stop_session(&id).unwrap();
+    }
+
+    #[test]
+    fn the_session_notes_reach_the_recovery_snapshot() {
+        let home = RecoveryHome::new();
+        let id = start_session(test_config()).unwrap();
+        set_session_notes(&id, "PENTING: deadline Jumat").unwrap();
+
+        let snapshot = load_snapshot_file(&home.path().join(&id).join(SNAPSHOT_FILE)).unwrap();
+        assert_eq!(snapshot.notes, "PENTING: deadline Jumat");
         stop_session(&id).unwrap();
     }
 

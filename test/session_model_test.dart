@@ -65,6 +65,7 @@ class _NoopBridge with SummaryBridgeStubs implements RustBridge {
     resumeOffsetSecs: 0,
     micAudioSecs: 0,
     speakerAudioSecs: 0,
+    notes: snapshot.notes,
   );
 
   @override
@@ -458,6 +459,7 @@ void main() {
 
       final snapshot = rust_session.SessionRecoverySnapshot(
         sessionId: 'orphan-candidate',
+        notes: '',
         config: const rust_audio.SessionConfig(
           micEnabled: true,
           speakerEnabled: false,
@@ -561,9 +563,11 @@ void main() {
 rust_session.SessionRecoverySnapshot _snapshot(
   String id, {
   required String title,
+  String notes = '',
 }) {
   return rust_session.SessionRecoverySnapshot(
     sessionId: id,
+    notes: notes,
     config: const rust_audio.SessionConfig(
       micEnabled: true,
       speakerEnabled: false,
@@ -622,6 +626,7 @@ class _RecoveringBridge extends _NoopBridge {
     resumeOffsetSecs: 5400,
     micAudioSecs: 5400,
     speakerAudioSecs: 0,
+    notes: snapshot.notes,
   );
 
   @override

@@ -220,12 +220,17 @@ class RecoveredSession {
   final double micAudioSecs;
   final double speakerAudioSecs;
 
+  /// The notulis's personal notes (F11), carried over from the crashed
+  /// run so recovery never silently drops what the user was writing.
+  final String notes;
+
   const RecoveredSession({
     required this.sessionId,
     required this.segments,
     required this.resumeOffsetSecs,
     required this.micAudioSecs,
     required this.speakerAudioSecs,
+    required this.notes,
   });
 
   @override
@@ -234,7 +239,8 @@ class RecoveredSession {
       segments.hashCode ^
       resumeOffsetSecs.hashCode ^
       micAudioSecs.hashCode ^
-      speakerAudioSecs.hashCode;
+      speakerAudioSecs.hashCode ^
+      notes.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -245,7 +251,8 @@ class RecoveredSession {
           segments == other.segments &&
           resumeOffsetSecs == other.resumeOffsetSecs &&
           micAudioSecs == other.micAudioSecs &&
-          speakerAudioSecs == other.speakerAudioSecs;
+          speakerAudioSecs == other.speakerAudioSecs &&
+          notes == other.notes;
 }
 
 @freezed
@@ -310,6 +317,11 @@ class SessionRecoverySnapshot {
   final ChannelCounters micCounters;
   final ChannelCounters speakerCounters;
 
+  /// The notulis's personal notes (F11), mirrored here the same way
+  /// [`SessionRecoverySnapshot::title`] is — so a crash loses no more of
+  /// the user's own writing than it loses of the transcript.
+  final String notes;
+
   const SessionRecoverySnapshot({
     required this.sessionId,
     required this.config,
@@ -321,6 +333,7 @@ class SessionRecoverySnapshot {
     required this.elapsedSecs,
     required this.micCounters,
     required this.speakerCounters,
+    required this.notes,
   });
 
   @override
@@ -334,7 +347,8 @@ class SessionRecoverySnapshot {
       updatedAtUnixMs.hashCode ^
       elapsedSecs.hashCode ^
       micCounters.hashCode ^
-      speakerCounters.hashCode;
+      speakerCounters.hashCode ^
+      notes.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -350,7 +364,8 @@ class SessionRecoverySnapshot {
           updatedAtUnixMs == other.updatedAtUnixMs &&
           elapsedSecs == other.elapsedSecs &&
           micCounters == other.micCounters &&
-          speakerCounters == other.speakerCounters;
+          speakerCounters == other.speakerCounters &&
+          notes == other.notes;
 }
 
 class SessionStatus {

@@ -25,6 +25,11 @@ class _SummaryBridge extends NoopBridge {
   final Object? failWith;
   SummaryConfig? lastConfig;
   List<TranscriptSegment>? lastSegments;
+
+  /// What the caller actually passed as F11's personal notes — the test
+  /// bridge "network boundary" this sprint's whole verification rests on:
+  /// if this never gets set, the notes never left the Dart layer.
+  String? lastPersonalNotes;
   int calls = 0;
 
   @override
@@ -32,10 +37,12 @@ class _SummaryBridge extends NoopBridge {
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
+    String? personalNotes,
   }) async {
     calls++;
     lastConfig = config;
     lastSegments = segments;
+    lastPersonalNotes = personalNotes;
     if (failWith != null) throw failWith!;
     return '## Keputusan\n- Pakai Rust';
   }
@@ -48,8 +55,13 @@ class _SummaryBridge extends NoopBridge {
     required List<TranscriptSegment> segments,
     required SummaryConfig config,
     List<Bookmark> bookmarks = const [],
-  }) =>
-      generateSummary(segments: segments, config: config, bookmarks: bookmarks);
+    String? personalNotes,
+  }) => generateSummary(
+    segments: segments,
+    config: config,
+    bookmarks: bookmarks,
+    personalNotes: personalNotes,
+  );
 }
 
 AppSettings settingsWithSummary({
@@ -116,6 +128,83 @@ void main() {
     expect(saved.summaryTemplate, SummaryTemplate.actionItems);
     expect(saved.summaryGeneratedAt, isNotNull);
   });
+
+  // ── F11: "Enhance" — personal notes + transcript merged, Sprint 19 ──────
+  //
+  // This is the one assertion the sprint brief calls "paling penting": if
+  // `personalNotes` never reaches the bridge call, the feature is empty
+  // no matter how the UI looks.
+
+  test(
+    'enhance() actually sends the personal notes to the bridge, not just the transcript',
+    () async {
+      final bridge = _SummaryBridge();
+      final notifier = SummaryNotifier(bridge, dir.path);
+      addTearDown(notifier.dispose);
+
+      await notifier.enhance(
+        segments: const [_segment],
+        settings: settingsWithSummary(),
+        personalNotes: 'PENTING: deadline Jumat',
+      );
+
+      expect(
+        bridge.lastPersonalNotes,
+        'PENTING: deadline Jumat',
+        reason:
+            'the whole point of F11 is that the notulis\'s own notes '
+            'reach the model, not just the transcript',
+      );
+      expect(bridge.lastSegments, hasLength(1));
+    },
+  );
+
+  test(
+    'enhance() keeps enhancedNotes separate from the raw personal notes and the summary text',
+    () async {
+      final bridge = _SummaryBridge();
+      final notifier = SummaryNotifier(bridge, dir.path);
+      addTearDown(notifier.dispose);
+
+      await notifier.enhance(
+        segments: const [_segment],
+        settings: settingsWithSummary(),
+        personalNotes: 'catatan asli saya',
+      );
+
+      expect(notifier.state.enhancedNotes, contains('Pakai Rust'));
+      // The AI's merged output must not have overwritten the ordinary
+      // summary text — they are two different fields for two different
+      // artifacts (draft vs AI output).
+      expect(notifier.state.text, isEmpty);
+
+      final saved = await readSessionMeta(dir.path);
+      expect(saved.enhancedNotes, contains('Pakai Rust'));
+    },
+  );
+
+  test(
+    'enhance() with an empty personal-notes field still works (falls back to transcript-only)',
+    () async {
+      final bridge = _SummaryBridge();
+      final notifier = SummaryNotifier(bridge, dir.path);
+      addTearDown(notifier.dispose);
+
+      await notifier.enhance(
+        segments: const [_segment],
+        settings: settingsWithSummary(),
+        personalNotes: '',
+      );
+
+      expect(
+        bridge.lastPersonalNotes,
+        isNull,
+        reason: 'an empty field must not block Enhance, per the brief',
+      );
+      expect(notifier.state.enhancedNotes, contains('Pakai Rust'));
+      expect(notifier.state.error, isNull);
+    },
+  );
 
   test('sends the selected template and UI language to the endpoint', () async {
     final bridge = _SummaryBridge();

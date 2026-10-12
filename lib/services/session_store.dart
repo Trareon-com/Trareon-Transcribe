@@ -112,6 +112,18 @@ class SessionMeta {
   /// would throw that away.
   final List<ActionItem> actionItems;
 
+  /// The notulis's own notes, typed next to the live transcript while the
+  /// meeting ran (F11). Kept verbatim, separate from [enhancedNotes], so
+  /// the user can always see their own draft next to what the AI made of
+  /// it rather than one overwriting the other.
+  final String personalNotes;
+
+  /// What "Enhance" (F11) produced by combining [personalNotes] with the
+  /// transcript — prioritising the notulis's notes as the signal for what
+  /// mattered, and the transcript as the detail. Empty until the user
+  /// presses Enhance at least once.
+  final String enhancedNotes;
+
   const SessionMeta({
     this.title,
     this.summary = '',
@@ -127,6 +139,8 @@ class SessionMeta {
     this.coverageFraction,
     this.actionItems = const [],
     this.tags = const [],
+    this.personalNotes = '',
+    this.enhancedNotes = '',
   });
 
   static const SessionMeta empty = SessionMeta();
@@ -151,6 +165,8 @@ class SessionMeta {
     double? coverageFraction,
     List<ActionItem>? actionItems,
     List<String>? tags,
+    String? personalNotes,
+    String? enhancedNotes,
   }) {
     return SessionMeta(
       title: title ?? this.title,
@@ -168,6 +184,8 @@ class SessionMeta {
       coverageFraction: coverageFraction ?? this.coverageFraction,
       actionItems: actionItems ?? this.actionItems,
       tags: tags ?? this.tags,
+      personalNotes: personalNotes ?? this.personalNotes,
+      enhancedNotes: enhancedNotes ?? this.enhancedNotes,
     );
   }
 
@@ -194,6 +212,8 @@ class SessionMeta {
     if (actionItems.isNotEmpty)
       'action_items': [for (final item in actionItems) _actionItemToJson(item)],
     if (tags.isNotEmpty) 'tags': tags,
+    if (personalNotes.isNotEmpty) 'personal_notes': personalNotes,
+    if (enhancedNotes.isNotEmpty) 'enhanced_notes': enhancedNotes,
   };
 
   /// Tolerant of every field being absent, of the wrong type, or naming a
@@ -228,6 +248,12 @@ class SessionMeta {
       coverageFraction: (json['coverage_fraction'] as num?)?.toDouble(),
       actionItems: _actionItemsFromJson(json['action_items']),
       tags: normaliseTags(json['tags']),
+      personalNotes: json['personal_notes'] is String
+          ? json['personal_notes'] as String
+          : '',
+      enhancedNotes: json['enhanced_notes'] is String
+          ? json['enhanced_notes'] as String
+          : '',
     );
   }
 }

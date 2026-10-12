@@ -38,6 +38,7 @@ import '../widgets/calendar_invite_import.dart';
 import '../widgets/capture_health_view.dart';
 import '../widgets/platform_chrome.dart';
 import '../widgets/meeting_template_picker.dart';
+import '../widgets/personal_notes_panel.dart';
 import '../widgets/record_button.dart';
 import '../widgets/recovery_dialog.dart';
 import '../widgets/resource_indicator.dart';
@@ -1428,11 +1429,26 @@ class _Workspace extends StatelessWidget {
                   children: [
                     const LanguageMismatchBanner(),
                     Expanded(
-                      child: TranscriptView(
-                        segments: session.segments,
-                        revision: session.revision,
-                        onRenameSpeaker: notifier.renameSpeaker,
-                        tentativeText: session.tentativeText,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TranscriptView(
+                              segments: session.segments,
+                              revision: session.revision,
+                              onRenameSpeaker: notifier.renameSpeaker,
+                              tentativeText: session.tentativeText,
+                            ),
+                          ),
+                          const VerticalDivider(width: 1),
+                          Expanded(
+                            child: PersonalNotesPanel(
+                              notes: session.personalNotes,
+                              onChanged: notifier.setPersonalNotes,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

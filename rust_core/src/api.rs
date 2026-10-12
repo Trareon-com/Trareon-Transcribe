@@ -173,6 +173,13 @@ pub fn set_session_title(session_id: String, title: String) -> Result<(), Transc
     crate::session::set_session_title(&session_id, &title)
 }
 
+/// Mirrors the notulis's personal notes (F11) into the recovery snapshot on
+/// every debounced edit, so a crash mid-meeting loses no more of the user's
+/// own writing than it loses of the transcript.
+pub fn set_session_notes(session_id: String, notes: String) -> Result<(), TranscribeError> {
+    crate::session::set_session_notes(&session_id, &notes)
+}
+
 /// Parses the `VEVENT`s out of an `.ics` calendar invite (F22) — the
 /// manual-import half of calendar integration: `SUMMARY`, `ATTENDEE` and
 /// `DTSTART` only, which is what "pra-isi judul + peserta sebelum
@@ -1074,14 +1081,21 @@ pub fn is_non_speech_text(text: String) -> bool {
 /// device names. Returns a `TranscribeError::Summary` (never a panic, never
 /// a partial write) when the endpoint is unreachable or rejects the request,
 /// so a failed summary can never look like a lost transcript.
+///
+/// `personal_notes` is the notulis's own notes typed during the meeting
+/// (F11, see `main_screen.dart`'s split-screen panel) — when present, the
+/// prompt is built so the model treats them as the signal for what matters
+/// and the transcript as the detail that fills that signal in. `None`/empty
+/// behaves exactly like before: a transcript-only summary.
 pub async fn generate_summary(
     segments: Vec<Segment>,
     config: crate::summary::SummaryConfig,
     bookmarks: Vec<Bookmark>,
+    personal_notes: Option<String>,
 ) -> Result<String, TranscribeError> {
     let transcript = crate::summary::transcript_text(&segments);
     let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
-    crate::summary::generate_summary(config, transcript, marks).await
+    crate::summary::generate_summary(config, transcript, marks, personal_notes).await
 }
 
 /// Summarises a meeting of any length, splitting it into time windows
@@ -1089,11 +1103,13 @@ pub async fn generate_summary(
 ///
 /// `progress` is polled from Dart via [`read_summary_progress`]; a
 /// three-hour meeting is around eighteen round trips and the user has to
-/// see which one is running.
+/// see which one is running. `personal_notes` is F11's notulis notes — see
+/// [`generate_summary`].
 pub async fn generate_summary_long(
     segments: Vec<Segment>,
     config: crate::summary::SummaryConfig,
     bookmarks: Vec<Bookmark>,
+    personal_notes: Option<String>,
 ) -> Result<String, TranscribeError> {
     let marks = crate::export::notulen::poin_penting_from_bookmarks(&bookmarks);
     crate::summary::reset_progress();
@@ -1101,6 +1117,7 @@ pub async fn generate_summary_long(
         config,
         segments,
         marks,
+        personal_notes,
         crate::summary::publish_progress,
     )
     .await;

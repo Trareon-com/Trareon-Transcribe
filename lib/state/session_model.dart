@@ -76,6 +76,12 @@ class SessionUiState {
   /// replace it on the next decode.
   final String tentativeText;
 
+  /// The notulis's own notes, typed in the split-screen panel next to the
+  /// live transcript while the meeting runs (F11). Debounce-persisted into
+  /// the recovery snapshot by [SessionNotifier.setPersonalNotes] and, on
+  /// stop, into the session sidecar.
+  final String personalNotes;
+
   const SessionUiState({
     required this.lifecycle,
     required this.config,
@@ -87,6 +93,7 @@ class SessionUiState {
     this.bookmarks = const [],
     this.sessionGlossaryTerms = const [],
     this.tentativeText = '',
+    this.personalNotes = '',
   });
 
   /// Average confidence across current segments, or null if there are none
@@ -108,6 +115,7 @@ class SessionUiState {
     List<Bookmark>? bookmarks,
     List<String>? sessionGlossaryTerms,
     String? tentativeText,
+    String? personalNotes,
   }) {
     return SessionUiState(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -120,6 +128,7 @@ class SessionUiState {
       bookmarks: bookmarks ?? this.bookmarks,
       sessionGlossaryTerms: sessionGlossaryTerms ?? this.sessionGlossaryTerms,
       tentativeText: tentativeText ?? this.tentativeText,
+      personalNotes: personalNotes ?? this.personalNotes,
     );
   }
 }
@@ -139,8 +148,15 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   StreamSubscription<String>? _tentativeSub;
   Timer? _autoStopTimer;
   Timer? _elapsedTimer;
+  Timer? _notesDebounce;
   DateTime? _recordingStartedAt;
   int? _autoStopMinutes;
+
+  /// How long [setPersonalNotes] waits after the last keystroke before
+  /// mirroring the note into the crash-recovery snapshot. Short enough that
+  /// a kill mid-sentence loses at most this much, long enough not to hit
+  /// disk on every keystroke of a fast typist.
+  static const Duration _notesDebounceDelay = Duration(milliseconds: 600);
 
   /// Synchronous re-entrancy guard for [start] and [recoverFromSnapshot].
   ///
@@ -357,6 +373,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         sessionTitle: snapshot.title.isNotEmpty
             ? snapshot.title
             : state.sessionTitle,
+        // F11: a crash must lose no more of the notulis's own writing than
+        // it loses of the transcript.
+        personalNotes: recovered.notes,
       );
       // The elapsed timer continues from where the crashed run left off
       // rather than restarting at 00:00 — the audio and transcript did.
@@ -413,6 +432,9 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
         // A new meeting starts with no markers; carrying the previous
         // session's over would put them at timestamps that no longer exist.
         bookmarks: const [],
+        // Same for personal notes (F11) — the previous meeting's notes
+        // belong to that meeting's sidecar, not this one.
+        personalNotes: '',
       );
       _subscribeToLiveStreams(id);
       _mirrorTitleToSnapshot();
@@ -585,6 +607,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
             language: _language,
             model: _modelId,
             bookmarks: state.bookmarks,
+            personalNotes: state.personalNotes,
           ),
         );
       } catch (_) {}
@@ -920,6 +943,21 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     unawaited(_bridge.setSessionTitle(id, title).catchError((_) {}));
   }
 
+  /// Updates the notulis's personal notes (F11) and debounce-persists them
+  /// into the crash-recovery snapshot — the same atomic temp+rename write
+  /// `set_session_title` already uses, so a kill mid-meeting loses at most
+  /// [_notesDebounceDelay] of typing instead of all of it. The sidecar copy
+  /// (for a finished session) is written separately at save time.
+  void setPersonalNotes(String notes) {
+    state = state.copyWith(personalNotes: notes);
+    _notesDebounce?.cancel();
+    final id = state.sessionId;
+    if (id == null) return;
+    _notesDebounce = Timer(_notesDebounceDelay, () {
+      unawaited(_bridge.setSessionNotes(id, notes).catchError((_) {}));
+    });
+  }
+
   void updateAutoStopMinutes(int? minutes) {
     _autoStopMinutes = minutes;
     if (state.lifecycle == SessionLifecycle.recording) {
@@ -931,6 +969,8 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
   void dispose() {
     _autoStopTimer?.cancel();
     _autoStopTimer = null;
+    _notesDebounce?.cancel();
+    _notesDebounce = null;
     _cancelLiveStreams();
     super.dispose();
   }

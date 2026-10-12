@@ -299,17 +299,38 @@ pub fn question_system_prompt(language: &str) -> String {
     )
 }
 
-/// The user message: instruction + transcript (truncated to
-/// [`MAX_TRANSCRIPT_CHARS`]) + whatever the notulis flagged during the meeting.
+/// The user message: instruction + the notulis's own notes (F11, if any) +
+/// transcript (truncated to [`MAX_TRANSCRIPT_CHARS`]) + whatever was flagged
+/// during the meeting.
 ///
-/// The bookmark block is appended *after* the truncation so a three-hour
-/// meeting cannot drop the very moments the user marked as important — which
-/// is the whole point of having marked them.
+/// [`personal_notes`] is placed *before* the transcript, right after the
+/// instruction, rather than appended at the end like the bookmark block:
+/// those are the notulis's own words about what mattered, so the model
+/// should read them as the lens to read the transcript through, not as one
+/// more fact to fold in afterwards. The bookmark block is still appended
+/// *after* the truncation so a three-hour meeting cannot drop the very
+/// moments the user marked as important.
 #[flutter_rust_bridge::frb(ignore)]
-pub fn build_prompt(config: &SummaryConfig, transcript: &str, bookmarks: &[String]) -> String {
+pub fn build_prompt(
+    config: &SummaryConfig,
+    transcript: &str,
+    bookmarks: &[String],
+    personal_notes: Option<&str>,
+) -> String {
     let instruction = full_instruction(config);
     let body = truncate_transcript(transcript.trim(), MAX_TRANSCRIPT_CHARS);
-    let mut prompt = format!("{instruction}\n\n--- TRANSKRIP ---\n{body}\n--- AKHIR TRANSKRIP ---");
+    let mut prompt = format!("{instruction}\n\n");
+    if let Some(notes) = personal_notes.map(str::trim).filter(|n| !n.is_empty()) {
+        prompt.push_str(
+            "--- CATATAN PRIBADI NOTULIS (PENTING — utamakan ini sebagai sinyal apa yang \
+             penting, lalu lengkapi detailnya dari transkrip) ---\n",
+        );
+        prompt.push_str(notes);
+        prompt.push_str("\n--- AKHIR CATATAN PRIBADI ---\n\n");
+    }
+    prompt.push_str(&format!(
+        "--- TRANSKRIP ---\n{body}\n--- AKHIR TRANSKRIP ---"
+    ));
     let marks: Vec<&str> = bookmarks
         .iter()
         .map(|b| b.trim())
@@ -381,10 +402,17 @@ pub fn reset_progress() {
 /// Falls back to a single request when the transcript fits — one round
 /// trip is both faster and better, because the model sees every
 /// connection at once.
+///
+/// `personal_notes` (F11) is carried only into the final document — the
+/// single-request path above, or the reduce step below — never into a
+/// per-window map call, the same way bookmarks are handled: a window's
+/// notes are a fragment of the meeting, and the notulis's own notes are
+/// about the meeting as a whole.
 pub async fn generate_summary_long(
     config: SummaryConfig,
     segments: Vec<Segment>,
     bookmarks: Vec<String>,
+    personal_notes: Option<String>,
     mut on_progress: impl FnMut(crate::mapreduce::MapReduceProgress),
 ) -> Result<String, TranscribeError> {
     validate(&config)?;
@@ -399,7 +427,7 @@ pub async fn generate_summary_long(
         ));
     }
     if !crate::mapreduce::needs_map_reduce(rendered.len(), MAX_TRANSCRIPT_CHARS) {
-        return generate_summary(config, rendered, bookmarks).await;
+        return generate_summary(config, rendered, bookmarks, personal_notes).await;
     }
 
     let chunks = crate::mapreduce::chunk_by_time(
@@ -429,7 +457,8 @@ pub async fn generate_summary_long(
         };
         // A window the endpoint refused is recorded as empty rather than
         // failing the run: seventeen windows of notes beat none.
-        let partial = match generate_summary(map_config, chunk.text.clone(), Vec::new()).await {
+        let partial = match generate_summary(map_config, chunk.text.clone(), Vec::new(), None).await
+        {
             Ok(text) => text,
             Err(e) => {
                 tracing::warn!(window = chunk.index, %e, "map step failed for one window");
@@ -455,7 +484,7 @@ pub async fn generate_summary_long(
         with_action_items: false,
         ..config
     };
-    generate_summary(reduce_config, joined, bookmarks).await
+    generate_summary(reduce_config, joined, bookmarks, personal_notes).await
 }
 
 // ---------------------------------------------------------------------------
@@ -748,10 +777,15 @@ pub async fn chat_once(
 }
 
 /// Sends `transcript` to the configured endpoint and returns Markdown.
+///
+/// `personal_notes` is the notulis's own notes typed during the meeting
+/// (F11) — see [`build_prompt`] for why they are prioritised over the
+/// transcript rather than merely appended to it.
 pub async fn generate_summary(
     config: SummaryConfig,
     transcript: String,
     bookmarks: Vec<String>,
+    personal_notes: Option<String>,
 ) -> Result<String, TranscribeError> {
     validate(&config)?;
     if transcript.trim().is_empty() {
@@ -759,7 +793,7 @@ pub async fn generate_summary(
             "Transkrip kosong — tidak ada yang bisa diringkas.".into(),
         ));
     }
-    let prompt = build_prompt(&config, &transcript, &bookmarks);
+    let prompt = build_prompt(&config, &transcript, &bookmarks, personal_notes.as_deref());
     chat_once(
         &config,
         &system_prompt(&config.language),
@@ -1269,7 +1303,7 @@ mod tests {
             template: SummaryTemplate::ActionItems,
             ..Default::default()
         };
-        let prompt = build_prompt(&config, "[00:00] Saya: kita putuskan pakai Rust", &[]);
+        let prompt = build_prompt(&config, "[00:00] Saya: kita putuskan pakai Rust", &[], None);
         assert!(prompt.contains("Action Items"));
         assert!(prompt.contains("kita putuskan pakai Rust"));
         assert!(prompt.contains("--- AKHIR TRANSKRIP ---"));
@@ -1281,7 +1315,12 @@ mod tests {
         // A transcript well past the cap: the bookmark block must still be
         // in the prompt, because truncation happens before it is added.
         let long = "x".repeat(MAX_TRANSCRIPT_CHARS + 5_000);
-        let prompt = build_prompt(&config, &long, &["[05:12] keputusan penting".to_string()]);
+        let prompt = build_prompt(
+            &config,
+            &long,
+            &["[05:12] keputusan penting".to_string()],
+            None,
+        );
         assert!(prompt.contains("dipotong"), "the transcript was truncated");
         assert!(prompt.contains("[05:12] keputusan penting"));
         assert!(
@@ -1293,9 +1332,43 @@ mod tests {
     #[test]
     fn a_prompt_without_bookmarks_is_unchanged() {
         let config = SummaryConfig::default();
-        let with_blanks = build_prompt(&config, "halo", &["".into(), "   ".into()]);
-        assert_eq!(with_blanks, build_prompt(&config, "halo", &[]));
+        let with_blanks = build_prompt(&config, "halo", &["".into(), "   ".into()], None);
+        assert_eq!(with_blanks, build_prompt(&config, "halo", &[], None));
         assert!(!with_blanks.contains("DITANDAI"));
+    }
+
+    /// F11's whole point: the notulis's own notes must actually reach the
+    /// model, and they must land *before* the transcript (prioritised as
+    /// the signal, not tacked on as an afterthought like a bookmark).
+    #[test]
+    fn personal_notes_are_prioritised_ahead_of_the_transcript() {
+        let config = SummaryConfig::default();
+        let prompt = build_prompt(
+            &config,
+            "[00:00] Saya: rapat dimulai",
+            &[],
+            Some("PENTING: deadline Jumat"),
+        );
+        assert!(prompt.contains("PENTING: deadline Jumat"));
+        assert!(prompt.contains("CATATAN PRIBADI NOTULIS"));
+        let notes_at = prompt.find("PENTING: deadline Jumat").unwrap();
+        let transcript_at = prompt.find("--- TRANSKRIP ---").unwrap();
+        assert!(
+            notes_at < transcript_at,
+            "personal notes must precede the transcript, not follow it"
+        );
+    }
+
+    /// No notes typed during the meeting must not be a blocker (Bagian B.3
+    /// of the brief): the prompt is identical to the no-notes case, and a
+    /// blank/whitespace-only note is treated the same as `None`.
+    #[test]
+    fn an_empty_personal_notes_field_does_not_block_generation() {
+        let config = SummaryConfig::default();
+        let without = build_prompt(&config, "halo", &[], None);
+        assert_eq!(without, build_prompt(&config, "halo", &[], Some("")));
+        assert_eq!(without, build_prompt(&config, "halo", &[], Some("   ")));
+        assert!(!without.contains("CATATAN PRIBADI"));
     }
 
     #[test]
@@ -1347,7 +1420,7 @@ mod tests {
             custom_prompt: compose_custom_instruction("Fokus risiko.", &["Risiko".into()]),
             ..Default::default()
         };
-        let prompt = build_prompt(&config, "[00:00] Saya: ada risiko kurs", &[]);
+        let prompt = build_prompt(&config, "[00:00] Saya: ada risiko kurs", &[], None);
         assert!(prompt.contains("Fokus risiko."));
         assert!(prompt.contains("## Risiko"));
     }
@@ -1507,7 +1580,7 @@ mod tests {
     #[tokio::test]
     async fn refuses_to_call_out_without_a_model_or_url() {
         let no_model = SummaryConfig::default();
-        assert!(generate_summary(no_model, "halo".into(), Vec::new())
+        assert!(generate_summary(no_model, "halo".into(), Vec::new(), None)
             .await
             .is_err());
 
@@ -1516,7 +1589,7 @@ mod tests {
             model: "qwen2.5:7b".into(),
             ..Default::default()
         };
-        assert!(generate_summary(no_url, "halo".into(), Vec::new())
+        assert!(generate_summary(no_url, "halo".into(), Vec::new(), None)
             .await
             .is_err());
     }
@@ -1527,7 +1600,7 @@ mod tests {
             model: "qwen2.5:7b".into(),
             ..Default::default()
         };
-        let err = generate_summary(config, "   \n ".into(), Vec::new())
+        let err = generate_summary(config, "   \n ".into(), Vec::new(), None)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("kosong"));

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1915910194;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1197455478;
 
 // Section: executor
 
@@ -2065,13 +2065,18 @@ fn wire__crate__api__generate_summary_impl(
             let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
             let api_config = <crate::summary::SummaryConfig>::sse_decode(&mut deserializer);
             let api_bookmarks = <Vec<crate::export::Bookmark>>::sse_decode(&mut deserializer);
+            let api_personal_notes = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, crate::error::TranscribeError>(
                     (move || async move {
-                        let output_ok =
-                            crate::api::generate_summary(api_segments, api_config, api_bookmarks)
-                                .await?;
+                        let output_ok = crate::api::generate_summary(
+                            api_segments,
+                            api_config,
+                            api_bookmarks,
+                            api_personal_notes,
+                        )
+                        .await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -2105,6 +2110,7 @@ fn wire__crate__api__generate_summary_long_impl(
             let api_segments = <Vec<crate::export::Segment>>::sse_decode(&mut deserializer);
             let api_config = <crate::summary::SummaryConfig>::sse_decode(&mut deserializer);
             let api_bookmarks = <Vec<crate::export::Bookmark>>::sse_decode(&mut deserializer);
+            let api_personal_notes = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, crate::error::TranscribeError>(
@@ -2113,6 +2119,7 @@ fn wire__crate__api__generate_summary_long_impl(
                             api_segments,
                             api_config,
                             api_bookmarks,
+                            api_personal_notes,
                         )
                         .await?;
                         std::result::Result::Ok(output_ok)
@@ -4096,6 +4103,40 @@ fn wire__crate__api__session_archive_entries_impl(
             move |context| {
                 transform_result_sse::<_, crate::error::TranscribeError>((move || {
                     let output_ok = crate::api::session_archive_entries(api_archive_path)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__set_session_notes_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_session_notes",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            let api_notes = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::error::TranscribeError>((move || {
+                    let output_ok = crate::api::set_session_notes(api_session_id, api_notes)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -6489,12 +6530,14 @@ impl SseDecode for crate::session::RecoveredSession {
         let mut var_resumeOffsetSecs = <f64>::sse_decode(deserializer);
         let mut var_micAudioSecs = <f64>::sse_decode(deserializer);
         let mut var_speakerAudioSecs = <f64>::sse_decode(deserializer);
+        let mut var_notes = <String>::sse_decode(deserializer);
         return crate::session::RecoveredSession {
             session_id: var_sessionId,
             segments: var_segments,
             resume_offset_secs: var_resumeOffsetSecs,
             mic_audio_secs: var_micAudioSecs,
             speaker_audio_secs: var_speakerAudioSecs,
+            notes: var_notes,
         };
     }
 }
@@ -6798,6 +6841,7 @@ impl SseDecode for crate::session::SessionRecoverySnapshot {
         let mut var_elapsedSecs = <f64>::sse_decode(deserializer);
         let mut var_micCounters = <crate::session::ChannelCounters>::sse_decode(deserializer);
         let mut var_speakerCounters = <crate::session::ChannelCounters>::sse_decode(deserializer);
+        let mut var_notes = <String>::sse_decode(deserializer);
         return crate::session::SessionRecoverySnapshot {
             session_id: var_sessionId,
             config: var_config,
@@ -6809,6 +6853,7 @@ impl SseDecode for crate::session::SessionRecoverySnapshot {
             elapsed_secs: var_elapsedSecs,
             mic_counters: var_micCounters,
             speaker_counters: var_speakerCounters,
+            notes: var_notes,
         };
     }
 }
@@ -7356,25 +7401,26 @@ fn pde_ffi_dispatcher_primary_impl(
         113 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
         114 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
         115 => wire__crate__api__session_archive_entries_impl(port, ptr, rust_vec_len, data_len),
-        116 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
-        117 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
-        118 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
-        119 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        121 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        122 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
-        123 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
-        124 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
-        125 => wire__crate__api__system_memory_usage_ratio_impl(port, ptr, rust_vec_len, data_len),
-        126 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        127 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        128 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
-        129 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
-        130 => {
+        116 => wire__crate__api__set_session_notes_impl(port, ptr, rust_vec_len, data_len),
+        117 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
+        118 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
+        119 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
+        120 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        122 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        123 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
+        124 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        125 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
+        126 => wire__crate__api__system_memory_usage_ratio_impl(port, ptr, rust_vec_len, data_len),
+        127 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        128 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        129 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        130 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
+        131 => {
             wire__crate__api__transcript_coverage_for_audio_impl(port, ptr, rust_vec_len, data_len)
         }
-        131 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
-        132 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
+        132 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
+        133 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -8806,6 +8852,7 @@ impl flutter_rust_bridge::IntoDart for crate::session::RecoveredSession {
             self.resume_offset_secs.into_into_dart().into_dart(),
             self.mic_audio_secs.into_into_dart().into_dart(),
             self.speaker_audio_secs.into_into_dart().into_dart(),
+            self.notes.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -9196,6 +9243,7 @@ impl flutter_rust_bridge::IntoDart for crate::session::SessionRecoverySnapshot {
             self.elapsed_secs.into_into_dart().into_dart(),
             self.mic_counters.into_into_dart().into_dart(),
             self.speaker_counters.into_into_dart().into_dart(),
+            self.notes.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -11048,6 +11096,7 @@ impl SseEncode for crate::session::RecoveredSession {
         <f64>::sse_encode(self.resume_offset_secs, serializer);
         <f64>::sse_encode(self.mic_audio_secs, serializer);
         <f64>::sse_encode(self.speaker_audio_secs, serializer);
+        <String>::sse_encode(self.notes, serializer);
     }
 }
 
@@ -11277,6 +11326,7 @@ impl SseEncode for crate::session::SessionRecoverySnapshot {
         <f64>::sse_encode(self.elapsed_secs, serializer);
         <crate::session::ChannelCounters>::sse_encode(self.mic_counters, serializer);
         <crate::session::ChannelCounters>::sse_encode(self.speaker_counters, serializer);
+        <String>::sse_encode(self.notes, serializer);
     }
 }
 
