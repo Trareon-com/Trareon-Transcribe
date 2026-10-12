@@ -22,6 +22,7 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'live_qa.dart';
 import 'llm_setup.dart';
 import 'mapreduce.dart';
 import 'meeting_detect.dart';
@@ -317,6 +318,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ExportedFile> dco_decode_list_exported_file(dynamic raw);
 
   @protected
+  List<LiveQaHit> dco_decode_list_live_qa_hit(dynamic raw);
+
+  @protected
   List<ModelInfo> dco_decode_list_model_info(dynamic raw);
 
   @protected
@@ -378,6 +382,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<WordTimestamp> dco_decode_list_word_timestamp(dynamic raw);
+
+  @protected
+  LiveQaAnswer dco_decode_live_qa_answer(dynamic raw);
+
+  @protected
+  LiveQaHit dco_decode_live_qa_hit(dynamic raw);
 
   @protected
   LlmTier dco_decode_llm_tier(dynamic raw);
@@ -935,6 +945,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<LiveQaHit> sse_decode_list_live_qa_hit(SseDeserializer deserializer);
+
+  @protected
   List<ModelInfo> sse_decode_list_model_info(SseDeserializer deserializer);
 
   @protected
@@ -1018,6 +1031,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WordTimestamp> sse_decode_list_word_timestamp(
     SseDeserializer deserializer,
   );
+
+  @protected
+  LiveQaAnswer sse_decode_live_qa_answer(SseDeserializer deserializer);
+
+  @protected
+  LiveQaHit sse_decode_live_qa_hit(SseDeserializer deserializer);
 
   @protected
   LlmTier sse_decode_llm_tier(SseDeserializer deserializer);
@@ -1688,6 +1707,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_live_qa_hit(
+    List<LiveQaHit> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_model_info(
     List<ModelInfo> self,
     SseSerializer serializer,
@@ -1806,6 +1831,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<WordTimestamp> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_live_qa_answer(LiveQaAnswer self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_live_qa_hit(LiveQaHit self, SseSerializer serializer);
 
   @protected
   void sse_encode_llm_tier(LlmTier self, SseSerializer serializer);
