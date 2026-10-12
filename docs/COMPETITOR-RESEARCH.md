@@ -3,6 +3,8 @@
 
 Research date: September 30, 2026. Sources: official sites, docs, pricing pages, GitHub READMEs, changelogs, Hacker News, Reddit threads, third-party reviews. Unverified items are explicitly marked. Note: product names change fast in this space (hyprnote → Char → Anarlog; transkrip.xyz → transkrip.com by Meeting.ai); claims below reflect the sources listed.
 
+**Addendum (October 12, 2026):** Section 1.18 (Google AI Edge Foresight) added after its October 6-8, 2026 release — see that entry and the updated feature-matrix/recommendation rows for details.
+
 ---
 
 ## 1. Per-competitor profiles
@@ -124,6 +126,21 @@ Research date: September 30, 2026. Sources: official sites, docs, pricing pages,
 - **Kata.ai / KataVenn** — Indonesian conversational-AI platform; KataVenn Speech-to-Text: streaming, noise handling, crosstalk detection, custom vocabulary, speaker diarization, telephony-optimized. Sources: https://kataven.ai/platform/speech-to-text, https://archive.kata.ai/products/kata-voice
 - **Meeting.ai** (maker of transkrip.com) — Indonesian-market AI meeting agent (700k+ users claimed, 4.8/15k reviews): bot + browser/mobile recording + uploads/YouTube, 30+ languages, speaker ID, decisions linked to original utterance, PPTX/XLSX/PDF outputs, podcast-style audio recaps, Visual Notes (mind maps/timelines), "Memo" cross-meeting agent memory, coin-based pricing (Starter $20/mo, Pro $100/mo, Max $200/mo; regional pricing), UI in 14 languages incl. Indonesian. Sources: https://meeting.ai/id, https://meeting.ai/id/p
 
+### 1.18 Google AI Edge Foresight (released Oct 6-8, 2026) — newest, highest-profile entrant
+- **Pricing:** free, no account required, direct download from Google (not App Store). Experimental/beta status — Google states it "may change." Sources: https://developers.google.com/edge/foresight, https://9to5google.com/2026/10/06/google-ai-edge-foresight, https://techcrunch.com/2026/10/08/google-releases-a-new-local-first-granola-competitor
+- **Platform:** **macOS only, Apple Silicon-optimized — no Windows, no Linux.** This is Trareon's single biggest structural advantage over Foresight. Sources: same as above.
+- **Local vs cloud:** 100% on-device, fully offline-capable — audio, transcript, notes, and uploaded files never leave the Mac. Two local models: **EmbeddingGemma 2** (740M params, semantic search/retrieval across transcripts + imported files) and **Gemma 4** (chat/summarization/"Live Assistance"). Both models Apache 2.0. Sources: https://developers.googleblog.com/google-ai-edge-with-embeddinggemma-2/, https://ai.google.dev/gemma/docs/core/model_card_4
+- **Key features:** Granola-style split-screen (type shorthand notes while AI builds polished notes alongside); "Live Enhance" of typed notes; four tabs — Transcript, Chat, **Live Q&A** (ask questions DURING the meeting and get answers cited from the live transcript — a capability none of the other 17 competitors in this document have), Summary; knowledge base ingestion of local files + Google Drive (PDF/Docs/Office/Markdown) for cross-document Q&A; marks transcript lines as mic vs system-audio source (no true speaker diarization — no names, no voice recognition). Sources: https://talat.app/compare/google-ai-edge-foresight, https://appreviewlab.com/google-ai-edge-foresight-review/
+- **Indonesian / non-English language support — RESEARCHED IN DEPTH, confirmed by hands-on third-party testing, NOT just inferred:**
+  - **No language setting exists anywhere in the app.** Multiple independent reviewers (talat.app's hands-on test is the most rigorous) confirmed there is no language picker; the app silently follows the Mac's system locale.
+  - On a Mac set to English, French audio was "understood" semantically but transcribed with **every accented character stripped** ("épisode en français" → "pisode en franais") — a real, reproducible transcription bug on a Latin-script language closely related to English.
+  - Arabic audio **could not be followed at all** by the transcription.
+  - **No reviewer, in any source found (English, Persian, or India-focused outlets), reports testing or confirming Indonesian support.** An India-focused hands-on review (large multilingual market, strong motivation to test non-English) explicitly states regional-language support (Hindi/Tamil) is only "anticipated by mid-2027" — i.e., not present now.
+  - Google's own blog post for EmbeddingGemma 2 states the model handles "100+ languages" but explicitly qualifies: **quality is not uniform across languages** — this is Google's own hedge, not a third-party guess.
+  - Gemma 4 (the chat/summarization model) is trained on 140+ languages broadly, but Google's model card doesn't claim per-language transcription-grade accuracy, and Foresight's actual speech-to-text pipeline component (not the LLM) is the untested part for Indonesian.
+  - **Conclusion:** Foresight has no official, tested, or even claimed Indonesian support. Master Yusuf's own hands-on observation (always defaults to English even after explicitly requesting Indonesian) matches the documented pattern of Foresight silently following system locale with no override, combined with a transcription pipeline that already visibly degrades on other non-English Latin-script languages. This is a genuine, evidence-backed gap — not a guess.
+- **Top complaints (from hands-on reviews):** no speaker diarization/names (mic vs system-audio only); no language setting found; French/Arabic transcription failures; "experimental" status with uncertain future; 8-minute wait before first recording (talat.app); app download is large (~10x talat's size per talat.app); no Windows/Linux. Sources: https://talat.app/blog/google-ai-edge-foresight, https://talat.app/compare/google-ai-edge-foresight, https://appreviewlab.com/google-ai-edge-foresight-review/
+
 ---
 
 ## 2. Feature matrix
@@ -140,7 +157,7 @@ Format: bulleted rows; competitor abbreviations in brackets. "—" means not fou
 - Phone-as-recorder for desktop transcription: Vibe (QR), Jamie (iOS), MeetingsAI (watch)
 
 **Transcription quality & language**
-- Indonesian (Bahasa Indonesia) support: Meetily (via Whisper, quality varies), Vibe, Buzz, Whisper Notes, Notta, MacWhisper (Whisper models), Transkrip.id, Transkrip.com, Transkripsi.id, Notula, Notulensi, Notulin, Meeting.ai, Prosa.ai, KataVenn — **NOT**: Granola, Otter, tl;dv (unverified for tl;dv's 30+ list), Fathom bot path (38 langs, unverified if ID included), Krisp (20+ langs, unverified if ID included), Jamie (99+ langs, unverified if ID included)
+- Indonesian (Bahasa Indonesia) support: Meetily (via Whisper, quality varies), Vibe, Buzz, Whisper Notes, Notta, MacWhisper (Whisper models), Transkrip.id, Transkrip.com, Transkripsi.id, Notula, Notulensi, Notulin, Meeting.ai, Prosa.ai, KataVenn — **NOT**: Granola, Otter, tl;dv (unverified for tl;dv's 30+ list), Fathom bot path (38 langs, unverified if ID included), Krisp (20+ langs, unverified if ID included), Jamie (99+ langs, unverified if ID included), **Google AI Edge Foresight (confirmed via hands-on testing — no language setting, no claimed/tested Indonesian support, degrades even on French/Arabic — see §1.18)**
 - Regional dialect/accent handling (Javanese, Sundanese, Jakarta slang): Prosa.ai (the moat), Notulin (corporate ID retraining), Whisper fine-tunes (cahya/whisper-large-id on HF); global tools degrade ~30% on regional accents per https://transkripsi.id/blogs/5-software-transkrip-otomatis-bahasa-indonesia-paling-akurat
 - Code-switching ID/EN in one meeting: Notulin (automatic), Notta (bilingual mode), Granola (desktop multi-language), tl;dv (mid-call switching), Anarlog (additional spoken languages setting)
 - Custom vocabulary / dictionary (names, jargon): Otter (team vocabulary), Anarlog (Settings → Dictionary), Notulin (per-workspace), MacWhisper/Superwhisper (custom vocabulary), Jamie, Krisp (unverified)
@@ -210,6 +227,7 @@ Format: bulleted rows; competitor abbreviations in brackets. "—" means not fou
 - **MacWhisper: watch folders + batch** automation; meeting auto-detect reminders. (https://docs.macwhisper.com/article/30-record-meetings)
 - **Whisper Notes: lock-screen recording, Voice Memos share-sheet integration, one-time pricing** as positioning. (https://whispernotes.app/)
 - **Notulin: ID/EN code-switching trained on Indonesian meeting corpora; Indonesian data residency** as enterprise selling point. (https://notulin.id/fitur)
+- **Google AI Edge Foresight: Live Q&A during the meeting** — ask a question while the meeting is still running and get an answer cited from the live transcript, no competitor in this document has this (closest is MeetingsAI's "Cheat Mode," which is similar but not confirmed to cite live transcript segments the same way); knowledge-base ingestion spans local files + Google Drive (PDF/Docs/Office/Markdown) for cross-document Q&A, broader than Trareon's transcript-only archive chat (F12). (https://talat.app/compare/google-ai-edge-foresight, https://appreviewlab.com/google-ai-edge-foresight-review/)
 
 ## 5. Most common pain points across the category
 1. **Non-English accuracy.** Every global leader is English-first; Indonesian users get either no support (Granola, Otter) or degraded accuracy. Regional accents (Javanese/Sundanese/Jakarta slang) cut accuracy up to ~30% on generic models; Whisper large-v3 ~91% on standard Indonesian, ~75% on local varieties per IEEE-cited research (https://transkripsi.id/blogs/5-software-transkrip-otomatis-bahasa-indonesia-paling-akurat). Fine-tuned Indonesian Whisper models exist publicly (https://huggingface.co/cahya/whisper-large-id).
@@ -271,3 +289,4 @@ Format: bulleted rows; competitor abbreviations in brackets. "—" means not fou
 - Meetily community-edition English-only summaries (per Anarlog review, 2025) may have changed in v0.4.0 — unverified.
 - Notula/Notulensi data-residency specifics (beyond Notulin's claim) unverified.
 - Pricing figures change frequently; each was captured from the cited page but should be re-checked before use in external marketing material.
+- Google AI Edge Foresight (§1.18) is new as of this addendum (Oct 6-8, 2026 release) — the app is explicitly "experimental" per Google's own FAQ, so every detail here (features, platform limits, language behavior) should be re-verified before major strategic decisions, though the Indonesian-language-gap finding is unusually well-corroborated (3+ independent hands-on reviews, Google's own hedge on EmbeddingGemma 2 multilingual quality, and Master's own direct testing all agree).
