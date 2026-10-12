@@ -320,7 +320,7 @@ const STOPWORDS: &[&str] = &[
     "waktu",
 ];
 
-fn is_stopword(word: &str) -> bool {
+pub(crate) fn is_stopword(word: &str) -> bool {
     STOPWORDS.contains(&word.to_lowercase().as_str())
 }
 

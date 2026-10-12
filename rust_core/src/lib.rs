@@ -71,6 +71,9 @@ pub mod hallucination;
 pub mod journal;
 /// Continuous transcript journal (crash recovery). Driven from `session`,
 /// never from Dart.
+/// "Tanya Langsung" (Sprint 21): answers a question from the transcript
+/// of the session currently recording, not the archive.
+pub mod live_qa;
 /// First-run setup for the local notulen model: hardware-aware
 /// recommendation, per-OS install guidance, pull-progress parsing. Pure;
 /// the two networked halves live in `summary`.
