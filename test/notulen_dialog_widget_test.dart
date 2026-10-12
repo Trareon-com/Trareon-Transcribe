@@ -16,6 +16,7 @@ import 'package:transcribe/widgets/ui/app_chip.dart';
 import 'package:transcribe/widgets/ui/app_controls.dart';
 import 'package:transcribe/widgets/ui/app_dialog.dart';
 import 'package:transcribe/widgets/ui/app_field.dart';
+import 'package:transcribe/widgets/ui/app_surface.dart';
 
 import 'test_helpers.dart';
 
@@ -55,6 +56,104 @@ class _FailingNotulenBridge extends NoopBridge {
   }) async {
     attempts++;
     throw Exception('endpoint tidak terjangkau');
+  }
+}
+
+/// Sprint 20 Bagian B: a generate call that comes back with real findings,
+/// so the dialog's per-butir markers have something to render. `periksaUlang`
+/// counts separately from `generateNotulen` — the two are genuinely
+/// different calls per `docs/SPRINT-REPORTS.md` §Sprint 7 Item 3.
+class _FindingsNotulenBridge extends NoopBridge {
+  int generateCalls = 0;
+  int periksaCalls = 0;
+  int rapikanCalls = 0;
+  String? lastRapikanInput;
+
+  static const _temuan = TemuanFakta(
+    bagian: 'Keputusan',
+    pernyataan: 'Anggaran disetujui sebesar Rp5 miliar',
+    masalah: FaktaMasalah.angkaTidakAda,
+    rincian: '"Rp5 miliar" tidak ditemukan di transkrip.',
+  );
+
+  static const _ragamFinding = RegisterFinding(
+    rule: RegisterRule.ejaanBaku,
+    ditemukan: 'analisa',
+    saran: 'analisis',
+    baris: 3,
+    otomatis: true,
+  );
+
+  @override
+  Future<rust_api.NotulenHasil> generateNotulen({
+    required SummaryConfig config,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+    required List<Bookmark> bookmarks,
+    required rust_notulen.NotulenForm base,
+    required NotulenLength panjang,
+    String? konteksDokumen,
+  }) async {
+    generateCalls++;
+    final form = rust_notulen.NotulenForm(
+      template: base.template,
+      instansi: base.instansi,
+      unitKerja: base.unitKerja,
+      nomor: base.nomor,
+      judul: base.judul,
+      hari: base.hari,
+      tanggal: base.tanggal,
+      waktu: base.waktu,
+      tempat: base.tempat,
+      pimpinan: base.pimpinan,
+      notulis: base.notulis,
+      peserta: base.peserta,
+      agenda: base.agenda,
+      ringkasan: base.ringkasan,
+      pembahasan: 'Tim melakukan analisa anggaran.',
+      jalannyaRapat: base.jalannyaRapat,
+      pihak: base.pihak,
+      keputusan: base.keputusan,
+      tindakLanjut: base.tindakLanjut,
+      poinPenting: base.poinPenting,
+      kopSuratPath: base.kopSuratPath,
+      lampirkanTranskrip: base.lampirkanTranskrip,
+    );
+    return rust_api.NotulenHasil(
+      form: form,
+      perbaikan: const [],
+      struktur: const StructureReport(bagianKosong: [], terisi: 5, wajib: 5),
+      fakta: const LaporanFakta(temuan: [_temuan], diperiksa: 4, bersih: 3),
+      ragam: const [_ragamFinding],
+      mapReduce: false,
+      mentah: '{}',
+    );
+  }
+
+  @override
+  Future<rust_api.NotulenHasil> periksaNotulen({
+    required rust_notulen.NotulenForm form,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+  }) async {
+    periksaCalls++;
+    return rust_api.NotulenHasil(
+      form: form,
+      perbaikan: const [],
+      struktur: const StructureReport(bagianKosong: [], terisi: 5, wajib: 5),
+      // Re-checking after an edit finds the statement is now clean.
+      fakta: const LaporanFakta(temuan: [], diperiksa: 4, bersih: 4),
+      ragam: const [_ragamFinding],
+      mapReduce: false,
+      mentah: '{}',
+    );
+  }
+
+  @override
+  Future<String> rapikanRagam(String text) async {
+    rapikanCalls++;
+    lastRapikanInput = text;
+    return text.replaceAll('analisa', 'analisis');
   }
 }
 
@@ -326,5 +425,164 @@ void main() {
     // generator again rather than rebuilding the request from scratch.
     expect(bridge.attempts, 2);
     expect(find.text('Coba lagi'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Buat Otomatis shows the Periksa Fakta and ragam findings as per-butir markers',
+    (tester) async {
+      final bridge = _FindingsNotulenBridge();
+      await open(tester, overrides: _summaryEnabled(bridge));
+
+      await tester.tap(find.text('Buat Otomatis'));
+      await tester.pumpAndSettle();
+
+      expect(bridge.generateCalls, 1);
+      // The marker shown to the notulis, not buried in a diagnostics log.
+      expect(
+        find.textContaining('Anggaran disetujui sebesar Rp5 miliar'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Angka tidak ditemukan di transkrip'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('analisa'), findsWidgets);
+      expect(find.textContaining('1 butir perlu ditinjau'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Periksa Ulang re-runs the check against the edited form', (
+    tester,
+  ) async {
+    final bridge = _FindingsNotulenBridge();
+    await open(tester, overrides: _summaryEnabled(bridge));
+
+    await tester.tap(find.text('Buat Otomatis'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 butir perlu ditinjau'), findsNothing);
+    expect(
+      find.textContaining('Anggaran disetujui sebesar Rp5 miliar'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.text('Periksa Ulang'));
+    await tester.tap(find.text('Periksa Ulang'));
+    await tester.pumpAndSettle();
+
+    expect(bridge.periksaCalls, 1);
+    // The fake's periksaNotulen comes back clean — the stale fact-check
+    // finding from generateNotulen must be replaced, not merely appended.
+    expect(
+      find.textContaining('Anggaran disetujui sebesar Rp5 miliar'),
+      findsNothing,
+    );
+    expect(find.textContaining('0 butir perlu ditinjau'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Rapikan Ragam shows an accept/reject preview and never overwrites silently',
+    (tester) async {
+      final bridge = _FindingsNotulenBridge();
+      await open(tester, overrides: _summaryEnabled(bridge));
+
+      await tester.tap(find.text('Buat Otomatis'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Rapikan Ragam'));
+      await tester.tap(find.text('Rapikan Ragam'));
+      await tester.pumpAndSettle();
+
+      expect(bridge.rapikanCalls, 1);
+      expect(bridge.lastRapikanInput, 'Tim melakukan analisa anggaran.');
+      expect(find.text('Pratinjau Rapikan Ragam'), findsOneWidget);
+      expect(
+        find.textContaining('Tim melakukan analisis anggaran.'),
+        findsOneWidget,
+      );
+      // The field itself is untouched until the user accepts.
+      expect(
+        find.widgetWithText(AppTextField, 'Tim melakukan analisa anggaran.'),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Terapkan'));
+      await tester.tap(find.text('Terapkan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pratinjau Rapikan Ragam'), findsNothing);
+      expect(
+        find.widgetWithText(AppTextField, 'Tim melakukan analisis anggaran.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    '"Ekspor siap-SRIKANDI…" opens the real metadata form, prefilled from srikandiMetadataDefault',
+    (tester) async {
+      await open(tester);
+
+      await tester.ensureVisible(find.text('Ekspor siap-SRIKANDI…'));
+      await tester.tap(find.text('Ekspor siap-SRIKANDI…'));
+      await tester.pumpAndSettle();
+
+      // Not a placeholder dialog — the real form, with the real engine's
+      // default metadata and validation already run.
+      expect(find.text('Ekspor siap-SRIKANDI'), findsOneWidget);
+      expect(find.text('Nomor naskah'), findsOneWidget);
+      // Perihal prefilled from the notulen's judul, via the real
+      // srikandiMetadataDefault — not left blank or hardcoded. Scoped to
+      // the SRIKANDI form's own dialog: the notulen dialog underneath
+      // also has a field with the same text (Judul Rapat).
+      final srikandiDialog = find.ancestor(
+        of: find.text('Ekspor siap-SRIKANDI'),
+        matching: find.byType(AppDialog),
+      );
+      expect(
+        find.descendant(
+          of: srikandiDialog,
+          matching: find.widgetWithText(
+            AppTextField,
+            'Rapat Koordinasi Triwulan',
+          ),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('Batal on the Rapikan Ragam preview discards it', (
+    tester,
+  ) async {
+    final bridge = _FindingsNotulenBridge();
+    await open(tester, overrides: _summaryEnabled(bridge));
+
+    await tester.tap(find.text('Buat Otomatis'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Rapikan Ragam'));
+    await tester.tap(find.text('Rapikan Ragam'));
+    await tester.pumpAndSettle();
+
+    // "Batal" also names the dialog's own cancel action, so the tap has to
+    // be scoped to the preview card rather than matched by text alone.
+    final previewCard = find
+        .ancestor(
+          of: find.text('Pratinjau Rapikan Ragam'),
+          matching: find.byType(AppSurface),
+        )
+        .first;
+    final batalDiPreview = find.descendant(
+      of: previewCard,
+      matching: find.text('Batal'),
+    );
+    await tester.ensureVisible(batalDiPreview);
+    await tester.tap(batalDiPreview);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pratinjau Rapikan Ragam'), findsNothing);
+    expect(
+      find.widgetWithText(AppTextField, 'Tim melakukan analisa anggaran.'),
+      findsOneWidget,
+    );
   });
 }

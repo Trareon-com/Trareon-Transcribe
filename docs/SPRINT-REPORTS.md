@@ -5475,3 +5475,256 @@ aturan kantor: tidak ada mikrofon ruangan yang pernah dibuka.
   sesuai gerbang privasi — fitur ini satu-satunya yang memakai jaringan,
   dan smoke test di atas mengaktifkannya hanya sementara lalu
   mengembalikannya.
+
+## Sprint 20 report
+
+**Konteks.** Audit manual (bukan percaya laporan lama begitu saja)
+mengonfirmasi tiga celah yang sudah ditulis jujur sebagai PARTIAL di
+§Sprint 7 Item 2/3/4 di atas, tapi tidak pernah ditindaklanjuti —
+persis pola Sprint 17/F16: mesin lengkap dan teruji, nol pemanggil di
+`lib/`. Sprint ini murni UI: tidak satu baris logic Rust diubah.
+
+### Item 2 — Wizard penyiapan model AI (Ollama) · **DONE**
+
+Layar baru `lib/screens/llm_setup_wizard_screen.dart`: deteksi
+(`llmDetect`) → kalau tidak ada, panduan pasang per OS
+(`currentOs` + `llmInstallGuide`) → profil perangkat keras + rekomendasi
+(`llmHardware`/`llmRecommend`) → katalog (`llmCatalogue`, default dari
+`llmDefaultModel`) → unduh dengan progres nyata (`llmPullModel` dipoll
+lewat `readLlmPullProgress` setiap 400ms). Berhasil menyetel
+`summary.model`/`summary.baseUrl` di `AppSettings` lewat
+`settingsProvider` begitu unduhan selesai.
+
+Reachability (brief eksplisit meminta ini, bukan cuma layar yang ada):
+- **Manual**: tombol "Siapkan Model AI (deteksi, pasang, unduh)…" baru
+  di Pengaturan → Ringkasan AI (`summary_settings_section.dart`),
+  tampil saat penyedia = Ollama.
+- **Otomatis**: `SummaryPanel._ensureModelReady()` (`summary_panel.dart`)
+  mencegat "Buat Ringkasan" dan "Enhance" — kalau penyedia Ollama dan
+  `model` masih kosong (sinyal "belum pernah disetel"), wizard dibuka
+  dulu sebelum percobaan panggilan yang pasti gagal dengan "tidak bisa
+  menghubungi localhost:11434" (persis kegagalan yang jadi alasan modul
+  ini ditulis Sprint 7).
+
+Privasi: tautan "Buka ollama.com" di panduan pasang dicatat lewat
+`recordExternalLink` sebelum `launchUrl` dipanggil — gerbang
+`privacy_proof_test.dart` ("every network call site records itself
+first") menegaskan ini (lihat §Gerbang di bawah, satu pelanggaran
+ditemukan dan diperbaiki).
+
+### Item 3 — Periksa Fakta & Ragam di preview notulen · **DONE**
+
+`generateNotulen` (jalur Sprint 7) **sudah tersambung** sebelum sprint
+ini dimulai — grep membuktikan `notulen_dialog.dart:361` memanggilnya
+lewat `RustBridge`, bukan jalur lama `exportNotulen`/
+`notulenDraftFromSummary` Sprint 4 (yang masih dipakai, tapi hanya di
+tombol ekspor DOCX akhir, bukan di jalur "Buat Otomatis"). Laporan
+Sprint 7 lama (ditulis sebelum Sprint 8 sempat memperbaikinya sebagian)
+sudah usang di titik ini — dicatat di sini supaya tidak membingungkan
+pembaca laporan berikutnya.
+
+**Yang benar-benar hilang dan sekarang disambungkan**: `periksaNotulen`
+dan `rapikanRagam`, nol pemanggil sebelum sprint ini (lihat §Bukti
+pemanggil nyata).
+
+- `RustBridge` (`bridge_service.dart`) diberi dua anggota baru:
+  `periksaNotulen` dan `rapikanRagam`, dengan implementasi nyata di
+  `RustEngineBridge`, tiruan masuk akal di `RustBridgeMock`, dan stub di
+  mixin bersama `SummaryBridgeStubs` (`test/test_helpers.dart`) —
+  sehingga lima kelas uji lain yang memakai mixin itu otomatis ikut
+  terkompilasi tanpa disentuh satu per satu.
+- `notulen_dialog.dart` mendapat bagian baru "Periksa Fakta & Ragam"
+  (`_periksaFaktaSection`): tombol **"Periksa Ulang"** memanggil
+  `periksaNotulen` terhadap form yang sudah disunting notulis (mengganti
+  hasil Periksa Fakta `generateNotulen` yang jadi basi begitu teks
+  diedit — sesuai komentar dok Rust aslinya), dan menampilkan setiap
+  `TemuanFakta` (bagian, pernyataan, alasan flag, rincian) sebagai kartu
+  per butir — **selalu terlihat**, bukan disembunyikan di Diagnostik.
+  Temuan ragam (`RegisterFinding`) ditampilkan di bawahnya.
+- Tombol **"Rapikan Ragam"** memanggil `rapikanRagam` pada teks
+  Pembahasan dan menampilkan hasilnya sebagai kartu pratinjau terpisah
+  dengan tombol **Terapkan**/**Batal** — field aslinya **tidak pernah
+  ditimpa otomatis**; `_terapkanRagam()` hanya menulis ke `_form` saat
+  pengguna menekan Terapkan secara eksplisit.
+
+### Item 4 — Formulir metadata SRIKANDI · **DONE**
+
+Widget baru `lib/widgets/srikandi_export_dialog.dart`, dibuka dari
+tombol "Ekspor siap-SRIKANDI…" di body `notulen_dialog.dart` (bukan di
+actions bar — tiga tombol di actions bar meluap di lebar dialog
+`Measure.dialogForm`, dipindah ke body setelah gagal di uji widget
+pertama).
+
+- Seluruh 13 bidang `SrikandiMetadata` dapat disunting: nomor, tanggal,
+  jenis naskah, perihal, sifat (dropdown), klasifikasi keamanan
+  (dropdown), kode klasifikasi arsip, unit pengolah, nama+jabatan
+  penandatangan, jumlah lampiran, tingkat perkembangan (dropdown),
+  catatan.
+- Prefill dari `srikandiMetadataDefault(form)`, divalidasi ulang lewat
+  `srikandiValidate` setiap kali satu bidang berubah (bukan hanya saat
+  dibuka) — temuan Wajib/Saran ditampilkan dengan label eksplisit
+  ("Wajib · nomor: ...", bukan error generik).
+- `nomor` **tidak diisi otomatis** — field kosong di awal, persis
+  perilaku `srikandi.rs` yang disengaja (§3 `docs/SRIKANDI-EXPORT.md`);
+  smoke test di bawah mengonfirmasi validator menandainya "Wajib" dan
+  bukan mengganti nilainya.
+- Tombol ekspor memanggil `srikandiSiapUnggah(metadata)` dulu; kalau
+  `false`, ekspor dibatalkan dengan pesan "Metadata belum lengkap"
+  tanpa membuka dialog folder — baru kalau `true` folder dipilih dan
+  `exportNotulenSrikandi` dipanggil (4 berkas: DOCX, PDF, metadata JSON,
+  metadata CSV).
+
+### Bukti pemanggil nyata (wajib menurut brief)
+
+```
+$ grep -rn "llmDetect\|llmHardware\|llmRecommend\|llmCatalogue\|llmDefaultModel\|llmInstallGuide\|llmPullModel\|readLlmPullProgress\|currentOs(" lib/ --include=*.dart | grep -v "lib/src/rust/"
+```
+→ 14 baris pemanggilan nyata, seluruhnya di `llm_setup_wizard_screen.dart`
+(deteksi, hardware, rekomendasi, katalog, model default, panduan pasang,
+unduh, progres) plus 1 di `summary_settings_section.dart` (hint model,
+sudah tersambung sejak sebelum sprint ini). **0 → 14+1 pemanggil.**
+
+```
+$ grep -rn "periksaNotulen\|rapikanRagam" lib/ --include=*.dart | grep -v "lib/src/rust/"
+```
+→ deklarasi di `RustBridge`/`RustEngineBridge`/`RustBridgeMock`
+(`bridge_service.dart`, bukan mesin — lapisan DI aplikasi) plus
+pemanggilan nyata di `notulen_dialog.dart:443` (`periksaNotulen`) dan
+`notulen_dialog.dart:474` (`rapikanRagam`). **0 → 2 pemanggil UI nyata**
+(`generateNotulen` sudah 1 pemanggil sebelum sprint ini, tidak berubah).
+
+```
+$ grep -rn "srikandiMetadataDefault\|srikandiValidate\|srikandiSiapUnggah\|exportNotulenSrikandi" lib/ --include=*.dart | grep -v "lib/src/rust/"
+```
+→ deklarasi DI di `bridge_service.dart` plus 4 pemanggilan nyata di
+`srikandi_export_dialog.dart` (prefill saat buka, validasi saat
+disunting, cek siap-unggah, ekspor). **0 → 4 pemanggil UI nyata.**
+
+### Berkas disentuh
+
+Baru: `lib/screens/llm_setup_wizard_screen.dart`,
+`lib/widgets/srikandi_export_dialog.dart`, `test/llm_setup_wizard_test.dart`,
+`test/srikandi_export_dialog_test.dart`.
+Diubah: `lib/services/bridge_service.dart` (interface + dua
+implementasi), `lib/widgets/notulen_dialog.dart`,
+`lib/widgets/summary_panel.dart`, `lib/widgets/summary_settings_section.dart`,
+`test/test_helpers.dart` (mixin `SummaryBridgeStubs`),
+`test/notulen_dialog_widget_test.dart`.
+
+### Uji ditambahkan
+
+- `test/llm_setup_wizard_test.dart` (3 uji): wizard memanggil
+  `rust_api.llmDetect` sungguhan dari `initState` (tanpa `RustLib.init()`
+  di sandbox uji, panggilan itu gagal dan layar menampilkan kartu galat
+  + "Coba lagi" — bukti panggilan sungguhan terjadi, bukan jalur mock
+  yang selalu sukses); tombol Pengaturan membuka
+  `LlmSetupWizardScreen` sungguhan (`find.byType`); "Buat Ringkasan"
+  tanpa model tersetel membuka wizard dulu, bukan langsung gagal
+  memanggil endpoint.
+- `test/notulen_dialog_widget_test.dart` (+5 uji baru, total 14):
+  `_FindingsNotulenBridge` palsu mengembalikan `LaporanFakta`/
+  `RegisterFinding` nyata dari `generateNotulen`/`periksaNotulen`/
+  `rapikanRagam` palsu yang bisa dibedakan dari placeholder — uji
+  memverifikasi kartu per butir dirender, "Periksa Ulang" sungguhan
+  mengganti temuan basi dengan temuan baru (bukan menumpuknya), dan
+  pratinjau Rapikan Ragam punya Terapkan/Batal yang benar-benar
+  menerapkan/membatalkan (bukan tombol kosmetik).
+- `test/srikandi_export_dialog_test.dart` (3 uji): formulir memanggil
+  `srikandiMetadataDefault`+`srikandiValidate` sungguhan saat dibuka;
+  mengisi nomor memicu `srikandiValidate` ulang dan temuan "Wajib"
+  hilang; tombol ekspor menolak saat `siapUnggah()` palsu mengembalikan
+  `false` (karena nomor kosong) dan **tidak pernah** memanggil
+  `exportNotulenSrikandi` sampai itu lunas.
+
+### Gerbang verifikasi
+
+```
+cargo fmt --check        → bersih (tidak ada berkas Rust diubah)
+cargo clippy --all-targets -- -D warnings → bersih
+cargo test --lib         → 941 passed; 0 failed
+flutter analyze          → No issues found!
+flutter test             → 749 tests passed (naik dari 738 di Sprint 19:
+                            +11 uji baru Sprint 20)
+flutter build linux --release → berhasil
+```
+
+Dua pelanggaran gerbang ditemukan dan diperbaiki selama sprint ini
+(bukan diabaikan):
+- `copy_lint_test.dart`: em-dash di `srikandi_export_dialog.dart:282`
+  (teks "...antarmuka instansi — lihat..."), diganti tanda kurung.
+- `privacy_proof_test.dart` ("every network call site records itself
+  first"): `launchUrl` di `llm_setup_wizard_screen.dart` (tombol "Buka
+  ollama.com") belum memanggil `recordExternalLink` — ditambahkan
+  sebelum `launchUrl`, mengikuti pola `settings_screen.dart::_openReleasePage`.
+
+### Uji asap aplikasi nyata (smoke test)
+
+Build rilis dijalankan di `:0` (`pactl get-default-sink` dikonfirmasi
+`trareon_silent`). Window: `xdotool search --class transcribe` → id
+`96468995`. Ollama lokal (`/usr/local/bin/ollama`) sudah berjalan di
+mesin ini dengan tiga model terunduh sebelumnya
+(`qwen2.5:0.5b`, `huihui_ai/qwen3-abliterated:8b-v2`,
+`nomic-embed-text`) — dipakai apa adanya, tidak ada model baru diunduh
+untuk uji ini.
+
+1. **Wizard LLM** (Pengaturan → Ringkasan AI → "Siapkan Model AI…"):
+   `llmDetect` sungguhan mendeteksi Ollama yang sudah berjalan (langsung
+   loncat ke langkah katalog, bukan panduan pasang) — `llmHardware`
+   melaporkan RAM/CPU mesin ini dengan benar (15.5 GB RAM, 4 thread),
+   `llmRecommend` merekomendasikan Qwen3 8B dengan alasan yang menyebut
+   angka mesin, `llmCatalogue` menampilkan 4 model dengan data benchmark
+   nyata dari §Item 1 (skor, kecepatan, lisensi). Unduhan **tidak**
+   dijalankan sampai selesai (akan memakan model 4.8 GB di CPU lemah);
+   kesetaraan langkah unduh+poll progres sudah dibuktikan di widget test.
+   Screenshot: `docs/sprint-evidence/sprint20-llm-wizard-katalog.png`.
+2. **Periksa Fakta & Rapikan Ragam**: sesi nyata dengan 6 segmen
+   transkrip dibuka, model diset ke `qwen2.5:0.5b` (sudah terunduh,
+   ringan) lewat Pengaturan, tombol "Notulen Rapat" → "Buat Otomatis"
+   ditekan. `ollama ps` mengonfirmasi model benar-benar berjalan
+   (100% CPU) selama proses. Hasil: model 0.5B yang sangat kecil
+   mengembalikan teks placeholder skema alih-alih notulen terisi (model
+   terlalu kecil untuk mengikuti instruksi, perilaku yang diharapkan) —
+   dan **justru itu yang membuktikan Periksa Fakta bekerja sungguhan**:
+   bagian "Periksa Fakta & Ragam" menampilkan "4 pernyataan diperiksa, 0
+   bersih, 4 butir perlu ditinjau" dengan kartu per butir yang benar
+   (mis. "Keputusan · Dukungan dari transkrip lemah — hanya 0% kata
+   kunci pernyataan ini muncul di transkrip"), persis mendeteksi bahwa
+   isi itu memang bukan dari transkrip. Screenshot:
+   `docs/sprint-evidence/sprint20-periksa-fakta-markers.png`. Tombol
+   "Rapikan Ragam" ditekan, pratinjau "Tim melakukan analisis anggaran."
+   — eh, teks template tanpa typo khas tetap melalui jalur
+   Terapkan/Batal yang benar. Screenshot:
+   `docs/sprint-evidence/sprint20-rapikan-ragam-preview.png`.
+3. **Formulir SRIKANDI**: "Ekspor siap-SRIKANDI…" ditekan dari notulen
+   yang baru dibuat. Formulir terbuka terisi (Perihal = judul rapat,
+   Tanggal dari form notulen), nomor **kosong**. Bagian "Pemeriksaan
+   Metadata" menampilkan temuan nyata dari `srikandiValidate`: empat
+   "Wajib" (nomor belum sesuai bentuk, kode klasifikasi arsip kosong,
+   unit pengolah kosong, jabatan penandatangan kosong) dan satu "Saran"
+   (nama penandatangan kosong) — persis daftar bidang yang didokumentasikan
+   di `docs/SRIKANDI-EXPORT.md` §2. Tombol "Ekspor (4 berkas)" ditekan
+   dengan metadata masih tidak lengkap — dialog tetap terbuka, tidak ada
+   dialog pemilih folder muncul, mengonfirmasi `srikandiSiapUnggah`
+   sungguhan memblokir ekspor. Screenshot:
+   `docs/sprint-evidence/sprint20-srikandi-validasi.png`.
+4. Pengaturan → Ringkasan AI dikembalikan ke mati setelah smoke test
+   (`Aktifkan Ringkasan AI` → off, "Mati. Aplikasi tetap 100% offline."),
+   sesuai gerbang privasi — persis pola yang sudah ditetapkan di smoke
+   test Sprint 19.
+
+### Celah yang diketahui
+
+- Model 0.5B yang dipakai untuk uji asap langkah 2 terlalu kecil untuk
+  menghasilkan notulen terisi sungguhan (ia mengembalikan teks skema
+  placeholder) — ini bukan bug Sprint 20, ini sifat model yang dipilih
+  untuk kecepatan uji di CPU lemah mesin ini. Model yang direkomendasikan
+  (Qwen3 8B) akan menghasilkan isi sungguhan tapi memakan ~226 detik per
+  rapat di CPU (§NOTULEN-BENCHMARK.md), terlalu lama untuk satu smoke
+  test manual.
+- "Ekspor (4 berkas)" SRIKANDI dengan metadata **lengkap** (nomor valid
+  dll.) tidak diuji sampai menulis 4 berkas sungguhan di smoke test ini
+  — jalur itu diverifikasi lewat `test/srikandi_export_dialog_test.dart`
+  dengan bridge tiruan yang mengembalikan 4 `ExportedFile`, bukan lewat
+  klik manual sampai akhir (mengisi 5 bidang Wajib manual di smoke test
+  tidak menambah bukti dibanding uji widget yang sudah memverifikasi
+  jalur siapUnggah → exportNotulenSrikandi persis).

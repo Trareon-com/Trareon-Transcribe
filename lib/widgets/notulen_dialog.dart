@@ -33,6 +33,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../theme/app_typography.dart';
 import 'app_toast.dart';
+import 'srikandi_export_dialog.dart';
 import '../theme/app_icons.dart';
 import 'ui/app_button.dart';
 import 'ui/app_chip.dart';
@@ -247,6 +248,20 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   Timer? _progressPoll;
   Object? _generateError;
 
+  /// Hasil Periksa Fakta dan ragam dari pembuatan otomatis terakhir, atau
+  /// dari "Periksa Ulang" setelah notulis menyunting form. `null` sebelum
+  /// notulen pernah diperiksa sama sekali.
+  LaporanFakta? _fakta;
+  List<RegisterFinding> _ragam = const [];
+  bool _checking = false;
+  Object? _checkError;
+
+  /// Pratinjau "Rapikan Ragam" (EYD V + istilah dinas) untuk Pembahasan —
+  /// menunggu diterima atau ditolak pengguna, tidak pernah menimpa teks
+  /// secara otomatis.
+  String? _ragamPreview;
+  bool _rapikanBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -379,6 +394,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
               ),
           ],
         );
+        _fakta = hasil.fakta;
+        _ragam = hasil.ragam;
+        _checkError = null;
       });
       // The reused controllers (pembahasan, judul, …) hold stale text once
       // _form changes under them; dropping them forces a fresh one with
@@ -407,6 +425,74 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       if (mounted) setState(() => _generating = false);
     }
   }
+
+  /// Re-runs Periksa Fakta and the register check on the form as the
+  /// notulis has edited it. The citations `generateNotulen` produced do
+  /// not survive hand-editing, so this checks each statement against the
+  /// whole transcript again rather than trusting stale `segmen` numbers.
+  Future<void> _periksaUlang() async {
+    setState(() {
+      _checking = true;
+      _checkError = null;
+    });
+    try {
+      final bridge = ref.read(rustBridgeProvider);
+      final poinPenting = widget.bookmarks.isEmpty
+          ? const <String>[]
+          : await bridge.formatBookmarks(widget.bookmarks);
+      final hasil = await bridge.periksaNotulen(
+        form: _form.toRust(poinPenting: poinPenting),
+        template: _form.template,
+        segments: widget.session.segments,
+      );
+      if (!mounted) return;
+      setState(() {
+        _fakta = hasil.fakta;
+        _ragam = hasil.ragam;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checkError = e);
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  /// Runs "Rapikan Ragam" (EYD V + istilah dinas) over Pembahasan and
+  /// stashes the result as a pending preview — [_terapkanRagam] and
+  /// [_tolakRagam] decide what happens to it. Never overwrites the field
+  /// on its own: a notulen records what was said, and only the notulis
+  /// decides whether a rewrite is still faithful to that.
+  Future<void> _rapikanPembahasan() async {
+    setState(() {
+      _rapikanBusy = true;
+      _checkError = null;
+    });
+    try {
+      final rapi = await ref
+          .read(rustBridgeProvider)
+          .rapikanRagam(_form.pembahasan);
+      if (!mounted) return;
+      setState(() => _ragamPreview = rapi);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checkError = e);
+    } finally {
+      if (mounted) setState(() => _rapikanBusy = false);
+    }
+  }
+
+  void _terapkanRagam() {
+    final rapi = _ragamPreview;
+    if (rapi == null) return;
+    setState(() {
+      _form = _form.copyWith(pembahasan: rapi);
+      _ragamPreview = null;
+    });
+    _controllers.remove('pembahasan')?.dispose();
+  }
+
+  void _tolakRagam() => setState(() => _ragamPreview = null);
 
   /// Mirrors the engine's map-reduce progress, the same polling pattern
   /// `SummaryNotifier._startProgressPoll` uses for the AI summary — the
@@ -502,6 +588,23 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
         _error = 'Gagal membuat notulen: $e';
       });
     }
+  }
+
+  /// Opens the SRIKANDI metadata form (Sprint 7 Item 4) with the notulen as
+  /// it currently stands, prefilled from Settings → Notulen Resmi. Does not
+  /// close this dialog — the notulis may still want to export the plain
+  /// DOCX afterward.
+  Future<void> _exportSrikandi() async {
+    final poinPenting = widget.bookmarks.isEmpty
+        ? const <String>[]
+        : await ref.read(rustBridgeProvider).formatBookmarks(widget.bookmarks);
+    if (!mounted) return;
+    await showSrikandiExportDialog(
+      context,
+      form: _form.toRust(poinPenting: poinPenting),
+      segments: widget.session.segments,
+      title: widget.session.title,
+    );
   }
 
   @override
@@ -720,6 +823,16 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       () => _form = _form.copyWith(tindakLanjut: tasks),
                     ),
                   ),
+                  Spacing.gapLg,
+                  _periksaFaktaSection(colors),
+                  Spacing.gapLg,
+                  AppGroupLabel('Ekspor kearsipan'),
+                  Spacing.gapSm,
+                  AppButton(
+                    onPressed: _loading || _exporting ? null : _exportSrikandi,
+                    icon: AppIcons.uploadFile,
+                    label: 'Ekspor siap-SRIKANDI…',
+                  ),
                   if (widget.bookmarks.isNotEmpty) ...[
                     Spacing.gapLg,
                     Row(
@@ -905,6 +1018,87 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
             child: Text(
               'Gagal membuat notulen otomatis: $_generateError',
               style: AppText.caption.c(colors.error),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// "Periksa Fakta" (angka(rincian) terhadap transkrip) dan "Rapikan
+  /// Ragam" (EYD V + istilah dinas), dengan penanda per butir yang notulis
+  /// harus tinjau sebelum ekspor — bukan tersembunyi di Diagnostik.
+  Widget _periksaFaktaSection(AppColorSet colors) {
+    final fakta = _fakta;
+    final sudahDiperiksa = fakta != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppGroupLabel('Periksa Fakta & Ragam'),
+        Spacing.gapSm,
+        Row(
+          children: [
+            AppButton(
+              onPressed: _checking ? null : _periksaUlang,
+              loading: _checking,
+              icon: AppIcons.factCheck,
+              label: sudahDiperiksa ? 'Periksa Ulang' : 'Periksa Fakta',
+            ),
+            Spacing.hSm,
+            AppButton(
+              onPressed: _rapikanBusy || _form.pembahasan.trim().isEmpty
+                  ? null
+                  : _rapikanPembahasan,
+              loading: _rapikanBusy,
+              icon: AppIcons.refresh,
+              label: 'Rapikan Ragam',
+            ),
+          ],
+        ),
+        if (_checkError != null) ...[
+          Spacing.gapSm,
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              'Gagal memeriksa: $_checkError',
+              style: AppText.caption.c(colors.error),
+            ),
+          ),
+        ],
+        if (sudahDiperiksa) ...[
+          Spacing.gapSm,
+          Text(
+            '${fakta.diperiksa} pernyataan diperiksa, ${fakta.bersih} bersih, '
+            '${fakta.temuan.length} butir perlu ditinjau.',
+            style: AppText.caption.c(colors.textSecondary),
+          ),
+          for (final temuan in fakta.temuan)
+            _TemuanFaktaTile(temuan: temuan, colors: colors),
+          for (final ragam in _ragam)
+            _RegisterFindingTile(finding: ragam, colors: colors),
+        ],
+        if (_ragamPreview != null) ...[
+          Spacing.gapSm,
+          AppSurface(
+            padding: const EdgeInsets.all(Spacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pratinjau Rapikan Ragam', style: AppText.label),
+                Spacing.gapSm,
+                Text(_ragamPreview!, style: AppText.body.c(colors.text)),
+                Spacing.gapMd,
+                Row(
+                  children: [
+                    AppButton.primary(
+                      label: 'Terapkan',
+                      onPressed: _terapkanRagam,
+                    ),
+                    Spacing.hSm,
+                    AppButton.ghost(label: 'Batal', onPressed: _tolakRagam),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -1115,4 +1309,109 @@ class _TaskFieldState extends State<_TaskField> {
     reserveHelperSpace: false,
     onChanged: widget.onChanged,
   );
+}
+
+/// Indonesian label for why one statement was flagged.
+String _faktaMasalahLabel(FaktaMasalah masalah) => switch (masalah) {
+  FaktaMasalah.tanpaRujukan => 'Tanpa rujukan segmen',
+  FaktaMasalah.rujukanTidakSah => 'Rujukan segmen tidak sah',
+  FaktaMasalah.dukunganLemah => 'Dukungan dari transkrip lemah',
+  FaktaMasalah.rujukanMeleset => 'Rujukan segmen meleset',
+  FaktaMasalah.angkaTidakAda => 'Angka tidak ditemukan di transkrip',
+  FaktaMasalah.namaTidakAda => 'Nama tidak ditemukan di transkrip',
+};
+
+/// One Periksa Fakta finding, as a per-butir marker in the preview.
+class _TemuanFaktaTile extends StatelessWidget {
+  const _TemuanFaktaTile({required this.temuan, required this.colors});
+
+  final TemuanFakta temuan;
+  final AppColorSet colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.sm),
+      child: AppSurface(
+        padding: const EdgeInsets.all(Spacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(AppIcons.factCheck, size: IconSizes.sm, color: colors.warning),
+            Spacing.hSm,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${temuan.bagian} · ${_faktaMasalahLabel(temuan.masalah)}',
+                    style: AppText.captionStrong.c(colors.text),
+                  ),
+                  Spacing.gapXs,
+                  Text(
+                    temuan.pernyataan,
+                    style: AppText.caption.c(colors.textSecondary),
+                  ),
+                  Spacing.gapXs,
+                  Text(
+                    temuan.rincian,
+                    style: AppText.caption.c(colors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One register (ragam) finding — a spelling, clock-format or style issue
+/// the engine's "Rapikan Ragam" rules caught, surfaced here even when the
+/// notulis has not pressed "Rapikan Ragam" yet.
+class _RegisterFindingTile extends StatelessWidget {
+  const _RegisterFindingTile({required this.finding, required this.colors});
+
+  final RegisterFinding finding;
+  final AppColorSet colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.sm),
+      child: AppSurface(
+        padding: const EdgeInsets.all(Spacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              AppIcons.refresh,
+              size: IconSizes.sm,
+              color: colors.textSecondary,
+            ),
+            Spacing.hSm,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Baris ${finding.baris}: "${finding.ditemukan}"',
+                    style: AppText.captionStrong.c(colors.text),
+                  ),
+                  Spacing.gapXs,
+                  Text(
+                    finding.otomatis
+                        ? 'Saran: "${finding.saran}" (diterapkan oleh Rapikan Ragam)'
+                        : finding.saran,
+                    style: AppText.caption.c(colors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

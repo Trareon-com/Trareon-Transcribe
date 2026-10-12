@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../screens/llm_setup_wizard_screen.dart';
 import '../services/session_store.dart';
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
@@ -117,7 +118,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
   }
 
   Future<void> _generate() async {
-    final settings = ref.read(settingsProvider);
+    final settings = await _ensureModelReady();
+    if (settings == null) return;
     await ref
         .read(_provider.notifier)
         .generate(
@@ -133,12 +135,30 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     }
   }
 
+  /// Sprint 7 Item 2, disambungkan ke UI (Sprint 20): kalau pengguna belum
+  /// pernah menyetel model Ollama, buka wizard penyiapan sebelum mencoba
+  /// memanggil endpoint yang pasti belum ada — daripada membiarkan kegagalan
+  /// "tidak bisa menghubungi localhost:11434" yang modul ini ditulis untuk
+  /// mencegah. Mengembalikan pengaturan terbaru (setelah wizard, kalau
+  /// dibuka), atau `null` kalau pengguna membatalkan.
+  Future<AppSettings?> _ensureModelReady() async {
+    final settings = ref.read(settingsProvider);
+    final needsSetup =
+        settings.summary.provider == SummaryProvider.ollama &&
+        settings.summary.model.trim().isEmpty;
+    if (!needsSetup) return settings;
+    final tag = await openLlmSetupWizard(context);
+    if (!mounted || tag == null) return null;
+    return ref.read(settingsProvider);
+  }
+
   /// "Enhance" (F11): combines the personal notes saved alongside this
   /// session with its transcript. An empty notes field is not a blocker —
   /// [SummaryNotifier.enhance] falls back to a transcript-only pass, same
   /// as F6 already does.
   Future<void> _enhance() async {
-    final settings = ref.read(settingsProvider);
+    final settings = await _ensureModelReady();
+    if (settings == null) return;
     await ref
         .read(_provider.notifier)
         .enhance(
