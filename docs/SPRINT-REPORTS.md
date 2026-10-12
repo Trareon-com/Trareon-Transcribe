@@ -5901,3 +5901,116 @@ mikrofon fisik yang dimatikan OS).
   sprint ini (bukan stub — sitasi tetap menampilkan timestamp, pembicara,
   dan kutipan teks lengkap, cukup untuk memverifikasi jawaban tanpa
   navigasi otomatis).
+
+## Sprint 22 report
+
+Audit lanjutan Sprint 1–18 (search_files manual pada `lib/`, bukan laporan sprint) menemukan 4 celah kecil-menengah. Semua dikerjakan di sprint ini.
+
+### Bagian A — Toggle AGC (Automatic Gain Control) — Severity High — **DONE**
+
+`rust_core/src/agc.rs` (`apply_gain`) sudah dipakai di `pipeline.rs` (×2) dan `stt/file.rs` sejak Sprint 14a, tapi berjalan tanpa syarat (process-wide, tidak bisa dimatikan) dan nol referensi di `lib/`.
+
+- `rust_core/src/agc.rs`: tambah `ENABLED: AtomicBool` (default `true` — perilaku lama selalu-nyala dipertahankan), `set_enabled`/`is_enabled` (`#[frb(ignore)]`), dan `apply_gain_if_enabled` yang jadi no-op copy saat dimatikan. Call site di `pipeline.rs` (dua `HptPipeline`/single-pass `ingest`) dan `stt/file.rs` diganti dari `apply_gain` ke `apply_gain_if_enabled`.
+- `rust_core/src/settings.rs`: field baru `agc_enabled: bool` (`#[serde(default = "default_true")]`, default `true` di `impl Default`).
+- `rust_core/src/api.rs`: `apply_engine_settings` memanggil `crate::agc::set_enabled(settings.agc_enabled)`, mengikuti pola persis `crate::denoise::set_enabled`.
+- `lib/state/models.dart`: `AppSettings.agcEnabled` (default `true`), `copyWith` diperbarui.
+- `lib/state/settings_model.dart`: `SettingsNotifier.setAgcEnabled(bool)`.
+- `lib/screens/settings_screen.dart`: `SettingsSwitch` baru "Penguatan suara otomatis (AGC)" di bagian Audio & Suara, persis setelah toggle "Pengurangan derau (RNNoise)", subtitle berubah sesuai status.
+- `lib/theme/app_icons.dart`: ikon baru `gainControl` (`Icons.volume_up_rounded`).
+- `lib/services/bridge_service.dart`: `agcEnabled` disambungkan di kedua arah (`_fromRustSettings`/`_toRustSettings`).
+- FRB regen: `flutter_rust_bridge_codegen generate --rust-input crate::api,crate::error --rust-root rust_core --dart-output lib/src/rust --dart-entrypoint-class-name RustLib` dijalankan sekali untuk field `AppSettings.agc_enabled` DAN enum `NoticeLevel::Info` (Bagian D) sekaligus; `flutter pub run build_runner build --delete-conflicting-outputs` dijalankan setelahnya (tidak ada perubahan — `NoticeLevel` hanya enum referensi tipe di `session.freezed.dart`, bukan union freezed). `git status` sebelum/sesudah hanya `M` pada `lib/src/rust/{frb_generated,session,settings}.dart`, tidak ada file orphan.
+
+Verifikasi grep (wajib):
+```
+$ grep -rn "agcEnabled" lib/ | wc -l
+17
+$ grep -rn "setAgcEnabled" lib/ | wc -l
+2
+```
+
+Tes: `rust_core/src/agc.rs` — `apply_gain_if_enabled_boosts_when_on_and_passes_through_when_off` (unit test baru, dengan `ENABLED_TEST_LOCK` mengikuti pola `denoise::ENABLED_TEST_LOCK`). `test/settings_screen_test.dart` — `the AGC switch reaches the settings sent to the bridge` (widget test nyata: pump `SettingsScreen`, tap switch, verifikasi `AppSettings` yang dikirim ke bridge berubah, dan subtitle berganti teks).
+
+Uji asap nyata: build release dijalankan (`:0`, sink `trareon_silent` diverifikasi dulu), buka Pengaturan → Audio & Suara via `Ctrl+,` lalu klik kategori — toggle "Penguatan suara otomatis (AGC)" terlihat **aktif** secara default, diklik, berubah **nonaktif** dengan subtitle berganti ke "Mati. Audio ditranskrip pada volume aslinya." Screenshot sebelum/sesudah dikonfirmasi visual.
+
+### Bagian B — Tombol "Bagikan" di export_dialog & summary_panel — Severity Medium — **DONE**
+
+`shareExportedFile()` (`lib/utils/share_file.dart`) sebelumnya hanya dipanggil dari `action_items_panel.dart`.
+
+- `lib/widgets/export_dialog.dart`: `showEksporDialog` sekarang menangkap `List<ExportedFile>` hasil `exportSessionWithSummary` (dulu dibuang), dan toast sukses ekspor mendapat `actionLabel: 'Bagikan'` yang memanggil `shareExportedFile` pada file pertama yang diekspor (membagikan satu folder penuh tak punya padanan di share sheet; sisanya satu klik lagi di `outputDir`).
+- `lib/widgets/summary_panel.dart`: tombol "Bagikan" baru di baris tombol (Sunting/Salin/**Bagikan**/Simpan), nonaktif saat ringkasan kosong. `_share()` menulis ringkasan ke `ringkasan-dibagikan.md` di `sessionDirPath` (atomic write, `writeStringAtomic`) lalu memanggil `shareExportedFile`.
+- `lib/screens/transcript_player_screen.dart`: ekspor transkrip penuh (`_exportTranscript`) sudah memanggil `showEksporDialog` yang sama — otomatis mendapat tombol Bagikan dari perbaikan di atas tanpa perubahan kode tambahan di file ini.
+
+Verifikasi grep (wajib):
+```
+$ grep -rn "shareExportedFile(" lib/
+lib/utils/share_file.dart:40:Future<void> shareExportedFile(
+lib/widgets/summary_panel.dart:192:      await shareExportedFile(context, path, subject: 'Ringkasan rapat');
+lib/widgets/action_items_panel.dart:164:    await shareExportedFile(
+lib/widgets/export_dialog.dart:422:          : () => shareExportedFile(
+```
+
+Tes: `test/export_dialog_share_test.dart` — widget test nyata (`FilePicker.platform` diganti fake yang mengembalikan direktori, bridge tiruan mengembalikan `ExportedFile`) memverifikasi tombol "Bagikan" muncul di toast sukses ekspor. `test/summary_panel_share_test.dart` — dua test: tap "Bagikan" menulis file `ringkasan-dibagikan.md` ke disk dengan isi benar lalu memanggil alur share (fallback clipboard di Linux desktop, toast "...disalin" muncul); tombol nonaktif saat ringkasan kosong.
+
+Catatan teknis test: `_share()`/`_FakeFilePicker` melakukan I/O berkas nyata, yang hang tanpa batas di bawah zona fake-async `testWidgets` bawaan — diselesaikan dengan `tester.runAsync()` (poll sampai file ada, bukan delay tetap, agar tidak flaky di mesin yang sedang sibuk).
+
+### Bagian C — Pre-fill peserta undangan ke form sesi — Severity Low — **DONE**
+
+`CalendarEvent.attendees` (RFC 5545, `rust_core/src/calendar_import.rs`) sudah di-parse dan ditampilkan read-only di `InviteConfirmDialog`, tapi form mulai sesi tidak punya field peserta.
+
+- `lib/widgets/session_controls.dart`: widget baru `AttendeesChips` (read-only, `Chip` per nama, disembunyikan total — `SizedBox.shrink()` — saat kosong) ditambahkan ke `SessionControlGroup` via parameter `attendees` baru.
+- `lib/screens/main_screen.dart`: `_MainScreenState._attendees` (state baru, direset di `_newSession()`), diteruskan lewat `_Workspace` ke `_IdleHero` (form mulai sesi — field "Impor undangan (.ics)" sekarang juga memanggil `onAttendeesImported(event.attendees)` dan menampilkan `AttendeesChips` di bawah judul sesi) dan ke `_SessionStrip` → `SessionControlGroup` (strip sesi yang sudah berjalan/selesai, sehingga peserta tetap terlihat setelah rekaman dimulai).
+
+Verifikasi grep (wajib):
+```
+$ grep -rn "attendees" lib/widgets/session_controls.dart lib/screens/main_screen.dart | wc -l
+20
+```
+
+Tes: `test/session_controls_attendees_test.dart` — tiga widget test nyata: `SessionControlGroup` merender chip "Budi Santoso"/"Sari Wulandari" saat `attendees` diisi; tidak merender baris "Peserta:" sama sekali saat kosong; `AttendeesChips` kosong tidak merender apa pun (`findsNothing` untuk `Chip`).
+
+Catatan jujur: `importCalendarInvite` memakai `FilePicker.platform.pickFiles` yang tak punya dialog native di sandbox test (sudah didokumentasikan di `test/calendar_invite_import_test.dart`), jadi alur "tap Impor undangan → file nyata terpilih → attendees ter-set" ujung-ke-ujung tidak diuji otomatis — hanya diuji manual lewat pembacaan kode (closure `onAttendeesImported` dipanggil tepat setelah `titleController.text = event.summary`) dan lewat widget test `AttendeesChips`/`SessionControlGroup` terpisah di atas yang membuktikan sisi tampilan benar begitu `attendees` terisi.
+
+### Bagian D — Notice spesifik saat device audio reconnect — Severity Low — **DONE**
+
+`WatchdogEvent::DeviceReconnected` (`rust_core/src/session.rs`, via `collect_worker_events`) sudah memanggil `reopen_speaker_capture`, tapi fungsi itu mengembalikan `None` (tanpa notice sama sekali) saat reopen **berhasil** — hanya jalur gagal yang mengirim `SessionEvent::Notice`. Di sisi Dart, `main_screen.dart`'s listener `sessionNoticeProvider` selalu menampilkan **`ToastType.error`** untuk notice apa pun, apa pun levelnya.
+
+- `rust_core/src/session.rs`: `NoticeLevel` dapat varian baru `Info` (selain `Warning`/`Error`). `reopen_speaker_capture` pada jalur sukses sekarang mengembalikan `Some(SessionEvent::Notice { level: NoticeLevel::Info, source: "spk", message: "Perangkat audio tersambung ulang — rekaman dilanjutkan." })` alih-alih `None`.
+- `lib/state/models.dart`: `SessionNoticeLevel` dapat varian `info`.
+- `lib/services/bridge_service.dart`: pemetaan `rust_session.NoticeLevel` → `SessionNoticeLevel` diperluas (exhaustive `switch`) untuk menyertakan `info`.
+- `lib/screens/main_screen.dart`: listener `sessionNoticeProvider` sekarang memetakan `level` ke `ToastType` yang sesuai (`info`/`warning`/`error`) alih-alih selalu `ToastType.error` — toast yang dipakai tetap `AppToast` yang sama, tidak ada komponen toast baru.
+
+Verifikasi grep (wajib):
+```
+$ grep -rn "NoticeLevel::Info\|NoticeLevel.info\|SessionNoticeLevel.info" rust_core/src/ lib/
+rust_core/src/frb_generated.rs:6147:            0 => crate::session::NoticeLevel::Info,
+rust_core/src/frb_generated.rs:10894:                crate::session::NoticeLevel::Info => 0,
+rust_core/src/session.rs:731:        level: NoticeLevel::Info,
+lib/services/bridge_service.dart:1548:                  rust_session.NoticeLevel.info => SessionNoticeLevel.info,
+lib/screens/main_screen.dart:1042:        SessionNoticeLevel.info => ToastType.info,
+```
+
+Tes: `test/session_start_failure_test.dart` — test baru `a device-reconnect notice is shown as info, not a sticky error toast`: dorong `SessionNotice(level: info, ...)` lewat bridge tiruan selagi sesi merekam, verifikasi pesan "...tersambung ulang..." tampil, lalu verifikasi ikon toast yang dirender adalah `AppIcons.info` bukan `AppIcons.error` (pengecekan ikon dipilih ketimbang menunggu timer auto-dismiss toast, karena timer itu berpacu dengan ticker waktu-berjalan sesi yang sedang aktif di zona fake-async — rapuh).
+
+Catatan teknis test tak terduga: `AppToast` menyimpan daftar toast dan host overlay di *static state* lintas-test — toast dari test sebelumnya di file yang sama bisa menutupi toast test berikutnya secara diam-diam. Ditambahkan `setUp(AppToast.clear)` di awal `session_start_failure_test.dart` untuk mengisolasi test ini dari test lain di file yang sama.
+
+### Gerbang verifikasi
+
+```
+cd rust_core && cargo fmt --check        # bersih
+cargo clippy --all-targets -- -D warnings # bersih
+cargo test --lib                          # 951 passed; 0 failed
+cd .. && flutter analyze                  # No issues found!
+flutter test                              # 763 passed; 0 failed
+flutter build linux --release             # berhasil, build/linux/x64/release/bundle/transcribe
+```
+
+### Uji asap aplikasi nyata
+
+Build release dijalankan di `:0` (sink `trareon_silent` diverifikasi via `pactl get-default-sink` sebelum apa pun — tidak ada audio diputar untuk sprint ini, hanya navigasi UI). Window ditemukan via `xdotool search --class transcribe` (window geometri 1280×800, bukan window 10×10). Dibuka Pengaturan (`Ctrl+,`) → Audio & Suara: toggle AGC terlihat default **aktif**, diklik → berubah **nonaktif** dengan subtitle berganti teks (`/tmp/smoke4_audio.png`, `/tmp/smoke5_agc_off.png`). Aplikasi ditutup bersih (`pkill -9 -x transcribe`).
+
+Bagian B/C/D tidak diuji coba manual di aplikasi nyata pada sesi ini di luar tangkapan layar Bagian A — keduanya sudah diverifikasi penuh lewat widget test nyata yang mem-pump widget tree sungguhan dan memverifikasi pemanggilan fungsi (lihat per-bagian di atas), konsisten dengan pola Sprint 20/21.
+
+### Celah yang diketahui
+
+- Bagian C: alur `FilePicker.platform.pickFiles` ujung-ke-ujung (pilih berkas `.ics` nyata → attendees ter-set di state) tidak bisa diuji otomatis di sandbox test (tak ada dialog native) — hanya diverifikasi lewat pembacaan kode dan widget test terpisah untuk sisi tampilan.
+- Bagian B: `showEksporDialog` membagikan hanya file **pertama** yang diekspor saat beberapa format dipilih sekaligus (mis. markdown + PDF); sisa format ada di folder yang sama satu klik lagi — bukan batasan teknis `share_plus`, melainkan pilihan scope sengaja (membagikan "folder" tidak punya padanan di share sheet manapun).
