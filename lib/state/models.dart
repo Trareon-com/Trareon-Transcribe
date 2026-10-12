@@ -716,6 +716,17 @@ class AppSettings {
   /// written by `acknowledgeConsent`.
   final bool consentBannerDismissed;
 
+  /// F16 bagian A: pantau window aktif (Zoom/Google Meet/Microsoft Teams)
+  /// dan tawarkan "Mulai rekam?" begitu rapat terdeteksi. Mirrors
+  /// `AppSettings::meeting_auto_detect_enabled` in Rust. Default AKTIF —
+  /// sensitif privasi, jadi harus mudah dimatikan dari Pengaturan.
+  final bool meetingAutoDetectEnabled;
+
+  /// F16 bagian B: ambang sunyi berkepanjangan (menit) sebelum sesi yang
+  /// sedang merekam ditawari untuk dihentikan otomatis. `null` = nonaktif.
+  /// Mirrors `AppSettings::silence_auto_stop_minutes` in Rust.
+  final int? silenceAutoStopMinutes;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -743,6 +754,8 @@ class AppSettings {
     this.neuralDiarization = false,
     this.defaultModelUpgradeDismissed = false,
     this.consentBannerDismissed = false,
+    this.meetingAutoDetectEnabled = true,
+    this.silenceAutoStopMinutes = 5,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -783,6 +796,9 @@ class AppSettings {
     bool? neuralDiarization,
     bool? defaultModelUpgradeDismissed,
     bool? consentBannerDismissed,
+    bool? meetingAutoDetectEnabled,
+    int? silenceAutoStopMinutes,
+    bool clearSilenceAutoStop = false,
   }) {
     return AppSettings(
       theme: theme ?? this.theme,
@@ -821,6 +837,11 @@ class AppSettings {
           defaultModelUpgradeDismissed ?? this.defaultModelUpgradeDismissed,
       consentBannerDismissed:
           consentBannerDismissed ?? this.consentBannerDismissed,
+      meetingAutoDetectEnabled:
+          meetingAutoDetectEnabled ?? this.meetingAutoDetectEnabled,
+      silenceAutoStopMinutes: clearSilenceAutoStop
+          ? null
+          : (silenceAutoStopMinutes ?? this.silenceAutoStopMinutes),
     );
   }
 }

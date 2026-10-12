@@ -88,6 +88,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       summaryTemplates: loaded.summaryTemplates,
       notulen: loaded.notulen,
       autoRetranscribe: loaded.autoRetranscribe,
+      meetingAutoDetectEnabled: loaded.meetingAutoDetectEnabled,
+      silenceAutoStopMinutes: loaded.silenceAutoStopMinutes,
       defaultExportFormat:
           DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
       micDeviceId: DartPrefs.instance.getString('micDeviceId'),
