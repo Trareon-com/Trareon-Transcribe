@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import 'redaction_preview.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
+import '../utils/share_file.dart';
 import 'app_toast.dart';
 
 /// Records an export in the local audit log, best effort.
@@ -393,7 +394,7 @@ Future<bool> showEksporDialog(
             config: pdp.activeRedaction,
           )).map(fromRustSegment).toList()
         : session.segments;
-    await bridge.exportSessionWithSummary(
+    final exported = await bridge.exportSessionWithSummary(
       segments: outgoing,
       outputDir: outputDir,
       title: session.title,
@@ -407,10 +408,22 @@ Future<bool> showEksporDialog(
     // Tutup loading dialog
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return false;
+    // When several formats were exported, "Bagikan" hands over just the
+    // first one — sharing a whole folder has no equivalent in the share
+    // sheet, and the rest are one click away in `outputDir` regardless.
+    final firstFile = exported.isEmpty ? null : exported.first.path;
     AppToast.show(
       context,
       'Ekspor berhasil ke: $outputDir',
       type: ToastType.success,
+      actionLabel: firstFile == null ? null : 'Bagikan',
+      onAction: firstFile == null
+          ? null
+          : () => shareExportedFile(
+              context,
+              firstFile,
+              subject: 'Ekspor: ${session.title}',
+            ),
     );
     return true;
   } catch (e) {

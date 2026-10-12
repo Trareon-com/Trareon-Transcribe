@@ -621,6 +621,19 @@ class _CategoryContent extends ConsumerWidget {
           onChanged: notifier.setNoiseReduction,
         ),
         const SettingsDivider(),
+        // Sprint 22 celah A: engine selalu menjalankan ini sejak Sprint
+        // 14a, tapi tak ada kontrolnya di UI sampai sekarang.
+        SettingsSwitch(
+          icon: AppIcons.gainControl,
+          label: 'Penguatan suara otomatis (AGC)',
+          subtitle: settings.agcEnabled
+              ? 'Suara pelan tapi nyata dikuatkan sebelum transkripsi, '
+                    'agar tidak terbaca sebagai sunyi.'
+              : 'Mati. Audio ditranskrip pada volume aslinya.',
+          value: settings.agcEnabled,
+          onChanged: notifier.setAgcEnabled,
+        ),
+        const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.spatialAudio,
           label: 'Hapus suara ganda',

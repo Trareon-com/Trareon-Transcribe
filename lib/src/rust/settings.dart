@@ -78,6 +78,13 @@ class AppSettings {
   /// consonant. See `crate::denoise` for the trade-off in full.
   final bool noiseReduction;
 
+  /// Pre-VAD/ASR automatic gain (Sprint 14a item 9): boosts quiet-but-real
+  /// audio toward `crate::agc::TARGET_DBFS` before either VAD stage sees
+  /// it. On by default — it was always on, process-wide, before this
+  /// field existed; this field only makes that choice visible and
+  /// reversible in Pengaturan.
+  final bool agcEnabled;
+
   /// "Pemisahan pembicara akurat": run sherpa-onnx neural diarization
   /// (pyannote segmentation + CAM++ embeddings) on the post-stop, import
   /// and re-transcribe paths instead of the lightweight acoustic
@@ -140,6 +147,7 @@ class AppSettings {
     this.autoRetranscribe,
     required this.pdp,
     required this.noiseReduction,
+    required this.agcEnabled,
     required this.neuralDiarization,
     required this.defaultModelUpgradeDismissed,
     required this.consentBannerDismissed,
@@ -170,6 +178,7 @@ class AppSettings {
       autoRetranscribe.hashCode ^
       pdp.hashCode ^
       noiseReduction.hashCode ^
+      agcEnabled.hashCode ^
       neuralDiarization.hashCode ^
       defaultModelUpgradeDismissed.hashCode ^
       consentBannerDismissed.hashCode ^
@@ -202,6 +211,7 @@ class AppSettings {
           autoRetranscribe == other.autoRetranscribe &&
           pdp == other.pdp &&
           noiseReduction == other.noiseReduction &&
+          agcEnabled == other.agcEnabled &&
           neuralDiarization == other.neuralDiarization &&
           defaultModelUpgradeDismissed == other.defaultModelUpgradeDismissed &&
           consentBannerDismissed == other.consentBannerDismissed &&

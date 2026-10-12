@@ -213,6 +213,8 @@ abstract final class AppIcons {
 
   static const IconData moreVertical = Icons.more_vert_rounded;
 
+  static const IconData gainControl = Icons.volume_up_rounded;
+
   static const IconData noise = Icons.noise_control_off_rounded;
 
   static const IconData noteAdd = Icons.note_add_rounded;
@@ -444,6 +446,7 @@ abstract final class AppIcons {
     'moon': moon,
     'more': more,
     'moreVertical': moreVertical,
+    'gainControl': gainControl,
     'noise': noise,
     'noteAdd': noteAdd,
     'offline': offline,

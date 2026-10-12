@@ -1544,9 +1544,12 @@ class RustEngineBridge implements RustBridge {
           notice: (level, source, message) {
             _noticeControllers[sessionId]?.add(
               SessionNotice(
-                level: level == rust_session.NoticeLevel.error
-                    ? SessionNoticeLevel.error
-                    : SessionNoticeLevel.warning,
+                level: switch (level) {
+                  rust_session.NoticeLevel.info => SessionNoticeLevel.info,
+                  rust_session.NoticeLevel.warning =>
+                    SessionNoticeLevel.warning,
+                  rust_session.NoticeLevel.error => SessionNoticeLevel.error,
+                },
                 source: source,
                 message: message,
               ),
@@ -2163,6 +2166,7 @@ class RustEngineBridge implements RustBridge {
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
+      agcEnabled: settings.agcEnabled,
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
       consentBannerDismissed: settings.consentBannerDismissed,
@@ -2195,6 +2199,7 @@ class RustEngineBridge implements RustBridge {
       autoRetranscribe: settings.autoRetranscribe,
       pdp: settings.pdp,
       noiseReduction: settings.noiseReduction,
+      agcEnabled: settings.agcEnabled,
       neuralDiarization: settings.neuralDiarization,
       defaultModelUpgradeDismissed: settings.defaultModelUpgradeDismissed,
       consentBannerDismissed: settings.consentBannerDismissed,

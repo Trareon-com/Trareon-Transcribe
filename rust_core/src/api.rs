@@ -1569,6 +1569,7 @@ pub fn save_settings(settings: AppSettings) -> Result<(), TranscribeError> {
 /// than the next launch.
 fn apply_engine_settings(settings: &AppSettings) {
     crate::denoise::set_enabled(settings.noise_reduction);
+    crate::agc::set_enabled(settings.agc_enabled);
 
     let library = PathBuf::from(expand_home(&settings.library_path));
     crate::vad::whisper_silero::set_model_path(crate::model::find_model_file(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,9 @@ import '../state/summary_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../theme/app_typography.dart';
+import '../utils/atomic_file.dart';
 import '../utils/format_time.dart';
+import '../utils/share_file.dart';
 import 'summary_template_editor.dart';
 import '../theme/app_icons.dart';
 import 'app_toast.dart';
@@ -174,6 +177,27 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     if (!mounted) return;
     widget.onSummaryChanged?.call(ref.read(_provider).text);
     AppToast.show(context, 'Ringkasan tersimpan.', type: ToastType.success);
+  }
+
+  /// Writes the current summary text to a one-off file next to the session's
+  /// sidecar and hands it to the share sheet (F21-style quick share). Not
+  /// the saved sidecar file itself — that is Markdown-structured for the
+  /// editor, not something a chat recipient needs.
+  Future<void> _share(String text) async {
+    try {
+      final path =
+          '${widget.sessionDirPath}${Platform.pathSeparator}ringkasan-dibagikan.md';
+      await writeStringAtomic(File(path), text);
+      if (!mounted) return;
+      await shareExportedFile(context, path, subject: 'Ringkasan rapat');
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        'Gagal menyiapkan ringkasan untuk dibagikan: $e',
+        type: ToastType.error,
+      );
+    }
   }
 
   /// Whether there is a citation-bearing rendering to offer at all.
@@ -419,6 +443,14 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                 },
                           icon: AppIcons.copy,
                           label: 'Salin',
+                        ),
+                        Spacing.hSm,
+                        AppButton.ghost(
+                          onPressed: state.text.trim().isEmpty
+                              ? null
+                              : () => _share(state.text),
+                          icon: AppIcons.share,
+                          label: 'Bagikan',
                         ),
                         Spacing.hSm,
                         AppButton(

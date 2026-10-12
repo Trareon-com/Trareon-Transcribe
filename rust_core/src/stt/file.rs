@@ -168,7 +168,7 @@ pub fn transcribe_file_with(
             // Sprint 14a item 9: same pre-ASR boost the live pipeline gets
             // (`crate::agc`) — quiet-but-real speech in an imported file is
             // exactly as liable to read as silence as it is live.
-            let chunk = crate::agc::apply_gain(chunk);
+            let chunk = crate::agc::apply_gain_if_enabled(chunk);
             let chunk = chunk.as_slice();
             // Backstop (B1): even when `options.vad_gate` is off (every
             // region above is just `(0.0, duration)`), digital silence or

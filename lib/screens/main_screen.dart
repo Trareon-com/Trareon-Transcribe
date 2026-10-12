@@ -78,6 +78,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   final _titleController = TextEditingController();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  /// Peserta pre-filled from a confirmed calendar invite (Sprint 22 celah
+  /// C). Ephemeral UI state, not persisted — `SessionConfig` has no field
+  /// for it, this only saves the user retyping names already in the .ics.
+  List<String> _attendees = const [];
+
   List<rust_session.RecoverableSession> _recoverableSessions = const [];
   bool _loadingRecoveries = true;
   bool _showShortcuts = false;
@@ -944,6 +949,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     setState(() {
       _openSession = null;
       _openSessionSeek = null;
+      _attendees = const [];
     });
     _sidebarSearchFocus.unfocus();
   }
@@ -1032,7 +1038,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen(sessionNoticeProvider, (_, next) {
       final notice = next.valueOrNull;
       if (notice == null) return;
-      AppToast.show(context, notice.message, type: ToastType.error);
+      final type = switch (notice.level) {
+        SessionNoticeLevel.info => ToastType.info,
+        SessionNoticeLevel.warning => ToastType.warning,
+        SessionNoticeLevel.error => ToastType.error,
+      };
+      AppToast.show(context, notice.message, type: type);
     });
 
     // F16a: offer to start recording when a meeting app window is detected
@@ -1175,6 +1186,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               vuLevel: vuLevel,
                               captureHealth: _captureHealth,
                               titleController: _titleController,
+                              attendees: _attendees,
+                              onAttendeesImported: (attendees) =>
+                                  setState(() => _attendees = attendees),
                               onStartBerhenti: () =>
                                   _toggleStartBerhenti(context, ref),
                               onEkspor: () => _onEkspor(context),
@@ -1242,6 +1256,8 @@ class _Workspace extends StatelessWidget {
     required this.vuLevel,
     required this.captureHealth,
     required this.titleController,
+    this.attendees = const [],
+    required this.onAttendeesImported,
     required this.onStartBerhenti,
     required this.onEkspor,
     required this.isBusy,
@@ -1276,6 +1292,8 @@ class _Workspace extends StatelessWidget {
   final VuLevel? vuLevel;
   final rust_session.CaptureHealth? captureHealth;
   final TextEditingController titleController;
+  final List<String> attendees;
+  final ValueChanged<List<String>> onAttendeesImported;
   final VoidCallback onStartBerhenti;
   final VoidCallback onEkspor;
   final bool isBusy;
@@ -1382,6 +1400,7 @@ class _Workspace extends StatelessWidget {
             notifier: notifier,
             mode: session.config.mode,
             titleController: titleController,
+            attendees: attendees,
             onEkspor: onEkspor,
             onStartBerhenti: onStartBerhenti,
             isBusy: isBusy,
@@ -1408,6 +1427,8 @@ class _Workspace extends StatelessWidget {
                     Expanded(
                       child: _IdleHero(
                         titleController: titleController,
+                        attendees: attendees,
+                        onAttendeesImported: onAttendeesImported,
                         mode: session.config.mode,
                         onModeChanged: notifier.setMode,
                         micEnabled: session.config.micEnabled,
@@ -1583,6 +1604,8 @@ class _IdleHero extends StatelessWidget {
     required this.busy,
     required this.busyLabel,
     required this.onApplyTemplate,
+    this.attendees = const [],
+    required this.onAttendeesImported,
   });
 
   final TextEditingController titleController;
@@ -1599,6 +1622,13 @@ class _IdleHero extends StatelessWidget {
   /// F24: applies a saved meeting template's title, mode and language to
   /// this not-yet-started session.
   final ValueChanged<MeetingTemplate> onApplyTemplate;
+
+  /// Peserta pre-filled from a confirmed calendar invite (Sprint 22 celah
+  /// C). Held by the parent, not local state here, so it survives this
+  /// widget rebuilding and is still around to show on `SessionControlGroup`
+  /// once the session starts.
+  final List<String> attendees;
+  final ValueChanged<List<String>> onAttendeesImported;
 
   @override
   Widget build(BuildContext context) {
@@ -1667,6 +1697,7 @@ class _IdleHero extends StatelessWidget {
                       ),
                     ),
                   ),
+                  AttendeesChips(attendees: attendees),
                   if (showTemplateRow) ...[
                     Spacing.gapXs,
                     Center(
@@ -1693,6 +1724,7 @@ class _IdleHero extends StatelessWidget {
                               );
                               if (event != null) {
                                 titleController.text = event.summary;
+                                onAttendeesImported(event.attendees);
                               }
                             },
                             icon: const Icon(
@@ -2083,6 +2115,7 @@ class _SessionStrip extends StatelessWidget {
     required this.notifier,
     required this.mode,
     required this.titleController,
+    this.attendees = const [],
     required this.onEkspor,
     required this.onStartBerhenti,
     required this.isBusy,
@@ -2094,6 +2127,7 @@ class _SessionStrip extends StatelessWidget {
   final SessionNotifier notifier;
   final SessionMode mode;
   final TextEditingController titleController;
+  final List<String> attendees;
   final VoidCallback onEkspor;
   final VoidCallback onStartBerhenti;
   final bool isBusy;
@@ -2134,6 +2168,7 @@ class _SessionStrip extends StatelessWidget {
               mode: mode,
               onModeChanged: notifier.setMode,
               modeLocked: false,
+              attendees: attendees,
             ),
           ),
           Spacing.hMd,

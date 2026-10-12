@@ -34,7 +34,48 @@
 //! once it is merely loud enough to clear the amplitude cliff; this module
 //! only gets it there.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::silence_gate::{rms_dbfs, SILENCE_THRESHOLD_DBFS};
+
+/// Whether the pre-VAD/ASR gain boost runs at all.
+///
+/// A process-global rather than a parameter threaded through `pipeline.rs`
+/// and `stt/file.rs`, matching the pattern `crate::denoise` already
+/// established for the same reason: those call sites sit under layers that
+/// have no other use for `AppSettings`. Defaults to on, since that is the
+/// behavior every call site had before this toggle existed.
+static ENABLED: AtomicBool = AtomicBool::new(true);
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn set_enabled(on: bool) {
+    ENABLED.store(on, Ordering::Relaxed);
+}
+
+#[flutter_rust_bridge::frb(ignore)]
+pub fn is_enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
+/// [`apply_gain`], but a no-op copy when the user has turned AGC off in
+/// Pengaturan. The call sites in `pipeline.rs` and `stt/file.rs` use this
+/// instead of calling `apply_gain` directly so the toggle actually has an
+/// effect.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn apply_gain_if_enabled(samples: &[f32]) -> Vec<f32> {
+    if is_enabled() {
+        apply_gain(samples)
+    } else {
+        samples.to_vec()
+    }
+}
+
+/// Serializes tests that exercise [`ENABLED`] so cargo's parallel test
+/// runner cannot interleave two tests flipping the same process-global
+/// switch and read each other's intermediate state. Mirrors
+/// `crate::denoise::ENABLED_TEST_LOCK`.
+#[cfg(test)]
+pub(crate) static ENABLED_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Level, in dBFS, above which the soft limiter starts rounding peaks
 /// instead of letting [`apply_gain`]'s boost hit a hard wall. Chosen just
@@ -171,6 +212,22 @@ mod tests {
         let samples = tone(16_000, 0.03); // moderately quiet
         let boosted = apply_gain(&samples);
         assert!(boosted.iter().all(|&s| (-1.0..=1.0).contains(&s)));
+    }
+
+    #[test]
+    fn apply_gain_if_enabled_boosts_when_on_and_passes_through_when_off() {
+        let _guard = ENABLED_TEST_LOCK.lock().unwrap();
+        let samples = tone(16_000, 0.0056); // ~-45 dBFS, boostable
+
+        set_enabled(true);
+        let boosted = apply_gain_if_enabled(&samples);
+        assert_eq!(boosted, apply_gain(&samples));
+
+        set_enabled(false);
+        let passthrough = apply_gain_if_enabled(&samples);
+        assert_eq!(passthrough, samples);
+
+        set_enabled(true); // restore the default for other tests
     }
 
     #[test]
