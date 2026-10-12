@@ -1,0 +1,211 @@
+Jumpa lagi Jagat TV TV, di seri edukasi kali ini kita akan bahas soal teknologi e-SIM
+Akhir-akhir ini banyak banget nih yang bahas soal e-SIM di sosial media
+Dan banyak juga dari kalian yang belum paham apa sih itu e-SIM
+Pertanyaan paling umum yang kami temui adalah bedanya apa sih sama SIM biasa?
+Untungnya apa kita pakai e-SIM?
+Dan banyak juga dari kalian yang nanya, smartphone yang saya pakai tuh udah bisa e-SIM atau belum sih?
+Nah, biar pakai jelas, ayo kita belajar bareng
+Oke, teknologi isi merupakan alternatif
+Dari kartu SIM fisik yang konvensional
+E-SIM sendiri adalah singkatan dari embedded SIM
+Atau lebih lengkapnya, embedded subscriber identity module
+Normalnya, kita butuh masukkan kartu SIM kita di smartphone seperti ini
+Tapi dengan E-SIM, ibaratnya kartu SIM-nya tertanam di smartphone
+Dan bisa diisi oleh provider seluler mana saja
+Tidak terkunci khusus untuk satu operator saja
+Banyak dari kalian yang belum paham dan agak asing dengan E-SIM
+Dan itu wajar ya
+Alasan pertama itu karena operator E-SIM di Indonesia baru mulai gencar tahun 2019
+kemudian smartphone yang mendukung isi
+E-SIM itu masih sangat sedikit memang.
+Dan biasanya baru kita temukan di smartphone yang harganya udah belasan juta.
+Lalu apa untungnya sih kita pakai E-SIM?
+Dan apa bedanya dengan yang E-SIM biasa?
+Oke, kita bahas.
+Pertama, kartu fisik itu pasti menggunakan kartu berbentuk chip
+dan harus memasukkannya ke slot SIM tray di smartphone.
+Kalau E-SIM berbentuk digital, jadi lebih mudah dan praktis
+dari urusan pendaftaran hingga pemakaian.
+Lalu kontak pada E-SIM akan tersimpan ke dalam sistem cloud
+yang disediakan oleh provider.
+Jadi data kontak kita tetap bisa kita akses dimanapun dan kapanpun
+Nomor yang sama tentunya.
+Kemudian, SIM card biasa juga bisa menyimpan data kontak kita secara lokal.
+Tapi amit-amit, jika kartu SIM hilang, data pada SIM kita juga nggak bisa kembali.
+Nah, di sini keunggulannya e-SIM nih.
+Misalnya, amit-amit smartphone kita hilang.
+E-SIM itu nggak bisa dicopot dari smartphone-nya.
+Kalau SIM yang biasa kan tinggal lepas tray-nya aja,
+langsung lepas deh koneksi SIM-nya dari smartphone-nya.
+Nah, dengan kondisi seperti itu,
+kita masih punya waktu untuk mematikan kartu kita sebelum disalah gunakan.
+Dan juga bisa membantu kita dalam melacak keberadaan perangkat tersebut.
+Lalu masih ada juga smartphone yang menggunakan single SIM pada slot kartu fisiknya.
+Dan untuk menggunakan dual SIM pada satu smartphone itu, biasanya harus pakai e-SIM.
+Contohnya paling gampangnya iPhone lah.
+Jadi kalau kita pakai iPhone, SIM keduanya tuh enaknya pakai e-SIM memang.
+Kemudian aktifasi e-SIM juga lebih praktis karena tidak perlu membeli kartu fisik.
+Untuk tim kami yang sering traveling ke luar negeri, ini juga akan memudahkan karena banyak negara yang sudah support e-SIM juga.
+Kita nggak perlu beli kartu fisik, tinggal daftar online aja, jadi kita langsung bisa pakai kartu lokal negara tersebut.
+Mau tahu semudah apa?
+Nih, kita contohkan menggunakan provider lokal Indonesia, yaitu XL.
+XL sudah ada layanan e-SIM juga loh sejak tahun lalu.
+Nah, aku tuh
+Cara belinya, kita bisa via website kunjungi aja store.excel.co.id.
+Kemudian pilih menu pesan di sini, lalu pilih paket sesuai dengan harga dan kebutuhan.
+Lalu kalau sudah, klik lanjutkan.
+Kemudian pilih nomor sesuai selera kita, kemudian kita lanjutkan dengan isi data diri kita.
+Pastikan tidak ada yang salah, terutama di bagian email.
+Lalu konfirmasi pesanan, lalu klik lanjutkan lagi.
+Pilih metode pembayaran, dan kita tinggal selesaikan pembayaran sebelum waktunya habis.
+Kalau sudah, kita sudah masuk ke tahap selanjutnya, yaitu aktifasi eSIM.
+Nah, caranya gimana?
+Pertama
+Setelah bayar, kita akan mendapatkan email scan QR untuk aktifasi e-SIM.
+Kemudian pada device kita, buka pengaturan, lalu opsi seluler, lalu pilih tambah e-SIM.
+Nah, kalau kalian pakai iPhone dan keluar tulisan SIM Anda tidak didukung, itu tidak masalah ya.
+Klik saja di bagian pilihan lainnya.
+Nanti akan muncul pilihan gunakan kode QR.
+Nah, selanjutnya scan QR pakai smartphone kita.
+Kalau sudah selesai, artinya e-SIM kita sudah siap digunakan.
+Nah, mungkin sebagian dari kalian akan ada yang bingung ya.
+Bang, ini ada pengaturan lagi itu buat apa ya?
+ini tuh
+Kalau kita pakai dual SIM, ini cuma pengaturan mana SIM yang mau dipakai untuk seluler dan mau dikasih label namanya apa.
+Gampang ini mah, nggak perlu takut salah kok. Bisa diatur lagi belakangan.
+Terus mungkin dari kalian ada yang ngalamin,
+Bang, SIM saya sudah terdaftar tapi kok belum bisa internetan?
+Sabar dulu, itu mungkin kalian belum mendaftarkan KTP dan KK.
+Tinggal SMS ke 444, cantumkan nomor KTP dan nomor KK, beres deh.
+Perlu diingat ya, di Indonesia ada aturan 1 KTP itu maksimal 3 nomor per operator.
+Dan pertanyaannya
+Kenapa harus XL? Jaringannya cukup baik dan stabil
+Terutama untuk kami yang tinggal di Jakarta dan sekitarnya
+Kalau dari pengalaman kami sih jarang nemu masalah sinyal ketika pakai XL ya
+Lalu kecepatan internetnya yang lumayan bagus
+Ini kami contohkan speed test di daerah Depok
+Bisa dapat begini, lumayan lah ya
+Dan kelebihan lainnya juga, XL ini pakai internetnya cukup bervariatif
+Nah, untuk smartphone-nya sendiri
+Smartphone apa aja sih yang sudah mendukung e-SIM?
+Teknologi e-SIM ini tentunya ada syaratnya ya teman-teman
+Pertama, itu operator selulernya harus punya layanan e-SIMnya
+Dan smartphone-nya juga harus bisa e-SIM juga
+kalau salah
+satunya tidak jalan, maka kita tidak bisa
+menggunakan teknologinya. Oke, karena
+ISIM masih tergolong agak baru, jadi belum
+semua smartphone itu mendukungnya. Kami sudah
+buatkan list smartphone apa saja sudah support ISIM,
+jadi langsung saja kita mulai. Tapi sebelum kita mulai
+tentunya harus ada disclaimer dulu nih. Yang pertama,
+smartphone yang kami sebutkan ini adalah
+yang versi resmi Indonesia. Lalu,
+spesifikasi produk yang resmi
+Indonesia dan luar negeri itu bisa berbeda.
+Kemudian, ada yang versi luar support
+ISIM dan versi Indonesia
+yang tidak. Itu bisa begitu. Jadi sebelum protes,
+Ape ini support e-SIM kok, kok nggak masuk ke list ini?
+Nah, tolong disimak disclaimer tadi ya.
+Sebetulnya, dari website Excel sendiri, kita bisa melihat list smartphone apa saja yang sudah support e-SIM.
+Kita bisa kunjungi www.excel.co.id.isim.
+Untuk list smartphone-nya, kita kategorikan berdasarkan brandnya.
+Yang pertama, ada Samsung.
+Dari Samsung Galaxy Note 20, itu sudah bisa e-SIM.
+Lalu Samsung Galaxy S20 series, itu bisa.
+S21 series itu bisa.
+Sampai yang terbaru pun, itu sudah support e-SIM semua.
+lalu Galaxy Z Fold itu sejak generasi awal
+itu sudah support e-SIM. Sampai Z Fold 6
+tentunya support e-SIM juga. Nah, untuk
+Samsung, saat ini memang baru bisa
+kita temukan di smartphone kelas flagship aja.
+Untuk yang kelas menengah seperti A-series
+itu belum bisa. Di beberapa negara lain,
+memang ada Samsung A-series yang
+support e-SIM. Contohnya,
+seperti Samsung Galaxy A54 di
+UK, itu bisa e-SIM.
+Tapi untuk Indonesia, itu belum.
+Ada juga tab S9 yang sudah support e-SIM,
+tapi untuk versi Indonesia, itu baru bisa
+single SIM fisik aja. Lagi-lagi harus
+diingat, spesifikasi produk bisa berbeda
+tergantung negaranya. Nah, kita pindah
+ke brand berikutnya, ada Apple. Dimulai dari
+iPhone XS, keluaran tahun
+2018, dan produk iPhone
+setelahnya, itu sudah support e-SIM.
+Termasuk seperti iPhone SE 2nd Generation,
+itu juga sudah support e-SIM.
+iPhone 11 series hingga 15 series tentunya
+sudah support. iPhone 16 gimana?
+Ya, harusnya sih support juga ya. Tapi
+statusnya di sini kan masih belum resmi di Indonesia
+saat video ini dibuat. Jadi, kita tunggu
+aja untuk iPhone 16. Untuk iPad,
+sejak iPad generasi ke-7
+keluaran tahun 2019,
+itu sudah
+support eSIM. Dan produk-produk tablet setelahnya
+juga sudah support eSIM tentunya. Termasuk
+iPad Air, iPad Mini, dan iPad Pro.
+Nah, itu tadi Apple. Sekarang kita ke OPPO.
+OPPO ada Find X5 Pro
+dan juga OPPO Find X8 Series.
+Itu bisa eSIM semua. Untuk
+OPPO Find X6 dan X7
+itu nggak hadir resmi ke Indonesia ya.
+Makanya dari X5 langsung loncat ke X8.
+Untuk OPPO Find X3 Pro
+memang itu resmi Indonesia juga sih.
+Tapi sayangnya saat kami cek,
+itu belum support eSIM. Yang bisa itu versi luar negerinya.
+lagi yaitu Oppo Find N2 Flip yang smartphone lipat itu lalu ada Oppo Find N3 Flip dan Oppo Find N3
+itu bisa eSIM semua nah beralih ke Vivo sekarang nih Vivo ada Vivo X100 Pro yang support eSIM
+sayangnya baru itu aja baru satu untuk Vivo X4 3 Pro sama X100 yang biasa itu belum support
+jadi Vivo baru X100 Pro aja yang sudah support untuk kedepannya mungkin X200 Pro semoga bisa juga ya
+untuk X200 series lebih tepatnya untuk Xiaomi nah ini Xiaomi menarik nih dari Xiaomi 14 itu bisa
+Xiaomi 14T, 14T Pro itu bisa isim
+Xiaomi 13T itu bisa isim
+Dan yang lebih menariknya lagi
+Ada Redmi Note 13 Pro Plus 5G
+Dan Redmi Note 13 Pro 5G
+Jadi ini salah satu smartphone yang cukup terjangkau
+Yang sudah support isim
+Apalagi yang Redmi Note 13 Pro 5G
+Itu cuma 4 jutaan sudah bisa isim
+Oke jadi itu dia pembahasan soal isimnya
+Dan smartphone apa saja yang sudah support isim sampai saat ini
+Jadi harusnya sudah paham lah ya
+Untungnya pakai isim itu apa aja sih
+Ini saya rakumin lagi deh
+Yang pertama, lebih mudah dan praktis dari urusan pendaftaran hingga pemakaian
+Lalu data kotak kita tetap bisa kita akses dimanapun dan kapanpun
+Selama kita menggunakan nomor yang sama
+Kemudian lebih aman apalagi kalau amit-amit smartphone kita hilang atau dicuri
+Lalu ini merupakan solusi untuk smartphone yang dual SIM
+Tapi SIM tray ini cuma satu seperti iPhone
+Kemudian aktifasi e-SIM juga lebih praktis
+Karena tidak perlu membeli kartu fisik
+Jadi gitu ya
+Kalau smartphone kalian gimana nih?
+Udah pada support e-SIM belum?
+Atau kalian sudah pakai e-SIM Excel juga?
+Kalau memang kalian ada pengalaman dengan Excel
+Bisa share di kolom komentar ya
+Nah untuk yang smartphone-nya belum bisa e-SIM
+Itu juga nggak perlu berkecil hati ya
+Namanya teknologi smartphone terbaru
+Biasanya akan diberikan untuk smartphone kelas atas terlebih dahulu.
+Tapi perlahan akan turun juga kok ke smartphone terjangkau.
+Buktinya, sudah ada Redmi Note 13 Pro 5G harga 4 jutaan sudah bisa isim.
+Tadinya kan baru smartphone belasan juta aja yang bisa.
+Jadi, bukan tidak mungkin ke depannya akan ada smartphone isim di bawah 3 juta.
+Kita tinggal tunggu aja lah.
+Oke, sekian pembahasan teknologi kali ini.
+Sampai jumpa lagi di video-video kami berikutnya.
+Saya Chris, Jagat TV TV. Bye-bye.
+sub indo by broth3rmax
+sub indo by broth3rmax

@@ -1,0 +1,2695 @@
+1
+00:00:00,040 --> 00:00:02,070
+
+jumpa lagi jaga tvtv di seri edukasi
+
+2
+00:00:02,070 --> 00:00:02,080
+jumpa lagi jaga tvtv di seri edukasi
+ 
+
+3
+00:00:02,080 --> 00:00:04,309
+jumpa lagi jaga tvtv di seri edukasi
+kali ini kita akan bahas soal Teknologi
+
+4
+00:00:04,309 --> 00:00:04,319
+kali ini kita akan bahas soal Teknologi
+ 
+
+5
+00:00:04,319 --> 00:00:06,710
+kali ini kita akan bahas soal Teknologi
+eim akhir-akhir ini banyak banget nih
+
+6
+00:00:06,710 --> 00:00:06,720
+eim akhir-akhir ini banyak banget nih
+ 
+
+7
+00:00:06,720 --> 00:00:08,669
+eim akhir-akhir ini banyak banget nih
+yang bahas soal eim di sosial media dan
+
+8
+00:00:08,669 --> 00:00:08,679
+yang bahas soal eim di sosial media dan
+ 
+
+9
+00:00:08,679 --> 00:00:10,030
+yang bahas soal eim di sosial media dan
+banyak juga dari kalian yang belum paham
+
+10
+00:00:10,030 --> 00:00:10,040
+banyak juga dari kalian yang belum paham
+ 
+
+11
+00:00:10,040 --> 00:00:12,110
+banyak juga dari kalian yang belum paham
+apa sih itu Isim pertanyaan paling umum
+
+12
+00:00:12,110 --> 00:00:12,120
+apa sih itu Isim pertanyaan paling umum
+ 
+
+13
+00:00:12,120 --> 00:00:13,870
+apa sih itu Isim pertanyaan paling umum
+yang kami temui adalah Bedanya apa sih
+
+14
+00:00:13,870 --> 00:00:13,880
+yang kami temui adalah Bedanya apa sih
+ 
+
+15
+00:00:13,880 --> 00:00:15,749
+yang kami temui adalah Bedanya apa sih
+sama SIM biasa untungnya apa kita pakai
+
+16
+00:00:15,749 --> 00:00:15,759
+sama SIM biasa untungnya apa kita pakai
+ 
+
+17
+00:00:15,759 --> 00:00:17,670
+sama SIM biasa untungnya apa kita pakai
+Isim dan banyak juga dari kalian yang
+
+18
+00:00:17,670 --> 00:00:17,680
+Isim dan banyak juga dari kalian yang
+ 
+
+19
+00:00:17,680 --> 00:00:19,950
+Isim dan banyak juga dari kalian yang
+nanya smartphone yang saya pakai tuh
+
+20
+00:00:19,950 --> 00:00:19,960
+nanya smartphone yang saya pakai tuh
+ 
+
+21
+00:00:19,960 --> 00:00:21,910
+nanya smartphone yang saya pakai tuh
+udah bisa isim atau belum sih Nah biar
+
+22
+00:00:21,910 --> 00:00:21,920
+udah bisa isim atau belum sih Nah biar
+ 
+
+23
+00:00:21,920 --> 00:00:27,790
+udah bisa isim atau belum sih Nah biar
+makai jelas ayo kita belajar bareng
+
+24
+00:00:27,790 --> 00:00:27,800
+
+ 
+
+25
+00:00:27,800 --> 00:00:30,029
+
+oke teknologi Isim merupakan alternatif
+
+26
+00:00:30,029 --> 00:00:30,039
+oke teknologi Isim merupakan alternatif
+ 
+
+27
+00:00:30,039 --> 00:00:31,509
+oke teknologi Isim merupakan alternatif
+dari kartu SIM fisik yang konvensional
+
+28
+00:00:31,509 --> 00:00:31,519
+dari kartu SIM fisik yang konvensional
+ 
+
+29
+00:00:31,519 --> 00:00:33,430
+dari kartu SIM fisik yang konvensional
+Isim sendiri adalah singkatan dari
+
+30
+00:00:33,430 --> 00:00:33,440
+Isim sendiri adalah singkatan dari
+ 
+
+31
+00:00:33,440 --> 00:00:35,350
+Isim sendiri adalah singkatan dari
+embedded SIM atau lebih lengkapnya
+
+32
+00:00:35,350 --> 00:00:35,360
+embedded SIM atau lebih lengkapnya
+ 
+
+33
+00:00:35,360 --> 00:00:37,430
+embedded SIM atau lebih lengkapnya
+embedded subscriber identity module
+
+34
+00:00:37,430 --> 00:00:37,440
+embedded subscriber identity module
+ 
+
+35
+00:00:37,440 --> 00:00:39,389
+embedded subscriber identity module
+normalnya kita butuh masukkan kartu sim
+
+36
+00:00:39,389 --> 00:00:39,399
+normalnya kita butuh masukkan kartu sim
+ 
+
+37
+00:00:39,399 --> 00:00:40,910
+normalnya kita butuh masukkan kartu sim
+kita di Smartphone seperti ini tapi
+
+38
+00:00:40,910 --> 00:00:40,920
+kita di Smartphone seperti ini tapi
+ 
+
+39
+00:00:40,920 --> 00:00:43,549
+kita di Smartphone seperti ini tapi
+dengan e-im ibaratnya tuh kartu sim-nya
+
+40
+00:00:43,549 --> 00:00:43,559
+dengan e-im ibaratnya tuh kartu sim-nya
+ 
+
+41
+00:00:43,559 --> 00:00:45,310
+dengan e-im ibaratnya tuh kartu sim-nya
+itu tertanam di smartphone dan bisa
+
+42
+00:00:45,310 --> 00:00:45,320
+itu tertanam di smartphone dan bisa
+ 
+
+43
+00:00:45,320 --> 00:00:47,470
+itu tertanam di smartphone dan bisa
+diisi oleh provider seluler mana aja
+
+44
+00:00:47,470 --> 00:00:47,480
+diisi oleh provider seluler mana aja
+ 
+
+45
+00:00:47,480 --> 00:00:48,790
+diisi oleh provider seluler mana aja
+enggak terkunci khusus untuk satu
+
+46
+00:00:48,790 --> 00:00:48,800
+enggak terkunci khusus untuk satu
+ 
+
+47
+00:00:48,800 --> 00:00:50,510
+enggak terkunci khusus untuk satu
+operator aja banyak dari kalian yang
+
+48
+00:00:50,510 --> 00:00:50,520
+operator aja banyak dari kalian yang
+ 
+
+49
+00:00:50,520 --> 00:00:52,349
+operator aja banyak dari kalian yang
+belum paham dan agak asing dengan Isim
+
+50
+00:00:52,349 --> 00:00:52,359
+belum paham dan agak asing dengan Isim
+ 
+
+51
+00:00:52,359 --> 00:00:54,270
+belum paham dan agak asing dengan Isim
+dan itu wajar ya alasan pertama itu
+
+52
+00:00:54,270 --> 00:00:54,280
+dan itu wajar ya alasan pertama itu
+ 
+
+53
+00:00:54,280 --> 00:00:56,110
+dan itu wajar ya alasan pertama itu
+karena operator eim di Indonesia baru
+
+54
+00:00:56,110 --> 00:00:56,120
+karena operator eim di Indonesia baru
+ 
+
+55
+00:00:56,120 --> 00:00:58,830
+karena operator eim di Indonesia baru
+mulai gencar itu tahun 2019 kemudian
+
+56
+00:00:58,830 --> 00:00:58,840
+mulai gencar itu tahun 2019 kemudian
+ 
+
+57
+00:00:58,840 --> 00:01:00,430
+mulai gencar itu tahun 2019 kemudian
+smartphone yang mendukung e SIM itu
+
+58
+00:01:00,430 --> 00:01:00,440
+smartphone yang mendukung e SIM itu
+ 
+
+59
+00:01:00,440 --> 00:01:02,270
+smartphone yang mendukung e SIM itu
+masih sangat sedikit memang dan biasanya
+
+60
+00:01:02,270 --> 00:01:02,280
+masih sangat sedikit memang dan biasanya
+ 
+
+61
+00:01:02,280 --> 00:01:03,709
+masih sangat sedikit memang dan biasanya
+baru kita temukan di Smartphone yang
+
+62
+00:01:03,709 --> 00:01:03,719
+baru kita temukan di Smartphone yang
+ 
+
+63
+00:01:03,719 --> 00:01:05,350
+baru kita temukan di Smartphone yang
+harganya ah belasan juta lalu Apa
+
+64
+00:01:05,350 --> 00:01:05,360
+harganya ah belasan juta lalu Apa
+ 
+
+65
+00:01:05,360 --> 00:01:07,149
+harganya ah belasan juta lalu Apa
+untungnya sih kita pakai eim dan apa
+
+66
+00:01:07,149 --> 00:01:07,159
+untungnya sih kita pakai eim dan apa
+ 
+
+67
+00:01:07,159 --> 00:01:09,030
+untungnya sih kita pakai eim dan apa
+bedanya dengan yang SIM biasa Oke kita
+
+68
+00:01:09,030 --> 00:01:09,040
+bedanya dengan yang SIM biasa Oke kita
+ 
+
+69
+00:01:09,040 --> 00:01:11,350
+bedanya dengan yang SIM biasa Oke kita
+bahas pertama kartu fisik itu masih
+
+70
+00:01:11,350 --> 00:01:11,360
+bahas pertama kartu fisik itu masih
+ 
+
+71
+00:01:11,360 --> 00:01:12,990
+bahas pertama kartu fisik itu masih
+menggunakan kartu berbentuk chip dan
+
+72
+00:01:12,990 --> 00:01:13,000
+menggunakan kartu berbentuk chip dan
+ 
+
+73
+00:01:13,000 --> 00:01:14,550
+menggunakan kartu berbentuk chip dan
+harus memasukkannya ke Slot SIM TR di
+
+74
+00:01:14,550 --> 00:01:14,560
+harus memasukkannya ke Slot SIM TR di
+ 
+
+75
+00:01:14,560 --> 00:01:16,590
+harus memasukkannya ke Slot SIM TR di
+Smartphone kalau e-im berbentuk digital
+
+76
+00:01:16,590 --> 00:01:16,600
+Smartphone kalau e-im berbentuk digital
+ 
+
+77
+00:01:16,600 --> 00:01:18,710
+Smartphone kalau e-im berbentuk digital
+jadi lebih mudah dan praktis dari urusan
+
+78
+00:01:18,710 --> 00:01:18,720
+jadi lebih mudah dan praktis dari urusan
+ 
+
+79
+00:01:18,720 --> 00:01:20,910
+jadi lebih mudah dan praktis dari urusan
+pendaftaran hingga pemakaian lalu kontak
+
+80
+00:01:20,910 --> 00:01:20,920
+pendaftaran hingga pemakaian lalu kontak
+ 
+
+81
+00:01:20,920 --> 00:01:23,390
+pendaftaran hingga pemakaian lalu kontak
+pada eim akan tersimpan ke dalam sistem
+
+82
+00:01:23,390 --> 00:01:23,400
+pada eim akan tersimpan ke dalam sistem
+ 
+
+83
+00:01:23,400 --> 00:01:25,630
+pada eim akan tersimpan ke dalam sistem
+Cloud yang disediakan oleh provider jadi
+
+84
+00:01:25,630 --> 00:01:25,640
+Cloud yang disediakan oleh provider jadi
+ 
+
+85
+00:01:25,640 --> 00:01:27,469
+Cloud yang disediakan oleh provider jadi
+data kontak kita tetap bisa kita akses
+
+86
+00:01:27,469 --> 00:01:27,479
+data kontak kita tetap bisa kita akses
+ 
+
+87
+00:01:27,479 --> 00:01:29,310
+data kontak kita tetap bisa kita akses
+di Manap pun dan kapanpun selama kita
+
+88
+00:01:29,310 --> 00:01:29,320
+di Manap pun dan kapanpun selama kita
+ 
+
+89
+00:01:29,320 --> 00:01:31,030
+di Manap pun dan kapanpun selama kita
+menggunakan nomor yang sama tentunya
+
+90
+00:01:31,030 --> 00:01:31,040
+menggunakan nomor yang sama tentunya
+ 
+
+91
+00:01:31,040 --> 00:01:32,590
+menggunakan nomor yang sama tentunya
+kemudian SIM card biasa juga bisa
+
+92
+00:01:32,590 --> 00:01:32,600
+kemudian SIM card biasa juga bisa
+ 
+
+93
+00:01:32,600 --> 00:01:34,510
+kemudian SIM card biasa juga bisa
+menyimpan data kontak kita secara lokal
+
+94
+00:01:34,510 --> 00:01:34,520
+menyimpan data kontak kita secara lokal
+ 
+
+95
+00:01:34,520 --> 00:01:36,550
+menyimpan data kontak kita secara lokal
+tapi amit-amit jika kartu sim hilang
+
+96
+00:01:36,550 --> 00:01:36,560
+tapi amit-amit jika kartu sim hilang
+ 
+
+97
+00:01:36,560 --> 00:01:37,789
+tapi amit-amit jika kartu sim hilang
+data pada SIM kita juga enggak bisa
+
+98
+00:01:37,789 --> 00:01:37,799
+data pada SIM kita juga enggak bisa
+ 
+
+99
+00:01:37,799 --> 00:01:39,670
+data pada SIM kita juga enggak bisa
+kembali Nah di sini keunggulannya e-im
+
+100
+00:01:39,670 --> 00:01:39,680
+kembali Nah di sini keunggulannya e-im
+ 
+
+101
+00:01:39,680 --> 00:01:41,630
+kembali Nah di sini keunggulannya e-im
+Nih misalnya amit-amit Smartphone kita
+
+102
+00:01:41,630 --> 00:01:41,640
+Nih misalnya amit-amit Smartphone kita
+ 
+
+103
+00:01:41,640 --> 00:01:43,510
+Nih misalnya amit-amit Smartphone kita
+hilang e-im itu enggak bisa dicopot dari
+
+104
+00:01:43,510 --> 00:01:43,520
+hilang e-im itu enggak bisa dicopot dari
+ 
+
+105
+00:01:43,520 --> 00:01:45,030
+hilang e-im itu enggak bisa dicopot dari
+smartphone-nya kalau SIM yang biasa kan
+
+106
+00:01:45,030 --> 00:01:45,040
+smartphone-nya kalau SIM yang biasa kan
+ 
+
+107
+00:01:45,040 --> 00:01:46,670
+smartphone-nya kalau SIM yang biasa kan
+tinggal Lepas tray-nya aja langsung
+
+108
+00:01:46,670 --> 00:01:46,680
+tinggal Lepas tray-nya aja langsung
+ 
+
+109
+00:01:46,680 --> 00:01:47,910
+tinggal Lepas tray-nya aja langsung
+lepas deh koneksi sim-nya dari
+
+110
+00:01:47,910 --> 00:01:47,920
+lepas deh koneksi sim-nya dari
+ 
+
+111
+00:01:47,920 --> 00:01:49,350
+lepas deh koneksi sim-nya dari
+smartphone-nya Nah dengan kondisi
+
+112
+00:01:49,350 --> 00:01:49,360
+smartphone-nya Nah dengan kondisi
+ 
+
+113
+00:01:49,360 --> 00:01:51,030
+smartphone-nya Nah dengan kondisi
+seperti itu kita masih punya waktu untuk
+
+114
+00:01:51,030 --> 00:01:51,040
+seperti itu kita masih punya waktu untuk
+ 
+
+115
+00:01:51,040 --> 00:01:52,709
+seperti itu kita masih punya waktu untuk
+mematikan kartu kita Sebelum disalah
+
+116
+00:01:52,709 --> 00:01:52,719
+mematikan kartu kita Sebelum disalah
+ 
+
+117
+00:01:52,719 --> 00:01:54,350
+mematikan kartu kita Sebelum disalah
+gunakan dan juga bisa membantu kita
+
+118
+00:01:54,350 --> 00:01:54,360
+gunakan dan juga bisa membantu kita
+ 
+
+119
+00:01:54,360 --> 00:01:55,709
+gunakan dan juga bisa membantu kita
+dalam melacak keberadaan perangkat
+
+120
+00:01:55,709 --> 00:01:55,719
+dalam melacak keberadaan perangkat
+ 
+
+121
+00:01:55,719 --> 00:01:57,350
+dalam melacak keberadaan perangkat
+tersebut lalu masih ada juga smartphone
+
+122
+00:01:57,350 --> 00:01:57,360
+tersebut lalu masih ada juga smartphone
+ 
+
+123
+00:01:57,360 --> 00:01:58,870
+tersebut lalu masih ada juga smartphone
+yang menggunakan single SIM pada slot
+
+124
+00:01:58,870 --> 00:01:58,880
+yang menggunakan single SIM pada slot
+ 
+
+125
+00:01:58,880 --> 00:02:00,709
+yang menggunakan single SIM pada slot
+kartu fisiknya dan untuk menggunakan
+
+126
+00:02:00,709 --> 00:02:00,719
+kartu fisiknya dan untuk menggunakan
+ 
+
+127
+00:02:00,719 --> 00:02:02,590
+kartu fisiknya dan untuk menggunakan
+dual SIM pada satu smartphone itu
+
+128
+00:02:02,590 --> 00:02:02,600
+dual SIM pada satu smartphone itu
+ 
+
+129
+00:02:02,600 --> 00:02:04,310
+dual SIM pada satu smartphone itu
+biasanya harus pakai e-im contohnya
+
+130
+00:02:04,310 --> 00:02:04,320
+biasanya harus pakai e-im contohnya
+ 
+
+131
+00:02:04,320 --> 00:02:05,789
+biasanya harus pakai e-im contohnya
+paling gampangnya iPhone lah jadi kalau
+
+132
+00:02:05,789 --> 00:02:05,799
+paling gampangnya iPhone lah jadi kalau
+ 
+
+133
+00:02:05,799 --> 00:02:07,590
+paling gampangnya iPhone lah jadi kalau
+kita pakai iPhone SIM keduanya itu
+
+134
+00:02:07,590 --> 00:02:07,600
+kita pakai iPhone SIM keduanya itu
+ 
+
+135
+00:02:07,600 --> 00:02:09,150
+kita pakai iPhone SIM keduanya itu
+enaknya pakai eim memang kemudian
+
+136
+00:02:09,150 --> 00:02:09,160
+enaknya pakai eim memang kemudian
+ 
+
+137
+00:02:09,160 --> 00:02:11,070
+enaknya pakai eim memang kemudian
+aktivasi eim juga lebih praktis karena
+
+138
+00:02:11,070 --> 00:02:11,080
+aktivasi eim juga lebih praktis karena
+ 
+
+139
+00:02:11,080 --> 00:02:12,830
+aktivasi eim juga lebih praktis karena
+tidak perlu membeli kartu fisik untuk
+
+140
+00:02:12,830 --> 00:02:12,840
+tidak perlu membeli kartu fisik untuk
+ 
+
+141
+00:02:12,840 --> 00:02:14,229
+tidak perlu membeli kartu fisik untuk
+tim kami yang sering traveling ke luar
+
+142
+00:02:14,229 --> 00:02:14,239
+tim kami yang sering traveling ke luar
+ 
+
+143
+00:02:14,239 --> 00:02:15,949
+tim kami yang sering traveling ke luar
+negeri ini juga akan memudahkan karena
+
+144
+00:02:15,949 --> 00:02:15,959
+negeri ini juga akan memudahkan karena
+ 
+
+145
+00:02:15,959 --> 00:02:17,270
+negeri ini juga akan memudahkan karena
+banyak negara yang sudah support Isim
+
+146
+00:02:17,270 --> 00:02:17,280
+banyak negara yang sudah support Isim
+ 
+
+147
+00:02:17,280 --> 00:02:18,750
+banyak negara yang sudah support Isim
+juga kita enggak perlu beli kartu fisik
+
+148
+00:02:18,750 --> 00:02:18,760
+juga kita enggak perlu beli kartu fisik
+ 
+
+149
+00:02:18,760 --> 00:02:20,270
+juga kita enggak perlu beli kartu fisik
+tinggal daftar online aja jadi kita
+
+150
+00:02:20,270 --> 00:02:20,280
+tinggal daftar online aja jadi kita
+ 
+
+151
+00:02:20,280 --> 00:02:21,910
+tinggal daftar online aja jadi kita
+langsung bisa pakai kartu lokal negara
+
+152
+00:02:21,910 --> 00:02:21,920
+langsung bisa pakai kartu lokal negara
+ 
+
+153
+00:02:21,920 --> 00:02:24,070
+langsung bisa pakai kartu lokal negara
+tersebut mau tahu semudah apa nih kita
+
+154
+00:02:24,070 --> 00:02:24,080
+tersebut mau tahu semudah apa nih kita
+ 
+
+155
+00:02:24,080 --> 00:02:25,670
+tersebut mau tahu semudah apa nih kita
+Contohkan menggunakan provider lokal
+
+156
+00:02:25,670 --> 00:02:25,680
+Contohkan menggunakan provider lokal
+ 
+
+157
+00:02:25,680 --> 00:02:27,710
+Contohkan menggunakan provider lokal
+Indonesia yaitu excl Excel sudah ada
+
+158
+00:02:27,710 --> 00:02:27,720
+Indonesia yaitu excl Excel sudah ada
+ 
+
+159
+00:02:27,720 --> 00:02:29,470
+Indonesia yaitu excl Excel sudah ada
+layanan Isim juga loh sejak tahun lalu
+
+160
+00:02:29,470 --> 00:02:29,480
+layanan Isim juga loh sejak tahun lalu
+ 
+
+161
+00:02:29,480 --> 00:02:31,470
+layanan Isim juga loh sejak tahun lalu
+nah untuk cara belinya kita bisa via
+
+162
+00:02:31,470 --> 00:02:31,480
+nah untuk cara belinya kita bisa via
+ 
+
+163
+00:02:31,480 --> 00:02:33,589
+nah untuk cara belinya kita bisa via
+website kunjungi aja
+
+164
+00:02:33,589 --> 00:02:33,599
+website kunjungi aja
+ 
+
+165
+00:02:33,599 --> 00:02:35,750
+website kunjungi aja
+store.excel.co.id kemudian pilih menu
+
+166
+00:02:35,750 --> 00:02:35,760
+store.excel.co.id kemudian pilih menu
+ 
+
+167
+00:02:35,760 --> 00:02:37,630
+store.excel.co.id kemudian pilih menu
+pesan di sini lalu pilih paket sesuai
+
+168
+00:02:37,630 --> 00:02:37,640
+pesan di sini lalu pilih paket sesuai
+ 
+
+169
+00:02:37,640 --> 00:02:39,390
+pesan di sini lalu pilih paket sesuai
+dengan harga dan kebutuhan lalu kalau
+
+170
+00:02:39,390 --> 00:02:39,400
+dengan harga dan kebutuhan lalu kalau
+ 
+
+171
+00:02:39,400 --> 00:02:41,190
+dengan harga dan kebutuhan lalu kalau
+sudah klik lanjutkan kemudian pilih
+
+172
+00:02:41,190 --> 00:02:41,200
+sudah klik lanjutkan kemudian pilih
+ 
+
+173
+00:02:41,200 --> 00:02:42,830
+sudah klik lanjutkan kemudian pilih
+nomor sesuai selera kita kemudian kita
+
+174
+00:02:42,830 --> 00:02:42,840
+nomor sesuai selera kita kemudian kita
+ 
+
+175
+00:02:42,840 --> 00:02:44,550
+nomor sesuai selera kita kemudian kita
+lanjutkan dengan isi data diri kita
+
+176
+00:02:44,550 --> 00:02:44,560
+lanjutkan dengan isi data diri kita
+ 
+
+177
+00:02:44,560 --> 00:02:46,270
+lanjutkan dengan isi data diri kita
+pastikan tidak ada yang salah terutama
+
+178
+00:02:46,270 --> 00:02:46,280
+pastikan tidak ada yang salah terutama
+ 
+
+179
+00:02:46,280 --> 00:02:48,710
+pastikan tidak ada yang salah terutama
+di bagian email lalu konfirmasi pesanan
+
+180
+00:02:48,710 --> 00:02:48,720
+di bagian email lalu konfirmasi pesanan
+ 
+
+181
+00:02:48,720 --> 00:02:50,550
+di bagian email lalu konfirmasi pesanan
+lalu klik lanjutkan lagi pilih metode
+
+182
+00:02:50,550 --> 00:02:50,560
+lalu klik lanjutkan lagi pilih metode
+ 
+
+183
+00:02:50,560 --> 00:02:52,229
+lalu klik lanjutkan lagi pilih metode
+pembayaran dan kita tinggal selesaikan
+
+184
+00:02:52,229 --> 00:02:52,239
+pembayaran dan kita tinggal selesaikan
+ 
+
+185
+00:02:52,239 --> 00:02:54,030
+pembayaran dan kita tinggal selesaikan
+pembayaran sebelum waktunya habis kalau
+
+186
+00:02:54,030 --> 00:02:54,040
+pembayaran sebelum waktunya habis kalau
+ 
+
+187
+00:02:54,040 --> 00:02:55,589
+pembayaran sebelum waktunya habis kalau
+sudah kita sudah masuk ke tahap
+
+188
+00:02:55,589 --> 00:02:55,599
+sudah kita sudah masuk ke tahap
+ 
+
+189
+00:02:55,599 --> 00:02:58,350
+sudah kita sudah masuk ke tahap
+selanjutnya yaitu aktivasi eim nah
+
+190
+00:02:58,350 --> 00:02:58,360
+selanjutnya yaitu aktivasi eim nah
+ 
+
+191
+00:02:58,360 --> 00:03:00,949
+selanjutnya yaitu aktivasi eim nah
+caranya gimana pertama setelah bayar
+
+192
+00:03:00,949 --> 00:03:00,959
+caranya gimana pertama setelah bayar
+ 
+
+193
+00:03:00,959 --> 00:03:03,110
+caranya gimana pertama setelah bayar
+kita akan mendapatkan email scan QR
+
+194
+00:03:03,110 --> 00:03:03,120
+kita akan mendapatkan email scan QR
+ 
+
+195
+00:03:03,120 --> 00:03:05,309
+kita akan mendapatkan email scan QR
+untuk aktivasi Isim Kemudian pada device
+
+196
+00:03:05,309 --> 00:03:05,319
+untuk aktivasi Isim Kemudian pada device
+ 
+
+197
+00:03:05,319 --> 00:03:07,830
+untuk aktivasi Isim Kemudian pada device
+kita buka pengaturan lalu opsi seluler
+
+198
+00:03:07,830 --> 00:03:07,840
+kita buka pengaturan lalu opsi seluler
+ 
+
+199
+00:03:07,840 --> 00:03:10,470
+kita buka pengaturan lalu opsi seluler
+lalu pilih tambah Isim Nah kalau kalian
+
+200
+00:03:10,470 --> 00:03:10,480
+lalu pilih tambah Isim Nah kalau kalian
+ 
+
+201
+00:03:10,480 --> 00:03:12,869
+lalu pilih tambah Isim Nah kalau kalian
+pakai iPhone dan keluar tulisan SIM Anda
+
+202
+00:03:12,869 --> 00:03:12,879
+pakai iPhone dan keluar tulisan SIM Anda
+ 
+
+203
+00:03:12,879 --> 00:03:14,630
+pakai iPhone dan keluar tulisan SIM Anda
+tidak didukung itu enggak masalah ya
+
+204
+00:03:14,630 --> 00:03:14,640
+tidak didukung itu enggak masalah ya
+ 
+
+205
+00:03:14,640 --> 00:03:16,589
+tidak didukung itu enggak masalah ya
+klik aja di bagian pilihan lainnya nanti
+
+206
+00:03:16,589 --> 00:03:16,599
+klik aja di bagian pilihan lainnya nanti
+ 
+
+207
+00:03:16,599 --> 00:03:19,030
+klik aja di bagian pilihan lainnya nanti
+akan muncul pilihan gunakan kode QR Nah
+
+208
+00:03:19,030 --> 00:03:19,040
+akan muncul pilihan gunakan kode QR Nah
+ 
+
+209
+00:03:19,040 --> 00:03:20,869
+akan muncul pilihan gunakan kode QR Nah
+selanjutnya scan QR pakai smartphone
+
+210
+00:03:20,869 --> 00:03:20,879
+selanjutnya scan QR pakai smartphone
+ 
+
+211
+00:03:20,879 --> 00:03:22,750
+selanjutnya scan QR pakai smartphone
+kita kalau sudah selesai Artinya eim
+
+212
+00:03:22,750 --> 00:03:22,760
+kita kalau sudah selesai Artinya eim
+ 
+
+213
+00:03:22,760 --> 00:03:24,470
+kita kalau sudah selesai Artinya eim
+kita sudah siap digunakan Nah mungkin
+
+214
+00:03:24,470 --> 00:03:24,480
+kita sudah siap digunakan Nah mungkin
+ 
+
+215
+00:03:24,480 --> 00:03:25,710
+kita sudah siap digunakan Nah mungkin
+sebagian dari kalian akan ada yang
+
+216
+00:03:25,710 --> 00:03:25,720
+sebagian dari kalian akan ada yang
+ 
+
+217
+00:03:25,720 --> 00:03:27,910
+sebagian dari kalian akan ada yang
+bingung ya Bang ini ada pengaturan lagi
+
+218
+00:03:27,910 --> 00:03:27,920
+bingung ya Bang ini ada pengaturan lagi
+ 
+
+219
+00:03:27,920 --> 00:03:30,470
+bingung ya Bang ini ada pengaturan lagi
+itu buat apa ya Ini tuh kalau kita pakai
+
+220
+00:03:30,470 --> 00:03:30,480
+itu buat apa ya Ini tuh kalau kita pakai
+ 
+
+221
+00:03:30,480 --> 00:03:32,789
+itu buat apa ya Ini tuh kalau kita pakai
+dual SIM ini cuman pengaturan mana SIM
+
+222
+00:03:32,789 --> 00:03:32,799
+dual SIM ini cuman pengaturan mana SIM
+ 
+
+223
+00:03:32,799 --> 00:03:34,550
+dual SIM ini cuman pengaturan mana SIM
+yang mau dipakai untuk seluler dan mau
+
+224
+00:03:34,550 --> 00:03:34,560
+yang mau dipakai untuk seluler dan mau
+ 
+
+225
+00:03:34,560 --> 00:03:36,750
+yang mau dipakai untuk seluler dan mau
+dikasih label namanya apa Gampang ini
+
+226
+00:03:36,750 --> 00:03:36,760
+dikasih label namanya apa Gampang ini
+ 
+
+227
+00:03:36,760 --> 00:03:38,429
+dikasih label namanya apa Gampang ini
+mah enggak perlu takut salah kok bisa
+
+228
+00:03:38,429 --> 00:03:38,439
+mah enggak perlu takut salah kok bisa
+ 
+
+229
+00:03:38,439 --> 00:03:40,270
+mah enggak perlu takut salah kok bisa
+diatur lagi belakangan Terus mungkin
+
+230
+00:03:40,270 --> 00:03:40,280
+diatur lagi belakangan Terus mungkin
+ 
+
+231
+00:03:40,280 --> 00:03:42,190
+diatur lagi belakangan Terus mungkin
+dari kalian ada yang ngalamin Bang e-im
+
+232
+00:03:42,190 --> 00:03:42,200
+dari kalian ada yang ngalamin Bang e-im
+ 
+
+233
+00:03:42,200 --> 00:03:43,830
+dari kalian ada yang ngalamin Bang e-im
+saya sudah terdaftar tapi kok belum bisa
+
+234
+00:03:43,830 --> 00:03:43,840
+saya sudah terdaftar tapi kok belum bisa
+ 
+
+235
+00:03:43,840 --> 00:03:46,630
+saya sudah terdaftar tapi kok belum bisa
+internetan sabar dulu itu mungkin kalian
+
+236
+00:03:46,630 --> 00:03:46,640
+internetan sabar dulu itu mungkin kalian
+ 
+
+237
+00:03:46,640 --> 00:03:49,190
+internetan sabar dulu itu mungkin kalian
+belum mendaftarkan KTP dan kkak tinggal
+
+238
+00:03:49,190 --> 00:03:49,200
+belum mendaftarkan KTP dan kkak tinggal
+ 
+
+239
+00:03:49,200 --> 00:03:52,270
+belum mendaftarkan KTP dan kkak tinggal
+SMS ke 444 cantumkan nomor KTP dan nomor
+
+240
+00:03:52,270 --> 00:03:52,280
+SMS ke 444 cantumkan nomor KTP dan nomor
+ 
+
+241
+00:03:52,280 --> 00:03:54,390
+SMS ke 444 cantumkan nomor KTP dan nomor
+kakak beres deh perlu diingat ya di
+
+242
+00:03:54,390 --> 00:03:54,400
+kakak beres deh perlu diingat ya di
+ 
+
+243
+00:03:54,400 --> 00:03:57,030
+kakak beres deh perlu diingat ya di
+Indonesia ada aturan 1 KTP itu maksimal
+
+244
+00:03:57,030 --> 00:03:57,040
+Indonesia ada aturan 1 KTP itu maksimal
+ 
+
+245
+00:03:57,040 --> 00:03:59,750
+Indonesia ada aturan 1 KTP itu maksimal
+3 nomor per operator dan pertanyaannya
+
+246
+00:03:59,750 --> 00:03:59,760
+3 nomor per operator dan pertanyaannya
+ 
+
+247
+00:03:59,760 --> 00:04:02,030
+3 nomor per operator dan pertanyaannya
+nya kenapa harus XL jaringannya cukup
+
+248
+00:04:02,030 --> 00:04:02,040
+nya kenapa harus XL jaringannya cukup
+ 
+
+249
+00:04:02,040 --> 00:04:03,949
+nya kenapa harus XL jaringannya cukup
+baik dan stabil terutama untuk kami yang
+
+250
+00:04:03,949 --> 00:04:03,959
+baik dan stabil terutama untuk kami yang
+ 
+
+251
+00:04:03,959 --> 00:04:05,710
+baik dan stabil terutama untuk kami yang
+tinggal di Jakarta dan sekitarnya kalau
+
+252
+00:04:05,710 --> 00:04:05,720
+tinggal di Jakarta dan sekitarnya kalau
+ 
+
+253
+00:04:05,720 --> 00:04:06,990
+tinggal di Jakarta dan sekitarnya kalau
+dari pengalaman kami sih jarang nemu
+
+254
+00:04:06,990 --> 00:04:07,000
+dari pengalaman kami sih jarang nemu
+ 
+
+255
+00:04:07,000 --> 00:04:08,470
+dari pengalaman kami sih jarang nemu
+masalah sinyal Ketika pakai Excel ya
+
+256
+00:04:08,470 --> 00:04:08,480
+masalah sinyal Ketika pakai Excel ya
+ 
+
+257
+00:04:08,480 --> 00:04:09,910
+masalah sinyal Ketika pakai Excel ya
+lalu kecepatan internetnya yang lumayan
+
+258
+00:04:09,910 --> 00:04:09,920
+lalu kecepatan internetnya yang lumayan
+ 
+
+259
+00:04:09,920 --> 00:04:11,710
+lalu kecepatan internetnya yang lumayan
+bagus ini kami Contohkan Speed Test di
+
+260
+00:04:11,710 --> 00:04:11,720
+bagus ini kami Contohkan Speed Test di
+ 
+
+261
+00:04:11,720 --> 00:04:13,350
+bagus ini kami Contohkan Speed Test di
+daerah Depok nih bisa dapat segini
+
+262
+00:04:13,350 --> 00:04:13,360
+daerah Depok nih bisa dapat segini
+ 
+
+263
+00:04:13,360 --> 00:04:15,110
+daerah Depok nih bisa dapat segini
+Lumayan lah ya dan kelebihan lainnya
+
+264
+00:04:15,110 --> 00:04:15,120
+Lumayan lah ya dan kelebihan lainnya
+ 
+
+265
+00:04:15,120 --> 00:04:16,830
+Lumayan lah ya dan kelebihan lainnya
+juga Excel Ini paket internetnya cukup
+
+266
+00:04:16,830 --> 00:04:16,840
+juga Excel Ini paket internetnya cukup
+ 
+
+267
+00:04:16,840 --> 00:04:19,310
+juga Excel Ini paket internetnya cukup
+bervariatif Nah untuk smartphone-nya
+
+268
+00:04:19,310 --> 00:04:19,320
+bervariatif Nah untuk smartphone-nya
+ 
+
+269
+00:04:19,320 --> 00:04:20,830
+bervariatif Nah untuk smartphone-nya
+sendiri smartphone apa aja sih yang
+
+270
+00:04:20,830 --> 00:04:20,840
+sendiri smartphone apa aja sih yang
+ 
+
+271
+00:04:20,840 --> 00:04:22,870
+sendiri smartphone apa aja sih yang
+sudah mendukung Isim teknologi Isim ini
+
+272
+00:04:22,870 --> 00:04:22,880
+sudah mendukung Isim teknologi Isim ini
+ 
+
+273
+00:04:22,880 --> 00:04:24,390
+sudah mendukung Isim teknologi Isim ini
+Tentunya ada syaratnya ya teman-teman
+
+274
+00:04:24,390 --> 00:04:24,400
+Tentunya ada syaratnya ya teman-teman
+ 
+
+275
+00:04:24,400 --> 00:04:26,110
+Tentunya ada syaratnya ya teman-teman
+pertama itu operator selulernya harus
+
+276
+00:04:26,110 --> 00:04:26,120
+pertama itu operator selulernya harus
+ 
+
+277
+00:04:26,120 --> 00:04:27,430
+pertama itu operator selulernya harus
+punya layanan isim-nya dan
+
+278
+00:04:27,430 --> 00:04:27,440
+punya layanan isim-nya dan
+ 
+
+279
+00:04:27,440 --> 00:04:29,310
+punya layanan isim-nya dan
+smartphone-nya juga harus bisa Isim juga
+
+280
+00:04:29,310 --> 00:04:29,320
+smartphone-nya juga harus bisa Isim juga
+ 
+
+281
+00:04:29,320 --> 00:04:31,350
+smartphone-nya juga harus bisa Isim juga
+kalau salah satunya enggak jalan maka
+
+282
+00:04:31,350 --> 00:04:31,360
+kalau salah satunya enggak jalan maka
+ 
+
+283
+00:04:31,360 --> 00:04:33,270
+kalau salah satunya enggak jalan maka
+kita tidak bisa menggunakan teknologinya
+
+284
+00:04:33,270 --> 00:04:33,280
+kita tidak bisa menggunakan teknologinya
+ 
+
+285
+00:04:33,280 --> 00:04:35,390
+kita tidak bisa menggunakan teknologinya
+Oke karena isi masih tergolong agak baru
+
+286
+00:04:35,390 --> 00:04:35,400
+Oke karena isi masih tergolong agak baru
+ 
+
+287
+00:04:35,400 --> 00:04:36,749
+Oke karena isi masih tergolong agak baru
+jadi belum semua smartphone itu
+
+288
+00:04:36,749 --> 00:04:36,759
+jadi belum semua smartphone itu
+ 
+
+289
+00:04:36,759 --> 00:04:38,310
+jadi belum semua smartphone itu
+mendukung ya kami sudah buatkan list
+
+290
+00:04:38,310 --> 00:04:38,320
+mendukung ya kami sudah buatkan list
+ 
+
+291
+00:04:38,320 --> 00:04:39,909
+mendukung ya kami sudah buatkan list
+smartphone apa saja sudah support Isim
+
+292
+00:04:39,909 --> 00:04:39,919
+smartphone apa saja sudah support Isim
+ 
+
+293
+00:04:39,919 --> 00:04:41,230
+smartphone apa saja sudah support Isim
+jadi langsung aja kita mulai Tapi
+
+294
+00:04:41,230 --> 00:04:41,240
+jadi langsung aja kita mulai Tapi
+ 
+
+295
+00:04:41,240 --> 00:04:42,469
+jadi langsung aja kita mulai Tapi
+sebelum kita mulai tentunya harus ada
+
+296
+00:04:42,469 --> 00:04:42,479
+sebelum kita mulai tentunya harus ada
+ 
+
+297
+00:04:42,479 --> 00:04:44,150
+sebelum kita mulai tentunya harus ada
+disclaimer dulu nih yang pertama
+
+298
+00:04:44,150 --> 00:04:44,160
+disclaimer dulu nih yang pertama
+ 
+
+299
+00:04:44,160 --> 00:04:46,070
+disclaimer dulu nih yang pertama
+smartphone kami Sebutkan ini adalah yang
+
+300
+00:04:46,070 --> 00:04:46,080
+smartphone kami Sebutkan ini adalah yang
+ 
+
+301
+00:04:46,080 --> 00:04:48,950
+smartphone kami Sebutkan ini adalah yang
+versi resmi Indonesia lalu spesifikasi
+
+302
+00:04:48,950 --> 00:04:48,960
+versi resmi Indonesia lalu spesifikasi
+ 
+
+303
+00:04:48,960 --> 00:04:50,790
+versi resmi Indonesia lalu spesifikasi
+produk yang resmi Indonesia dan luar
+
+304
+00:04:50,790 --> 00:04:50,800
+produk yang resmi Indonesia dan luar
+ 
+
+305
+00:04:50,800 --> 00:04:52,909
+produk yang resmi Indonesia dan luar
+negeri itu bisa berbeda kemudian ada
+
+306
+00:04:52,909 --> 00:04:52,919
+negeri itu bisa berbeda kemudian ada
+ 
+
+307
+00:04:52,919 --> 00:04:55,390
+negeri itu bisa berbeda kemudian ada
+yang versi luar support Isim dan versi
+
+308
+00:04:55,390 --> 00:04:55,400
+yang versi luar support Isim dan versi
+ 
+
+309
+00:04:55,400 --> 00:04:57,150
+yang versi luar support Isim dan versi
+Indonesia Enggak itu bisa begitu Jadi
+
+310
+00:04:57,150 --> 00:04:57,160
+Indonesia Enggak itu bisa begitu Jadi
+ 
+
+311
+00:04:57,160 --> 00:04:59,270
+Indonesia Enggak itu bisa begitu Jadi
+sebelum protes Bang saya cek di website
+
+312
+00:04:59,270 --> 00:04:59,280
+sebelum protes Bang saya cek di website
+ 
+
+313
+00:04:59,280 --> 00:05:01,870
+sebelum protes Bang saya cek di website
+itu HP ini support Isim kok kok enggak
+
+314
+00:05:01,870 --> 00:05:01,880
+itu HP ini support Isim kok kok enggak
+ 
+
+315
+00:05:01,880 --> 00:05:04,110
+itu HP ini support Isim kok kok enggak
+masuk ke list ini nah tolong disimak
+
+316
+00:05:04,110 --> 00:05:04,120
+masuk ke list ini nah tolong disimak
+ 
+
+317
+00:05:04,120 --> 00:05:06,230
+masuk ke list ini nah tolong disimak
+disclaimer tadi ya sebetulnya dari
+
+318
+00:05:06,230 --> 00:05:06,240
+disclaimer tadi ya sebetulnya dari
+ 
+
+319
+00:05:06,240 --> 00:05:08,430
+disclaimer tadi ya sebetulnya dari
+website Excel sendiri kita bisa melihat
+
+320
+00:05:08,430 --> 00:05:08,440
+website Excel sendiri kita bisa melihat
+ 
+
+321
+00:05:08,440 --> 00:05:09,670
+website Excel sendiri kita bisa melihat
+list smartphone apa saja yang sudah
+
+322
+00:05:09,670 --> 00:05:09,680
+list smartphone apa saja yang sudah
+ 
+
+323
+00:05:09,680 --> 00:05:13,150
+list smartphone apa saja yang sudah
+support Isim kita bisa kunjungi
+
+324
+00:05:13,150 --> 00:05:13,160
+support Isim kita bisa kunjungi
+ 
+
+325
+00:05:13,160 --> 00:05:14,629
+support Isim kita bisa kunjungi
+www.xcel.co.id/esim untuk list
+
+326
+00:05:14,629 --> 00:05:14,639
+www.xcel.co.id/esim untuk list
+ 
+
+327
+00:05:14,639 --> 00:05:15,909
+www.xcel.co.id/esim untuk list
+smartphone-nya kita kategorikan
+
+328
+00:05:15,909 --> 00:05:15,919
+smartphone-nya kita kategorikan
+ 
+
+329
+00:05:15,919 --> 00:05:17,510
+smartphone-nya kita kategorikan
+berdasarkan brand ya yang pertama ada
+
+330
+00:05:17,510 --> 00:05:17,520
+berdasarkan brand ya yang pertama ada
+ 
+
+331
+00:05:17,520 --> 00:05:20,350
+berdasarkan brand ya yang pertama ada
+Samsung dari Samsung Galaxy Note 20 itu
+
+332
+00:05:20,350 --> 00:05:20,360
+Samsung dari Samsung Galaxy Note 20 itu
+ 
+
+333
+00:05:20,360 --> 00:05:22,670
+Samsung dari Samsung Galaxy Note 20 itu
+sudah bisa Isim lalu Samsung Galaxy S20
+
+334
+00:05:22,670 --> 00:05:22,680
+sudah bisa Isim lalu Samsung Galaxy S20
+ 
+
+335
+00:05:22,680 --> 00:05:25,150
+sudah bisa Isim lalu Samsung Galaxy S20
+series itu bisa s21 series itu bisa
+
+336
+00:05:25,150 --> 00:05:25,160
+series itu bisa s21 series itu bisa
+ 
+
+337
+00:05:25,160 --> 00:05:26,670
+series itu bisa s21 series itu bisa
+sampai yang terbaru pun itu udah support
+
+338
+00:05:26,670 --> 00:05:26,680
+sampai yang terbaru pun itu udah support
+ 
+
+339
+00:05:26,680 --> 00:05:29,230
+sampai yang terbaru pun itu udah support
+eim semua lalu Galaxy zfold itu sejak
+
+340
+00:05:29,230 --> 00:05:29,240
+eim semua lalu Galaxy zfold itu sejak
+ 
+
+341
+00:05:29,240 --> 00:05:31,270
+eim semua lalu Galaxy zfold itu sejak
+generasi awal itu sudah support Isim
+
+342
+00:05:31,270 --> 00:05:31,280
+generasi awal itu sudah support Isim
+ 
+
+343
+00:05:31,280 --> 00:05:33,270
+generasi awal itu sudah support Isim
+sampai zf 6 tentunya support Isim juga
+
+344
+00:05:33,270 --> 00:05:33,280
+sampai zf 6 tentunya support Isim juga
+ 
+
+345
+00:05:33,280 --> 00:05:35,670
+sampai zf 6 tentunya support Isim juga
+nah untuk Samsung saat ini memang baru
+
+346
+00:05:35,670 --> 00:05:35,680
+nah untuk Samsung saat ini memang baru
+ 
+
+347
+00:05:35,680 --> 00:05:37,189
+nah untuk Samsung saat ini memang baru
+bisa kita temukan di smartphone kelas
+
+348
+00:05:37,189 --> 00:05:37,199
+bisa kita temukan di smartphone kelas
+ 
+
+349
+00:05:37,199 --> 00:05:39,110
+bisa kita temukan di smartphone kelas
+flagship aja untuk yang kelas menengah
+
+350
+00:05:39,110 --> 00:05:39,120
+flagship aja untuk yang kelas menengah
+ 
+
+351
+00:05:39,120 --> 00:05:41,070
+flagship aja untuk yang kelas menengah
+seperti aeries itu belum bisa di
+
+352
+00:05:41,070 --> 00:05:41,080
+seperti aeries itu belum bisa di
+ 
+
+353
+00:05:41,080 --> 00:05:43,150
+seperti aeries itu belum bisa di
+beberapa negara lain memang ada Samsung
+
+354
+00:05:43,150 --> 00:05:43,160
+beberapa negara lain memang ada Samsung
+ 
+
+355
+00:05:43,160 --> 00:05:45,909
+beberapa negara lain memang ada Samsung
+aeries yang support Isim Contohnya
+
+356
+00:05:45,909 --> 00:05:45,919
+aeries yang support Isim Contohnya
+ 
+
+357
+00:05:45,919 --> 00:05:48,950
+aeries yang support Isim Contohnya
+seperti Samsung Galaxy a54 di UK itu
+
+358
+00:05:48,950 --> 00:05:48,960
+seperti Samsung Galaxy a54 di UK itu
+ 
+
+359
+00:05:48,960 --> 00:05:51,790
+seperti Samsung Galaxy a54 di UK itu
+bisa Isim tapi untuk Indonesia itu belum
+
+360
+00:05:51,790 --> 00:05:51,800
+bisa Isim tapi untuk Indonesia itu belum
+ 
+
+361
+00:05:51,800 --> 00:05:54,309
+bisa Isim tapi untuk Indonesia itu belum
+ada juga tab S9 yang sudah support eim
+
+362
+00:05:54,309 --> 00:05:54,319
+ada juga tab S9 yang sudah support eim
+ 
+
+363
+00:05:54,319 --> 00:05:56,029
+ada juga tab S9 yang sudah support eim
+tapi untuk versi Indonesia itu baru bisa
+
+364
+00:05:56,029 --> 00:05:56,039
+tapi untuk versi Indonesia itu baru bisa
+ 
+
+365
+00:05:56,039 --> 00:05:57,950
+tapi untuk versi Indonesia itu baru bisa
+single SIM fisic aja lagi-lagi harus
+
+366
+00:05:57,950 --> 00:05:57,960
+single SIM fisic aja lagi-lagi harus
+ 
+
+367
+00:05:57,960 --> 00:05:59,790
+single SIM fisic aja lagi-lagi harus
+diingat spesifikasi produk bisa bisa
+
+368
+00:05:59,790 --> 00:05:59,800
+diingat spesifikasi produk bisa bisa
+ 
+
+369
+00:05:59,800 --> 00:06:01,590
+diingat spesifikasi produk bisa bisa
+berbeda tergantung negaranya Nah kita
+
+370
+00:06:01,590 --> 00:06:01,600
+berbeda tergantung negaranya Nah kita
+ 
+
+371
+00:06:01,600 --> 00:06:03,309
+berbeda tergantung negaranya Nah kita
+pindah ke brand berikutnya ada Apple
+
+372
+00:06:03,309 --> 00:06:03,319
+pindah ke brand berikutnya ada Apple
+ 
+
+373
+00:06:03,319 --> 00:06:05,909
+pindah ke brand berikutnya ada Apple
+dimulai dari iPhone XS keluaran tahun
+
+374
+00:06:05,909 --> 00:06:05,919
+dimulai dari iPhone XS keluaran tahun
+ 
+
+375
+00:06:05,919 --> 00:06:08,749
+dimulai dari iPhone XS keluaran tahun
+2018 dan produk iPhone setelahnya itu
+
+376
+00:06:08,749 --> 00:06:08,759
+2018 dan produk iPhone setelahnya itu
+ 
+
+377
+00:06:08,759 --> 00:06:10,670
+2018 dan produk iPhone setelahnya itu
+sudah support Isim termasuk seperti
+
+378
+00:06:10,670 --> 00:06:10,680
+sudah support Isim termasuk seperti
+ 
+
+379
+00:06:10,680 --> 00:06:12,830
+sudah support Isim termasuk seperti
+Iphone se second Generation itu juga
+
+380
+00:06:12,830 --> 00:06:12,840
+Iphone se second Generation itu juga
+ 
+
+381
+00:06:12,840 --> 00:06:14,629
+Iphone se second Generation itu juga
+sudah support Isim iPhone 11 series
+
+382
+00:06:14,629 --> 00:06:14,639
+sudah support Isim iPhone 11 series
+ 
+
+383
+00:06:14,639 --> 00:06:16,270
+sudah support Isim iPhone 11 series
+hingga 15 series tentunya sudah support
+
+384
+00:06:16,270 --> 00:06:16,280
+hingga 15 series tentunya sudah support
+ 
+
+385
+00:06:16,280 --> 00:06:18,670
+hingga 15 series tentunya sudah support
+iPhone 16 gimana ya harusnya sih support
+
+386
+00:06:18,670 --> 00:06:18,680
+iPhone 16 gimana ya harusnya sih support
+ 
+
+387
+00:06:18,680 --> 00:06:20,670
+iPhone 16 gimana ya harusnya sih support
+juga ya tapi statusnya di sini kan masih
+
+388
+00:06:20,670 --> 00:06:20,680
+juga ya tapi statusnya di sini kan masih
+ 
+
+389
+00:06:20,680 --> 00:06:22,270
+juga ya tapi statusnya di sini kan masih
+belum resmi di Indonesia saat video ini
+
+390
+00:06:22,270 --> 00:06:22,280
+belum resmi di Indonesia saat video ini
+ 
+
+391
+00:06:22,280 --> 00:06:24,350
+belum resmi di Indonesia saat video ini
+dibuat jadi kita tunggu aja untuk iPhone
+
+392
+00:06:24,350 --> 00:06:24,360
+dibuat jadi kita tunggu aja untuk iPhone
+ 
+
+393
+00:06:24,360 --> 00:06:27,950
+dibuat jadi kita tunggu aja untuk iPhone
+16 untuk iPad sejak iPad generasi ke-7
+
+394
+00:06:27,950 --> 00:06:27,960
+16 untuk iPad sejak iPad generasi ke-7
+ 
+
+395
+00:06:27,960 --> 00:06:30,230
+16 untuk iPad sejak iPad generasi ke-7
+keluaran tahun 2019 itu sudah support
+
+396
+00:06:30,230 --> 00:06:30,240
+keluaran tahun 2019 itu sudah support
+ 
+
+397
+00:06:30,240 --> 00:06:32,189
+keluaran tahun 2019 itu sudah support
+Isim dan produk-produk tablet setelahnya
+
+398
+00:06:32,189 --> 00:06:32,199
+Isim dan produk-produk tablet setelahnya
+ 
+
+399
+00:06:32,199 --> 00:06:33,589
+Isim dan produk-produk tablet setelahnya
+juga sudah support Isim tentunya
+
+400
+00:06:33,589 --> 00:06:33,599
+juga sudah support Isim tentunya
+ 
+
+401
+00:06:33,599 --> 00:06:36,189
+juga sudah support Isim tentunya
+termasuk iPad a iPad Mini dan iPad Pro
+
+402
+00:06:36,189 --> 00:06:36,199
+termasuk iPad a iPad Mini dan iPad Pro
+ 
+
+403
+00:06:36,199 --> 00:06:38,150
+termasuk iPad a iPad Mini dan iPad Pro
+Nah itu tadi Apple sekarang kita ke Oppo
+
+404
+00:06:38,150 --> 00:06:38,160
+Nah itu tadi Apple sekarang kita ke Oppo
+ 
+
+405
+00:06:38,160 --> 00:06:41,070
+Nah itu tadi Apple sekarang kita ke Oppo
+Oppo ada fine X5 pro dan juga Oppo
+
+406
+00:06:41,070 --> 00:06:41,080
+Oppo ada fine X5 pro dan juga Oppo
+ 
+
+407
+00:06:41,080 --> 00:06:43,749
+Oppo ada fine X5 pro dan juga Oppo
+findine X8 series itu bisa Isim semua
+
+408
+00:06:43,749 --> 00:06:43,759
+findine X8 series itu bisa Isim semua
+ 
+
+409
+00:06:43,759 --> 00:06:46,870
+findine X8 series itu bisa Isim semua
+untuk Oppo Fine X6 dan X7 itu enggak
+
+410
+00:06:46,870 --> 00:06:46,880
+untuk Oppo Fine X6 dan X7 itu enggak
+ 
+
+411
+00:06:46,880 --> 00:06:48,790
+untuk Oppo Fine X6 dan X7 itu enggak
+hadir resmi ke Indonesia ya makanya dari
+
+412
+00:06:48,790 --> 00:06:48,800
+hadir resmi ke Indonesia ya makanya dari
+ 
+
+413
+00:06:48,800 --> 00:06:51,629
+hadir resmi ke Indonesia ya makanya dari
+X5 langsung loncat ke X8 untuk Oppo Fine
+
+414
+00:06:51,629 --> 00:06:51,639
+X5 langsung loncat ke X8 untuk Oppo Fine
+ 
+
+415
+00:06:51,639 --> 00:06:54,070
+X5 langsung loncat ke X8 untuk Oppo Fine
+X3 Pro memang itu resmi Indonesia juga
+
+416
+00:06:54,070 --> 00:06:54,080
+X3 Pro memang itu resmi Indonesia juga
+ 
+
+417
+00:06:54,080 --> 00:06:56,110
+X3 Pro memang itu resmi Indonesia juga
+sih tapi sayangnya saat kami cek itu
+
+418
+00:06:56,110 --> 00:06:56,120
+sih tapi sayangnya saat kami cek itu
+ 
+
+419
+00:06:56,120 --> 00:06:57,950
+sih tapi sayangnya saat kami cek itu
+belum support Isim yang bisa itu versi
+
+420
+00:06:57,950 --> 00:06:57,960
+belum support Isim yang bisa itu versi
+ 
+
+421
+00:06:57,960 --> 00:06:59,950
+belum support Isim yang bisa itu versi
+luar negerinya Nah untuk Oppo masih ada
+
+422
+00:06:59,950 --> 00:06:59,960
+luar negerinya Nah untuk Oppo masih ada
+ 
+
+423
+00:06:59,960 --> 00:07:02,309
+luar negerinya Nah untuk Oppo masih ada
+lagi yaitu Oppo Find N2 flip yang
+
+424
+00:07:02,309 --> 00:07:02,319
+lagi yaitu Oppo Find N2 flip yang
+ 
+
+425
+00:07:02,319 --> 00:07:04,589
+lagi yaitu Oppo Find N2 flip yang
+smartphone lipet itu Lalu ada Oppo Find
+
+426
+00:07:04,589 --> 00:07:04,599
+smartphone lipet itu Lalu ada Oppo Find
+ 
+
+427
+00:07:04,599 --> 00:07:08,230
+smartphone lipet itu Lalu ada Oppo Find
+N3 flip dan Oppo Find N3 itu bisa Isim
+
+428
+00:07:08,230 --> 00:07:08,240
+N3 flip dan Oppo Find N3 itu bisa Isim
+ 
+
+429
+00:07:08,240 --> 00:07:10,589
+N3 flip dan Oppo Find N3 itu bisa Isim
+semua nah beralih ke Vivo sekarang nih
+
+430
+00:07:10,589 --> 00:07:10,599
+semua nah beralih ke Vivo sekarang nih
+ 
+
+431
+00:07:10,599 --> 00:07:13,869
+semua nah beralih ke Vivo sekarang nih
+Vivo ada Vivo X100 Pro yang support Isim
+
+432
+00:07:13,869 --> 00:07:13,879
+Vivo ada Vivo X100 Pro yang support Isim
+ 
+
+433
+00:07:13,879 --> 00:07:16,029
+Vivo ada Vivo X100 Pro yang support Isim
+sayangnya baru itu aja baru satu untuk
+
+434
+00:07:16,029 --> 00:07:16,039
+sayangnya baru itu aja baru satu untuk
+ 
+
+435
+00:07:16,039 --> 00:07:18,390
+sayangnya baru itu aja baru satu untuk
+Vivo X4 3 Pro sama X100 yang biasa itu
+
+436
+00:07:18,390 --> 00:07:18,400
+Vivo X4 3 Pro sama X100 yang biasa itu
+ 
+
+437
+00:07:18,400 --> 00:07:20,790
+Vivo X4 3 Pro sama X100 yang biasa itu
+belum support jadi Vivo baru X100 Pro
+
+438
+00:07:20,790 --> 00:07:20,800
+belum support jadi Vivo baru X100 Pro
+ 
+
+439
+00:07:20,800 --> 00:07:22,430
+belum support jadi Vivo baru X100 Pro
+aja yang sudah support untuk ke depannya
+
+440
+00:07:22,430 --> 00:07:22,440
+aja yang sudah support untuk ke depannya
+ 
+
+441
+00:07:22,440 --> 00:07:24,230
+aja yang sudah support untuk ke depannya
+mungkin X200 Pro Semoga bisa juga ya
+
+442
+00:07:24,230 --> 00:07:24,240
+mungkin X200 Pro Semoga bisa juga ya
+ 
+
+443
+00:07:24,240 --> 00:07:26,230
+mungkin X200 Pro Semoga bisa juga ya
+untuk s200 series lebih tepatnya untuk
+
+444
+00:07:26,230 --> 00:07:26,240
+untuk s200 series lebih tepatnya untuk
+ 
+
+445
+00:07:26,240 --> 00:07:28,110
+untuk s200 series lebih tepatnya untuk
+Xiaomi nah ini Xiaomi menarik nih dari
+
+446
+00:07:28,110 --> 00:07:28,120
+Xiaomi nah ini Xiaomi menarik nih dari
+ 
+
+447
+00:07:28,120 --> 00:07:32,390
+Xiaomi nah ini Xiaomi menarik nih dari
+Xiaomi 14 itu bisa Xiaomi 14t 14t Pro
+
+448
+00:07:32,390 --> 00:07:32,400
+Xiaomi 14 itu bisa Xiaomi 14t 14t Pro
+ 
+
+449
+00:07:32,400 --> 00:07:35,710
+Xiaomi 14 itu bisa Xiaomi 14t 14t Pro
+itu bisa Isim Xiaomi 13t itu bisa Isim
+
+450
+00:07:35,710 --> 00:07:35,720
+itu bisa Isim Xiaomi 13t itu bisa Isim
+ 
+
+451
+00:07:35,720 --> 00:07:37,390
+itu bisa Isim Xiaomi 13t itu bisa Isim
+dan yang lebih menariknya lagi ada Redmi
+
+452
+00:07:37,390 --> 00:07:37,400
+dan yang lebih menariknya lagi ada Redmi
+ 
+
+453
+00:07:37,400 --> 00:07:40,550
+dan yang lebih menariknya lagi ada Redmi
+Note 13 Pro plus 5g dan Redmi Note 13
+
+454
+00:07:40,550 --> 00:07:40,560
+Note 13 Pro plus 5g dan Redmi Note 13
+ 
+
+455
+00:07:40,560 --> 00:07:42,550
+Note 13 Pro plus 5g dan Redmi Note 13
+Pro 5g jadi ini salah satu smartphone
+
+456
+00:07:42,550 --> 00:07:42,560
+Pro 5g jadi ini salah satu smartphone
+ 
+
+457
+00:07:42,560 --> 00:07:43,869
+Pro 5g jadi ini salah satu smartphone
+yang cukup terjangkau yang sudah support
+
+458
+00:07:43,869 --> 00:07:43,879
+yang cukup terjangkau yang sudah support
+ 
+
+459
+00:07:43,879 --> 00:07:46,189
+yang cukup terjangkau yang sudah support
+Isim apalagi yang Redmi Note 13 Pro 5g
+
+460
+00:07:46,189 --> 00:07:46,199
+Isim apalagi yang Redmi Note 13 Pro 5g
+ 
+
+461
+00:07:46,199 --> 00:07:48,230
+Isim apalagi yang Redmi Note 13 Pro 5g
+itu cuma 4 jutaan sudah bisa Isim Oke
+
+462
+00:07:48,230 --> 00:07:48,240
+itu cuma 4 jutaan sudah bisa Isim Oke
+ 
+
+463
+00:07:48,240 --> 00:07:49,909
+itu cuma 4 jutaan sudah bisa Isim Oke
+jadi itu dia pembahasan soal Isim ya dan
+
+464
+00:07:49,909 --> 00:07:49,919
+jadi itu dia pembahasan soal Isim ya dan
+ 
+
+465
+00:07:49,919 --> 00:07:51,469
+jadi itu dia pembahasan soal Isim ya dan
+smartphone apa saja yang sudah support
+
+466
+00:07:51,469 --> 00:07:51,479
+smartphone apa saja yang sudah support
+ 
+
+467
+00:07:51,479 --> 00:07:53,270
+smartphone apa saja yang sudah support
+Isim sampai saat ini jadi harusnya ah
+
+468
+00:07:53,270 --> 00:07:53,280
+Isim sampai saat ini jadi harusnya ah
+ 
+
+469
+00:07:53,280 --> 00:07:54,909
+Isim sampai saat ini jadi harusnya ah
+paham lah ya untungnya pakai esim tuh
+
+470
+00:07:54,909 --> 00:07:54,919
+paham lah ya untungnya pakai esim tuh
+ 
+
+471
+00:07:54,919 --> 00:07:56,710
+paham lah ya untungnya pakai esim tuh
+apa aja sih nih saya rakumin lagi deh
+
+472
+00:07:56,710 --> 00:07:56,720
+apa aja sih nih saya rakumin lagi deh
+ 
+
+473
+00:07:56,720 --> 00:07:58,270
+apa aja sih nih saya rakumin lagi deh
+yang pertama lebih mudah dan praktis
+
+474
+00:07:58,270 --> 00:07:58,280
+yang pertama lebih mudah dan praktis
+ 
+
+475
+00:07:58,280 --> 00:08:00,029
+yang pertama lebih mudah dan praktis
+dari urusan pendaftaran hingga pemakaian
+
+476
+00:08:00,029 --> 00:08:00,039
+dari urusan pendaftaran hingga pemakaian
+ 
+
+477
+00:08:00,039 --> 00:08:01,469
+dari urusan pendaftaran hingga pemakaian
+lalu data kotak kita tetap bisa kita
+
+478
+00:08:01,469 --> 00:08:01,479
+lalu data kotak kita tetap bisa kita
+ 
+
+479
+00:08:01,479 --> 00:08:03,469
+lalu data kotak kita tetap bisa kita
+akses di manapun Dan kapanp selama kita
+
+480
+00:08:03,469 --> 00:08:03,479
+akses di manapun Dan kapanp selama kita
+ 
+
+481
+00:08:03,479 --> 00:08:04,950
+akses di manapun Dan kapanp selama kita
+menggunakan nomor yang sama kemudian
+
+482
+00:08:04,950 --> 00:08:04,960
+menggunakan nomor yang sama kemudian
+ 
+
+483
+00:08:04,960 --> 00:08:06,550
+menggunakan nomor yang sama kemudian
+lebih aman apalagi kalau amit-amit
+
+484
+00:08:06,550 --> 00:08:06,560
+lebih aman apalagi kalau amit-amit
+ 
+
+485
+00:08:06,560 --> 00:08:08,110
+lebih aman apalagi kalau amit-amit
+Smartphone kita hilang atau dicuri lalu
+
+486
+00:08:08,110 --> 00:08:08,120
+Smartphone kita hilang atau dicuri lalu
+ 
+
+487
+00:08:08,120 --> 00:08:09,749
+Smartphone kita hilang atau dicuri lalu
+ini merupakan solusi untuk smartphone
+
+488
+00:08:09,749 --> 00:08:09,759
+ini merupakan solusi untuk smartphone
+ 
+
+489
+00:08:09,759 --> 00:08:11,270
+ini merupakan solusi untuk smartphone
+yang Dual SIM tapi SIM train-nya cuma
+
+490
+00:08:11,270 --> 00:08:11,280
+yang Dual SIM tapi SIM train-nya cuma
+ 
+
+491
+00:08:11,280 --> 00:08:12,830
+yang Dual SIM tapi SIM train-nya cuma
+satu seperti Iphone kemudian aktivasi
+
+492
+00:08:12,830 --> 00:08:12,840
+satu seperti Iphone kemudian aktivasi
+ 
+
+493
+00:08:12,840 --> 00:08:14,430
+satu seperti Iphone kemudian aktivasi
+eim juga lebih praktis karena tidak
+
+494
+00:08:14,430 --> 00:08:14,440
+eim juga lebih praktis karena tidak
+ 
+
+495
+00:08:14,440 --> 00:08:16,390
+eim juga lebih praktis karena tidak
+perlu membeli kartu fisik jadi gitu ya
+
+496
+00:08:16,390 --> 00:08:16,400
+perlu membeli kartu fisik jadi gitu ya
+ 
+
+497
+00:08:16,400 --> 00:08:17,830
+perlu membeli kartu fisik jadi gitu ya
+kalau smartphone kalian gimana nih udah
+
+498
+00:08:17,830 --> 00:08:17,840
+kalau smartphone kalian gimana nih udah
+ 
+
+499
+00:08:17,840 --> 00:08:19,469
+kalau smartphone kalian gimana nih udah
+pada support Isim belum atau kalian
+
+500
+00:08:19,469 --> 00:08:19,479
+pada support Isim belum atau kalian
+ 
+
+501
+00:08:19,479 --> 00:08:21,390
+pada support Isim belum atau kalian
+sudah pakai Isim Excel juga kalau memang
+
+502
+00:08:21,390 --> 00:08:21,400
+sudah pakai Isim Excel juga kalau memang
+ 
+
+503
+00:08:21,400 --> 00:08:23,230
+sudah pakai Isim Excel juga kalau memang
+kalian ada pengalaman dengan excel bisa
+
+504
+00:08:23,230 --> 00:08:23,240
+kalian ada pengalaman dengan excel bisa
+ 
+
+505
+00:08:23,240 --> 00:08:24,830
+kalian ada pengalaman dengan excel bisa
+share di kolom komentar ya Nah untuk
+
+506
+00:08:24,830 --> 00:08:24,840
+share di kolom komentar ya Nah untuk
+ 
+
+507
+00:08:24,840 --> 00:08:26,390
+share di kolom komentar ya Nah untuk
+yang smartphone-nya belum bisa Isim itu
+
+508
+00:08:26,390 --> 00:08:26,400
+yang smartphone-nya belum bisa Isim itu
+ 
+
+509
+00:08:26,400 --> 00:08:27,990
+yang smartphone-nya belum bisa Isim itu
+juga enggak perlu berkecil hati ya
+
+510
+00:08:27,990 --> 00:08:28,000
+juga enggak perlu berkecil hati ya
+ 
+
+511
+00:08:28,000 --> 00:08:30,110
+juga enggak perlu berkecil hati ya
+namanya teknologi smartphone ter baru
+
+512
+00:08:30,110 --> 00:08:30,120
+namanya teknologi smartphone ter baru
+ 
+
+513
+00:08:30,120 --> 00:08:31,749
+namanya teknologi smartphone ter baru
+biasanya akan diberikan untuk smartphone
+
+514
+00:08:31,749 --> 00:08:31,759
+biasanya akan diberikan untuk smartphone
+ 
+
+515
+00:08:31,759 --> 00:08:33,750
+biasanya akan diberikan untuk smartphone
+kelas atas terlebih dahulu tapi perlahan
+
+516
+00:08:33,750 --> 00:08:33,760
+kelas atas terlebih dahulu tapi perlahan
+ 
+
+517
+00:08:33,760 --> 00:08:35,110
+kelas atas terlebih dahulu tapi perlahan
+akan turun juga kok ke smartphone
+
+518
+00:08:35,110 --> 00:08:35,120
+akan turun juga kok ke smartphone
+ 
+
+519
+00:08:35,120 --> 00:08:37,469
+akan turun juga kok ke smartphone
+terjangkau buktinya sudah ada Redmi Note
+
+520
+00:08:37,469 --> 00:08:37,479
+terjangkau buktinya sudah ada Redmi Note
+ 
+
+521
+00:08:37,479 --> 00:08:39,990
+terjangkau buktinya sudah ada Redmi Note
+13 Pro 5g harga R jutaan sudah bisa Isim
+
+522
+00:08:39,990 --> 00:08:40,000
+13 Pro 5g harga R jutaan sudah bisa Isim
+ 
+
+523
+00:08:40,000 --> 00:08:41,589
+13 Pro 5g harga R jutaan sudah bisa Isim
+tadinya kan baru smartphone belasan juta
+
+524
+00:08:41,589 --> 00:08:41,599
+tadinya kan baru smartphone belasan juta
+ 
+
+525
+00:08:41,599 --> 00:08:43,230
+tadinya kan baru smartphone belasan juta
+aja yang bisa jadi bukan tidak mungkin
+
+526
+00:08:43,230 --> 00:08:43,240
+aja yang bisa jadi bukan tidak mungkin
+ 
+
+527
+00:08:43,240 --> 00:08:44,710
+aja yang bisa jadi bukan tidak mungkin
+ke depannya akan ada smartphone Isim di
+
+528
+00:08:44,710 --> 00:08:44,720
+ke depannya akan ada smartphone Isim di
+ 
+
+529
+00:08:44,720 --> 00:08:46,790
+ke depannya akan ada smartphone Isim di
+bawah Rp juta kita tinggal tunggu aja L
+
+530
+00:08:46,790 --> 00:08:46,800
+bawah Rp juta kita tinggal tunggu aja L
+ 
+
+531
+00:08:46,800 --> 00:08:48,550
+bawah Rp juta kita tinggal tunggu aja L
+oke sekian pembahasan teknologi kali ini
+
+532
+00:08:48,550 --> 00:08:48,560
+oke sekian pembahasan teknologi kali ini
+ 
+
+533
+00:08:48,560 --> 00:08:49,949
+oke sekian pembahasan teknologi kali ini
+sampai jumpa lagi di video-video kami
+
+534
+00:08:49,949 --> 00:08:49,959
+sampai jumpa lagi di video-video kami
+ 
+
+535
+00:08:49,959 --> 00:08:52,510
+sampai jumpa lagi di video-video kami
+Berikutnya saya Kris jagatv TV bye
+
+536
+00:08:52,510 --> 00:08:52,520
+Berikutnya saya Kris jagatv TV bye
+ 
+
+537
+00:08:52,520 --> 00:08:58,430
+Berikutnya saya Kris jagatv TV bye
+[Musik]
+
+538
+00:08:58,430 --> 00:08:58,440
+[Musik]
+ 
+
+539
+00:08:58,440 --> 00:09:02,440
+[Musik]
+bye foreign
+
