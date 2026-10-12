@@ -5,6 +5,36 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 20: tiga celah Sprint 7 (Item 2/3/4) yang ditulis jujur sebagai
+PARTIAL di laporan tapi tidak pernah disambungkan ke UI di sprint
+manapun setelahnya — pola yang sama dengan Sprint 17/F16. Mesin Rust
+tidak diubah; murni pemanggilan API yang sudah ada dari `lib/`. Lihat
+`docs/SPRINT-REPORTS.md` Sprint 20 report untuk bukti grep jumlah
+pemanggil dan hasil uji asap.
+
+### Ditambahkan (Sprint 20)
+
+- **Wizard penyiapan model AI** (Item 2, `lib/screens/llm_setup_wizard_screen.dart`):
+  deteksi Ollama → panduan pasang per OS → profil perangkat keras +
+  rekomendasi → pilih dari katalog → unduh dengan progres nyata.
+  Dibuka otomatis dari panel Ringkasan AI saat model belum pernah
+  disetel, dan manual lewat tombol baru di Pengaturan → Ringkasan AI.
+- **Periksa Fakta & Ragam di preview notulen** (Item 3, `lib/widgets/notulen_dialog.dart`):
+  penanda per butir dari `periksaNotulen` (section, pernyataan, alasan
+  flag) ditampilkan di preview sebelum ekspor — bukan tersembunyi.
+  Tombol "Periksa Ulang" menjalankan ulang pemeriksaan terhadap form
+  yang sudah disunting notulis. Tombol "Rapikan Ragam" menampilkan
+  pratinjau EYD V + istilah dinas yang harus diterima/ditolak eksplisit,
+  tidak pernah menimpa teks secara otomatis.
+- **Formulir metadata SRIKANDI** (Item 4, `lib/widgets/srikandi_export_dialog.dart`):
+  seluruh bidang metadata registrasi (nomor, tanggal, jenis naskah,
+  perihal, sifat, klasifikasi keamanan, kode klasifikasi arsip, unit
+  pengolah, penandatangan, jumlah lampiran, tingkat perkembangan,
+  catatan) dapat disunting, prefill dari `srikandiMetadataDefault`,
+  validasi real-time Wajib/Saran dari `srikandiValidate`. `nomor` tetap
+  tidak pernah diisi otomatis. Ekspor memanggil `srikandiSiapUnggah`
+  lalu `exportNotulenSrikandi` (DOCX + PDF + metadata JSON + CSV).
+
 Sprint 19: F11, catatan pribadi saat rapat digabung AI dengan transkrip
 ("Enhance") — fitur baru sepenuhnya, belum ada sama sekali sebelum sprint
 ini (bukan kasus backend-ada-tapi-tidak-tersambung seperti Sprint 17/18).
