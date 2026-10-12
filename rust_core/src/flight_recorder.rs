@@ -285,6 +285,17 @@ pub fn log_auto_stop(session_id: &str, minutes: u64) {
     }));
 }
 
+/// F16 bagian B: sesi dihentikan otomatis karena tidak ada suara sama
+/// sekali (mic maupun audio sistem) selama `silent_minutes` menit —
+/// berbeda dari [`log_auto_stop`] yang dipicu oleh durasi maksimum.
+pub fn log_auto_stop_silence(session_id: &str, silent_minutes: u64) {
+    append(json!({
+        "type": "autostop_silence",
+        "session": session_id,
+        "minutes": silent_minutes,
+    }));
+}
+
 pub fn log_system(event: &str, details: Option<Vec<(String, String)>>) {
     let mut value = json!({ "type": "system", "event": event });
     if let Some(pairs) = details {

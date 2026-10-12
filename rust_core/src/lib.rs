@@ -46,6 +46,8 @@ pub mod confidence;
 pub mod doctor;
 pub mod error;
 mod frb_generated;
+/// F16 bagian A: deteksi window rapat (Zoom/Meet/Teams) aktif di OS.
+pub mod meeting_detect;
 
 pub mod audio;
 /// Post-stop transcript completion: re-transcribes the stretches the live

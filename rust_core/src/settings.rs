@@ -121,6 +121,17 @@ pub struct AppSettings {
     /// of whether the banner is shown.
     #[serde(default)]
     pub consent_banner_dismissed: bool,
+    /// F16 bagian A: pantau window aktif (Zoom/Meet/Teams) dan tawarkan
+    /// "Mulai rekam?" begitu rapat terdeteksi. Default AKTIF, tapi mudah
+    /// dimatikan — memantau judul window lain adalah hal sensitif privasi
+    /// bagi sebagian pengguna.
+    #[serde(default = "default_true")]
+    pub meeting_auto_detect_enabled: bool,
+    /// F16 bagian B: ambang sunyi berkepanjangan (menit) sebelum sesi
+    /// yang sedang merekam ditawari untuk dihentikan otomatis. `None` =
+    /// nonaktif (tidak pernah auto-stop karena sunyi).
+    #[serde(default = "default_silence_auto_stop_minutes")]
+    pub silence_auto_stop_minutes: Option<u32>,
 }
 
 /// Persisted state of the kamus istilah (F3).
@@ -201,6 +212,10 @@ pub struct NotulenDefaults {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_silence_auto_stop_minutes() -> Option<u32> {
+    Some(5)
 }
 
 /// Persisted configuration for the opt-in AI summary feature.
@@ -301,6 +316,8 @@ impl Default for AppSettings {
             neural_diarization: false,
             default_model_upgrade_dismissed: false,
             consent_banner_dismissed: false,
+            meeting_auto_detect_enabled: true,
+            silence_auto_stop_minutes: Some(5),
         }
     }
 }

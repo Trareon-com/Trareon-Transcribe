@@ -20,6 +20,7 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'llm_setup.dart';
 import 'mapreduce.dart';
+import 'meeting_detect.dart';
 import 'model.dart';
 import 'notulen.dart';
 import 'notulen/factcheck.dart';
@@ -991,6 +992,14 @@ Future<void> flightLogAutoStop({
   minutes: minutes,
 );
 
+Future<void> flightLogAutoStopSilence({
+  required String sessionId,
+  required BigInt silentMinutes,
+}) => RustLib.instance.api.crateApiFlightLogAutoStopSilence(
+  sessionId: sessionId,
+  silentMinutes: silentMinutes,
+);
+
 Future<void> flightLogSystem({
   required String event,
   Map<String, String>? details,
@@ -1060,6 +1069,16 @@ Future<List<String>> importSessionArchive({
 
 Future<void> acquireInstanceLock() =>
     RustLib.instance.api.crateApiAcquireInstanceLock();
+
+/// F16 bagian A: cek apakah window rapat (Zoom/Google Meet/Microsoft
+/// Teams) sedang aktif (foreground) saat ini. Dipanggil Dart secara
+/// berkala (polling) saat tidak ada sesi yang sedang merekam.
+///
+/// Status per platform ada di dokumentasi
+/// [`crate::meeting_detect::detect_active_meeting_window`]: nyata di
+/// Linux, selalu `None` di macOS/Windows (belum diimplementasikan).
+Future<DetectedMeeting?> detectMeetingWindow() =>
+    RustLib.instance.api.crateApiDetectMeetingWindow();
 
 /// What the glossary actually contributes to one inference call.
 ///

@@ -107,6 +107,17 @@ class AppSettings {
   /// of whether the banner is shown.
   final bool consentBannerDismissed;
 
+  /// F16 bagian A: pantau window aktif (Zoom/Meet/Teams) dan tawarkan
+  /// "Mulai rekam?" begitu rapat terdeteksi. Default AKTIF, tapi mudah
+  /// dimatikan — memantau judul window lain adalah hal sensitif privasi
+  /// bagi sebagian pengguna.
+  final bool meetingAutoDetectEnabled;
+
+  /// F16 bagian B: ambang sunyi berkepanjangan (menit) sebelum sesi
+  /// yang sedang merekam ditawari untuk dihentikan otomatis. `None` =
+  /// nonaktif (tidak pernah auto-stop karena sunyi).
+  final int? silenceAutoStopMinutes;
+
   const AppSettings({
     required this.theme,
     required this.defaultModel,
@@ -132,6 +143,8 @@ class AppSettings {
     required this.neuralDiarization,
     required this.defaultModelUpgradeDismissed,
     required this.consentBannerDismissed,
+    required this.meetingAutoDetectEnabled,
+    this.silenceAutoStopMinutes,
   });
 
   @override
@@ -159,7 +172,9 @@ class AppSettings {
       noiseReduction.hashCode ^
       neuralDiarization.hashCode ^
       defaultModelUpgradeDismissed.hashCode ^
-      consentBannerDismissed.hashCode;
+      consentBannerDismissed.hashCode ^
+      meetingAutoDetectEnabled.hashCode ^
+      silenceAutoStopMinutes.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -189,7 +204,9 @@ class AppSettings {
           noiseReduction == other.noiseReduction &&
           neuralDiarization == other.neuralDiarization &&
           defaultModelUpgradeDismissed == other.defaultModelUpgradeDismissed &&
-          consentBannerDismissed == other.consentBannerDismissed;
+          consentBannerDismissed == other.consentBannerDismissed &&
+          meetingAutoDetectEnabled == other.meetingAutoDetectEnabled &&
+          silenceAutoStopMinutes == other.silenceAutoStopMinutes;
 }
 
 /// A summary template the user wrote or duplicated (F8).

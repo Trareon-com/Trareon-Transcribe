@@ -26,6 +26,7 @@ import 'frb_generated.dart';
 import 'glossary.dart';
 import 'llm_setup.dart';
 import 'mapreduce.dart';
+import 'meeting_detect.dart';
 import 'model.dart';
 import 'notulen.dart';
 import 'notulen/factcheck.dart';
@@ -117,6 +118,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_box_autoadd_bool(dynamic raw);
 
   @protected
+  DetectedMeeting dco_decode_box_autoadd_detected_meeting(dynamic raw);
+
+  @protected
   GlossaryConfig dco_decode_box_autoadd_glossary_config(dynamic raw);
 
   @protected
@@ -206,6 +210,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CustomSummaryTemplate dco_decode_custom_summary_template(dynamic raw);
+
+  @protected
+  DetectedMeeting dco_decode_detected_meeting(dynamic raw);
 
   @protected
   DiskSpaceLevel dco_decode_disk_space_level(dynamic raw);
@@ -429,6 +436,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  DetectedMeeting? dco_decode_opt_box_autoadd_detected_meeting(dynamic raw);
 
   @protected
   MapReduceProgress? dco_decode_opt_box_autoadd_map_reduce_progress(
@@ -680,6 +690,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  DetectedMeeting sse_decode_box_autoadd_detected_meeting(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   GlossaryConfig sse_decode_box_autoadd_glossary_config(
     SseDeserializer deserializer,
   );
@@ -795,6 +810,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CustomSummaryTemplate sse_decode_custom_summary_template(
     SseDeserializer deserializer,
   );
+
+  @protected
+  DetectedMeeting sse_decode_detected_meeting(SseDeserializer deserializer);
 
   @protected
   DiskSpaceLevel sse_decode_disk_space_level(SseDeserializer deserializer);
@@ -1066,6 +1084,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  DetectedMeeting? sse_decode_opt_box_autoadd_detected_meeting(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MapReduceProgress? sse_decode_opt_box_autoadd_map_reduce_progress(
@@ -1349,6 +1372,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_detected_meeting(
+    DetectedMeeting self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_glossary_config(
     GlossaryConfig self,
     SseSerializer serializer,
@@ -1492,6 +1521,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_custom_summary_template(
     CustomSummaryTemplate self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_detected_meeting(
+    DetectedMeeting self,
     SseSerializer serializer,
   );
 
@@ -1848,6 +1883,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_detected_meeting(
+    DetectedMeeting? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_map_reduce_progress(
