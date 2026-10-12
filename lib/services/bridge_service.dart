@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../src/rust/actions.dart' as rust_actions;
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/archive.dart' as rust_archive;
+import '../src/rust/live_qa.dart' as rust_live_qa;
 import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../src/rust/audio.dart' as rust_audio;
 import '../src/rust/audio/device.dart' as rust_device;
@@ -291,6 +292,18 @@ abstract class RustBridge {
   Future<rust_archive.ArchiveAnswer> archiveAsk({
     required String libraryPath,
     required String question,
+    required rust_summary.SummaryConfig config,
+  });
+
+  // ── Tanya Langsung (Sprint 21) ──────────────────────────────────────
+  //
+  // Answers from the transcript of the session currently recording, not
+  // the archive. **Networked**, to the configured summary endpoint,
+  // carrying only the transcript snapshot passed in and the question.
+
+  Future<rust_live_qa.LiveQaAnswer> liveQaAsk({
+    required String question,
+    required List<TranscriptSegment> segments,
     required rust_summary.SummaryConfig config,
   });
 
@@ -1030,6 +1043,14 @@ class RustBridgeMock implements RustBridge {
   }) async => throw UnsupportedError(
     'RustBridgeMock does not answer archive questions',
   );
+
+  @override
+  Future<rust_live_qa.LiveQaAnswer> liveQaAsk({
+    required String question,
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('RustBridgeMock does not answer live questions');
 
   /// The mock never performs I/O of any kind — a test that reaches the
   /// summary path must fail loudly rather than silently hit a real endpoint.
@@ -1962,6 +1983,17 @@ class RustEngineBridge implements RustBridge {
   }) => rust_api.archiveAsk(
     libraryPath: libraryPath,
     question: question,
+    config: config,
+  );
+
+  @override
+  Future<rust_live_qa.LiveQaAnswer> liveQaAsk({
+    required String question,
+    required List<TranscriptSegment> segments,
+    required rust_summary.SummaryConfig config,
+  }) => rust_api.liveQaAsk(
+    question: question,
+    segments: segments.map(toRustSegment).toList(),
     config: config,
   );
 

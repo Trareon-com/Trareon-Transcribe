@@ -82,6 +82,18 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
     );
   }
 
+  /// Called when the user asks "Tanya Langsung" a question about the
+  /// meeting currently recording (Sprint 21).
+  ///
+  /// Recorded separately from [recordArchiveQuestion]: what leaves the
+  /// machine is a snapshot of the transcript still in progress, not
+  /// passages retrieved from past meetings.
+  void recordLiveQaQuestion(String endpoint, int passageCount) {
+    _record(
+      'Pertanyaan Tanya Langsung dikirim ke $endpoint ($passageCount kutipan transkrip)',
+    );
+  }
+
   /// Called when the user presses "Cek Pembaruan". Only the version manifest
   /// is fetched; nothing is downloaded or executed.
   void recordUpdateCheck(String endpoint) {

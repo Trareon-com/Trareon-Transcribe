@@ -107,6 +107,10 @@ void main() {
         // it sends is different — passages from several past meetings —
         // so it is recorded as its own kind of outbound call.
         'archiveAsk(': 'recordArchiveQuestion',
+        // Sprint 21 "Tanya Langsung": same endpoint again, but what is
+        // sent is a snapshot of the transcript still being recorded, not
+        // passages from past meetings.
+        'liveQaAsk(': 'recordLiveQaQuestion',
       };
       final recorders = File(
         'lib/state/privacy_report_model.dart',
@@ -142,6 +146,7 @@ void main() {
       '.generateSummaryLong(': 'onNetworkRequest',
       'launchUrl(': 'recordExternalLink',
       '.archiveAsk(': '_onNetworkRequest',
+      '.liveQaAsk(': '_onNetworkRequest',
     };
 
     /// `constructor` -> `recorder that must be handed to it`. Ordering is

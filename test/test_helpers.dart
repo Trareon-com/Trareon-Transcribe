@@ -16,6 +16,7 @@ import 'package:transcribe/src/rust/audio/device.dart' as rust_device;
 import 'package:transcribe/src/rust/calendar_import.dart' as rust_calendar;
 import 'package:transcribe/src/rust/actions.dart' as rust_actions;
 import 'package:transcribe/src/rust/archive.dart' as rust_archive;
+import 'package:transcribe/src/rust/live_qa.dart' as rust_live_qa;
 import 'package:transcribe/src/rust/capabilities.dart' as rust_capabilities;
 import 'package:transcribe/src/rust/mapreduce.dart' as rust_mapreduce;
 import 'package:transcribe/src/rust/meeting_detect.dart' as rust_meeting_detect;
@@ -174,6 +175,13 @@ mixin SummaryBridgeStubs {
     required SummaryConfig config,
   }) async =>
       throw UnsupportedError('test bridge does not answer archive questions');
+
+  Future<rust_live_qa.LiveQaAnswer> liveQaAsk({
+    required String question,
+    required List<TranscriptSegment> segments,
+    required SummaryConfig config,
+  }) async =>
+      throw UnsupportedError('test bridge does not answer live questions');
 
   Future<String> generateSummary({
     required List<TranscriptSegment> segments,

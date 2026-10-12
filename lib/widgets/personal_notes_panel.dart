@@ -23,6 +23,7 @@ class PersonalNotesPanel extends StatefulWidget {
     super.key,
     required this.notes,
     required this.onChanged,
+    this.trailing,
   });
 
   /// The notes as currently held in [SessionUiState.personalNotes].
@@ -34,6 +35,13 @@ class PersonalNotesPanel extends StatefulWidget {
   /// reset the caret mid-sentence.
   final String notes;
   final ValueChanged<String> onChanged;
+
+  /// An optional control placed at the end of the header row — the
+  /// "Tanya Langsung" tab switcher (Sprint 21), when this panel and that
+  /// one share the same spot. A fixed-width trailing widget next to an
+  /// `Expanded` title is what keeps the header from overflowing at the
+  /// narrowest supported window, unlike a side-by-side tab row would.
+  final Widget? trailing;
 
   @override
   State<PersonalNotesPanel> createState() => _PersonalNotesPanelState();
@@ -71,6 +79,7 @@ class _PersonalNotesPanelState extends State<PersonalNotesPanel> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (widget.trailing != null) widget.trailing!,
             ],
           ),
           Spacing.gapXs,

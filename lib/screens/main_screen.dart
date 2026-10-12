@@ -37,12 +37,14 @@ import '../widgets/bookmark_bar.dart';
 import '../widgets/calendar_invite_import.dart';
 import '../widgets/capture_health_view.dart';
 import '../widgets/platform_chrome.dart';
+import '../widgets/live_qa_panel.dart';
 import '../widgets/meeting_template_picker.dart';
 import '../widgets/personal_notes_panel.dart';
 import '../widgets/record_button.dart';
 import '../widgets/recovery_dialog.dart';
 import '../widgets/resource_indicator.dart';
 import '../widgets/session_controls.dart';
+import '../widgets/ui/app_controls.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/transcript_view.dart';
 import '../widgets/ui/app_button.dart';
@@ -1443,9 +1445,13 @@ class _Workspace extends StatelessWidget {
                           ),
                           const VerticalDivider(width: 1),
                           Expanded(
-                            child: PersonalNotesPanel(
+                            child: _RightPanel(
+                              isRecording:
+                                  session.lifecycle ==
+                                  SessionLifecycle.recording,
                               notes: session.personalNotes,
-                              onChanged: notifier.setPersonalNotes,
+                              onNotesChanged: notifier.setPersonalNotes,
+                              segments: session.segments,
                             ),
                           ),
                         ],
@@ -1477,6 +1483,88 @@ class _Workspace extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+enum _RightTab { notes, liveQa }
+
+/// The right half of the split screen next to the live transcript.
+///
+/// "Catatan Pribadi" (F11) is always available while a session is open.
+/// "Tanya Langsung" (Sprint 21) only makes sense while the transcript is
+/// still growing, so the tab switcher itself only appears during an
+/// active recording — once the session stops there is nothing left to
+/// ask that the archive (F12) cannot answer better, with an index.
+class _RightPanel extends StatefulWidget {
+  const _RightPanel({
+    required this.isRecording,
+    required this.notes,
+    required this.onNotesChanged,
+    required this.segments,
+  });
+
+  final bool isRecording;
+  final String notes;
+  final ValueChanged<String> onNotesChanged;
+  final List<TranscriptSegment> segments;
+
+  @override
+  State<_RightPanel> createState() => _RightPanelState();
+}
+
+class _RightPanelState extends State<_RightPanel> {
+  _RightTab _tab = _RightTab.notes;
+
+  @override
+  void didUpdateWidget(_RightPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Recording stopped while "Tanya Langsung" was selected: fall back to
+    // notes rather than leaving a tab open for a panel that just vanished.
+    if (!widget.isRecording && _tab == _RightTab.liveQa) {
+      _tab = _RightTab.notes;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isRecording) {
+      return PersonalNotesPanel(
+        notes: widget.notes,
+        onChanged: widget.onNotesChanged,
+      );
+    }
+    // A dropdown trigger rather than a side-by-side tab row: at the
+    // narrowest supported window (800x600) the right panel is itself only
+    // a little over a hundred pixels wide, and two text labels in a Row
+    // cannot both fit however short the words are. A single fixed-size
+    // icon button can, because its width does not depend on either
+    // label's length — see `narrow_window_layout_test.dart`.
+    final switcher = AppMenu<_RightTab>(
+      tooltip: 'Ganti panel',
+      entries: [
+        AppMenuEntry(
+          value: _RightTab.notes,
+          label: 'Catatan Pribadi',
+          icon: AppIcons.edit,
+          checked: _tab == _RightTab.notes,
+        ),
+        AppMenuEntry(
+          value: _RightTab.liveQa,
+          label: 'Tanya Langsung',
+          icon: AppIcons.chat,
+          checked: _tab == _RightTab.liveQa,
+        ),
+      ],
+      onSelected: (tab) => setState(() => _tab = tab),
+      child: const Icon(AppIcons.moreVertical, size: IconSizes.sm),
+    );
+    return _tab == _RightTab.notes
+        ? PersonalNotesPanel(
+            notes: widget.notes,
+            onChanged: widget.onNotesChanged,
+            trailing: switcher,
+          )
+        : LiveQaPanel(segments: widget.segments, trailing: switcher);
   }
 }
 
