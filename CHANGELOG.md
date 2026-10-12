@@ -5,6 +5,22 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 18: sambungkan backend F16 (deteksi rapat otomatis + auto-stop
+sunyi, ditulis Sprint 17) ke UI — backend-nya sudah ada sejak Sprint 17
+tapi tidak pernah dipanggil dari layar manapun. Lihat
+`docs/SPRINT-REPORTS.md` Sprint 18 report untuk detail lengkap.
+
+### Ditambahkan (Sprint 18)
+
+- **Dialog "Rapat terdeteksi"** (F16a, `lib/screens/main_screen.dart`):
+  polling 4 detik ke `detectMeetingWindow()` saat idle dan F16a aktif di
+  Pengaturan; begitu window Zoom/Meet/Teams terdeteksi, dialog menawarkan
+  "Mulai Rekam"/"Abaikan". Berhenti otomatis saat sedang merekam.
+- **Dialog peringatan "Tidak ada suara"** (F16b, `lib/screens/main_screen.dart`):
+  `silenceAutoStopProvider` sekarang benar-benar diamati di layar utama;
+  dialog muncul begitu sesi rekam sunyi melewati ambang, menutup sendiri
+  kalau suara kembali, dan tombol "Lanjutkan" mereset jam sunyi.
+
 Sprint 16: ekspor/impor arsip sesi lintas-device (.zip), implementasi dari
 rekomendasi audit F25 Sprint 15. Lihat `docs/SPRINT-REPORTS.md` Sprint 16
 report untuk detail lengkap.

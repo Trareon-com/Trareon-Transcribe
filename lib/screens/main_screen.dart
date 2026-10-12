@@ -12,6 +12,7 @@ import '../services/system_privacy_settings.dart';
 import '../services/tray_service.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/disk.dart' as rust_disk;
+import '../src/rust/meeting_detect.dart' as rust_meeting_detect;
 import '../src/rust/session.dart' as rust_session;
 import '../state/audio_stream_model.dart';
 import '../state/audio_watchdog_model.dart';
@@ -22,6 +23,7 @@ import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/session_model.dart';
 import '../state/settings_model.dart';
+import '../state/silence_auto_stop_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_motion.dart';
@@ -104,6 +106,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Timer? _diskTimer;
   bool _lowSpaceWarned = false;
 
+  /// Polls for an active meeting-app window (F16a) while idle, so Trareon
+  /// can offer to start recording without the user opening it manually.
+  /// Stopped while a session is active — no point re-detecting a meeting
+  /// that is already being recorded.
+  Timer? _meetingDetectTimer;
+  static const _meetingDetectInterval = Duration(seconds: 4);
+
+  /// Window ids already offered a "Mulai rekam?" dialog this app session,
+  /// so re-polling the same still-open meeting window doesn't ask again.
+  /// Cleared once the window disappears from detection, so a different
+  /// meeting (or the same app reopened) is offered afresh.
+  final Set<String> _meetingWindowsHandled = {};
+
+  bool _silenceDialogShowing = false;
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +130,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
     _loadRecoveries();
     TrayService.instance.confirmQuit = _confirmQuitWithPendingWork;
+    _refreshMeetingDetectWatch(
+      enabled: ref.read(settingsProvider).meetingAutoDetectEnabled,
+      lifecycle: ref.read(sessionProvider).lifecycle,
+    );
   }
 
   /// Guards [_resumeUnfinishedTranscripts] so it runs once per launch, on
@@ -205,6 +226,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _globalHotkeys.dispose();
     _healthTimer?.cancel();
     _diskTimer?.cancel();
+    _meetingDetectTimer?.cancel();
     _sidebarSearchFocus.dispose();
     _titleController.dispose();
     super.dispose();
@@ -275,6 +297,130 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void _stopDiskWatch() {
     _diskTimer?.cancel();
     _diskTimer = null;
+  }
+
+  /// Starts or stops the meeting-window poll so it only ever runs while
+  /// idle (no point detecting a meeting that is already being recorded)
+  /// and only while the user has F16a enabled in settings.
+  void _refreshMeetingDetectWatch({
+    required bool enabled,
+    required SessionLifecycle lifecycle,
+  }) {
+    final shouldPoll =
+        enabled &&
+        lifecycle != SessionLifecycle.recording &&
+        lifecycle != SessionLifecycle.paused;
+    if (shouldPoll) {
+      _meetingDetectTimer ??= Timer.periodic(
+        _meetingDetectInterval,
+        (_) => _checkMeetingDetection(),
+      );
+    } else {
+      _meetingDetectTimer?.cancel();
+      _meetingDetectTimer = null;
+      _meetingWindowsHandled.clear();
+    }
+  }
+
+  Future<void> _checkMeetingDetection() async {
+    if (!mounted) return;
+    rust_meeting_detect.DetectedMeeting? detected;
+    try {
+      detected = await ref.read(rustBridgeProvider).detectMeetingWindow();
+    } catch (_) {
+      // Detection is best-effort (e.g. xdotool missing); never surface an
+      // error for a feature the user did not explicitly invoke.
+      return;
+    }
+    if (!mounted) return;
+    if (detected == null) {
+      // The window went away — a window id reappearing later (same app
+      // reopened, or a genuinely new meeting) should be offered again.
+      _meetingWindowsHandled.clear();
+      return;
+    }
+    if (_meetingWindowsHandled.contains(detected.windowId)) return;
+    _meetingWindowsHandled.add(detected.windowId);
+    unawaited(_showMeetingDetectedDialog(detected));
+  }
+
+  /// "Terdeteksi rapat ([platform]). Mulai rekam?" — non-blocking in the
+  /// sense that it does not stop the poll loop, but it is a real dialog:
+  /// a toast that auto-dismissed would be missed if the user looked away
+  /// for a few seconds, which is exactly when a meeting starts.
+  Future<void> _showMeetingDetectedDialog(
+    rust_meeting_detect.DetectedMeeting detected,
+  ) async {
+    if (!mounted) return;
+    final start = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rapat terdeteksi'),
+        content: Text(
+          'Terdeteksi rapat (${detected.app}). Mulai rekam?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Abaikan'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Mulai Rekam'),
+          ),
+        ],
+      ),
+    );
+    if (start == true && mounted && context.mounted) {
+      await _toggleStartBerhenti(context, ref);
+    }
+  }
+
+  /// Shows the F16b silence-warning dialog built from
+  /// [SilenceAutoStopWarning] and watches [silenceAutoStopProvider] itself
+  /// so it dismisses on its own the moment sound resumes or the session
+  /// auto-stops, instead of leaving a stale dialog on screen.
+  Future<void> _showSilenceAutoStopDialog(SilenceAutoStopWarning initial) async {
+    if (!mounted || _silenceDialogShowing) return;
+    _silenceDialogShowing = true;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Consumer(
+          builder: (consumerContext, dialogRef, _) {
+            final warning = dialogRef.watch(silenceAutoStopProvider);
+            if (warning == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (Navigator.of(dialogContext).canPop()) {
+                  Navigator.of(dialogContext).pop();
+                }
+              });
+            }
+            final shown = warning ?? initial;
+            return AlertDialog(
+              title: const Text('Tidak ada suara'),
+              content: Text(
+                'Tidak ada suara selama ${shown.silentMinutes} menit. '
+                'Rekaman akan berhenti otomatis kecuali dilanjutkan.',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () {
+                    dialogRef
+                        .read(silenceAutoStopProvider.notifier)
+                        .continueRecording();
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Lanjutkan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    _silenceDialogShowing = false;
   }
 
   String get _libraryPath =>
@@ -884,6 +1030,33 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       final notice = next.valueOrNull;
       if (notice == null) return;
       AppToast.show(context, notice.message, type: ToastType.error);
+    });
+
+    // F16a: offer to start recording when a meeting app window is detected
+    // in the foreground. Only runs while idle (see
+    // _refreshMeetingDetectWatch) and only when the user enabled it in
+    // Pengaturan.
+    ref.listen(settingsProvider.select((s) => s.meetingAutoDetectEnabled), (
+      _,
+      enabled,
+    ) {
+      _refreshMeetingDetectWatch(
+        enabled: enabled,
+        lifecycle: ref.read(sessionProvider).lifecycle,
+      );
+    });
+    ref.listen(sessionProvider.select((s) => s.lifecycle), (_, lifecycle) {
+      _refreshMeetingDetectWatch(
+        enabled: ref.read(settingsProvider).meetingAutoDetectEnabled,
+        lifecycle: lifecycle,
+      );
+    });
+
+    // F16b: warn (and eventually auto-stop) a recording session that has
+    // gone silent for the configured threshold. The notifier only ever
+    // watches while a session is recording (silence_auto_stop_model.dart).
+    ref.listen(silenceAutoStopProvider, (_, warning) {
+      if (warning != null) unawaited(_showSilenceAutoStopDialog(warning));
     });
 
     final sidebar = SessionSidebar(
