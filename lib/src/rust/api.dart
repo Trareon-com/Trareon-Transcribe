@@ -18,6 +18,7 @@ import 'export.dart';
 import 'export/notulen.dart';
 import 'frb_generated.dart';
 import 'glossary.dart';
+import 'live_qa.dart';
 import 'llm_setup.dart';
 import 'mapreduce.dart';
 import 'meeting_detect.dart';
@@ -820,6 +821,23 @@ Future<ArchiveAnswer> archiveAsk({
 }) => RustLib.instance.api.crateApiArchiveAsk(
   libraryPath: libraryPath,
   question: question,
+  config: config,
+);
+
+/// Answers `question` from `segments` — a snapshot of the transcript of
+/// the session currently recording (Sprint 21, "Tanya Langsung").
+///
+/// Unlike `archive_ask`, there is no index and no library path: the
+/// caller passes the live segments it already holds in memory, taken at
+/// the moment the question was asked. Re-asking later re-snapshots; it
+/// does not re-answer the old question against new text.
+Future<LiveQaAnswer> liveQaAsk({
+  required String question,
+  required List<Segment> segments,
+  required SummaryConfig config,
+}) => RustLib.instance.api.crateApiLiveQaAsk(
+  question: question,
+  segments: segments,
   config: config,
 );
 

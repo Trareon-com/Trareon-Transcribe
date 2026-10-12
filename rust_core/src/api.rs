@@ -1366,6 +1366,21 @@ pub async fn archive_ask(
     Ok(crate::archive::ArchiveAnswer { answer, sources })
 }
 
+/// Answers `question` from `segments` — a snapshot of the transcript of
+/// the session currently recording (Sprint 21, "Tanya Langsung").
+///
+/// Unlike `archive_ask`, there is no index and no library path: the
+/// caller passes the live segments it already holds in memory, taken at
+/// the moment the question was asked. Re-asking later re-snapshots; it
+/// does not re-answer the old question against new text.
+pub async fn live_qa_ask(
+    question: String,
+    segments: Vec<Segment>,
+    config: crate::summary::SummaryConfig,
+) -> Result<crate::live_qa::LiveQaAnswer, TranscribeError> {
+    crate::live_qa::answer_from_live_transcript(config, &question, &segments).await
+}
+
 // --- Mode Kepatuhan UU PDP (F13) -------------------------------------------
 //
 // Redaction on export, retention limits, a local audit log and the

@@ -5,6 +5,30 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Sprint 21: "Tanya Langsung" — tanya rapat saat masih berlangsung,
+dijawab dari transkrip yang sedang tumbuh. Diferensiator baru per
+`docs/COMPETITOR-RESEARCH.md` §1.18 (Google AI Edge Foresight punya
+fitur serupa tapi tidak berbahasa Indonesia). Berbeda dari F12 "Tanya
+Arsip Rapat": satu sesi yang sedang berjalan, bukan indeks FTS lintas
+banyak sesi yang sudah selesai.
+
+### Ditambahkan (Sprint 21)
+
+- **`live_qa::answer_from_live_transcript`** (`rust_core/src/live_qa.rs`):
+  menjawab pertanyaan dari transkrip sesi yang sedang merekam. Transkrip
+  kosong atau hanya berisi segmen sementara dijawab "belum ada cukup
+  konteks" tanpa menyentuh jaringan. Transkrip panjang (>3000 kata)
+  diseleksi ke bagian paling relevan terhadap pertanyaan (jatuh ke
+  segmen terbaru bila tak ada yang relevan) sebelum dikirim. Prompt
+  mewajibkan sitasi `[K1]`/`[K2]` dan menolak menjawab di luar kutipan
+  ("Tidak disebutkan di rapat ini") — pola hallucination-guard yang
+  sama dengan F12.
+- **Tab "Tanya Langsung"** (`lib/widgets/live_qa_panel.dart`,
+  `lib/screens/main_screen.dart`): hanya muncul saat sesi sedang
+  merekam, dipilih lewat menu di header panel catatan pribadi (bukan
+  baris tab yang bisa meluber di jendela sempit). Jawaban menampilkan
+  kutipan dengan timestamp dan nama pembicara.
+
 Sprint 20: tiga celah Sprint 7 (Item 2/3/4) yang ditulis jujur sebagai
 PARTIAL di laporan tapi tidak pernah disambungkan ke UI di sprint
 manapun setelahnya — pola yang sama dengan Sprint 17/F16. Mesin Rust

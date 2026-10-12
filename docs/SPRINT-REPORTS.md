@@ -5728,3 +5728,176 @@ untuk uji ini.
   klik manual sampai akhir (mengisi 5 bidang Wajib manual di smoke test
   tidak menambah bukti dibanding uji widget yang sudah memverifikasi
   jalur siapUnggah → exportNotulenSrikandi persis).
+
+## Sprint 21 report — "Tanya Langsung": tanya rapat saat masih berlangsung
+
+Fitur baru sepenuhnya (bukan backend-ada-tapi-tidak-tersambung seperti
+Sprint 17/18/20) — diferensiator per `docs/COMPETITOR-RESEARCH.md`
+§1.18: Google AI Edge Foresight punya kapabilitas serupa tapi tidak
+berbahasa Indonesia.
+
+### Status per item
+
+1. **Backend Rust (`live_qa::answer_from_live_transcript`)** — **DONE**.
+   File baru `rust_core/src/live_qa.rs`. Menjawab dari snapshot segmen
+   transkrip sesi yang sedang berjalan (bukan FTS arsip F12 — tidak ada
+   index, tidak ada library path). Perilaku:
+   - Transkrip kosong atau hanya segmen `is_partial`/kosong → jawaban
+     "Belum ada cukup konteks dari rapat ini untuk menjawab." **tanpa**
+     menyentuh `summary::ask` (diverifikasi lewat test yang memanggil
+     `SummaryConfig::default()` — endpoint tidak tersambung sama sekali,
+     jadi kalau kode mencoba request sungguhan tes akan gagal/hang, bukan
+     lulus).
+   - Transkrip > 3000 kata (`MAX_LIVE_CONTEXT_WORDS`) diseleksi: skor
+     per segmen dari jumlah kata kunci pertanyaan yang cocok (memakai
+     ulang `archive::is_stopword`, kini `pub(crate)`, supaya daftar kata
+     henti Indonesia tidak dua tempat), segmen terpilih diurutkan ulang
+     kronologis sebelum dikirim. Pertanyaan tanpa kata kunci yang cocok
+     tetap mendapat konteks (jatuh ke segmen terbaru lewat tie-break
+     timestamp) — bukan kosong.
+   - Prompt (`build_live_qa_prompt`) mewajibkan sitasi `[K1]`/`[K2]` dan
+     perintah eksplisit menolak ("Tidak disebutkan di rapat ini") bila
+     kutipan tak cukup — pola hallucination-guard yang sama persis
+     dengan `archive::build_question_prompt` (F12), diadaptasi untuk satu
+     transkrip linear, bukan hasil FTS multi-sesi.
+   - Diekspos lewat `api::live_qa_ask` (FRB `crate::api`), dipanggil
+     Dart via `rust_api.liveQaAsk`.
+   - 9 unit test baru (lihat di bawah), semua lulus.
+2. **UI "Tanya Langsung"** — **DONE**. `lib/widgets/live_qa_panel.dart`
+   (panel baru: header + daftar tanya-jawab + komposer) dan
+   `lib/state/live_qa_model.dart` (`LiveQaNotifier`, pola identik
+   `ArchiveChatNotifier` F12: menolak tanpa endpoint, mencatat ke
+   Laporan Privasi *sebelum* request lewat `recordLiveQaQuestion` baru
+   di `privacy_report_model.dart`).
+   - **Hanya muncul saat sesi sedang merekam** (`SessionLifecycle.recording`,
+     bukan `paused` — literal sesuai brief "status recording=active"):
+     `lib/screens/main_screen.dart` `_RightPanel` memeriksa
+     `session.lifecycle == SessionLifecycle.recording` dan hanya
+     menampilkan switcher (lihat di bawah) ketika true; di luar itu
+     panel catatan pribadi (F11) tampil sendirian seperti sebelumnya,
+     tidak berubah.
+   - **Bukan baris tab dua-segmen** seperti rencana awal — di jendela
+     sempit (`narrow_window_layout_test.dart`, 800×600) baris tab dua
+     label ("Catatan"/"Tanya") meluber (`RenderFlex overflowed`) karena
+     panel kanan di lebar itu hanya sekitar seratus piksel. Diganti
+     dengan `AppMenu` (dropdown) di header panel — tombol ikon tunggal
+     (`AppIcons.moreVertical`) yang lebar tetapnya tidak bergantung
+     panjang label apa pun, pola yang sudah dipakai `_CompactMenuBar`.
+     `PersonalNotesPanel` dan `LiveQaPanel` keduanya dapat parameter
+     `trailing` opsional untuk tempat tombol ini.
+   - Jawaban menampilkan `[K1]`/`[K2]` dengan timestamp `mm:ss` dan nama
+     pembicara (`_SourceRow`), identik gaya F12 minus
+     title/date/klik-navigasi (lihat Celah).
+
+### Tes
+
+- `cargo test --lib`: **950 lulus, 0 gagal** (9 baru di `live_qa::tests`
+  — `an_empty_transcript_is_refused_without_touching_the_network`,
+  `a_transcript_of_only_partial_segments_is_also_refused`,
+  `an_empty_question_is_an_error`,
+  `a_transcript_under_budget_is_used_whole_and_in_order`,
+  `partial_and_blank_segments_never_reach_the_context`,
+  `a_long_transcript_is_trimmed_to_the_budget_and_stays_chronological`,
+  `relevant_segments_are_kept_over_irrelevant_ones_when_trimming`,
+  `the_prompt_numbers_its_passages_and_forbids_outside_knowledge`,
+  `a_prompt_with_no_passages_still_tells_the_model_to_refuse`).
+- `cargo fmt --check` dan `cargo clippy --all-targets -- -D warnings`:
+  bersih.
+- `flutter analyze`: 0 masalah.
+- `flutter test`: **755 lulus, 0 gagal** (6 baru di `test/live_qa_test.dart`
+  — 3 tes notifier murni, 1 widget test yang benar-benar mem-pump
+  `LiveQaPanel`, mengetik pertanyaan, menekan "Tanya", dan memverifikasi
+  bridge tiruan menerima panggilan nyata dengan segmen yang benar, dan 2
+  tes `MainScreen` nyata yang membuktikan switcher hanya muncul saat
+  merekam dan bisa membuka `LiveQaPanel` sungguhan dari situ — bukan
+  cuma notifier-level seperti catatan di F11/Sprint 17/7).
+  Dua golden image (`main-recording-{light,dark}.png`) diperbarui
+  (`--update-goldens`) karena header panel kanan kini punya tombol
+  trailing baru saat merekam — perubahan visual yang disengaja, bukan
+  regresi; diverifikasi lulus lagi dengan `flutter test test/golden_test.dart`
+  tanpa flag update setelahnya.
+- `flutter build linux --release`: sukses.
+
+### Bukti grep pemanggil nyata (wajib, pola Sprint 20)
+
+```
+$ grep -rn "liveQaAsk" lib/screens lib/widgets lib/state lib/services
+lib/state/live_qa_model.dart:104:      final answer = await _bridge.liveQaAsk(
+lib/services/bridge_service.dart:304:  Future<rust_live_qa.LiveQaAnswer> liveQaAsk({   # abstract RustBridge
+lib/services/bridge_service.dart:1048: Future<rust_live_qa.LiveQaAnswer> liveQaAsk({   # RustBridgeMock
+lib/services/bridge_service.dart:1990: Future<rust_live_qa.LiveQaAnswer> liveQaAsk({   # RustEngineBridge
+lib/services/bridge_service.dart:1994:  }) => rust_api.liveQaAsk(
+
+$ grep -rn "LiveQaPanel(" lib/screens lib/widgets
+lib/screens/main_screen.dart:1567: : LiveQaPanel(segments: widget.segments, trailing: switcher);
+lib/widgets/live_qa_panel.dart:26: const LiveQaPanel({super.key, required this.segments, this.trailing});
+
+$ grep -rn "answer_from_live_transcript" rust_core/src
+rust_core/src/live_qa.rs:173: pub async fn answer_from_live_transcript(  # definisi + 3 pemanggil test
+rust_core/src/api.rs:1381:  crate::live_qa::answer_from_live_transcript(config, &question, &segments).await
+```
+
+Rantai pemanggil nyata: `main_screen.dart` → `LiveQaPanel` →
+`LiveQaNotifier.ask` → `RustBridge.liveQaAsk` → `rust_api.liveQaAsk` →
+`crate::api::live_qa_ask` → `crate::live_qa::answer_from_live_transcript`.
+Bukan dead code.
+
+### Uji asap (build rilis, aplikasi nyata di `:0`)
+
+Dijalankan sesuai `OFFICE AUDIO RULES`: sink default diverifikasi
+`trareon_silent` sebelum setiap `paplay`, audio diputar hanya ke sink
+null itu, mode "Webinar" (Suara sistem saja, Mikrofon mati) dipakai
+supaya input capture datang dari `trareon_silent` yang sama (bukan
+mikrofon fisik yang dimatikan OS).
+
+1. Sesi direkam (mode Webinar), `rapat_id.mp3` (ucapan Indonesia nyata)
+   diputar ke `trareon_silent`. Transkrip tumbuh nyata: "Selamat pagi
+   semuanya, hari ini kita membahas angkatan." dkk, 6 segmen total.
+2. Tombol switcher (ikon titik-tiga) di header panel kanan dibuka;
+   menu menampilkan "Catatan Pribadi" (tercentang) dan "Tanya Langsung".
+   Memilih "Tanya Langsung" sungguhan mengganti panel kanan ke
+   `LiveQaPanel` — ikon dan hint kosong ("Tanyakan apa saja yang sudah
+   dibahas di rapat ini sejauh ini.") tampil, transkrip di kiri terus
+   tumbuh tanpa panel kanan ikut berubah (sesuai desain: snapshot saat
+   tanya, bukan auto-refresh).
+3. Pertanyaan "Apa yang dibahas soal anggaran kuartal?" diketik,
+   tombol "Tanya" ditekan **sebelum** endpoint Ringkasan AI diatur:
+   jawaban menolak dengan benar — "Tanya Langsung memerlukan endpoint
+   ringkasan yang sudah diatur di Pengaturan → Ringkasan AI." —
+   persis perilaku yang diharapkan brief (hallucination guard / tidak
+   diam-diam menjawab apa pun).
+4. Sesi dihentikan bersih ("Berhenti merekam?" → "Berhenti"), tersimpan
+   otomatis (6 segmen, audio sistem 96% terekam).
+
+### Celah yang diketahui
+
+- **Jalur jawaban sukses (endpoint aktif, model Ollama sungguhan
+  menjawab dengan sitasi) tidak diuji coba manual sampai akhir di uji
+  asap ini.** Navigasi ke Pengaturan → Ringkasan AI lewat automasi
+  xdotool pada sidebar yang diciutkan mengalami kendala sinkronisasi
+  event pointer sintetis (tooltip/hover macet di ikon lain meski klik
+  mendarat di koordinat benar) yang menghabiskan waktu signifikan tanpa
+  berhasil; ini kendala lingkungan automasi klik sintetis, bukan bug
+  aplikasi — tombol lain di rail yang sama (Impor berkas, Tanya arsip,
+  Kelola perpustakaan) bisa diklik normal, dan tombol Pengaturan sendiri
+  terbukti merespons hover (tooltip "Pengaturan" muncul) tepat di
+  koordinat yang diklik. Jalur jawaban sukses dengan sitasi **diverifikasi
+  penuh** lewat `test/live_qa_test.dart` (`records the outbound request
+  before making it`, dan widget test `LiveQaPanel widget` yang mem-pump
+  pertanyaan sungguhan lewat bridge tiruan dan memverifikasi jawaban +
+  `[K1]` dirender) serta `rust_core/src/live_qa.rs` (`build_live_qa_prompt`
+  tests). Refusal path (tanpa endpoint) **sudah** dibuktikan hidup di
+  aplikasi nyata (langkah 3 di atas).
+- **Klik sitasi tidak melompat/menyorot baris transkrip terkait.**
+  Brief menyebut ini sebagai "pola serupa F12 archive chat kalau ada" —
+  F12 bisa melakukannya karena membuka *sesi lain* lewat navigasi
+  layar, sedangkan Live Q&A berada di layar yang sama dengan transkrip
+  yang sedang tumbuh. `TranscriptView` tidak punya API scroll-ke-indeks
+  yang aman dipakai tanpa mengganggu auto-scroll/pengumuman pembaca
+  layar milik mode rekam-langsung (`activeSegmentIndex` yang ada hanya
+  untuk mode pemutaran, mengaktifkannya mematikan auto-scroll saat
+  merekam). Menambah mekanisme scroll terpisah yang aman adalah
+  pekerjaan UI tambahan yang signifikan dan sengaja tidak dikerjakan
+  sprint ini (bukan stub — sitasi tetap menampilkan timestamp, pembicara,
+  dan kutipan teks lengkap, cukup untuk memverifikasi jawaban tanpa
+  navigasi otomatis).
