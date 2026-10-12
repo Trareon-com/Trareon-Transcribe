@@ -24,6 +24,7 @@ import '../src/rust/model.dart' as rust_model;
 import '../src/rust/provenance.dart' as rust_provenance;
 import '../src/rust/session.dart' as rust_session;
 import '../src/rust/settings.dart' as rust_settings;
+import '../src/rust/srikandi.dart' as rust_srikandi;
 import '../src/rust/stt/file.dart' as rust_stt_file;
 import '../src/rust/summary.dart' as rust_summary;
 import '../state/models.dart';
@@ -409,6 +410,43 @@ abstract class RustBridge {
   /// Reads a local .txt/.md/.pdf file for use as notulen context. Local
   /// only — never uploads or caches the file anywhere else.
   Future<String> extractNotulenDocumentContext(String path);
+
+  /// Re-runs Periksa Fakta and the register check on a form the notulis
+  /// has hand-edited, without the citations [generateNotulen] produced
+  /// (editing a keputusan invalidates them). Local only, no network.
+  Future<rust_api.NotulenHasil> periksaNotulen({
+    required rust_notulen.NotulenForm form,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+  });
+
+  /// Applies the register fixes that have exactly one correct answer
+  /// (spelling, clock format) to [text]. Local only, no network.
+  Future<String> rapikanRagam(String text);
+
+  /// Prefills the SRIKANDI archive metadata from the notulen form. Never
+  /// fills `nomor` — see `docs/SRIKANDI-EXPORT.md` §3.
+  Future<rust_srikandi.SrikandiMetadata> srikandiMetadataDefault(
+    rust_notulen.NotulenForm form,
+  );
+
+  /// Checks [metadata] before export, Wajib/Saran per finding.
+  Future<List<rust_srikandi.TemuanMetadata>> srikandiValidate(
+    rust_srikandi.SrikandiMetadata metadata,
+  );
+
+  /// Whether [metadata] is complete enough to register.
+  Future<bool> srikandiSiapUnggah(rust_srikandi.SrikandiMetadata metadata);
+
+  /// Writes the notulen and its archive sidecar (DOCX + PDF + metadata
+  /// JSON + metadata CSV) into the session folder.
+  Future<List<rust_export.ExportedFile>> exportNotulenSrikandi({
+    required rust_notulen.NotulenForm form,
+    required rust_srikandi.SrikandiMetadata metadata,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  });
 
   /// Renders bookmarks as the `"[mm:ss] catatan"` lines every export and the
   /// notulen's "Poin Penting" section use.
@@ -1121,6 +1159,87 @@ class RustBridgeMock implements RustBridge {
       'Isi dokumen (mock): $path';
 
   @override
+  Future<rust_api.NotulenHasil> periksaNotulen({
+    required rust_notulen.NotulenForm form,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+  }) async => rust_api.NotulenHasil(
+    form: form,
+    perbaikan: const [],
+    struktur: const StructureReport(bagianKosong: [], terisi: 0, wajib: 0),
+    fakta: const LaporanFakta(temuan: [], diperiksa: 0, bersih: 0),
+    ragam: const [],
+    mapReduce: false,
+    mentah: '{}',
+  );
+
+  @override
+  Future<String> rapikanRagam(String text) async => text;
+
+  @override
+  Future<rust_srikandi.SrikandiMetadata> srikandiMetadataDefault(
+    rust_notulen.NotulenForm form,
+  ) async => rust_srikandi.SrikandiMetadata(
+    nomor: '',
+    tanggal: form.tanggal,
+    jenisNaskah: 'Notula Rapat',
+    perihal: form.judul,
+    sifat: rust_srikandi.Sifat.biasa,
+    klasifikasiKeamanan: rust_srikandi.KlasifikasiKeamanan.biasa,
+    kodeKlasifikasiArsip: '',
+    unitPengolah: form.unitKerja,
+    penandatanganNama: form.pimpinan,
+    penandatanganJabatan: '',
+    jumlahLampiran: 0,
+    tingkatPerkembangan: rust_srikandi.TingkatPerkembangan.asli,
+    catatan: '',
+  );
+
+  @override
+  Future<List<rust_srikandi.TemuanMetadata>> srikandiValidate(
+    rust_srikandi.SrikandiMetadata metadata,
+  ) async => [
+    if (metadata.nomor.trim().isEmpty)
+      const rust_srikandi.TemuanMetadata(
+        bidang: 'nomor',
+        tingkat: rust_srikandi.Tingkat.wajib,
+        pesan: 'Nomor naskah belum diisi.',
+      ),
+    if (metadata.kodeKlasifikasiArsip.trim().isEmpty)
+      const rust_srikandi.TemuanMetadata(
+        bidang: 'kodeKlasifikasiArsip',
+        tingkat: rust_srikandi.Tingkat.saran,
+        pesan: 'Kode klasifikasi arsip belum diisi.',
+      ),
+  ];
+
+  @override
+  Future<bool> srikandiSiapUnggah(
+    rust_srikandi.SrikandiMetadata metadata,
+  ) async => metadata.nomor.trim().isNotEmpty;
+
+  @override
+  Future<List<rust_export.ExportedFile>> exportNotulenSrikandi({
+    required rust_notulen.NotulenForm form,
+    required rust_srikandi.SrikandiMetadata metadata,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) async => [
+    for (final suffix in const [
+      '.docx',
+      '.pdf',
+      ' - metadata.json',
+      ' - metadata.csv',
+    ])
+      rust_export.ExportedFile(
+        filename: '$title$suffix',
+        path: '$outputDir/$title$suffix',
+        sizeBytes: BigInt.from(1024),
+      ),
+  ];
+
+  @override
   Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
     required rust_glossary.GlossaryConfig glossary,
     String contextTail = '',
@@ -1594,6 +1713,50 @@ class RustEngineBridge implements RustBridge {
   @override
   Future<String> extractNotulenDocumentContext(String path) =>
       rust_api.extractNotulenDocumentContext(path: path);
+
+  @override
+  Future<rust_api.NotulenHasil> periksaNotulen({
+    required rust_notulen.NotulenForm form,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+  }) => rust_api.periksaNotulen(
+    form: form,
+    template: template,
+    segments: segments.map(toRustSegment).toList(),
+  );
+
+  @override
+  Future<String> rapikanRagam(String text) =>
+      rust_api.rapikanRagam(text: text);
+
+  @override
+  Future<rust_srikandi.SrikandiMetadata> srikandiMetadataDefault(
+    rust_notulen.NotulenForm form,
+  ) => rust_api.srikandiMetadataDefault(form: form);
+
+  @override
+  Future<List<rust_srikandi.TemuanMetadata>> srikandiValidate(
+    rust_srikandi.SrikandiMetadata metadata,
+  ) => rust_api.srikandiValidate(metadata: metadata);
+
+  @override
+  Future<bool> srikandiSiapUnggah(rust_srikandi.SrikandiMetadata metadata) =>
+      rust_api.srikandiSiapUnggah(metadata: metadata);
+
+  @override
+  Future<List<rust_export.ExportedFile>> exportNotulenSrikandi({
+    required rust_notulen.NotulenForm form,
+    required rust_srikandi.SrikandiMetadata metadata,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) => rust_api.exportNotulenSrikandi(
+    form: form,
+    metadata: metadata,
+    segments: segments.map(toRustSegment).toList(),
+    outputDir: outputDir,
+    title: title,
+  );
 
   @override
   Future<rust_notulen.NotulenDraft> notulenDraftFromSummary(String summary) =>

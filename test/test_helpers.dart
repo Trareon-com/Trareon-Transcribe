@@ -26,6 +26,7 @@ import 'package:transcribe/src/rust/coverage.dart' as rust_coverage;
 import 'package:transcribe/src/rust/session.dart' as rust_session;
 import 'package:transcribe/src/rust/export.dart' as rust_export;
 import 'package:transcribe/src/rust/export/notulen.dart' as rust_notulen;
+import 'package:transcribe/src/rust/srikandi.dart' as rust_srikandi;
 import 'package:transcribe/src/rust/glossary.dart' as rust_glossary;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
@@ -278,6 +279,56 @@ mixin SummaryBridgeStubs {
   );
 
   Future<String> extractNotulenDocumentContext(String path) async => '';
+
+  Future<rust_api.NotulenHasil> periksaNotulen({
+    required rust_notulen.NotulenForm form,
+    required NotulenTemplate template,
+    required List<TranscriptSegment> segments,
+  }) async => rust_api.NotulenHasil(
+    form: form,
+    perbaikan: const [],
+    struktur: const StructureReport(bagianKosong: [], terisi: 0, wajib: 0),
+    fakta: const LaporanFakta(temuan: [], diperiksa: 0, bersih: 0),
+    ragam: const [],
+    mapReduce: false,
+    mentah: '{}',
+  );
+
+  Future<String> rapikanRagam(String text) async => text;
+
+  Future<rust_srikandi.SrikandiMetadata> srikandiMetadataDefault(
+    rust_notulen.NotulenForm form,
+  ) async => rust_srikandi.SrikandiMetadata(
+    nomor: '',
+    tanggal: form.tanggal,
+    jenisNaskah: 'Notula Rapat',
+    perihal: form.judul,
+    sifat: rust_srikandi.Sifat.biasa,
+    klasifikasiKeamanan: rust_srikandi.KlasifikasiKeamanan.biasa,
+    kodeKlasifikasiArsip: '',
+    unitPengolah: form.unitKerja,
+    penandatanganNama: form.pimpinan,
+    penandatanganJabatan: '',
+    jumlahLampiran: 0,
+    tingkatPerkembangan: rust_srikandi.TingkatPerkembangan.asli,
+    catatan: '',
+  );
+
+  Future<List<rust_srikandi.TemuanMetadata>> srikandiValidate(
+    rust_srikandi.SrikandiMetadata metadata,
+  ) async => const [];
+
+  Future<bool> srikandiSiapUnggah(
+    rust_srikandi.SrikandiMetadata metadata,
+  ) async => metadata.nomor.trim().isNotEmpty;
+
+  Future<List<rust_export.ExportedFile>> exportNotulenSrikandi({
+    required rust_notulen.NotulenForm form,
+    required rust_srikandi.SrikandiMetadata metadata,
+    required List<TranscriptSegment> segments,
+    required String outputDir,
+    required String title,
+  }) async => const [];
 
   Future<rust_api.GlossaryPromptInfo> glossaryPromptPreview({
     required rust_glossary.GlossaryConfig glossary,
