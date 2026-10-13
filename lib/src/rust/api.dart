@@ -206,6 +206,39 @@ Future<bool> isModelDownloaded({
 Future<String> recommendDefaultModel({required BigInt ramMb}) =>
     RustLib.instance.api.crateApiRecommendDefaultModel(ramMb: ramMb);
 
+/// All 6 tier ids, in the fixed display order the UI should always use.
+Future<List<String>> allEngineTierIds() =>
+    RustLib.instance.api.crateApiAllEngineTierIds();
+
+/// Indonesian display label for `tier_id` (e.g. `"Cepat (Eksperimental)"`),
+/// or `None` if `tier_id` is not one of the 6 known ids.
+Future<String?> engineTierLabel({required String tierId}) =>
+    RustLib.instance.api.crateApiEngineTierLabel(tierId: tierId);
+
+/// `true` for the two CrispASR/Qwen3-ASR tiers (`fast_experimental`,
+/// `accurate_experimental`) — the UI should badge these as experimental.
+/// `false` (not an error) for an unrecognised id, since a stale persisted
+/// setting must never crash the settings screen.
+Future<bool> engineTierIsExperimental({required String tierId}) =>
+    RustLib.instance.api.crateApiEngineTierIsExperimental(tierId: tierId);
+
+/// Resolves `"auto"` to one of the 5 concrete tier ids for `ram_mb` of
+/// device RAM (always non-experimental); a no-op (echoes the input back)
+/// for any other valid id, and `None` for an id that is not one of the 6.
+Future<String?> resolveEngineTier({
+  required String tierId,
+  required BigInt ramMb,
+}) => RustLib.instance.api.crateApiResolveEngineTier(
+  tierId: tierId,
+  ramMb: ramMb,
+);
+
+/// `model::KNOWN_MODELS` catalog id this tier downloads/loads, or `None`
+/// for `"auto"` (resolve it first with [`resolve_engine_tier`]) or an
+/// unrecognised id.
+Future<String?> engineTierModelId({required String tierId}) =>
+    RustLib.instance.api.crateApiEngineTierModelId(tierId: tierId);
+
 /// A human-readable Indonesian accuracy label for `model_id`
 /// (e.g. `"WER FLEURS-id: 8,1%"`), or `None` when no measurement exists.
 Future<String?> modelAccuracyLabel({required String modelId}) =>
