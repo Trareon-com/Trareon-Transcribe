@@ -215,9 +215,197 @@ impl LiveWorker {
         samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
         events_tx: std::sync::mpsc::Sender<LiveEvent>,
     ) -> Result<Self, TranscribeError> {
+        #[cfg(feature = "crispasr-experimental")]
+        {
+            let filename = config
+                .quick_model_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+            if let Some(backend_flag) =
+                crate::model_select::EngineTier::crispasr_backend_flag_for_filename(filename)
+            {
+                return Self::spawn_crispasr_stream(backend_flag, config, samples_rx, events_tx);
+            }
+        }
         match config.refine_model_path.clone() {
             Some(_) => Self::spawn_adaptive(config, samples_rx, events_tx),
             None => Self::spawn_single(config, samples_rx, events_tx),
+        }
+    }
+
+    /// Where to find the `crispasr` CLI binary for a given installed
+    /// model path. Temporary resolution strategy, pending a proper
+    /// settings field + download flow (tracked alongside the Dart
+    /// 6-tier selector work): checks `CRISPASR_CLI_PATH` first, then
+    /// falls back to a binary named `crispasr`/`crispasr.exe` sitting
+    /// next to the model file itself — the convention this session's
+    /// manual cross-platform validation used on all three OSes.
+    #[cfg(feature = "crispasr-experimental")]
+    fn resolve_crispasr_cli_path(model_path: &Path) -> Option<PathBuf> {
+        if let Ok(from_env) = std::env::var("CRISPASR_CLI_PATH") {
+            let candidate = PathBuf::from(from_env);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+        let dir = model_path.parent()?;
+        let name = if cfg!(windows) { "crispasr.exe" } else { "crispasr" };
+        let sibling = dir.join(name);
+        sibling.exists().then_some(sibling)
+    }
+
+    /// CrispASR (Qwen3-ASR) live worker — a persistent
+    /// `crispasr --stream --stream-json` subprocess rather than the
+    /// whisper HPT/VAD path above. CrispASR does its own VAD-based
+    /// utterance segmentation and partial/final promotion internally
+    /// (confirmed via `--help`), so this loop is deliberately much
+    /// simpler than [`Self::spawn_with_engine`]: no `StreamingBuffer`,
+    /// no `DualVad`, no policy — just forward raw PCM and translate
+    /// [`crate::stt::StreamEvent`] into [`LiveEvent`].
+    #[cfg(feature = "crispasr-experimental")]
+    fn spawn_crispasr_stream(
+        backend_flag: &'static str,
+        config: LiveWorkerConfig,
+        samples_rx: std::sync::mpsc::Receiver<Vec<f32>>,
+        events_tx: std::sync::mpsc::Sender<LiveEvent>,
+    ) -> Result<Self, TranscribeError> {
+        use crate::stt::CrispAsrStreamEngine;
+
+        let LiveWorkerConfig {
+            quick_model_path,
+            source,
+            language,
+            ..
+        } = config;
+
+        let cli_path = match Self::resolve_crispasr_cli_path(&quick_model_path) {
+            Some(path) => path,
+            None => {
+                return Err(TranscribeError::Transcription(format!(
+                    "CrispASR CLI not found next to {} (set CRISPASR_CLI_PATH or place crispasr{} alongside the model)",
+                    quick_model_path.display(),
+                    if cfg!(windows) { ".exe" } else { "" }
+                )));
+            }
+        };
+
+        let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+        let finished = Arc::new(AtomicBool::new(false));
+        let finished_mutex = Arc::new(Mutex::new(()));
+        let finished_cvar = Arc::new(Condvar::new());
+        let finished_thread = Arc::clone(&finished);
+        let finished_cvar_thread = Arc::clone(&finished_cvar);
+        let processed = Arc::new(AtomicU64::new(0));
+        let processed_thread = Arc::clone(&processed);
+
+        let thread = std::thread::spawn(move || {
+            let mut engine = match CrispAsrStreamEngine::spawn(
+                &cli_path,
+                &quick_model_path,
+                backend_flag,
+                language.as_deref(),
+            ) {
+                Ok(engine) => engine,
+                Err(error) => {
+                    tracing::error!(source = %source, %error, "crispasr stream engine failed to start");
+                    finished_thread.store(true, Ordering::SeqCst);
+                    finished_cvar_thread.notify_one();
+                    return;
+                }
+            };
+
+            // An utterance_id already sent as Final is never sent again —
+            // CrispASR's own re-decode policy can re-emit one near a VAD
+            // boundary, and without this it would appear twice.
+            let mut committed_ids: std::collections::HashSet<u64> = std::collections::HashSet::new();
+
+            while stop_rx.try_recv().is_err() {
+                let samples = match samples_rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                    Ok(samples) => samples,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                };
+                let level = rms_level(&samples);
+                let _ = events_tx.send(LiveEvent::Vu {
+                    source: source.clone(),
+                    level,
+                });
+                let ingested = samples.len() as u64;
+                if let Err(error) = engine.push_pcm(&samples) {
+                    tracing::error!(source = %source, %error, "crispasr stream push_pcm failed");
+                }
+                for event in engine.poll_events() {
+                    Self::emit_crispasr_event(event, &source, &events_tx, &mut committed_ids);
+                }
+                processed_thread.fetch_add(ingested, Ordering::Relaxed);
+            }
+
+            for event in engine.finish().unwrap_or_default() {
+                Self::emit_crispasr_event(event, &source, &events_tx, &mut committed_ids);
+            }
+            let _ = events_tx.send(LiveEvent::Tentative {
+                source: source.clone(),
+                text: String::new(),
+            });
+            finished_thread.store(true, Ordering::SeqCst);
+            finished_cvar_thread.notify_one();
+        });
+
+        Ok(Self {
+            stop_tx: Some(stop_tx),
+            thread: Some(thread),
+            route: None,
+            finished,
+            finished_mutex,
+            finished_cvar,
+            processed,
+        })
+    }
+
+    #[cfg(feature = "crispasr-experimental")]
+    fn emit_crispasr_event(
+        event: crate::stt::StreamEvent,
+        source: &str,
+        events_tx: &std::sync::mpsc::Sender<LiveEvent>,
+        committed_ids: &mut std::collections::HashSet<u64>,
+    ) {
+        use crate::stt::StreamEvent;
+        match event {
+            StreamEvent::Partial { text, .. } => {
+                let _ = events_tx.send(LiveEvent::Tentative {
+                    source: source.to_string(),
+                    text,
+                });
+            }
+            StreamEvent::Final {
+                utterance_id,
+                text,
+                t0,
+                t1,
+                ..
+            } => {
+                if !committed_ids.insert(utterance_id) {
+                    return; // already committed this utterance once
+                }
+                let _ = events_tx.send(LiveEvent::Segment(Segment {
+                    source: source.to_string(),
+                    speaker: String::new(),
+                    text,
+                    timestamp: t0,
+                    duration: (t1 - t0).max(0.0),
+                    language: String::new(),
+                    confidence: 1.0,
+                    avg_log_prob: 0.0,
+                    is_partial: false,
+                    low_confidence: false,
+                    words: Vec::new(),
+                }));
+                let _ = events_tx.send(LiveEvent::Tentative {
+                    source: source.to_string(),
+                    text: String::new(),
+                });
+            }
         }
     }
 

@@ -253,6 +253,23 @@ impl EngineTier {
             *self
         }
     }
+
+    /// Reverse lookup used by `pipeline::LiveWorker::spawn` to decide
+    /// whether a `LiveWorkerConfig::quick_model_path` is a CrispASR
+    /// model (dispatch to [`crate::stt::CrispAsrStreamEngine`]) or a
+    /// whisper one (the existing HPT/VAD path) — keyed on the model
+    /// FILE NAME (`model::CatalogEntry::filename`), since that is what a
+    /// `PathBuf` on disk actually carries; the catalog id alone is not
+    /// recoverable from a path. Returns the matching tier's
+    /// `crispasr_backend_flag()` directly since that is the only thing
+    /// the caller needs from the match.
+    pub fn crispasr_backend_flag_for_filename(filename: &str) -> Option<&'static str> {
+        match filename {
+            "qwen3-asr-0.6b-q4_k.gguf" => EngineTier::FastExperimental.crispasr_backend_flag(),
+            "qwen3-asr-1.7b-q4_k.gguf" => EngineTier::AccurateExperimental.crispasr_backend_flag(),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
