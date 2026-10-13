@@ -54,7 +54,7 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 set(TRASCRIBE_RUST_MANIFEST "${CMAKE_CURRENT_LIST_DIR}/../rust_core/Cargo.toml")
 set(TRASCRIBE_RUST_LIB_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../rust_core/target/release/rust_core.dll")
 add_custom_target(rust_core_native ALL
-  COMMAND cargo build --manifest-path "${TRASCRIBE_RUST_MANIFEST}" --release --lib
+  COMMAND cargo build --manifest-path "${TRASCRIBE_RUST_MANIFEST}" --release --lib --features crispasr-experimental
   WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
   COMMENT "Building rust_core native library"
   VERBATIM)
