@@ -57,6 +57,11 @@ name = "crispasr_probe"
 path = "src/bin/crispasr_probe.rs"
 required-features = ["crispasr-experimental"]
 
+[[bin]]
+name = "crispasr_stream_probe"
+path = "src/bin/crispasr_stream_probe.rs"
+required-features = ["crispasr-experimental"]
+
 [dependencies]
 thiserror = "2"
 # Text compression-ratio signal (B2): a decoder loop compresses far better
