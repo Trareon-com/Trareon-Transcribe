@@ -628,8 +628,6 @@ class _ModelChoiceStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final isAutoSelected =
         suggestedModel != null && selected == suggestedModel;
     return _StepContent(
