@@ -803,8 +803,24 @@ class DeviceStatusChip extends StatelessWidget {
                 child: AppMenu<String>(
                   enabled: devices.isNotEmpty,
                   tooltip: 'Pilih perangkat $label',
-                  onSelected: onDeviceSelected,
+                  // '' is a sentinel for "no explicit device" — it is never a
+                  // real cpal/CoreAudio device name. Picking it clears the
+                  // selection back to null, which on macOS is also what lets
+                  // the system-audio capture use ScreenCaptureKit's
+                  // zero-setup tap instead of a named loopback device (see
+                  // `wants_zero_setup_capture` in rust_core/audio/loopback.rs).
+                  // Without this entry the dropdown only ever listed concrete
+                  // devices, so there was no way back to "Otomatis" once the
+                  // user had picked e.g. their headset's own audio interface
+                  // for "Suara sistem" — which cannot capture system audio at
+                  // all, silently producing an empty transcript.
+                  onSelected: (value) =>
+                      onDeviceSelected(value.isEmpty ? null : value),
                   entries: [
+                    const AppMenuEntry(
+                      value: '',
+                      label: 'Otomatis (bawaan sistem)',
+                    ),
                     for (final device in devices)
                       AppMenuEntry(value: device, label: device),
                   ],
