@@ -161,9 +161,24 @@ pub(crate) mod macos {
         // Minimal video config (2×2) — we only need audio.
         // The purple recording indicator only appears for video captures,
         // not audio-only SCStream (per Apple documentation).
+        //
+        // Only an Audio output handler is registered below — there is no
+        // API in this crate to omit the video track entirely while still
+        // getting audio, so ScreenCaptureKit still produces a video frame
+        // at `minimum_frame_interval` and this process must receive it
+        // somewhere. Without an explicit interval it defaults to
+        // essentially uncapped (~60fps), and every one of those frames
+        // hits `_SCStream_RemoteVideoQueueOperationHandlerWithError:
+        // stream output NOT found` because no Video handler exists —
+        // confirmed in the unified log on 2026-10-14 at ~55 errors/sec,
+        // burning CPU and flooding the log on every single frame for the
+        // entire life of the stream. One frame per hour is still enough
+        // to keep the video track "alive" for the purple-indicator
+        // workaround above, at a negligible fraction of the error rate.
         let config = SCStreamConfiguration::new()
             .with_width(2)
             .with_height(2)
+            .with_minimum_frame_interval(&CMTime::new(3600, 1))
             .with_captures_audio(true)
             .with_sample_rate(16_000)
             .with_channel_count(1)
