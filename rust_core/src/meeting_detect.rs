@@ -9,6 +9,7 @@
 //! yang belum sempat diimplementasikan — lihat [`detect_active_meeting_window`]
 //! untuk status per platform.
 
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
 /// Satu window rapat yang terdeteksi aktif (foreground) di OS.
