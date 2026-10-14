@@ -70,6 +70,12 @@ fn run_xdotool(args: &[&str]) -> Option<String> {
 /// Klasifikasi judul window menjadi nama aplikasi rapat, atau `None` kalau
 /// judulnya tidak cocok dengan pola rapat yang dikenal. Dipisah dari
 /// pemanggilan `xdotool` agar bisa diuji tanpa X server.
+///
+/// Hanya dipanggil dari [`detect_linux`] (satu-satunya implementasi nyata
+/// saat ini); di-cfg-gate sama seperti pemanggilnya supaya build macOS/
+/// Windows tidak memunculkan warning "function is never used" untuk kode
+/// yang memang sengaja belum aktif di platform itu.
+#[cfg(target_os = "linux")]
 fn classify_title(title: &str) -> Option<&'static str> {
     let lower = title.to_lowercase();
     if lower.contains("zoom meeting") {
@@ -83,7 +89,10 @@ fn classify_title(title: &str) -> Option<&'static str> {
     }
 }
 
-#[cfg(test)]
+// Semua test di modul ini memanggil `classify_title`, yang hanya ada di
+// build Linux (lihat cfg-gate di atas) — modul test ikut di-gate supaya
+// `cargo test` di macOS/Windows tidak gagal compile karena simbol hilang.
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
 
