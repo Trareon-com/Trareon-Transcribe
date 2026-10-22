@@ -32,7 +32,9 @@ void main() {
       // Golden diff images for the run that produced them.
       path.startsWith('test/failures/') ||
       // `cargo run --bin gen_fixtures -- ../test/fixtures` output.
-      path.endsWith('.wav');
+      path.endsWith('.wav') ||
+      // Finder litter on macOS dev machines; no test reads it.
+      path.endsWith('.DS_Store');
 
   test(
     'no Dart source under lib/, test/ or integration_test/ is gitignored',
@@ -104,9 +106,9 @@ void main() {
       reason: 'found no files at all — the scan itself is broken',
     );
 
-    final ignored = _ignoredPaths(files)
-        .where((path) => !generatedArtifacts(path))
-        .toList();
+    final ignored = _ignoredPaths(
+      files,
+    ).where((path) => !generatedArtifacts(path)).toList();
 
     expect(
       ignored,

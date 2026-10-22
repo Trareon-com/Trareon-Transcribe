@@ -1905,7 +1905,15 @@ mod tests {
 
     #[test]
     fn settings_roundtrip_through_api() {
+        // load_settings() applies engine settings, i.e. rewrites the
+        // process-global denoise switch. Take the shared lock so this cannot
+        // reset the switch mid-way through the denoise wiring test above.
+        let _guard = crate::denoise::ENABLED_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let was_enabled = crate::denoise::is_enabled();
         let s = load_settings();
         assert!(!s.default_model.is_empty());
+        crate::denoise::set_enabled(was_enabled);
     }
 }

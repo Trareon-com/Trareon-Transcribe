@@ -8,6 +8,8 @@
 /// the plugin, so this test (and the real Linux build) never calls it.
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -57,5 +59,9 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
     },
+    // Pins the Linux-only clipboard fallback. On macOS/Windows
+    // shareExportedFile reaches the real share_plus sheet, which blocks in a
+    // headless runner.
+    skip: !Platform.isLinux,
   );
 }
