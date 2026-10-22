@@ -1,0 +1,32 @@
+# cargo-audit configuration for rust_core.
+#
+# This must stay in sync with the [advisories] ignore list in deny.toml —
+# `cargo deny check` and `cargo audit` are separate tools with separate
+# config files, and CI runs both (see .github/workflows/ci.yml). Ignoring
+# an advisory in one but not the other is how a "green" build turns red
+# the next time the advisory DB refreshes.
+#
+# Every entry below needs the same justification as its deny.toml twin.
+# Each is pinned upstream with no compatible upgrade available; none of
+# the vulnerable APIs is reachable from our code.
+
+[advisories]
+ignore = [
+    # ttf-parser — transitive via lopdf 0.42 (pdf-extract 0.12, "konteks
+    # dokumen" PDF text extraction). Unmaintained; no safe upgrade until
+    # pdf-extract moves off lopdf 0.42. We only use plain text extraction,
+    # never a font-embedding/glyph-parsing path.
+    "RUSTSEC-2026-0192",
+
+    # zip 2.4.2 — build-dependency of sherpa-onnx-sys 1.13.8, which pins
+    # `zip ^2`; fixed only in zip >=9.0.0. Only compiled under the optional
+    # `neural-diarization` feature, and its build.rs reads the iOS
+    # .xcframework.zip entry-by-entry rather than calling `extract()`.
+    # zip 8.6.0 — direct dependency plus docx-rs 0.4.22's `zip ^8.6.0`
+    # (0.4.22 is the newest published docx-rs). Our code uses the
+    # zip-slip-safe `by_index()` + `enclosed_name()` path, not
+    # `ZipArchive::extract`; unit tests cover the `../` traversal refusal.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+]
