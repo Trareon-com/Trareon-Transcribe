@@ -250,7 +250,11 @@ impl LiveWorker {
             }
         }
         let dir = model_path.parent()?;
-        let name = if cfg!(windows) { "crispasr.exe" } else { "crispasr" };
+        let name = if cfg!(windows) {
+            "crispasr.exe"
+        } else {
+            "crispasr"
+        };
         let sibling = dir.join(name);
         sibling.exists().then_some(sibling)
     }
@@ -318,7 +322,8 @@ impl LiveWorker {
             // An utterance_id already sent as Final is never sent again —
             // CrispASR's own re-decode policy can re-emit one near a VAD
             // boundary, and without this it would appear twice.
-            let mut committed_ids: std::collections::HashSet<u64> = std::collections::HashSet::new();
+            let mut committed_ids: std::collections::HashSet<u64> =
+                std::collections::HashSet::new();
 
             while stop_rx.try_recv().is_err() {
                 let samples = match samples_rx.recv_timeout(std::time::Duration::from_millis(100)) {

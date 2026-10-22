@@ -30,7 +30,10 @@ fn main() {
         "wav: {} Hz, {} ch, {:?}",
         spec.sample_rate, spec.channels, spec.sample_format
     );
-    assert_eq!(spec.sample_rate, 16000, "probe expects pre-resampled 16kHz input");
+    assert_eq!(
+        spec.sample_rate, 16000,
+        "probe expects pre-resampled 16kHz input"
+    );
     assert_eq!(spec.channels, 1, "probe expects mono input");
 
     let samples: Vec<f32> = match spec.sample_format {

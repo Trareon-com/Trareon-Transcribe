@@ -278,7 +278,8 @@ pub fn engine_tier_is_experimental(tier_id: String) -> bool {
 /// device RAM (always non-experimental); a no-op (echoes the input back)
 /// for any other valid id, and `None` for an id that is not one of the 6.
 pub fn resolve_engine_tier(tier_id: String, ram_mb: u64) -> Option<String> {
-    crate::model_select::EngineTier::from_id(&tier_id).map(|t| t.resolve_auto(ram_mb).id().to_string())
+    crate::model_select::EngineTier::from_id(&tier_id)
+        .map(|t| t.resolve_auto(ram_mb).id().to_string())
 }
 
 /// `model::KNOWN_MODELS` catalog id this tier downloads/loads, or `None`

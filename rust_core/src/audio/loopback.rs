@@ -234,10 +234,8 @@ pub(crate) mod macos {
                             let len = buf.data_byte_size() / 4;
                             total_bytes += buf.data_byte_size();
                             if !ptr.is_null() && len > 0 {
-                                let interleaved =
-                                    unsafe { std::slice::from_raw_parts(ptr, len) };
-                                total_nonzero +=
-                                    interleaved.iter().filter(|s| **s != 0.0).count();
+                                let interleaved = unsafe { std::slice::from_raw_parts(ptr, len) };
+                                total_nonzero += interleaved.iter().filter(|s| **s != 0.0).count();
                                 let mono: Vec<f32> = interleaved
                                     .chunks_exact(2)
                                     .map(|pair| (pair[0] + pair[1]) * 0.5)

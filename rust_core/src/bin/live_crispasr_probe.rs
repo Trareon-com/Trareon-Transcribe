@@ -32,7 +32,10 @@ fn main() {
 
     let mut reader = hound::WavReader::open(wav_path).expect("open wav");
     let spec = reader.spec();
-    println!("wav: {} Hz, {} ch, {:?}", spec.sample_rate, spec.channels, spec.sample_format);
+    println!(
+        "wav: {} Hz, {} ch, {:?}",
+        spec.sample_rate, spec.channels, spec.sample_format
+    );
     let samples: Vec<f32> = match spec.sample_format {
         hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap()).collect(),
         hound::SampleFormat::Int => reader

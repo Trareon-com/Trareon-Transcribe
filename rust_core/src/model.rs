@@ -164,7 +164,8 @@ pub const KNOWN_MODELS: &[CatalogEntry] = &[
         min_ram_gb: 2,
         is_bundled: false,
         sha256: "f63771c02dfa486d9399d41ab6ab8cd2d8ca24e077cd32130ea1f67f4fd8dade",
-        url: "https://huggingface.co/cstr/qwen3-asr-0.6b-GGUF/resolve/main/qwen3-asr-0.6b-q4_k.gguf",
+        url:
+            "https://huggingface.co/cstr/qwen3-asr-0.6b-GGUF/resolve/main/qwen3-asr-0.6b-q4_k.gguf",
         kind: AssetKind::Transcription,
     },
     CatalogEntry {
@@ -173,7 +174,8 @@ pub const KNOWN_MODELS: &[CatalogEntry] = &[
         min_ram_gb: 3,
         is_bundled: false,
         sha256: "ec197cef7ccc589fdcae1becc3f4a3de119d0a41e790b898b519b1a048dad8d4",
-        url: "https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF/resolve/main/qwen3-asr-1.7b-q4_k.gguf",
+        url:
+            "https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF/resolve/main/qwen3-asr-1.7b-q4_k.gguf",
         kind: AssetKind::Transcription,
     },
     // --- Voice activity detection -------------------------------------

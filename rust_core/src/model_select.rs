@@ -27,7 +27,7 @@ const FLEURS_WER: &[(&str, f32)] = &[
     ("small", 17.63),
     ("base", 36.68),
     ("tiny", 36.68), // no FLEURS-id measurement exists; base's figure is the
-                     // closest honest upper bound rather than inventing one
+    // closest honest upper bound rather than inventing one
     ("qwen3-asr-0.6b", 8.61),
     ("qwen3-asr-1.7b", 5.35),
 ];
@@ -347,7 +347,10 @@ mod tests {
             .filter(|t| t.is_experimental())
             .map(|t| t.id())
             .collect();
-        assert_eq!(experimental, vec!["fast_experimental", "accurate_experimental"]);
+        assert_eq!(
+            experimental,
+            vec!["fast_experimental", "accurate_experimental"]
+        );
     }
 
     #[test]

@@ -136,7 +136,10 @@ impl CrispAsrStreamEngine {
         if let Some(lang) = language.filter(|l| *l != "auto") {
             cmd.arg("-l").arg(lang);
         }
-        cmd.arg("--stream").arg("--stream-json").arg("--vad").arg("-np");
+        cmd.arg("--stream")
+            .arg("--stream-json")
+            .arg("--vad")
+            .arg("-np");
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
         // whisper_vad_* debug lines go to stderr even with -np; they are

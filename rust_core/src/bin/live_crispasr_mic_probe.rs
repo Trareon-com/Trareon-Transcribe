@@ -27,7 +27,12 @@ use rust_core::pipeline::{LiveEvent, LiveWorker, LiveWorkerConfig};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.is_empty() || args.len() < 2 {
-        eprintln!("usage: {} <model.gguf> [seconds=8] [lang=id]", args.first().map(String::as_str).unwrap_or("live_crispasr_mic_probe"));
+        eprintln!(
+            "usage: {} <model.gguf> [seconds=8] [lang=id]",
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("live_crispasr_mic_probe")
+        );
         std::process::exit(2);
     }
     let model_path = PathBuf::from(&args[1]);
@@ -57,9 +62,7 @@ fn main() {
     println!("Opening real microphone via AudioCapture::start (same path session.rs uses)...");
     let mut capture =
         AudioCapture::start("mic", None, samples_tx).expect("open default microphone");
-    println!(
-        "Mic open -- recording for {record_secs}s. Please speak a short sentence now..."
-    );
+    println!("Mic open -- recording for {record_secs}s. Please speak a short sentence now...");
 
     let start = std::time::Instant::now();
     while start.elapsed() < Duration::from_secs(record_secs) {
