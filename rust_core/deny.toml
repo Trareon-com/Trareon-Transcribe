@@ -11,6 +11,30 @@ ignore = [
     # lopdf requirement ("0.42") does not reach that version yet. We do not
     # use any font-embedding/glyph-parsing path — only plain text extraction.
     "RUSTSEC-2026-0192",
+
+    # zip 2.4.2 — build-dependency of sherpa-onnx-sys 1.13.8 (`zip = "^2"`),
+    # which only compiles under the optional `neural-diarization` feature.
+    # sherpa-onnx-sys pins `zip ^2`; the advisories (RUSTSEC-2026-0367
+    # SUID/SGID bits preserved on extract, -0368 symlink escape, -0369
+    # ZipStreamReader/ZipArchive::extract path handling) are fixed in
+    # zip >=9.0.0, which is a major bump that upstream does not allow.
+    # The vulnerable surface is `ZipArchive::extract`/`ZipStreamReader`,
+    # and sherpa-onnx-sys's build.rs opens the iOS .xcframework.zip with
+    # `ZipArchive::new` + per-entry reads only, never `extract()`.
+    #
+    # zip 8.6.0 — our own direct dependency (DOCX/flight-recorder export)
+    # AND docx-rs 0.4.22's requirement (`zip ^8.6.0`). 0.4.22 is the
+    # newest published docx-rs, so the transitive edge cannot be moved to
+    # 9.x either. Our code never calls the vulnerable APIs either:
+    # session_archive::extract_archive iterates `by_index()` and gates
+    # every entry through `enclosed_name()`, which is the zip-slip-safe
+    # pattern the advisories ask for — there are unit tests asserting a
+    # `../` entry is refused (see the traversal-out test).
+    #
+    # Revisit when sherpa-onnx-sys and docx-rs both require zip >=9.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
 ]
 
 [licenses]

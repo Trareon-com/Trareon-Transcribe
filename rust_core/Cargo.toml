@@ -52,6 +52,26 @@ path = "src/bin/session_start_probe.rs"
 name = "complete_probe"
 path = "src/bin/complete_probe.rs"
 
+[[bin]]
+name = "crispasr_probe"
+path = "src/bin/crispasr_probe.rs"
+required-features = ["crispasr-experimental"]
+
+[[bin]]
+name = "crispasr_stream_probe"
+path = "src/bin/crispasr_stream_probe.rs"
+required-features = ["crispasr-experimental"]
+
+[[bin]]
+name = "live_crispasr_probe"
+path = "src/bin/live_crispasr_probe.rs"
+required-features = ["crispasr-experimental"]
+
+[[bin]]
+name = "live_crispasr_mic_probe"
+path = "src/bin/live_crispasr_mic_probe.rs"
+required-features = ["crispasr-experimental"]
+
 [dependencies]
 thiserror = "2"
 # Text compression-ratio signal (B2): a decoder loop compresses far better
@@ -115,6 +135,7 @@ nnnoiseless = { version = "0.5.2", default-features = false }
 # feature below for why it is not a default dependency.
 sherpa-onnx = { version = "1.13.8", optional = true, default-features = false, features = ["shared"] }
 
+
 [features]
 # Deliberately empty. `silero-onnx` used to be here; Sprint 4b replaced the
 # `ort`-backed Silero VAD with whisper.cpp's own (see
@@ -156,6 +177,16 @@ gpu-vulkan = ["whisper-rs/vulkan"]  # Enable cross-vendor GPU acceleration via V
 # binary with several hundred duplicate-symbol errors. `src/lib.rs` turns
 # that into one readable `compile_error!`.
 neural-diarization = ["dep:sherpa-onnx"]
+
+# Qwen3-ASR backend via CrispASR's CLI binary, invoked as a subprocess —
+# see src/stt/crispasr_engine.rs's module doc for why (the Rust FFI
+# binding crashes on real testing; the CLI binary does not). No extra
+# crate dependency needed: this just compiles in crispasr_engine.rs,
+# which uses std::process::Command plus deps already in this file
+# (serde_json, hound, uuid). Off by default: the "Eksperimental" tier in
+# the UI, opted into per-session by the user, never silently substituted
+# for whisper.
+crispasr-experimental = []
 
 # OpenMP hanya untuk Linux — macOS GitHub Actions runner tidak punya libomp
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies.whisper-rs]

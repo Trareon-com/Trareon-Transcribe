@@ -271,6 +271,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Step 2: tap the bundled 'large-v3-turbo-q5' model card to change selection
+    // The tier list is taller than the 800x600 test surface on some hosts;
+    // scroll the card into view or the tap lands off-screen.
+    await tester.ensureVisible(find.text('🎯 Akurat'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('🎯 Akurat'));
     await tester.pumpAndSettle();
 

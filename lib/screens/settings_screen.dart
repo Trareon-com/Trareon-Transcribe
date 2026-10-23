@@ -445,9 +445,11 @@ class _CategoryContent extends ConsumerWidget {
               : 'Belum diunduh. Pilih untuk mengunduhnya.',
           // settings.defaultModel can be an older/power-user model
           // (e.g. 'tiny') that's still available on disk but outside
-          // the 2-model catalog this dropdown offers — feeding that
-          // straight in as `value` trips DropdownButton's "exactly one
-          // matching item" assertion. Clamp for display only.
+          // the kKnownModelIds catalog this dropdown offers (currently
+          // 5 tiers: base/small/large-v3-turbo-q5/qwen3-asr-0.6b/
+          // qwen3-asr-1.7b) — feeding that straight in as `value` trips
+          // DropdownButton's "exactly one matching item" assertion.
+          // Clamp for display only.
           trailing: CompactDropdown<String>(
             value: kKnownModelIds.contains(settings.defaultModel)
                 ? settings.defaultModel

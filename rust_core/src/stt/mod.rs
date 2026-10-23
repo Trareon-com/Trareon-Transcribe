@@ -1,4 +1,11 @@
 //! STT engine: whisper-rs binding to whisper.cpp. One inference context per
+//!
+//! `WhisperEngine` also implements [`engine_trait::SttEngine`] (impl block
+//! near the bottom of this file) so call sites that want to be
+//! engine-agnostic can hold a `Box<dyn SttEngine>` instead of a concrete
+//! `WhisperEngine`. Direct callers that only ever use whisper keep calling
+//! `transcribe_chunk_with` as before — the trait is additive, not a
+//! replacement.
 //! loaded model, guarded by a mutex — whisper.cpp state is not safely
 //! shared across concurrent `full()` calls, so callers must serialize
 //! through a single inference thread/queue (see api.rs session handling).
@@ -16,9 +23,20 @@ use whisper_rs::{
 use crate::error::{TranscribeError, TranscribeResult};
 use crate::export::Segment;
 
+#[cfg(feature = "crispasr-experimental")]
+pub mod crispasr_engine;
+#[cfg(feature = "crispasr-experimental")]
+pub mod crispasr_stream;
+pub mod engine_trait;
 pub mod file;
 pub mod whisper_cd;
 pub mod words;
+
+#[cfg(feature = "crispasr-experimental")]
+pub use crispasr_engine::CrispAsrEngine;
+#[cfg(feature = "crispasr-experimental")]
+pub use crispasr_stream::{CrispAsrStreamEngine, StreamEvent};
+pub use engine_trait::SttEngine;
 
 use words::TokenSpan;
 
@@ -611,6 +629,35 @@ pub(crate) fn segment_language(text: &str, explicit: Option<&str>) -> &'static s
         "en"
     } else {
         "id"
+    }
+}
+
+impl SttEngine for WhisperEngine {
+    /// Delegates to the inherent [`WhisperEngine::transcribe_chunk_with`] —
+    /// no behaviour change, this is purely the trait-shaped doorway so
+    /// callers that want to be engine-agnostic (hold a `Box<dyn SttEngine>`
+    /// picked at session start) can use whisper through it.
+    fn transcribe(
+        &self,
+        samples: &[f32],
+        source: &str,
+        chunk_start_secs: f64,
+        language: Option<&str>,
+        initial_prompt: Option<&str>,
+        options: DecodeOptions,
+    ) -> TranscribeResult<Vec<Segment>> {
+        self.transcribe_chunk_with(
+            samples,
+            source,
+            chunk_start_secs,
+            language,
+            initial_prompt,
+            options,
+        )
+    }
+
+    fn engine_id(&self) -> &'static str {
+        "whisper"
     }
 }
 

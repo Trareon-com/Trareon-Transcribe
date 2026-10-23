@@ -225,6 +225,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       case _WizardStep.modelChoice:
         return _ModelChoiceStep(
           selected: _selectedModel,
+          suggestedModel: _suggestedModel,
           accuracyLabels: _accuracyLabels,
           onChanged: (id) {
             setState(() => _selectedModel = id);
@@ -566,12 +567,14 @@ class _SpecRow extends StatelessWidget {
 /// Step 2 — Model choice
 class _ModelChoiceStep extends StatelessWidget {
   final String selected;
+  final String? suggestedModel;
   final Map<String, String> accuracyLabels;
   final ValueChanged<String> onChanged;
 
   const _ModelChoiceStep({
     required this.selected,
     required this.onChanged,
+    this.suggestedModel,
     this.accuracyLabels = const {},
   });
 
@@ -582,12 +585,26 @@ class _ModelChoiceStep extends StatelessWidget {
   // repository measured accuracy, and the audit flagged the old
   // "🇮🇩 ID: ~96%" as an unsupported claim (A.6, P3) — the fix was to
   // remove the number, not to make one up; now there is a real one.
+  //
+  // 2026-10-13: extended from 3 to 5 concrete tiers for the CrispASR
+  // (Qwen3-ASR) rollout — "Cepat-Eksperimental"/"Akurat-Eksperimental"
+  // mirror model_select.rs's `EngineTier::FastExperimental`/
+  // `AccurateExperimental` exactly (same ids, same ordering). "Otomatis"
+  // is handled separately below, not as a 6th row here, because unlike
+  // these five it has no model file of its own — it resolves to one of
+  // them via `recommendDefaultModel` (see [suggestedModel]).
   static const _models = [
     (
       'base',
       '⚡ Cepat',
       '142 MB · termasuk di aplikasi\nTranskrip muncul cepat, cocok untuk '
           'komputer ringan dan catatan sehari-hari.',
+    ),
+    (
+      'qwen3-asr-0.6b',
+      '🧪 Cepat-Eksperimental',
+      '397 MB · unduh sekali\nSeakurat model "Akurat" tapi secepat model '
+          '"Cepat" (Qwen3-ASR). Baru, belum teruji selengkap model lain.',
     ),
     (
       'small',
@@ -601,79 +618,126 @@ class _ModelChoiceStep extends StatelessWidget {
       '548 MB · unduh sekali\nLebih teliti untuk rapat dan wawancara, tapi '
           'jauh lebih lambat di komputer tanpa GPU.',
     ),
+    (
+      'qwen3-asr-1.7b',
+      '🧪 Akurat-Eksperimental',
+      '1.1 GB · unduh sekali\nModel paling teliti yang tersedia (Qwen3-ASR). '
+          'Baru, belum teruji selengkap model lain.',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final isAutoSelected =
+        suggestedModel != null && selected == suggestedModel;
     return _StepContent(
       icon: AppIcons.model,
       title: '2. Pilih Model',
       description: 'Pilih model Speech-to-Text yang sesuai.',
       child: Column(
-        children: _models.map((m) {
-          final isSelected = selected == m.$1;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.sm),
-            child: InkWell(
+        children: [
+          if (suggestedModel != null)
+            _ModelCard(
+              label: '🤖 Otomatis (disarankan)',
+              description:
+                  'Dipilihkan otomatis sesuai spesifikasi komputer ini.',
+              isSelected: isAutoSelected,
+              onTap: () => onChanged(suggestedModel!),
+            ),
+          if (suggestedModel != null) const SizedBox(height: Spacing.sm),
+          ..._models.map((m) {
+            final isSelected = selected == m.$1;
+            return _ModelCard(
+              label: m.$2,
+              description: accuracyLabels.containsKey(m.$1)
+                  ? '${m.$3}\n${accuracyLabels[m.$1]}'
+                  : m.$3,
+              isSelected: isSelected,
               onTap: () => onChanged(m.$1),
-              borderRadius: BorderRadius.circular(Radii.md),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(Spacing.md),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colors.primary.withValues(alpha: 0.1)
-                      : colors.surface,
-                  borderRadius: BorderRadius.circular(Radii.md),
-                  border: Border.all(
-                    color: isSelected ? colors.primary : colors.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Row(
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// One tappable model/tier card — extracted so the "Otomatis" row (no
+/// static `(id, label, desc)` tuple of its own, since it resolves to
+/// whichever concrete tier `recommendDefaultModel` suggests) renders
+/// identically to the five concrete ones instead of needing its own
+/// slightly-different inline widget tree.
+class _ModelCard extends StatelessWidget {
+  final String label;
+  final String description;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ModelCard({
+    required this.label,
+    required this.description,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors =
+        Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(Spacing.md),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colors.primary.withValues(alpha: 0.1)
+                : colors.surface,
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(
+              color: isSelected ? colors.primary : colors.border,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? AppIcons.checkFilled : AppIcons.radioOff,
+                color: isSelected ? colors.primary : colors.textTertiary,
+                size: IconSizes.lg,
+              ),
+              Spacing.hMd,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      isSelected ? AppIcons.checkFilled : AppIcons.radioOff,
-                      color: isSelected ? colors.primary : colors.textTertiary,
-                      size: IconSizes.lg,
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: colors.text,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontSize: FontSizes.bodyLarge,
+                      ),
                     ),
-                    Spacing.hMd,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            m.$2,
-                            style: TextStyle(
-                              color: colors.text,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.w600,
-                              fontSize: FontSizes.bodyLarge,
-                            ),
-                          ),
-                          Text(
-                            accuracyLabels.containsKey(m.$1)
-                                ? '${m.$3}\n${accuracyLabels[m.$1]}'
-                                : m.$3,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? colors.primary
-                                  : colors.textTertiary,
-                              fontSize: FontSizes.caption,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: isSelected
+                            ? colors.primary
+                            : colors.textTertiary,
+                        fontSize: FontSizes.caption,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            ],
+          ),
+        ),
       ),
     );
   }

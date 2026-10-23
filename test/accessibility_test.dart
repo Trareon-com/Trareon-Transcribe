@@ -14,6 +14,7 @@ import 'package:transcribe/theme/app_tokens.dart';
 import 'package:transcribe/widgets/bookmark_bar.dart';
 import 'package:transcribe/widgets/setup_overlay.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
+import 'package:transcribe/widgets/ui/key_hint.dart';
 
 import 'test_helpers.dart';
 
@@ -305,6 +306,9 @@ void main() {
     testWidgets('the "Tandai" control is reachable and labelled', (
       tester,
     ) async {
+      // Platform-aware keycap text (⌘ on macOS) — pin non-macOS rendering.
+      debugForceCommandKey = false;
+      addTearDown(() => debugForceCommandKey = null);
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),

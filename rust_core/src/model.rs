@@ -147,6 +147,37 @@ pub const KNOWN_MODELS: &[CatalogEntry] = &[
         ),
         kind: AssetKind::Transcription,
     },
+    // --- Qwen3-ASR (CrispASR backend, Eksperimental tiers) -------------
+    //
+    // Build-vs-adopt + accuracy/speed numbers: BASELINE_FLEURS.md,
+    // 2026-10-13 sections. Only reachable via `crispasr-experimental`
+    // (off by default) and only through an explicit "Eksperimental" tier
+    // pick in the UI — see model_select.rs's `EngineTier`.
+    //
+    // `min_ram_gb` here is model-weights-only like every other entry
+    // (RAM_HEADROOM_MB in model_select.rs adds the same 2 GB slack on
+    // top); it is not a GPU VRAM figure — CrispASR runs both variants on
+    // CPU too, just slower (see the GPU-vs-CPU speed table).
+    CatalogEntry {
+        id: "qwen3-asr-0.6b",
+        filename: "qwen3-asr-0.6b-q4_k.gguf",
+        min_ram_gb: 2,
+        is_bundled: false,
+        sha256: "f63771c02dfa486d9399d41ab6ab8cd2d8ca24e077cd32130ea1f67f4fd8dade",
+        url:
+            "https://huggingface.co/cstr/qwen3-asr-0.6b-GGUF/resolve/main/qwen3-asr-0.6b-q4_k.gguf",
+        kind: AssetKind::Transcription,
+    },
+    CatalogEntry {
+        id: "qwen3-asr-1.7b",
+        filename: "qwen3-asr-1.7b-q4_k.gguf",
+        min_ram_gb: 3,
+        is_bundled: false,
+        sha256: "ec197cef7ccc589fdcae1becc3f4a3de119d0a41e790b898b519b1a048dad8d4",
+        url:
+            "https://huggingface.co/cstr/qwen3-asr-1.7b-GGUF/resolve/main/qwen3-asr-1.7b-q4_k.gguf",
+        kind: AssetKind::Transcription,
+    },
     // --- Voice activity detection -------------------------------------
     //
     // 865 KB. This is the primary hallucination defence (see

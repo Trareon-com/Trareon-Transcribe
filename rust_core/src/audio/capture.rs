@@ -440,31 +440,47 @@ where
     T: Sample + cpal::SizedSample + Send + 'static,
     f32: cpal::FromSample<T>,
 {
-    let tx = samples_tx;
-    // ~100ms of raw source-rate audio per resample call — big enough that
-    // the fresh-resampler-per-call overhead (see comment below) is a small
-    // fraction of the batch, small enough to keep VAD/live latency low.
-    let batch_threshold = (source_rate as usize) / 10;
-    let mut accum: Vec<f32> = Vec::with_capacity(batch_threshold * 2);
+    // The OS audio callback (cpal's `data_callback`, on macOS the
+    // `com.apple.audio.IOThread.client` real-time thread) must stay as
+    // close to allocation-free and branch-free as possible: downmix, hand
+    // the raw samples off, return. Everything downstream of that —
+    // batching into ~100ms chunks and resampling — used to run *inside*
+    // this callback, which meant building a fresh `rubato` sinc resampler
+    // (trig-heavy `sinf()` window computation, see `resample_to_target`)
+    // on the real-time thread roughly every 100ms. A crash-log capture
+    // once caught this thread mid-resample; under CPU pressure from
+    // CrispASR/Flutter rendering that is exactly the kind of work that
+    // causes audio glitches or missed deadlines. Both steps now run on a
+    // plain background thread instead, fed by `raw_tx`/`raw_rx`; the
+    // callback itself only ever does a downmix + channel send.
+    let (raw_tx, raw_rx) = mpsc::channel::<Vec<f32>>();
+
+    std::thread::spawn(move || {
+        // ~100ms of raw source-rate audio per resample call — big enough
+        // that the fresh-resampler-per-call overhead (no persistent state
+        // across calls) is a small fraction of the batch, small enough to
+        // keep VAD/live latency low.
+        let batch_threshold = (source_rate as usize) / 10;
+        let mut accum: Vec<f32> = Vec::with_capacity(batch_threshold * 2);
+        // Exits naturally once the cpal stream (and the `raw_tx` it owns
+        // via the callback closure) is dropped — same "sender gone, thread
+        // ends" idiom `spawn_tee_and_worker` already uses in session.rs.
+        while let Ok(chunk) = raw_rx.recv() {
+            accum.extend_from_slice(&chunk);
+            if accum.len() >= batch_threshold {
+                if let Ok(resampled) = resample_to_target(&accum, source_rate) {
+                    let _ = samples_tx.send(resampled);
+                }
+                accum.clear();
+            }
+        }
+    });
+
     device.build_input_stream(
         config,
         move |data: &[T], _| {
             let mono = downmix_generic(data, channels);
-            accum.extend_from_slice(&mono);
-            // A fresh resampler is built per call (`resample_to_target`
-            // has no persistent state across calls), and its filter
-            // startup/padding overhead is roughly constant regardless of
-            // input size. Calling it on tiny per-callback buffers (e.g.
-            // ~512 raw samples) means that fixed overhead can exceed the
-            // entire output, so it never reaches even one 10ms VAD frame
-            // — accumulate a larger batch first so the fixed overhead is
-            // a small fraction of a much bigger resample call.
-            if accum.len() >= batch_threshold {
-                if let Ok(resampled) = resample_to_target(&accum, source_rate) {
-                    let _ = tx.send(resampled);
-                }
-                accum.clear();
-            }
+            let _ = raw_tx.send(mono);
         },
         err_fn,
         None,

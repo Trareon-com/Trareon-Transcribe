@@ -315,8 +315,10 @@ class SessionGlossaryPill extends ConsumerWidget {
 class SessionOptionsMenu extends ConsumerWidget {
   const SessionOptionsMenu({super.key});
 
-  static const _accurateId = 'large-v3-turbo-q5';
-  static const _quickId = 'base';
+  /// Menu-entry value prefix for a model-tier pick, disambiguating it from
+  /// the other action values ('vad', 'lang_*') sharing the same
+  /// `AppMenu<String>.onSelected` switch.
+  static const _modelValuePrefix = 'model_';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -330,7 +332,6 @@ class SessionOptionsMenu extends ConsumerWidget {
       sessionProvider.select((s) => s.config.language),
     );
     final colors = context.colors;
-    final isAccurate = settings.defaultModel == _accurateId;
 
     Future<void> chooseModel(String modelId) async {
       if (!isModelAvailable(modelId, libraryPath: settings.libraryPath)) {
@@ -349,11 +350,11 @@ class SessionOptionsMenu extends ConsumerWidget {
     return AppMenu<String>(
       tooltip: 'Opsi sesi',
       onSelected: (value) {
+        if (value.startsWith(_modelValuePrefix)) {
+          chooseModel(value.substring(_modelValuePrefix.length));
+          return;
+        }
         switch (value) {
-          case 'quick':
-            chooseModel(_quickId);
-          case 'accurate':
-            chooseModel(_accurateId);
           case 'vad':
             notifier.setVadEnabled(!settings.vadEnabled);
           case 'lang_auto':
@@ -366,16 +367,17 @@ class SessionOptionsMenu extends ConsumerWidget {
       },
       entries: [
         const AppMenuEntry.header('Kualitas transkripsi'),
-        AppMenuEntry(
-          value: 'quick',
-          label: 'Cepat, muncul lebih dulu',
-          checked: !isAccurate,
-        ),
-        AppMenuEntry(
-          value: 'accurate',
-          label: 'Akurat, lebih teliti dan lebih lambat',
-          checked: isAccurate,
-        ),
+        // 2026-10-13: was a hardcoded Cepat/Akurat binary (base vs
+        // large-v3-turbo-q5) — widened to every tier in kKnownModelIds so
+        // the CrispASR (Qwen3-ASR) "Eksperimental" options Master asked
+        // for ("Kan harusnya muncul di halaman utama") are pickable from
+        // this main-screen chip too, not only the setup wizard.
+        for (final id in kKnownModelIds)
+          AppMenuEntry(
+            value: '$_modelValuePrefix$id',
+            label: modelDisplayLabel(id),
+            checked: settings.defaultModel == id,
+          ),
         AppMenuEntry(
           value: 'vad',
           label: 'Lewati jeda sunyi',
@@ -408,14 +410,10 @@ class SessionOptionsMenu extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isAccurate ? AppIcons.accurate : AppIcons.quick,
-              size: IconSizes.sm,
-              color: colors.textSecondary,
-            ),
+            Icon(AppIcons.model, size: IconSizes.sm, color: colors.textSecondary),
             Spacing.hSm,
             Text(
-              isAccurate ? 'Akurat' : 'Cepat',
+              modelDisplayLabel(settings.defaultModel),
               style: AppText.label.c(colors.textSecondary),
             ),
             Spacing.hXs,
@@ -805,8 +803,24 @@ class DeviceStatusChip extends StatelessWidget {
                 child: AppMenu<String>(
                   enabled: devices.isNotEmpty,
                   tooltip: 'Pilih perangkat $label',
-                  onSelected: onDeviceSelected,
+                  // '' is a sentinel for "no explicit device" — it is never a
+                  // real cpal/CoreAudio device name. Picking it clears the
+                  // selection back to null, which on macOS is also what lets
+                  // the system-audio capture use ScreenCaptureKit's
+                  // zero-setup tap instead of a named loopback device (see
+                  // `wants_zero_setup_capture` in rust_core/audio/loopback.rs).
+                  // Without this entry the dropdown only ever listed concrete
+                  // devices, so there was no way back to "Otomatis" once the
+                  // user had picked e.g. their headset's own audio interface
+                  // for "Suara sistem" — which cannot capture system audio at
+                  // all, silently producing an empty transcript.
+                  onSelected: (value) =>
+                      onDeviceSelected(value.isEmpty ? null : value),
                   entries: [
+                    const AppMenuEntry(
+                      value: '',
+                      label: 'Otomatis (bawaan sistem)',
+                    ),
                     for (final device in devices)
                       AppMenuEntry(value: device, label: device),
                   ],

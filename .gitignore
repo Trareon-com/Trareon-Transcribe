@@ -5,6 +5,7 @@
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.flutter_tool_state
 .packages
 .pub-cache/
 .pub/

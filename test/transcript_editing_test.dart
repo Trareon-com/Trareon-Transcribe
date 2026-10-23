@@ -18,6 +18,7 @@ import 'package:transcribe/state/models.dart';
 import 'package:transcribe/theme/app_colors.dart';
 import 'package:transcribe/widgets/tag_editor_dialog.dart';
 import 'package:transcribe/widgets/transcript_view.dart';
+import 'package:transcribe/widgets/ui/key_hint.dart';
 import 'package:transcribe/theme/app_icons.dart';
 
 TranscriptSegment _seg(
@@ -86,6 +87,9 @@ void main() {
     testWidgets('the shortcut crib is on screen when editing is possible', (
       tester,
     ) async {
+      // Keycap text is platform-aware (⌘ on macOS); pin non-macOS rendering.
+      debugForceCommandKey = false;
+      addTearDown(() => debugForceCommandKey = null);
       await _pumpView(tester, [_seg('satu')], _Recorder());
       expect(find.textContaining('Enter sunting'), findsOneWidget);
       expect(find.textContaining('Ctrl+M gabung ke atas'), findsOneWidget);

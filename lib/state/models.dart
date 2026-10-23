@@ -190,6 +190,12 @@ String resolveTilde(String path) {
 String _modelFileName(String modelId) => switch (modelId) {
   'base' => 'ggml-base.bin',
   'large-v3-turbo-q5' => 'ggml-large-v3-turbo-q5_0.bin',
+  // CrispASR (Qwen3-ASR) experimental tiers — plain GGUF, not whisper.cpp's
+  // ggml format, so these must NOT fall through to the 'ggml-$modelId.bin'
+  // default below. Filenames match rust_core/src/model.rs's catalog exactly
+  // (pipeline.rs's LiveWorker::spawn dispatch is keyed on this same name).
+  'qwen3-asr-0.6b' => 'qwen3-asr-0.6b-q4_k.gguf',
+  'qwen3-asr-1.7b' => 'qwen3-asr-1.7b-q4_k.gguf',
   _ => 'ggml-$modelId.bin',
 };
 
@@ -200,7 +206,19 @@ String _modelFileName(String modelId) => switch (modelId) {
 /// from an earlier release) — [isModelAvailable] alone doesn't catch that,
 /// so callers that need a UI-selectable default (not just a playable file)
 /// must also check this.
-const List<String> kKnownModelIds = ['base', 'small', 'large-v3-turbo-q5'];
+///
+/// `qwen3-asr-0.6b`/`qwen3-asr-1.7b` (2026-10-13): the two CrispASR
+/// "Eksperimental" tiers. A session started with either of these ids
+/// dispatches to `LiveWorker::spawn_crispasr_stream` instead of the
+/// whisper HPT path — see `pipeline.rs`'s filename-match dispatch, which
+/// this exact string must keep matching.
+const List<String> kKnownModelIds = [
+  'base',
+  'small',
+  'large-v3-turbo-q5',
+  'qwen3-asr-0.6b',
+  'qwen3-asr-1.7b',
+];
 
 /// Resolves a model id to an absolute file path. The bare relative path
 /// `models/ggml-*.bin` only resolves by coincidence when a process happens

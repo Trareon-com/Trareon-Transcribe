@@ -161,16 +161,55 @@ pub(crate) mod macos {
         // Minimal video config (2×2) — we only need audio.
         // The purple recording indicator only appears for video captures,
         // not audio-only SCStream (per Apple documentation).
+        //
+        // Only an Audio output handler is registered below — there is no
+        // API in this crate to omit the video track entirely while still
+        // getting audio, so ScreenCaptureKit still produces a video frame
+        // at `minimum_frame_interval` and this process must receive it
+        // somewhere. Without an explicit interval it defaults to
+        // essentially uncapped (~60fps), and every one of those frames
+        // hits `_SCStream_RemoteVideoQueueOperationHandlerWithError:
+        // stream output NOT found` because no Video handler exists —
+        // confirmed in the unified log on 2026-10-14 at ~55 errors/sec,
+        // burning CPU and flooding the log on every single frame for the
+        // entire life of the stream. One frame per hour is still enough
+        // to keep the video track "alive" for the purple-indicator
+        // workaround above, at a negligible fraction of the error rate.
+        //
+        // sample_rate/channel_count: this previously asked ScreenCaptureKit
+        // directly for 16 kHz mono (our pipeline's target format). The
+        // crate's own README troubleshooting section for "Audio Capture Not
+        // Working" calls out exactly this as the thing to check, and every
+        // example/test in the crate (including its own audio_video_capture
+        // test) uses 48000/2 — the actual hardware-native rate — not an
+        // arbitrary rate. On 2026-10-14, speaker.wav stayed at a near-empty
+        // byte count across several full sessions with the stream starting
+        // and the handler registering successfully and zero errors anywhere
+        // — consistent with ScreenCaptureKit silently not delivering audio
+        // for a rate/channel-count combination it does not actually support,
+        // rather than erroring. Request the standard 48 kHz/stereo here and
+        // downmix+resample to our 16 kHz mono target ourselves, the same way
+        // the cpal mic path already does for arbitrary hardware rates.
+        const SCK_SAMPLE_RATE: u32 = 48_000;
         let config = SCStreamConfiguration::new()
             .with_width(2)
             .with_height(2)
+            .with_minimum_frame_interval(&CMTime::new(3600, 1))
             .with_captures_audio(true)
-            .with_sample_rate(16_000)
-            .with_channel_count(1)
+            .with_sample_rate(48_000)
+            .with_channel_count(2)
             .with_excludes_current_process_audio(true);
 
         let mut stream = SCStream::new(&filter, &config);
         let tx = samples_tx.clone();
+
+        // TEMP DIAGNOSTIC (2026-10-14): is this closure invoked at all, and
+        // does it ever see a non-empty audio_buffer_list? speaker.wav has
+        // stayed at a near-empty byte count across several sessions with no
+        // error surfaced anywhere — this proves/disproves "callback never
+        // fires" (a documented ScreenCaptureKit class of bug) vs. "callback
+        // fires but extraction yields nothing". Remove once root-caused.
+        let call_count = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
 
         // Closure-based audio handler — fires on ScreenCaptureKit's internal queue
         let handler = stream.add_output_handler(
@@ -178,13 +217,54 @@ pub(crate) mod macos {
                 if of_type != SCStreamOutputType::Audio {
                     return;
                 }
-                if let Some(list) = sample.audio_buffer_list() {
-                    for buf in list.iter() {
-                        let ptr = buf.data().as_ptr() as *const f32;
-                        let len = buf.data_byte_size() / 4;
-                        if !ptr.is_null() && len > 0 {
-                            let samples = unsafe { std::slice::from_raw_parts(ptr, len) };
-                            let _ = tx.send(samples.to_vec());
+                let n = call_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                match sample.audio_buffer_list() {
+                    Some(list) => {
+                        let mut total_bytes: usize = 0;
+                        let mut total_nonzero: usize = 0;
+                        // ScreenCaptureKit delivers interleaved stereo frames
+                        // at SCK_SAMPLE_RATE (see the config comment above —
+                        // requesting our 16 kHz mono target directly is the
+                        // likely reason this stream delivered zero samples).
+                        // Downmix to mono, then resample down to the
+                        // pipeline's 16 kHz target, exactly like the cpal
+                        // mic path already does for non-native rates.
+                        for buf in list.iter() {
+                            let ptr = buf.data().as_ptr() as *const f32;
+                            let len = buf.data_byte_size() / 4;
+                            total_bytes += buf.data_byte_size();
+                            if !ptr.is_null() && len > 0 {
+                                let interleaved = unsafe { std::slice::from_raw_parts(ptr, len) };
+                                total_nonzero += interleaved.iter().filter(|s| **s != 0.0).count();
+                                let mono: Vec<f32> = interleaved
+                                    .chunks_exact(2)
+                                    .map(|pair| (pair[0] + pair[1]) * 0.5)
+                                    .collect();
+                                match crate::decode::resample_to_target(&mono, SCK_SAMPLE_RATE) {
+                                    Ok(resampled) => {
+                                        let _ = tx.send(resampled);
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(%e, "SCK_AUDIO_DIAG resample failed");
+                                    }
+                                }
+                            }
+                        }
+                        if n < 5 || n % 200 == 0 {
+                            tracing::warn!(
+                                call_index = n,
+                                total_bytes,
+                                total_nonzero,
+                                "SCK_AUDIO_DIAG callback fired with buffer list"
+                            );
+                        }
+                    }
+                    None => {
+                        if n < 5 || n % 200 == 0 {
+                            tracing::warn!(
+                                call_index = n,
+                                "SCK_AUDIO_DIAG callback fired, audio_buffer_list() is None"
+                            );
                         }
                     }
                 }

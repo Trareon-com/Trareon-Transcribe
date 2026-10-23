@@ -242,6 +242,55 @@ pub fn recommend_default_model(ram_mb: u64) -> String {
     crate::model_select::recommend_default_model(ram_mb).to_string()
 }
 
+// ---------------------------------------------------------------------------
+// 6-option tier selector (Sprint 7, 2026-10-13) — see `model_select::EngineTier`
+// for the full design rationale (pick-once-per-session, Auto never silently
+// resolves to an experimental tier, crash fallback always lands on `fast`).
+// Every function below is a thin String-based wrapper so Dart never has to
+// mirror the Rust enum by hand; `all_engine_tier_ids()` is the one call a
+// screen needs to build the whole 6-card list.
+
+/// All 6 tier ids, in the fixed display order the UI should always use.
+pub fn all_engine_tier_ids() -> Vec<String> {
+    crate::model_select::EngineTier::ALL
+        .iter()
+        .map(|t| t.id().to_string())
+        .collect()
+}
+
+/// Indonesian display label for `tier_id` (e.g. `"Cepat (Eksperimental)"`),
+/// or `None` if `tier_id` is not one of the 6 known ids.
+pub fn engine_tier_label(tier_id: String) -> Option<String> {
+    crate::model_select::EngineTier::from_id(&tier_id).map(|t| t.label_id().to_string())
+}
+
+/// `true` for the two CrispASR/Qwen3-ASR tiers (`fast_experimental`,
+/// `accurate_experimental`) — the UI should badge these as experimental.
+/// `false` (not an error) for an unrecognised id, since a stale persisted
+/// setting must never crash the settings screen.
+pub fn engine_tier_is_experimental(tier_id: String) -> bool {
+    crate::model_select::EngineTier::from_id(&tier_id)
+        .map(|t| t.is_experimental())
+        .unwrap_or(false)
+}
+
+/// Resolves `"auto"` to one of the 5 concrete tier ids for `ram_mb` of
+/// device RAM (always non-experimental); a no-op (echoes the input back)
+/// for any other valid id, and `None` for an id that is not one of the 6.
+pub fn resolve_engine_tier(tier_id: String, ram_mb: u64) -> Option<String> {
+    crate::model_select::EngineTier::from_id(&tier_id)
+        .map(|t| t.resolve_auto(ram_mb).id().to_string())
+}
+
+/// `model::KNOWN_MODELS` catalog id this tier downloads/loads, or `None`
+/// for `"auto"` (resolve it first with [`resolve_engine_tier`]) or an
+/// unrecognised id.
+pub fn engine_tier_model_id(tier_id: String) -> Option<String> {
+    crate::model_select::EngineTier::from_id(&tier_id)
+        .and_then(|t| t.model_catalog_id())
+        .map(|s| s.to_string())
+}
+
 /// A human-readable Indonesian accuracy label for `model_id`
 /// (e.g. `"WER FLEURS-id: 8,1%"`), or `None` when no measurement exists.
 pub fn model_accuracy_label(model_id: String) -> Option<String> {
@@ -1857,7 +1906,15 @@ mod tests {
 
     #[test]
     fn settings_roundtrip_through_api() {
+        // load_settings() applies engine settings, i.e. rewrites the
+        // process-global denoise switch. Take the shared lock so this cannot
+        // reset the switch mid-way through the denoise wiring test above.
+        let _guard = crate::denoise::ENABLED_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let was_enabled = crate::denoise::is_enabled();
         let s = load_settings();
         assert!(!s.default_model.is_empty());
+        crate::denoise::set_enabled(was_enabled);
     }
 }
