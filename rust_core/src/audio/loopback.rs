@@ -91,6 +91,78 @@ pub(crate) mod macos {
     use crate::error::TranscribeError;
     use std::sync::mpsc;
 
+    /// Screen & System Audio Recording permission (TCC).
+    ///
+    /// `SCShareableContent::get()` does not raise the permission prompt. It
+    /// only fails, and the raw TCC error it produces — "The user declined
+    /// TCCs for application, window, display capture" — reads like the user
+    /// said no, when really the app had never asked at all. That is what the
+    /// user hit: the session refused to start with that text as the only
+    /// clue.
+    ///
+    /// The fix is the order Apple's ScreenCaptureKit documentation
+    /// prescribes:
+    ///
+    ///   1. `CGPreflightScreenCaptureAccess()` — already granted?
+    ///   2. `CGRequestScreenCaptureAccess()`  — if not, show the prompt.
+    ///   3. `SCShareableContent::get()`        — now it can list content.
+    ///
+    /// Both functions are plain C in CoreGraphics (`CGWindow.h`,
+    /// `API_AVAILABLE(macos(10.15))`), so they are bound directly instead of
+    /// pulling in another dependency. CoreGraphics ships with every macOS
+    /// install, so the link adds nothing to ship.
+    mod screen_capture_permission {
+        use crate::error::TranscribeError;
+
+        // CoreGraphics is a system framework present on every macOS install,
+        // so this adds nothing to ship — it only tells the linker where
+        // `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess`
+        // live. Without the attribute the symbols do not resolve at link
+        // time even though the functions are exported by the system.
+        #[link(name = "CoreGraphics", kind = "framework")]
+        extern "C" {
+            /// macOS 10.15+. True when the process may already capture
+            /// screen/system audio. Never prompts.
+            fn CGPreflightScreenCaptureAccess() -> bool;
+            /// macOS 10.15+. Shows the "Screen & System Audio Recording"
+            /// prompt when the app has not been decided yet, and returns
+            /// whether access is granted. Does nothing if the user already
+            /// made a decision.
+            fn CGRequestScreenCaptureAccess() -> bool;
+        }
+        /// Makes sure the process may capture system audio, prompting the
+        /// user once if it has not been asked yet.
+        pub(super) fn ensure_screen_capture_access() -> Result<(), TranscribeError> {
+            // Both are plain C functions with no pointer arguments and no
+            // preconditions beyond being called on the main thread, so the
+            // `unsafe` here is limited to the call itself.
+            let already_granted = unsafe { CGPreflightScreenCaptureAccess() };
+            if already_granted {
+                tracing::info!("screen capture permission already granted");
+                return Ok(());
+            }
+
+            tracing::info!("screen capture permission not granted yet; requesting it");
+            if unsafe { CGRequestScreenCaptureAccess() } {
+                tracing::info!("screen capture permission granted after prompt");
+                return Ok(());
+            }
+
+            // Either the user said no, or macOS refused to prompt. Name the
+            // exact pane, because "declined" on its own leaves the user
+            // guessing which of the several privacy switches to flip.
+            Err(TranscribeError::AudioDevice(
+                "Izin Screen & System Audio Recording belum diberikan. Buka \
+                 System Settings > Privacy & Security > Screen & System Audio \
+                 Recording, aktifkan Trareon Transcribe, lalu klik Mulai \
+                 Rekam lagi."
+                    .into(),
+            ))
+        }
+    }
+
+    use screen_capture_permission::ensure_screen_capture_access;
+
     #[flutter_rust_bridge::frb(ignore)]
     pub fn capture_loopback(
         device_hint: Option<String>,
@@ -142,6 +214,14 @@ pub(crate) mod macos {
     ) -> Result<AudioCapture, TranscribeError> {
         use screencapturekit::cm::CMSampleBuffer;
         use screencapturekit::prelude::*;
+
+        // Ask for the permission BEFORE listing shareable content.
+        // `SCShareableContent::get()` never raises the prompt itself: without
+        // this call it fails with the raw TCC text "The user declined TCCs
+        // for application, window, display capture" — which reads like the
+        // user said no, when in fact the app had simply never asked. The
+        // documented order is preflight, then request, then list.
+        ensure_screen_capture_access()?;
 
         let content = SCShareableContent::get().map_err(|e| {
             TranscribeError::AudioDevice(format!(
@@ -632,6 +712,72 @@ mod macos_policy_tests {
         // is a real device the user picked.
         assert!(!wants_zero_setup_capture(Some("MacBook Pro Speakers")));
         assert!(!wants_zero_setup_capture(Some("default-ish Mixer")));
+    }
+
+    /// The permission gate must run before `SCShareableContent::get()`.
+    ///
+    /// `SCShareableContent::get()` does not raise the permission prompt — it
+    /// only fails, and the raw TCC text it produces ("The user declined TCCs
+    /// for application, window, display capture") reads like the user said
+    /// no when the app had simply never asked. That is the exact failure
+    /// reported on macOS: the session refused to start and the message was
+    /// the only clue.
+    ///
+    /// The ScreenCaptureKit path cannot be compiled off a Mac, so CI (Linux)
+    /// cannot execute it. This checks the source instead: the ordering that
+    /// Apple's documentation prescribes is preflight → request → list, and
+    /// the call sites are what a future refactor would most likely reorder.
+    #[test]
+    fn the_permission_gate_precedes_shareable_content_listing() {
+        let source = include_str!("loopback.rs");
+
+        // Measure the *code*, not the first textual mention: the module docs
+        // and the comments inside `try_sck_capture` both name
+        // `SCShareableContent::get()` too, and those come earlier in the
+        // file than the call itself. Anchor on the real statements.
+        let gate = source
+            .find("ensure_screen_capture_access()?;")
+            .expect("try_sck_capture must gate on the screen-capture permission");
+        let listing = source
+            .find("let content = SCShareableContent::get()")
+            .expect("try_sck_capture must list shareable content");
+        assert!(
+            gate < listing,
+            "the permission request must come before SCShareableContent::get(), \
+             otherwise macOS never shows the prompt and the user only sees \
+             'The user declined TCCs'"
+        );
+    }
+
+    /// The gate is a real TCC call, not a stub — and it asks before it
+    /// assumes, rather than prompting unconditionally.
+    #[test]
+    fn the_permission_gate_uses_the_real_tcc_calls() {
+        let source = include_str!("loopback.rs");
+
+        assert!(
+            source.contains("CGPreflightScreenCaptureAccess"),
+            "the gate must preflight before prompting"
+        );
+        assert!(
+            source.contains("CGRequestScreenCaptureAccess"),
+            "the gate must request the permission so macOS shows the prompt"
+        );
+        assert!(
+            source.contains(r#"#[link(name = "CoreGraphics", kind = "framework")]"#),
+            "the CoreGraphics framework must be linked, or the symbols do not resolve"
+        );
+
+        let preflight = source
+            .find("CGPreflightScreenCaptureAccess()")
+            .expect("preflight call");
+        let request = source
+            .find("CGRequestScreenCaptureAccess()")
+            .expect("request call");
+        assert!(
+            preflight < request,
+            "preflight must be checked before the request is made"
+        );
     }
 }
 
