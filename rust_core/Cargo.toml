@@ -99,7 +99,7 @@ strsim = "0.11"
 # system one: the feature needs FTS5, and whether a distro's libsqlite3
 # was built with it is not something an offline desktop app can check at
 # install time.
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 # Vector similarity search as a SQLite virtual table (`vec0`), for hybrid
 # lexical+semantic search over the meeting archive (Sprint 13 D1-D4,
 # revisited). Pinned to the latest *stable* release, not the 0.1.10-alpha
