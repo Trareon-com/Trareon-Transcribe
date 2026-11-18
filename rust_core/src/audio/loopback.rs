@@ -290,6 +290,8 @@ pub(crate) mod macos {
         // fires" (a documented ScreenCaptureKit class of bug) vs. "callback
         // fires but extraction yields nothing". Remove once root-caused.
         let call_count = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let resampler =
+            std::sync::Mutex::new(crate::decode::StreamResampler::new(SCK_SAMPLE_RATE)?);
 
         // Closure-based audio handler — fires on ScreenCaptureKit's internal queue
         let handler = stream.add_output_handler(
@@ -320,9 +322,15 @@ pub(crate) mod macos {
                                     .chunks_exact(2)
                                     .map(|pair| (pair[0] + pair[1]) * 0.5)
                                     .collect();
-                                match crate::decode::resample_to_target(&mono, SCK_SAMPLE_RATE) {
+                                let resampled = resampler
+                                    .lock()
+                                    .map_err(|_| "resampler poisoned".to_string())
+                                    .and_then(|mut r| r.push(&mono).map_err(|e| e.to_string()));
+                                match resampled {
                                     Ok(resampled) => {
-                                        let _ = tx.send(resampled);
+                                        if !resampled.is_empty() {
+                                            let _ = tx.send(resampled);
+                                        }
                                     }
                                     Err(e) => {
                                         tracing::warn!(%e, "SCK_AUDIO_DIAG resample failed");

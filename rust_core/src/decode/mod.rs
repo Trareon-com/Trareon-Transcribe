@@ -224,9 +224,86 @@ pub fn resample_to_target(samples: &[f32], from_rate: u32) -> Result<Vec<f32>, T
     Ok(output.into_iter().next().unwrap_or_default())
 }
 
+/// Stateful streaming resampler to [`TARGET_SAMPLE_RATE`].
+///
+/// `resample_to_target` builds a brand-new sinc resampler per call, so using it
+/// on tiny live chunks (ScreenCaptureKit delivers ~10 ms buffers) drops the
+/// filter-delay samples of every chunk (~27% at 480 in -> 160 out) and leaves a
+/// discontinuity between chunks. This keeps one resampler alive and feeds it
+/// fixed-size blocks, carrying leftover input to the next `push`.
+pub struct StreamResampler {
+    inner: Option<rubato::SincFixedIn<f32>>,
+    pending: Vec<f32>,
+}
+
+impl StreamResampler {
+    const BLOCK: usize = 480;
+
+    pub fn new(from_rate: u32) -> Result<Self, TranscribeError> {
+        if from_rate == TARGET_SAMPLE_RATE {
+            return Ok(Self {
+                inner: None,
+                pending: Vec::new(),
+            });
+        }
+        use rubato::{
+            SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+        };
+        let params = SincInterpolationParameters {
+            sinc_len: 128,
+            f_cutoff: 0.95,
+            interpolation: SincInterpolationType::Linear,
+            oversampling_factor: 128,
+            window: WindowFunction::BlackmanHarris2,
+        };
+        let ratio = TARGET_SAMPLE_RATE as f64 / from_rate as f64;
+        let rs = SincFixedIn::<f32>::new(ratio, 2.0, params, Self::BLOCK, 1)
+            .map_err(|e| TranscribeError::AudioDecode(format!("resampler init failed: {e}")))?;
+        Ok(Self {
+            inner: Some(rs),
+            pending: Vec::new(),
+        })
+    }
+
+    /// Feed mono samples at the source rate; returns whatever 16 kHz output is ready.
+    pub fn push(&mut self, mono: &[f32]) -> Result<Vec<f32>, TranscribeError> {
+        use rubato::Resampler;
+        let Some(rs) = self.inner.as_mut() else {
+            return Ok(mono.to_vec());
+        };
+        self.pending.extend_from_slice(mono);
+        let mut out = Vec::new();
+        loop {
+            let need = rs.input_frames_next();
+            if self.pending.len() < need {
+                break;
+            }
+            let block: Vec<f32> = self.pending.drain(..need).collect();
+            let res = rs
+                .process(&[block], None)
+                .map_err(|e| TranscribeError::AudioDecode(format!("resample failed: {e}")))?;
+            out.extend(res.into_iter().next().unwrap_or_default());
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stream_resampler_keeps_sample_count_over_small_chunks() {
+        let mut rs = StreamResampler::new(48_000).unwrap();
+        let chunk = vec![0.1f32; 480];
+        let mut total = 0usize;
+        for _ in 0..1000 {
+            total += rs.push(&chunk).unwrap().len();
+        }
+        // 1000 x 10 ms at 48 kHz -> ~160000 samples at 16 kHz, minus a
+        // one-off filter delay. The per-chunk resampler lost ~27%.
+        assert!(total > 158_000 && total <= 160_000, "got {total}");
+    }
 
     #[test]
     fn resample_noop_when_same_rate() {
