@@ -141,7 +141,7 @@ pub fn session_dir_for(output_dir: &Path, title: &str) -> PathBuf {
     let has_date_prefix = safe_title
         .get(..8)
         .is_some_and(|head| head.chars().all(|c| c.is_ascii_digit()));
-    let date_prefix = chrono::Local::now().format("%Y%m%d").to_string();
+    let date_prefix = jiff::ZonedDateTime::now().strftime("%Y%m%d").to_string();
     if has_date_prefix {
         output_dir.join(&safe_title)
     } else {
