@@ -220,8 +220,10 @@ screencapturekit = "8"
 
 # ONNX Runtime prebuilt binaries tidak tersedia untuk macOS Intel (x86_64).
 # ort hanya di-build di platform yang didukung; macOS Intel memakai fallback energy VAD.
+# Dikunci persis (=): versi rc berikutnya (rc.15) mengubah API (`init().commit()`,
+# `Session::builder(&Environment)`) dan `cargo update` akan ikut menaikkannya.
 [target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
-ort = { version = "2.0.0-rc.13", features = ["download-binaries"], optional = true }
+ort = { version = "=2.0.0-rc.13", features = ["download-binaries"], optional = true }
 
 # Linux: fallback to ffmpeg/parec — PipeWire native can be added later
 # when libpipewire-0.3-dev is available in the build environment
