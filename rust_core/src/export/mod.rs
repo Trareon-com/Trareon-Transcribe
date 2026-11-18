@@ -11,6 +11,7 @@ use crate::error::TranscribeError;
 /// Official "Notulen Rapat" document generation (F2). Kept in its own module
 /// because it is a *document*, not a transcript dump: it has a form, two
 /// layout variants and its own golden tests.
+pub(crate) mod docx;
 pub mod notulen;
 pub mod pdf;
 
@@ -555,7 +556,7 @@ fn to_docx_bytes(
     summary: &str,
     bookmarks: &[Bookmark],
 ) -> Result<Vec<u8>, TranscribeError> {
-    use docx_rs::{Docx, Paragraph, Run};
+    use docx::{Docx, Paragraph, Run};
 
     let mut docx = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text(title).bold().size(32)));
