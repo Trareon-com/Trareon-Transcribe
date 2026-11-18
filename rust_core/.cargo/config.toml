@@ -4,14 +4,23 @@
 #   Library not loaded: @rpath/libswift_Concurrency.dylib
 #   Referenced from: <cargo test binary>
 # Harmless on systems without Xcode at this path: the rpath just won't resolve.
+#
+# /usr/lib/swift comes FIRST. macOS 12+ ships libswift_Concurrency in the
+# OS, and libswiftCore is always loaded from there. With only the Xcode
+# swift-5.5 back-deploy path, dyld loaded a second copy of the concurrency
+# runtime and every binary printed "Class _TtCs9MainActor is implemented in
+# both ... This may cause spurious casting failures and mysterious crashes."
+# The Xcode path stays as a fallback for macOS older than 12.
 # Harmless on non-macOS: the target triples below do not apply.
 
 [target.aarch64-apple-darwin]
 rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/usr/lib/swift",
     "-C", "link-arg=-Wl,-rpath,/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx",
 ]
 
 [target.x86_64-apple-darwin]
 rustflags = [
+    "-C", "link-arg=-Wl,-rpath,/usr/lib/swift",
     "-C", "link-arg=-Wl,-rpath,/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx",
 ]
