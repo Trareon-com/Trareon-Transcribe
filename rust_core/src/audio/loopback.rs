@@ -283,13 +283,11 @@ pub(crate) mod macos {
         let mut stream = SCStream::new(&filter, &config);
         let tx = samples_tx.clone();
 
-        // TEMP DIAGNOSTIC (2026-10-14): is this closure invoked at all, and
-        // does it ever see a non-empty audio_buffer_list? speaker.wav has
-        // stayed at a near-empty byte count across several sessions with no
-        // error surfaced anywhere — this proves/disproves "callback never
-        // fires" (a documented ScreenCaptureKit class of bug) vs. "callback
-        // fires but extraction yields nothing". Remove once root-caused.
-        let call_count = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        // ScreenCaptureKit hands over ~10 ms buffers. One resampler lives for
+        // the whole stream: rebuilding it per buffer dropped ~27% of the
+        // samples and left a seam every 10 ms (see `StreamResampler`).
+        let resampler =
+            std::sync::Mutex::new(crate::decode::StreamResampler::new(SCK_SAMPLE_RATE)?);
 
         // Closure-based audio handler — fires on ScreenCaptureKit's internal queue
         let handler = stream.add_output_handler(
@@ -297,55 +295,34 @@ pub(crate) mod macos {
                 if of_type != SCStreamOutputType::Audio {
                     return;
                 }
-                let n = call_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                match sample.audio_buffer_list() {
-                    Some(list) => {
-                        let mut total_bytes: usize = 0;
-                        let mut total_nonzero: usize = 0;
-                        // ScreenCaptureKit delivers interleaved stereo frames
-                        // at SCK_SAMPLE_RATE (see the config comment above —
-                        // requesting our 16 kHz mono target directly is the
-                        // likely reason this stream delivered zero samples).
-                        // Downmix to mono, then resample down to the
-                        // pipeline's 16 kHz target, exactly like the cpal
-                        // mic path already does for non-native rates.
-                        for buf in list.iter() {
-                            let ptr = buf.data().as_ptr() as *const f32;
-                            let len = buf.data_byte_size() / 4;
-                            total_bytes += buf.data_byte_size();
-                            if !ptr.is_null() && len > 0 {
-                                let interleaved = unsafe { std::slice::from_raw_parts(ptr, len) };
-                                total_nonzero += interleaved.iter().filter(|s| **s != 0.0).count();
-                                let mono: Vec<f32> = interleaved
-                                    .chunks_exact(2)
-                                    .map(|pair| (pair[0] + pair[1]) * 0.5)
-                                    .collect();
-                                match crate::decode::resample_to_target(&mono, SCK_SAMPLE_RATE) {
-                                    Ok(resampled) => {
-                                        let _ = tx.send(resampled);
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!(%e, "SCK_AUDIO_DIAG resample failed");
-                                    }
-                                }
-                            }
-                        }
-                        if n < 5 || n % 200 == 0 {
-                            tracing::warn!(
-                                call_index = n,
-                                total_bytes,
-                                total_nonzero,
-                                "SCK_AUDIO_DIAG callback fired with buffer list"
-                            );
-                        }
+                let Some(list) = sample.audio_buffer_list() else {
+                    tracing::debug!("ScreenCaptureKit audio sample without a buffer list");
+                    return;
+                };
+                // Interleaved stereo f32 at SCK_SAMPLE_RATE (see the config
+                // comment above). Downmix to mono, then resample to the
+                // pipeline's 16 kHz target.
+                for buf in list.iter() {
+                    let ptr = buf.data().as_ptr() as *const f32;
+                    let len = buf.data_byte_size() / 4;
+                    if ptr.is_null() || len == 0 {
+                        continue;
                     }
-                    None => {
-                        if n < 5 || n % 200 == 0 {
-                            tracing::warn!(
-                                call_index = n,
-                                "SCK_AUDIO_DIAG callback fired, audio_buffer_list() is None"
-                            );
+                    let interleaved = unsafe { std::slice::from_raw_parts(ptr, len) };
+                    let mono: Vec<f32> = interleaved
+                        .chunks_exact(2)
+                        .map(|pair| (pair[0] + pair[1]) * 0.5)
+                        .collect();
+                    let resampled = resampler
+                        .lock()
+                        .map_err(|_| "resampler poisoned".to_string())
+                        .and_then(|mut r| r.push(&mono).map_err(|e| e.to_string()));
+                    match resampled {
+                        Ok(resampled) if !resampled.is_empty() => {
+                            let _ = tx.send(resampled);
                         }
+                        Ok(_) => {}
+                        Err(e) => tracing::warn!(%e, "ScreenCaptureKit audio resample failed"),
                     }
                 }
             },

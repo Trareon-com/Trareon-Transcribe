@@ -13,7 +13,7 @@
 //!
 //! # Shape of the module
 //!
-//! Everything except the final `docx_rs` call is a pure function so the whole
+//! Everything except the final DOCX writer call is a pure function so the whole
 //! document can be tested without touching a filesystem:
 //!
 //! * [`draft_from_summary`] parses the Markdown the `NotulenRapat` summary
@@ -27,7 +27,9 @@
 //!
 //! Exactly zero of it touches the network.
 
-use docx_rs::{AlignmentType, Docx, Paragraph, Pic, Run, Table, TableCell, TableRow, WidthType};
+use super::docx::{
+    AlignmentType, Docx, Paragraph, Pic, Run, Table, TableCell, TableRow, WidthType,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::error::TranscribeError;
@@ -349,7 +351,7 @@ pub enum Block {
 
 /// Converts the Markdown a summary model emits into explicit blocks.
 ///
-/// Keeping this separate from `docx_rs` is what makes the body renderer
+/// Keeping this separate from the DOCX writer is what makes the body renderer
 /// testable: the alternative is asserting on packed ZIP bytes.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn parse_blocks(markdown: &str) -> Vec<Block> {
@@ -440,9 +442,8 @@ fn cell(paragraph: Paragraph, width: usize) -> TableCell {
 
 /// PNG intrinsic size, read from the IHDR chunk.
 ///
-/// `docx_rs::Pic::new` would do this via the `image` crate, which this build
-/// deliberately does not compile in (`default-features = false`), so the
-/// 8-byte header is parsed here instead. Only PNG is accepted: the DOCX media
+/// The DOCX writer takes explicit dimensions rather than pulling in the
+/// `image` crate, so the 8-byte header is parsed here instead. Only PNG is accepted: the DOCX media
 /// part is written as `image*.png`, so handing it a JPEG would produce a file
 /// Word refuses to render.
 fn png_dimensions(bytes: &[u8]) -> Result<(u32, u32), TranscribeError> {

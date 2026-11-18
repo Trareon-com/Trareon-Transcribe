@@ -570,8 +570,12 @@ const WEEKDAYS: [&str; 7] = [
 
 /// `today` in `YYYY-MM-DD` → compact `YYYYMMDD`.
 fn compact_date(today: &str) -> Option<String> {
-    let date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok()?;
-    Some(date.format("%Y%m%d").to_string())
+    let date = jiff::civil::Date::strptime("%Y-%m-%d", today).ok()?;
+    Some(compact(date))
+}
+
+fn compact(date: jiff::civil::Date) -> String {
+    date.strftime("%Y%m%d").to_string()
 }
 
 /// Resolves an Indonesian deadline to a `YYYYMMDD` date, relative to
@@ -582,17 +586,29 @@ fn compact_date(today: &str) -> Option<String> {
 /// worse than no `VEVENT`: it puts a wrong commitment in the user's
 /// calendar, which they then have to notice and remove.
 pub fn parse_deadline(raw: &str, today: &str) -> Option<String> {
-    use chrono::{Datelike, Duration, NaiveDate};
+    use jiff::civil::Date;
+    use jiff::ToSpan;
     let text = raw.trim().to_lowercase();
     if text.is_empty() {
         return None;
     }
-    let today = NaiveDate::parse_from_str(today, "%Y-%m-%d").ok()?;
+    let today = Date::strptime("%Y-%m-%d", today).ok()?;
+    let ymd = |year: i32, month: usize, day: u32| -> Option<Date> {
+        Date::new(
+            i16::try_from(year).ok()?,
+            i8::try_from(month).ok()?,
+            i8::try_from(day).ok()?,
+        )
+        .ok()
+    };
+    let plus_days = |days: i64| today.checked_add(days.days()).ok().map(compact);
 
     // Explicit numeric dates.
-    for format in ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%y"] {
-        if let Ok(date) = NaiveDate::parse_from_str(text.trim(), format) {
-            return Some(date.format("%Y%m%d").to_string());
+    // `%y` first: `%Y` also accepts two digits, so "5/1/27" would otherwise
+    // become the year 27 and the `%y` form would never be reached.
+    for format in ["%d/%m/%y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"] {
+        if let Ok(date) = Date::strptime(format, text.trim()) {
+            return Some(compact(date));
         }
     }
 
@@ -609,31 +625,27 @@ pub fn parse_deadline(raw: &str, today: &str) -> Option<String> {
         let year: i32 = words
             .get(index + 1)
             .and_then(|w| w.parse().ok())
-            .unwrap_or(today.year());
-        let candidate = NaiveDate::from_ymd_opt(year, month as u32 + 1, day)?;
+            .unwrap_or(i32::from(today.year()));
+        let candidate = ymd(year, month + 1, day)?;
         // A bare "12 Oktober" said in November means next year.
-        return Some(
-            if words.len() <= index + 1 && candidate < today {
-                NaiveDate::from_ymd_opt(year + 1, month as u32 + 1, day)?
-            } else {
-                candidate
-            }
-            .format("%Y%m%d")
-            .to_string(),
-        );
+        return Some(compact(if words.len() <= index + 1 && candidate < today {
+            ymd(year + 1, month + 1, day)?
+        } else {
+            candidate
+        }));
     }
 
     if text.contains("besok") {
-        return Some((today + Duration::days(1)).format("%Y%m%d").to_string());
+        return plus_days(1);
     }
     if text.contains("lusa") {
-        return Some((today + Duration::days(2)).format("%Y%m%d").to_string());
+        return plus_days(2);
     }
     if text.contains("hari ini") {
-        return Some(today.format("%Y%m%d").to_string());
+        return Some(compact(today));
     }
     if text.contains("minggu depan") || text.contains("pekan depan") {
-        return Some((today + Duration::days(7)).format("%Y%m%d").to_string());
+        return plus_days(7);
     }
 
     // A bare weekday means the next one of those, never today.
@@ -642,10 +654,10 @@ pub fn parse_deadline(raw: &str, today: &str) -> Option<String> {
         .position(|day| text.split_whitespace().any(|word| word.starts_with(day)))
     {
         let target = index as i64;
-        let current = today.weekday().num_days_from_monday() as i64;
+        let current = i64::from(today.weekday().to_monday_zero_offset());
         let ahead = ((target - current) + 7) % 7;
         let ahead = if ahead == 0 { 7 } else { ahead };
-        return Some((today + Duration::days(ahead)).format("%Y%m%d").to_string());
+        return plus_days(ahead);
     }
     None
 }
@@ -798,6 +810,20 @@ mod tests {
             parse_deadline("2026-12-31", TODAY).as_deref(),
             Some("20261231")
         );
+    }
+
+    #[test]
+    fn unpadded_and_two_digit_year_dates_resolve() {
+        assert_eq!(
+            parse_deadline("5/1/2027", TODAY).as_deref(),
+            Some("20270105")
+        );
+        assert_eq!(
+            parse_deadline("5-1-2027", TODAY).as_deref(),
+            Some("20270105")
+        );
+        assert_eq!(parse_deadline("5/1/27", TODAY).as_deref(), Some("20270105"));
+        assert_eq!(parse_deadline("31/2/2027", TODAY), None, "no 31 February");
     }
 
     #[test]
