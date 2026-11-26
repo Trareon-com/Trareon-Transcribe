@@ -8,7 +8,7 @@
 /// reduce motion.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Durations. Read them through [AppMotion.of] so reduce motion collapses
 /// them, or use the raw constants where a `Duration` is needed at compile

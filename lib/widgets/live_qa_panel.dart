@@ -9,7 +9,7 @@
 /// has stopped growing is exactly what the archive is for.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../src/rust/live_qa.dart' as rust_live_qa;

@@ -16,7 +16,7 @@
 ///   an identical measurement from 3.5 s to 5.3 s between runs.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/state/models.dart';

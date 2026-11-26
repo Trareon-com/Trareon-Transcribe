@@ -11,7 +11,7 @@
 /// existing as separate filters.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../services/library_index.dart' show normaliseTags;
 import '../theme/app_colors.dart';

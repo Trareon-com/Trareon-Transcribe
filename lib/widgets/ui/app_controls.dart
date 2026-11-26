@@ -1,7 +1,7 @@
 /// Segmented control, switch, menu. `docs/DESIGN-SYSTEM.md` §6.4 to §6.6.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';

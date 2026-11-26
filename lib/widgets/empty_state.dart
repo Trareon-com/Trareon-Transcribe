@@ -12,7 +12,7 @@
 /// short-pane behaviour is tested.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';

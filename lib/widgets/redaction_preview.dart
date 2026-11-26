@@ -8,7 +8,7 @@
 /// the text it would replace and the line it came from.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../services/bridge_service.dart';
 import '../src/rust/api.dart' as rust_api;

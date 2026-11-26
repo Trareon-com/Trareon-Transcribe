@@ -97,7 +97,7 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
       - name: flutter analyze
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze
       # Goldens are excluded: text rasterisation differs between the host
       # that generated them and this runner, so they are a local design gate
       # (see dart_test.yaml). Everything else, including the design and copy

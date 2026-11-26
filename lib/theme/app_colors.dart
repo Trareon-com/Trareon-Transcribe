@@ -10,7 +10,7 @@
 /// `Color(0x…)` or `Colors.*` literal anywhere outside `lib/theme/`.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Raw neutral and accent ramps. Widgets never touch these: they take a
 /// semantic role off [AppColorSet]. They are public only so the design-system

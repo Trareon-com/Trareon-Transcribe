@@ -5,7 +5,7 @@
 /// visibly janky. Hover is a 120 ms surface tint instead.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';

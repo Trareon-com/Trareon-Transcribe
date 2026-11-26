@@ -7,7 +7,7 @@
 /// mode actually captures.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../src/rust/api.dart' as rust_api;

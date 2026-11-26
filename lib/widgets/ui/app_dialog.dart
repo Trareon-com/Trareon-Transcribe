@@ -1,7 +1,7 @@
 /// Dialogs, sheets and tabs. `docs/DESIGN-SYSTEM.md` §6.10 and §6.12.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';

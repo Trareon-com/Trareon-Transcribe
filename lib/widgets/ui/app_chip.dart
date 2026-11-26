@@ -1,7 +1,7 @@
 /// Chips, badges and status pills. `docs/DESIGN-SYSTEM.md` §6.7 and §6.16.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';

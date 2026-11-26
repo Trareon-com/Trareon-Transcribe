@@ -9,7 +9,7 @@
 /// transcript text ever reaches it.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
