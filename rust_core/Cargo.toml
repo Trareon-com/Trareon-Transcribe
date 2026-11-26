@@ -92,7 +92,7 @@ cpal = "0.15"
 rubato = "0.15"
 symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "ogg", "flac", "vorbis", "wav", "opt-simd"] }
 webrtc-vad = "0.4"
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 hound = "3"
 strsim = "0.11"

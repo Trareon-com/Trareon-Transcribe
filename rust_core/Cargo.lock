@@ -2005,7 +2005,7 @@ dependencies = [
  "nom 8.0.0",
  "rand 0.10.4",
  "rangemap",
- "sha2 0.11.2",
+ "sha2 0.11.1",
  "stringprep",
  "thiserror 2.0.21",
  "weezl 0.2.1",
@@ -2029,7 +2029,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef1d73c59a56771343712b22ea5615092c612c16ba291c0979e3105dfeec4890"
 dependencies = [
- "sha2 0.11.2",
+ "sha2 0.11.1",
 ]
 
 [[package]]
@@ -3167,7 +3167,7 @@ dependencies = [
  "screencapturekit",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "sherpa-onnx",
  "sqlite-vec",
  "strsim",
@@ -3436,9 +3436,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.2"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0e5c7d67bc53f435386b2130fdc900488c5703770f6d8a4633060e34288a27"
+checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
