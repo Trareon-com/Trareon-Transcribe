@@ -4,7 +4,7 @@
 // widget tree aplikasi nyata — bukan hanya ada sebagai modul Rust yang
 // tidak pernah dipanggil (lihat docs/SPRINT-REPORTS.md §Sprint 7 Item 4).
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';

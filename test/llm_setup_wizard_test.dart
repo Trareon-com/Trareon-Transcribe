@@ -13,7 +13,7 @@
 // lebih penting, bahwa tombol-tombol nyata di Pengaturan dan panel Ringkasan
 // AI benar-benar membuka layar ini.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/screens/llm_setup_wizard_screen.dart';

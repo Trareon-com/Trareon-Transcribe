@@ -10,7 +10,7 @@
 /// (`docs/DESIGN-SYSTEM.md` §6) and draws the focus ring itself.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/app_motion.dart';

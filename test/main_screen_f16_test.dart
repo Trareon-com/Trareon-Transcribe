@@ -3,7 +3,7 @@
 // tree — not just that the underlying provider/notifier logic works in
 // isolation, which is what Sprint 17 left unverified.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

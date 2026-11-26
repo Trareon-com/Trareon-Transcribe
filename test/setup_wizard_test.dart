@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,6 +41,7 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
+
 
   @override
   Future<bool> recommendGpu(String modelPath) async => false;

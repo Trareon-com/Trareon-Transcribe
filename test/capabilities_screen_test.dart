@@ -6,7 +6,7 @@
 /// as if it were running, or describing an endpoint feature as local.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/screens/capabilities_screen.dart';
 import 'package:transcribe/src/rust/capabilities.dart' as rust;

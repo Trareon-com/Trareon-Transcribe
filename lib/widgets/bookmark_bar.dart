@@ -8,7 +8,7 @@
 /// precisely because stopping to type is what this replaces.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../state/models.dart';
 import '../theme/app_colors.dart';

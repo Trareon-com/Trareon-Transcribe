@@ -14,7 +14,7 @@
 /// fails the build on it. See `docs/DESIGN-SYSTEM.md` §5.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class AppIcons {
   static const IconData accurate = Icons.my_location_rounded;

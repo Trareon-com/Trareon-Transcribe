@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../services/bridge_service.dart';
 import '../src/rust/api.dart' as rust_api;

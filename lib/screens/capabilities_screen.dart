@@ -12,7 +12,7 @@
 /// next to the code — it is the same list the gate enforces.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../src/rust/capabilities.dart' as rust_capabilities;
