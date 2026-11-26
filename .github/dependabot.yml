@@ -18,3 +18,31 @@ updates:
           - "*"
     commit-message:
       prefix: "ci"
+
+  # Rust: a new advisory fixed by a lockfile bump (e.g. url 2.5.9) used to need
+  # a manual `cargo update`. Weekly grouped PRs keep the lockfile current.
+  - package-ecosystem: cargo
+    directory: "/rust_core"
+    schedule:
+      interval: weekly
+    groups:
+      rust-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Dart/Flutter packages. Majors are left to manual review (they usually
+  # touch generated FRB bindings or platform plugins).
+  - package-ecosystem: pub
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      pub-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
