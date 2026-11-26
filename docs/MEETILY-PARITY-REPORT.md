@@ -246,7 +246,7 @@ skips rather than fails where no sound server exists.
 1. Resolve A-13 — wire the setup wizard into Settings or delete it and its test.
 2. Delete the dead FRB surface (A-3, `resume_pending_transcriptions`, flight recorder) or give it callers.
 3. Windows/Linux global hotkeys (A-14).
-4. A hardware smoke test for dual capture on each platform, per `CHECKLIST.md`.
+4. A hardware smoke test for dual capture on each platform, per `docs/archive/CHECKLIST.md`.
 
 ---
 

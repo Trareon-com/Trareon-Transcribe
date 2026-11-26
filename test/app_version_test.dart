@@ -33,7 +33,7 @@ void main() {
   test('the outbound URLs are https and point at the project', () {
     for (final url in [kReleasesUrl, kVersionManifestUrl]) {
       expect(url, startsWith('https://'));
-      expect(url, contains('Trareon-com/Transcribe'));
+      expect(url, contains('Trareon-com/Trareon-Transcribe'));
     }
   });
 }

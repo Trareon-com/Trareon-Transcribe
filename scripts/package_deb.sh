@@ -138,7 +138,7 @@ Section: sound
 Priority: optional
 Architecture: amd64
 Maintainer: Trareon <hello@trareon.com>
-Homepage: https://github.com/Trareon-com/Transcribe
+Homepage: https://github.com/Trareon-com/Trareon-Transcribe
 Installed-Size: $INSTALLED_KB
 Depends: libc6 (>= 2.34), libgtk-3-0 (>= 3.24) | libgtk-3-0t64 (>= 3.24),
  libglib2.0-0 (>= 2.66) | libglib2.0-0t64 (>= 2.66),

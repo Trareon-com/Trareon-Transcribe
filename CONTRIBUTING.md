@@ -35,7 +35,7 @@ git clone https://github.com/YOUR_USERNAME/Transcribe.git
 cd Transcribe
 
 # 2. Add upstream remote
-git remote add upstream https://github.com/Trareon-com/Transcribe.git
+git remote add upstream https://github.com/Trareon-com/Trareon-Transcribe.git
 
 # 3. Install Flutter dependencies
 flutter pub get
@@ -402,7 +402,7 @@ If your change touches any of the following areas, please review [`SECURITY.md`]
 - **Dependencies**: Any new dependency must clear `cargo deny check` (license + advisory) before merge.
 - **Unsafe code**: Every `unsafe` block must include an inline justification comment.
 
-Report security vulnerabilities privately via [GitHub Security Advisory](https://github.com/Trareon-com/Transcribe/security/advisories/new) — do not open a public issue.
+Report security vulnerabilities privately via [GitHub Security Advisory](https://github.com/Trareon-com/Trareon-Transcribe/security/advisories/new) — do not open a public issue.
 
 ---
 
@@ -415,7 +415,7 @@ Report security vulnerabilities privately via [GitHub Security Advisory](https:/
 
 ## Getting Help
 
-- Open a [Discussion](https://github.com/Trareon-com/Transcribe/discussions) for questions or ideas
+- Open a [Discussion](https://github.com/Trareon-com/Trareon-Transcribe/discussions) for questions or ideas
 - Check [`ARCHITECTURE.md`](ARCHITECTURE.md) for the codebase layout and data flow
 - Check [`SECURITY.md`](SECURITY.md) for the security and privacy posture
 - Check [`CHANGELOG.md`](CHANGELOG.md) for recent changes and known gaps

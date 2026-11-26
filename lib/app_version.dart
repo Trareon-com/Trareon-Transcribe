@@ -16,9 +16,9 @@ const String kAppVersion = '1.0.0';
 /// explicit tap only; recorded in the Privacy Report like every other
 /// outbound request.
 const String kReleasesUrl =
-    'https://github.com/Trareon-com/Transcribe/releases';
+    'https://github.com/Trareon-com/Trareon-Transcribe/releases';
 
 /// Plain-text manifest carrying the latest released version. Fetched only
 /// when the user presses "Cek Pembaruan".
 const String kVersionManifestUrl =
-    'https://raw.githubusercontent.com/Trareon-com/Transcribe/main/VERSION';
+    'https://raw.githubusercontent.com/Trareon-com/Trareon-Transcribe/main/VERSION';

@@ -5,6 +5,31 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+Pemeliharaan repo (26 Nov 2026).
+
+### Diperbaiki
+
+- **Resampler ScreenCaptureKit macOS** tetap hidup sepanjang sesi (#39).
+- **Model Eksperimental via CrispASR** berjalan di luar sesi live; CLI ikut
+  dikemas (#40).
+- **Paket AppImage Linux**: `AppRun` kini dibuat, karena `appimagetool`
+  terbaru menolak AppDir tanpa itu (#43).
+- **Advisory RUSTSEC-2026-0592** (`url`) ditutup lewat `cargo update` (#42).
+
+### Ditambahkan
+
+- **Deteksi GPU otomatis** di setup wizard: ukur RTF GPU vs CPU, lalu pilih
+  default; `live_bench --gpu` untuk pengukuran nyata (#45).
+- **Audit dependensi mingguan** + Dependabot untuk Cargo dan pub.
+
+### Berubah
+
+- Flutter di CI dipin ke 3.50.1 (#44); `flutter analyze --no-fatal-infos`
+  sementara (lihat issue #48).
+- Branch `main` diproteksi: PR + cek CI wajib.
+- Dokumen status lama dipindah ke `docs/archive/`; URL repo diperbarui ke
+  `Trareon-com/Trareon-Transcribe`.
+
 Sprint 22: empat celah kecil-menengah dari audit lanjutan Sprint 1–18
 (search_files manual pada `lib/`, bukan laporan sprint).
 
