@@ -187,6 +187,17 @@ Future<DiskSpaceStatus> checkDiskSpace({required String path}) =>
 Future<double> benchmarkRtf({required String modelPath}) =>
     RustLib.instance.api.crateApiBenchmarkRtf(modelPath: modelPath);
 
+/// One-time setup-wizard check (Sprint 15/16): measures the chosen model's
+/// realtime factor with and without GPU inference on this specific device,
+/// and recommends the faster one. Replaces the previous blanket
+/// `gpu_enabled: false` default — see `gpu_autodetect.rs` for why neither
+/// "always off" nor "always on" is safe to assume across real hardware.
+/// Two bounded ~6s calibration runs, so this is fast enough to call before
+/// the first recording starts, unlike `benchmark_rtf` which can take
+/// minutes on a slow device with a heavy model.
+Future<bool> recommendGpu({required String modelPath}) =>
+    RustLib.instance.api.crateApiRecommendGpu(modelPath: modelPath);
+
 Future<List<ModelInfo>> listAvailableModels({required String modelsDir}) =>
     RustLib.instance.api.crateApiListAvailableModels(modelsDir: modelsDir);
 

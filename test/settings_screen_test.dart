@@ -33,6 +33,9 @@ class _TestBridge with SummaryBridgeStubs implements RustBridge {
 
   @override
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
+
+  @override
+  Future<bool> recommendGpu(String modelPath) async => false;
   @override
   Stream<TranscriptSegment> transcriptStream(String sessionId) =>
       const Stream.empty();

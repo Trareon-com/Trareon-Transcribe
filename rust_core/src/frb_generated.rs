@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2052761318;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2096692858;
 
 // Section: executor
 
@@ -4009,6 +4009,39 @@ fn wire__crate__api__recommend_default_model_impl(
         },
     )
 }
+fn wire__crate__api__recommend_gpu_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "recommend_gpu",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_model_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::recommend_gpu(api_model_path))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__recover_session_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -7645,35 +7678,36 @@ fn pde_ffi_dispatcher_primary_impl(
         110 => wire__crate__api__read_llm_pull_progress_impl(port, ptr, rust_vec_len, data_len),
         111 => wire__crate__api__read_summary_progress_impl(port, ptr, rust_vec_len, data_len),
         112 => wire__crate__api__recommend_default_model_impl(port, ptr, rust_vec_len, data_len),
-        113 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
-        114 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
-        115 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
-        116 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
-        117 => wire__crate__api__resolve_engine_tier_impl(port, ptr, rust_vec_len, data_len),
-        118 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
-        119 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
-        121 => wire__crate__api__session_archive_entries_impl(port, ptr, rust_vec_len, data_len),
-        122 => wire__crate__api__set_session_notes_impl(port, ptr, rust_vec_len, data_len),
-        123 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
-        124 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
-        125 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
-        126 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
-        127 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
-        128 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
-        129 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
-        130 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
-        131 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
-        132 => wire__crate__api__system_memory_usage_ratio_impl(port, ptr, rust_vec_len, data_len),
-        133 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
-        134 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
-        135 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
-        136 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
-        137 => {
+        113 => wire__crate__api__recommend_gpu_impl(port, ptr, rust_vec_len, data_len),
+        114 => wire__crate__api__recover_session_impl(port, ptr, rust_vec_len, data_len),
+        115 => wire__crate__api__redact_segments_impl(port, ptr, rust_vec_len, data_len),
+        116 => wire__crate__api__redact_text_impl(port, ptr, rust_vec_len, data_len),
+        117 => wire__crate__api__render_glossary_file_impl(port, ptr, rust_vec_len, data_len),
+        118 => wire__crate__api__resolve_engine_tier_impl(port, ptr, rust_vec_len, data_len),
+        119 => wire__crate__api__run_preflight_checks_impl(port, ptr, rust_vec_len, data_len),
+        120 => wire__crate__api__save_settings_impl(port, ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__scan_library_ages_impl(port, ptr, rust_vec_len, data_len),
+        122 => wire__crate__api__session_archive_entries_impl(port, ptr, rust_vec_len, data_len),
+        123 => wire__crate__api__set_session_notes_impl(port, ptr, rust_vec_len, data_len),
+        124 => wire__crate__api__set_session_title_impl(port, ptr, rust_vec_len, data_len),
+        125 => wire__crate__api__srikandi_metadata_default_impl(port, ptr, rust_vec_len, data_len),
+        126 => wire__crate__api__srikandi_siap_unggah_impl(port, ptr, rust_vec_len, data_len),
+        127 => wire__crate__api__srikandi_validate_impl(port, ptr, rust_vec_len, data_len),
+        128 => wire__crate__api__start_session_impl(port, ptr, rust_vec_len, data_len),
+        129 => wire__crate__api__stop_session_impl(port, ptr, rust_vec_len, data_len),
+        130 => wire__crate__api__strip_action_items_block_impl(port, ptr, rust_vec_len, data_len),
+        131 => wire__crate__api__summary_preview_transcript_impl(port, ptr, rust_vec_len, data_len),
+        132 => wire__crate__api__summary_template_headings_impl(port, ptr, rust_vec_len, data_len),
+        133 => wire__crate__api__system_memory_usage_ratio_impl(port, ptr, rust_vec_len, data_len),
+        134 => wire__crate__api__toggle_mic_impl(port, ptr, rust_vec_len, data_len),
+        135 => wire__crate__api__toggle_speaker_impl(port, ptr, rust_vec_len, data_len),
+        136 => wire__crate__api__transcribe_files_batch_impl(port, ptr, rust_vec_len, data_len),
+        137 => wire__crate__api__transcript_coverage_impl(port, ptr, rust_vec_len, data_len),
+        138 => {
             wire__crate__api__transcript_coverage_for_audio_impl(port, ptr, rust_vec_len, data_len)
         }
-        138 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
-        139 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
+        139 => wire__crate__api__vad_backend_impl(port, ptr, rust_vec_len, data_len),
+        140 => wire__crate__api__write_audit_entry_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
