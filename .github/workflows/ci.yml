@@ -92,6 +92,7 @@ jobs:
         uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
+          flutter-version: "3.50.1"
           cache: true
       - name: flutter pub get
         run: flutter pub get
@@ -195,6 +196,7 @@ jobs:
         uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
+          flutter-version: "3.50.1"
           cache: true
 
       - name: flutter pub get
@@ -231,6 +233,7 @@ jobs:
         uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
+          flutter-version: "3.50.1"
           cache: true
 
       - name: flutter pub get
@@ -275,6 +278,7 @@ jobs:
         uses: subosito/flutter-action@v2.23.0
         with:
           channel: stable
+          flutter-version: "3.50.1"
           cache: true
 
       - name: flutter pub get
