@@ -98,6 +98,8 @@ else
 fi
 
 # Create symlinks for AppImage
+# AppRun is mandatory: current appimagetool refuses an AppDir without it.
+ln -sf "usr/bin/$APP_BINARY" "$APPDIR/AppRun"
 ln -sf "usr/bin/$APP_BINARY" "$APPDIR/$APP_BINARY"
 ln -sf "usr/share/applications/trareon-transcribe.desktop" "$APPDIR/trareon-transcribe.desktop"
 ln -sf "usr/share/icons/hicolor/256x256/apps/trareon-transcribe.png" "$APPDIR/trareon-transcribe.png"
