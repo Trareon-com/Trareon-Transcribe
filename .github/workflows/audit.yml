@@ -1,0 +1,43 @@
+name: Dependency audit
+
+# `cargo audit` / `cargo deny` also run inside CI, but only when someone
+# pushes. The RustSec database changes on its own schedule, so a weekly run
+# finds new advisories before they redden an unrelated PR.
+on:
+  schedule:
+    - cron: "0 2 * * 1"   # Mondays 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: cargo audit + deny
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: rust_core
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit and cargo-deny
+        run: cargo install cargo-audit cargo-deny --locked
+      - name: cargo audit
+        id: audit
+        run: cargo audit
+      - name: cargo deny check advisories
+        id: deny
+        run: cargo deny check advisories
+      - name: Open an issue when the audit fails
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: .
+        run: |
+          title="Dependency audit failed ($(date -u +%F))"
+          if [ -z "$(gh issue list --state open --search "Dependency audit failed in:title" --json number -q '.[0].number')" ]; then
+            gh issue create --title "$title" \
+              --body "The weekly audit found a new advisory. See ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Try \`cargo update\` in rust_core first; only ignore (audit.toml + deny.toml) with a written justification."
+          fi
