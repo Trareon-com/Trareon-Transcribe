@@ -29,6 +29,7 @@ pub mod crispasr_engine;
 pub mod crispasr_stream;
 pub mod engine_trait;
 pub mod file;
+pub mod loader;
 pub mod whisper_cd;
 pub mod words;
 
@@ -37,6 +38,7 @@ pub use crispasr_engine::CrispAsrEngine;
 #[cfg(feature = "crispasr-experimental")]
 pub use crispasr_stream::{CrispAsrStreamEngine, StreamEvent};
 pub use engine_trait::SttEngine;
+pub use loader::{is_crispasr_model, load_engine};
 
 use words::TokenSpan;
 

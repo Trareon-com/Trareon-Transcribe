@@ -186,6 +186,31 @@ void _sizeViewport(WidgetTester tester, Size size) {
 }
 
 void main() {
+  group('shouldOfferDefaultModelUpgrade', () {
+    bool offer(String current) => shouldOfferDefaultModelUpgrade(
+      currentModel: current,
+      recommendedModel: 'large-v3-turbo-q5',
+      dismissed: false,
+      recommendedInstalled: true,
+    );
+
+    test('offers the recommended whisper model over a lighter one', () {
+      expect(offer('base'), isTrue);
+      expect(offer('small'), isTrue);
+    });
+
+    test('never offers to "upgrade" away from an Eksperimental pick', () {
+      // Akurat-Eksperimental is the more accurate model; Settings used to
+      // suggest swapping it for Akurat (disarankan).
+      expect(offer('qwen3-asr-1.7b'), isFalse);
+      expect(offer('qwen3-asr-0.6b'), isFalse);
+    });
+
+    test('silent once the recommendation is already the default', () {
+      expect(offer('large-v3-turbo-q5'), isFalse);
+    });
+  });
+
   testWidgets(
     'two panes: a category list on the left, its content on the right',
     (WidgetTester tester) async {

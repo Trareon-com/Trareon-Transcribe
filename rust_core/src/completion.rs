@@ -44,7 +44,7 @@ use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
-use crate::stt::{DecodeOptions, WhisperEngine};
+use crate::stt::{DecodeOptions, SttEngine};
 use crate::vad::SegmentationConfig;
 
 /// Inference chunk length. Matches `stt::file` so peak memory during the
@@ -110,7 +110,7 @@ impl CompletionOutcome {
 /// over the recording, which would sit near 100% from the first chunk on a
 /// mostly-silent track.
 pub fn complete_transcript(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     request: &CompletionRequest,
     existing: Vec<Segment>,
     mut on_progress: impl FnMut(f32, f64),
@@ -158,7 +158,7 @@ pub fn complete_transcript(
             let chunk_end = (chunk_start + CHUNK_SECS).min(region.end);
             let samples = slice_secs(&audio.samples, chunk_start, chunk_end);
             if !samples.is_empty() {
-                fresh.extend(engine.transcribe_chunk_with(
+                fresh.extend(engine.transcribe(
                     samples,
                     &request.source,
                     chunk_start,
@@ -384,6 +384,7 @@ pub fn source_for_audio(path: &Path) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stt::WhisperEngine;
 
     fn seg(text: &str, timestamp: f64, duration: f64) -> Segment {
         Segment {

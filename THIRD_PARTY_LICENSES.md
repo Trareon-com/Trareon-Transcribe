@@ -82,6 +82,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## CrispASR CLI (bundled, macOS)
+
+The "Eksperimental" model tiers (Qwen3-ASR) run through the prebuilt
+CrispASR CLI v0.8.43 (https://github.com/CrispStrobe/CrispASR), which the
+macOS build places in `Contents/Helpers/crispasr/` together with its
+`libc2pa_c.dylib` (see `macos/scripts/bundle_crispasr.sh`). CrispASR is MIT
+licensed; its `LICENSE` and `THIRD_PARTY_NOTICES.txt` (ggml, llamafile,
+KleidiAI, nlohmann/json, RNNoise, the Xiph codecs and others, all MIT, BSD
+or Apache-2.0) ship unmodified beside the binary. The GPL/LGPL and FDK
+components that file mentions are optional, loaded at runtime only if the
+user installed them, and are not part of the distributed binary.
+
 ## Model weights
 
 No ONNX model weights were downloaded or distributed as part of Sprint 13

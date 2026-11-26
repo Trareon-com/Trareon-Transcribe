@@ -220,6 +220,17 @@ const List<String> kKnownModelIds = [
   'qwen3-asr-1.7b',
 ];
 
+/// The CrispASR (Qwen3-ASR) "Eksperimental" tiers. Their GGUF files only
+/// run on the CrispASR engine, never on whisper.cpp, so they cannot be
+/// paired with a whisper model in a two-pass (HPT) refine.
+const Set<String> kExperimentalModelIds = {
+  'qwen3-asr-0.6b',
+  'qwen3-asr-1.7b',
+};
+
+bool isExperimentalModel(String modelId) =>
+    kExperimentalModelIds.contains(modelId);
+
 /// Resolves a model id to an absolute file path. The bare relative path
 /// `models/ggml-*.bin` only resolves by coincidence when a process happens
 /// to have the repo root as its CWD (e.g. a shell-launched `cargo run`) — a

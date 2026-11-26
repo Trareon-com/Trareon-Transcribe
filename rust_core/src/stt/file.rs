@@ -14,7 +14,7 @@ use crate::diarization::{label_segments, Diarizer};
 use crate::error::TranscribeResult;
 use crate::export::Segment;
 use crate::glossary::GlossaryConfig;
-use crate::stt::{DecodeOptions, WhisperEngine};
+use crate::stt::{DecodeOptions, SttEngine};
 
 /// Chunk duration for large-file transcription: 30 seconds of audio at 16 kHz.
 const CHUNK_DURATION_SECS: f64 = 30.0;
@@ -84,7 +84,7 @@ pub struct TranscribeFileResult {
 }
 
 pub fn transcribe_file(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     path: &Path,
     language: Option<&str>,
     glossary: &GlossaryConfig,
@@ -102,7 +102,7 @@ pub fn transcribe_file(
 /// long recording of one voice, and an importer who knows the answer can
 /// stop it inventing participants (F10).
 pub fn transcribe_file_reporting(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     path: &Path,
     language: Option<&str>,
     glossary: &GlossaryConfig,
@@ -123,7 +123,7 @@ pub fn transcribe_file_reporting(
 /// [`transcribe_file_reporting`] with the hallucination stack configurable.
 #[allow(clippy::too_many_arguments)]
 pub fn transcribe_file_with(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     path: &Path,
     language: Option<&str>,
     glossary: &GlossaryConfig,
@@ -178,7 +178,7 @@ pub fn transcribe_file_with(
                 crate::silence_gate::SILENCE_THRESHOLD_DBFS,
             );
             if !chunk.is_empty() && !silent {
-                all_segments.extend(engine.transcribe_chunk_with(
+                all_segments.extend(engine.transcribe(
                     chunk,
                     "file",
                     chunk_start,
@@ -362,7 +362,7 @@ pub fn publish_batch_progress(
 /// "decode file N+1" on a Rayon thread while "transcribe file N" runs, per
 /// the architecture-bottleneck notes in the project plan.
 pub fn transcribe_files_batch(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     files: &[std::path::PathBuf],
     language: Option<&str>,
     glossary: &GlossaryConfig,
@@ -383,7 +383,7 @@ pub fn transcribe_files_batch(
 /// [`transcribe_files_batch`] with the hallucination stack configurable.
 #[allow(clippy::too_many_arguments)]
 pub fn transcribe_files_batch_with(
-    engine: &WhisperEngine,
+    engine: &dyn SttEngine,
     files: &[std::path::PathBuf],
     language: Option<&str>,
     glossary: &GlossaryConfig,

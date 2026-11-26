@@ -964,16 +964,14 @@ pub fn transcribe_files_batch(
     glossary: crate::glossary::GlossaryConfig,
     speaker_hint: u32,
 ) -> Result<Vec<crate::stt::file::BatchFileOutcome>, TranscribeError> {
-    let engine = crate::stt::WhisperEngine::load_with_gpu(
-        &PathBuf::from(&model_path),
-        gpu_enabled,
-        gpu_device,
-    )?;
+    // The model file picks the engine: whisper.cpp for ggml-*.bin, CrispASR
+    // for the Qwen3-ASR "Eksperimental" GGUFs.
+    let engine = crate::stt::load_engine(&PathBuf::from(&model_path), gpu_enabled, gpu_device)?;
     let file_paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
     let mut outcomes = Vec::with_capacity(file_paths.len());
 
     crate::stt::file::transcribe_files_batch(
-        &engine,
+        engine.as_ref(),
         &file_paths,
         language.as_deref(),
         &glossary,
@@ -1071,11 +1069,7 @@ pub fn complete_session_transcript(
 ) -> Result<crate::completion::CompletionOutcome, TranscribeError> {
     let audio_path = std::path::PathBuf::from(audio_path);
     let source = crate::completion::source_for_audio(&audio_path).to_string();
-    let engine = crate::stt::WhisperEngine::load_with_gpu(
-        &PathBuf::from(&model_path),
-        gpu_enabled,
-        gpu_device,
-    )?;
+    let engine = crate::stt::load_engine(&PathBuf::from(&model_path), gpu_enabled, gpu_device)?;
     let request = crate::completion::CompletionRequest {
         audio_path,
         source: source.clone(),
@@ -1085,8 +1079,11 @@ pub fn complete_session_transcript(
     };
     let progress_key = job_key.clone();
     let progress_source = source.clone();
-    let outcome =
-        crate::completion::complete_transcript(&engine, &request, existing, |fraction, eta| {
+    let outcome = crate::completion::complete_transcript(
+        engine.as_ref(),
+        &request,
+        existing,
+        |fraction, eta| {
             crate::completion::publish_progress(crate::completion::CompletionProgress {
                 job_key: progress_key.clone(),
                 source: progress_source.clone(),
@@ -1094,7 +1091,8 @@ pub fn complete_session_transcript(
                 eta_secs: eta,
                 done: fraction >= 1.0,
             });
-        });
+        },
+    );
     // The slot is cleared whether the pass succeeded or failed: a stuck
     // "34%" in the sidebar after an error is its own bug report.
     crate::completion::clear_progress(&job_key, &source);

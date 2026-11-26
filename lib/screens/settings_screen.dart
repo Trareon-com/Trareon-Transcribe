@@ -935,6 +935,24 @@ class _CategoryContent extends ConsumerWidget {
 /// `defaultModel` on its own: an existing `base` user who already
 /// dismissed the offer must not be asked again every time they open
 /// Settings, and must never have their model swapped without tapping it.
+/// Whether Settings should offer to switch the default model to the one
+/// the hardware check recommends.
+///
+/// That recommendation only ranks the whisper tiers, so it never offers to
+/// "upgrade" away from an Eksperimental (Qwen3-ASR) pick: Akurat-Eksperimental
+/// is the more accurate model (FLEURS-id WER 5.3% vs 8.1%), and both
+/// Eksperimental tiers are a deliberate opt-in.
+bool shouldOfferDefaultModelUpgrade({
+  required String currentModel,
+  required String recommendedModel,
+  required bool dismissed,
+  required bool recommendedInstalled,
+}) =>
+    recommendedModel != currentModel &&
+    !isExperimentalModel(currentModel) &&
+    !dismissed &&
+    recommendedInstalled;
+
 class _ModelAccuracyAndUpgradeRow extends ConsumerWidget {
   final AppSettings settings;
   final SettingsNotifier notifier;
@@ -954,13 +972,15 @@ class _ModelAccuracyAndUpgradeRow extends ConsumerWidget {
         if (advice == null) return const SizedBox.shrink();
         final colors =
             Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-        final showOffer =
-            advice.recommended != settings.defaultModel &&
-            !settings.defaultModelUpgradeDismissed &&
-            isModelAvailable(
-              advice.recommended,
-              libraryPath: settings.libraryPath,
-            );
+        final showOffer = shouldOfferDefaultModelUpgrade(
+          currentModel: settings.defaultModel,
+          recommendedModel: advice.recommended,
+          dismissed: settings.defaultModelUpgradeDismissed,
+          recommendedInstalled: isModelAvailable(
+            advice.recommended,
+            libraryPath: settings.libraryPath,
+          ),
+        );
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             Spacing.md,

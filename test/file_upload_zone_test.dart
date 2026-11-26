@@ -38,6 +38,19 @@ void main() {
         isFalse,
       );
     });
+
+    // An Eksperimental (Qwen3-ASR) import is transcribed single-pass by
+    // CrispASR. Refining it with whisper used to send the GGUF to the
+    // whisper loader ("Failed to create a new whisper context").
+    test('never refines an Eksperimental (CrispASR) pick', () {
+      for (final id in ['qwen3-asr-0.6b', 'qwen3-asr-1.7b']) {
+        expect(
+          shouldRefineImport(modelId: id, refineModelAvailable: true),
+          isFalse,
+          reason: id,
+        );
+      }
+    });
   });
 
   testWidgets(
