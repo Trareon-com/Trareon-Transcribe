@@ -88,6 +88,11 @@ struct Args {
     /// install actually does.
     #[arg(long)]
     vad_model: Option<PathBuf>,
+
+    /// Enable GPU inference (Vulkan/CUDA/Metal) instead of the CPU-only
+    /// default `WhisperEngine::load` uses.
+    #[arg(long, default_value_t = false)]
+    gpu: bool,
 }
 
 /// One policy's result.
@@ -175,7 +180,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let engine = match WhisperEngine::load(Path::new(&args.model)) {
+    let engine = match WhisperEngine::load_with_gpu(Path::new(&args.model), args.gpu, 0) {
         Ok(engine) => engine,
         Err(e) => {
             eprintln!("tidak bisa memuat model {}: {e}", args.model);
