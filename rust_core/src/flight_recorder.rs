@@ -29,7 +29,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
-use chrono::Utc;
 use serde_json::{json, Value};
 
 /// Maximum number of JSONL entries retained. Older entries are trimmed
@@ -148,7 +147,7 @@ fn append(event: Value) {
         return;
     }
     let mut event = event;
-    event["ts"] = json!(Utc::now().to_rfc3339());
+    event["ts"] = json!(rfc3339_now());
     let line = format!("{event}\n");
 
     if OpenOptions::new()
@@ -177,6 +176,17 @@ fn append(event: Value) {
     if fs::metadata(&path).is_ok_and(|m| m.len() > MAX_FILE_BYTES) {
         rotate(&path);
     }
+}
+
+/// UTC now as RFC 3339 with a fixed nine-digit fraction, so the strings sort
+/// in time order (a variable-width fraction does not: ".1Z" > ".12Z").
+fn rfc3339_now() -> String {
+    let now = jiff::Timestamp::now();
+    format!(
+        "{}.{:09}+00:00",
+        now.strftime("%Y-%m-%dT%H:%M:%S"),
+        now.subsec_nanosecond()
+    )
 }
 
 /// Generation `n` of the log: 0 is the active file, 1..=[`GENERATIONS`] the
@@ -430,7 +440,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!(
             "trareon-flight-{tag}-{}-{}",
             std::process::id(),
-            Utc::now().timestamp_nanos_opt().unwrap_or(0)
+            jiff::Timestamp::now().as_nanosecond()
         ));
         fs::create_dir_all(&base).unwrap();
         base

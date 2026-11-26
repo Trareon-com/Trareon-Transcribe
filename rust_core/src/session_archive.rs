@@ -89,7 +89,12 @@ pub fn write_session_archive(session_dir: &Path, destination: &Path) -> io::Resu
 pub fn list_archive_entries(archive_path: &Path) -> io::Result<Vec<String>> {
     let file = File::open(archive_path)?;
     let archive = zip::ZipArchive::new(file).map_err(io::Error::other)?;
-    Ok(archive.file_names().map(|s| s.to_string()).collect())
+    // zip 9 decodes each name on demand, so a malformed name is an error
+    // for that entry rather than a lossy string.
+    archive
+        .file_names()
+        .map(|name| name.map(|s| s.into_owned()).map_err(io::Error::other))
+        .collect()
 }
 
 /// Extracts every file in `archive_path` directly into `destination_dir`

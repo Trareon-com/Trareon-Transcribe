@@ -323,14 +323,19 @@ pub fn export_csv(destination: &Path) -> Result<PathBuf, TranscribeError> {
     Ok(destination.to_path_buf())
 }
 
-/// RFC3339-ish local timestamp. `chrono` is already a dependency.
+/// Local `YYYY-MM-DD HH:MM:SS`, or empty for an out-of-range timestamp.
 #[flutter_rust_bridge::frb(ignore)]
 pub fn format_time(unix_ms: u64) -> String {
-    use chrono::{Local, TimeZone};
-    match Local.timestamp_millis_opt(unix_ms as i64) {
-        chrono::offset::LocalResult::Single(time) => time.format("%Y-%m-%d %H:%M:%S").to_string(),
-        _ => String::new(),
-    }
+    let Ok(ms) = i64::try_from(unix_ms) else {
+        return String::new();
+    };
+    jiff::Timestamp::from_millisecond(ms)
+        .map(|t| {
+            t.to_zoned_datetime(jiff::tz::TimeZone::system())
+                .strftime("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_default()
 }
 
 /// Quotes a CSV field. A session title can contain a comma, a quote and a

@@ -85,7 +85,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
-chrono = "0.4"
+# Dates and the local time zone (replaced chrono, flagged unmaintained by
+# RUSTSEC-2026-0543).
+jiff = "1.0.1"
 cpal = "0.15"
 rubato = "0.15"
 symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "ogg", "flac", "vorbis", "wav", "opt-simd"] }
@@ -99,7 +101,7 @@ strsim = "0.11"
 # system one: the feature needs FTS5, and whether a distro's libsqlite3
 # was built with it is not something an offline desktop app can check at
 # install time.
-rusqlite = { version = "0.37", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 # Vector similarity search as a SQLite virtual table (`vec0`), for hybrid
 # lexical+semantic search over the meeting archive (Sprint 13 D1-D4,
 # revisited). Pinned to the latest *stable* release, not the 0.1.10-alpha
@@ -118,11 +120,11 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-
 futures-util = "0.3"
 bytes = "1"
 dirs = "5"
-docx-rs = { version = "0.4.22", default-features = false }
-# "Ekspor Log Diagnostik" packs the rotated logs plus the doctor report into a
-# single .zip. Same version/features docx-rs already pulls in, so this adds no
-# new code to the dependency tree.
-zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+# zip writes the DOCX exports (src/export/docx.rs, which replaced docx-rs:
+# its newest release pinned zip ^8.6 and kept RUSTSEC-2026-0429/0545/0546/
+# 0547/0548 in the lockfile) and the "Ekspor Log Diagnostik" / session
+# archives. >=9.0.5 is the first release clear of all five advisories.
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 clap = { version = "4.6.4", features = ["derive"] }
 glob = "0.3.4"
 sysinfo = "0.39.6"
@@ -133,7 +135,7 @@ pdf-extract = "0.12"
 nnnoiseless = { version = "0.5.2", default-features = false }
 # Offline speaker diarization. Optional — see the `neural-diarization`
 # feature below for why it is not a default dependency.
-sherpa-onnx = { version = "1.13.8", optional = true, default-features = false, features = ["shared"] }
+sherpa-onnx = { version = "2.0.1", optional = true, default-features = false, features = ["shared"] }
 
 
 [features]
@@ -218,8 +220,10 @@ screencapturekit = "8"
 
 # ONNX Runtime prebuilt binaries tidak tersedia untuk macOS Intel (x86_64).
 # ort hanya di-build di platform yang didukung; macOS Intel memakai fallback energy VAD.
+# Dikunci persis (=): versi rc berikutnya (rc.15) mengubah API (`init().commit()`,
+# `Session::builder(&Environment)`) dan `cargo update` akan ikut menaikkannya.
 [target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
-ort = { version = "2.0.0-rc.13", features = ["download-binaries"], optional = true }
+ort = { version = "=2.0.0-rc.13", features = ["download-binaries"], optional = true }
 
 # Linux: fallback to ffmpeg/parec — PipeWire native can be added later
 # when libpipewire-0.3-dev is available in the build environment

@@ -11,6 +11,7 @@ use crate::error::TranscribeError;
 /// Official "Notulen Rapat" document generation (F2). Kept in its own module
 /// because it is a *document*, not a transcript dump: it has a form, two
 /// layout variants and its own golden tests.
+pub(crate) mod docx;
 pub mod notulen;
 pub mod pdf;
 
@@ -140,7 +141,7 @@ pub fn session_dir_for(output_dir: &Path, title: &str) -> PathBuf {
     let has_date_prefix = safe_title
         .get(..8)
         .is_some_and(|head| head.chars().all(|c| c.is_ascii_digit()));
-    let date_prefix = chrono::Local::now().format("%Y%m%d").to_string();
+    let date_prefix = jiff::ZonedDateTime::now().strftime("%Y%m%d").to_string();
     if has_date_prefix {
         output_dir.join(&safe_title)
     } else {
@@ -555,7 +556,7 @@ fn to_docx_bytes(
     summary: &str,
     bookmarks: &[Bookmark],
 ) -> Result<Vec<u8>, TranscribeError> {
-    use docx_rs::{Docx, Paragraph, Run};
+    use docx::{Docx, Paragraph, Run};
 
     let mut docx = Docx::new()
         .add_paragraph(Paragraph::new().add_run(Run::new().add_text(title).bold().size(32)));

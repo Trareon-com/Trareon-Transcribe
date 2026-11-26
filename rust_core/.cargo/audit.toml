@@ -18,15 +18,6 @@ ignore = [
     # never a font-embedding/glyph-parsing path.
     "RUSTSEC-2026-0192",
 
-    # zip 2.4.2 — build-dependency of sherpa-onnx-sys 1.13.8, which pins
-    # `zip ^2`; fixed only in zip >=9.0.0. Only compiled under the optional
-    # `neural-diarization` feature, and its build.rs reads the iOS
-    # .xcframework.zip entry-by-entry rather than calling `extract()`.
-    # zip 8.6.0 — direct dependency plus docx-rs 0.4.22's `zip ^8.6.0`
-    # (0.4.22 is the newest published docx-rs). Our code uses the
-    # zip-slip-safe `by_index()` + `enclosed_name()` path, not
-    # `ZipArchive::extract`; unit tests cover the `../` traversal refusal.
-    "RUSTSEC-2026-0367",
-    "RUSTSEC-2026-0368",
-    "RUSTSEC-2026-0369",
+    # zip ignores removed: only zip 9.x is left in the lockfile (see the
+    # matching note in deny.toml).
 ]
