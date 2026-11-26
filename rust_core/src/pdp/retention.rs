@@ -288,20 +288,20 @@ fn strip_date_prefix(name: &str) -> String {
 
 /// `20261004-Rapat` → the epoch millis of 2026-10-04 local midnight.
 fn date_prefix_unix_ms(name: &str) -> Option<u64> {
-    use chrono::{Local, NaiveDate, TimeZone};
     let prefix = name.get(..8)?;
     if !prefix.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    let year: i32 = prefix[..4].parse().ok()?;
-    let month: u32 = prefix[4..6].parse().ok()?;
-    let day: u32 = prefix[6..8].parse().ok()?;
-    let date = NaiveDate::from_ymd_opt(year, month, day)?.and_hms_opt(0, 0, 0)?;
-    match Local.from_local_datetime(&date) {
-        chrono::offset::LocalResult::Single(time) => Some(time.timestamp_millis() as u64),
-        chrono::offset::LocalResult::Ambiguous(time, _) => Some(time.timestamp_millis() as u64),
-        chrono::offset::LocalResult::None => None,
-    }
+    let year: i16 = prefix[..4].parse().ok()?;
+    let month: i8 = prefix[4..6].parse().ok()?;
+    let day: i8 = prefix[6..8].parse().ok()?;
+    // "Compatible" disambiguation: a midnight skipped by a DST jump resolves
+    // to the first instant after it, a repeated one to the earlier instant.
+    let midnight = jiff::civil::Date::new(year, month, day)
+        .ok()?
+        .to_zoned_datetime(jiff::tz::TimeZone::system())
+        .ok()?;
+    u64::try_from(midnight.timestamp().as_millisecond()).ok()
 }
 
 fn dir_modified_ms(path: &Path) -> u64 {
