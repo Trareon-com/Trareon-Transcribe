@@ -9,7 +9,9 @@
 //! "Failed to create a new whisper context". Every non-live caller goes
 //! through [`load_engine`] now, so the two can no longer disagree.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(any(feature = "crispasr-experimental", test))]
+use std::path::PathBuf;
 
 use super::{SttEngine, WhisperEngine};
 use crate::error::{TranscribeError, TranscribeResult};
