@@ -51,6 +51,19 @@ impl ProgressiveEngine {
         use_gpu: bool,
         gpu_device: i32,
     ) -> TranscribeResult<Self> {
+        // HPT is whisper-on-whisper: both passes must share segment
+        // boundaries so the refine pass can replace the quick one by key.
+        // A CrispASR model cannot take part, and loading its GGUF into
+        // whisper.cpp only fails with an opaque context error.
+        for path in [quick_path, refine_path] {
+            if crate::stt::is_crispasr_model(path) {
+                return Err(TranscribeError::Model(format!(
+                    "HPT needs two whisper models; {} is an experimental (CrispASR) model, \
+                     transcribe it single-pass instead",
+                    path.display()
+                )));
+            }
+        }
         let quick = WhisperEngine::load_with_gpu(quick_path, use_gpu, gpu_device)
             .map_err(|e| TranscribeError::Model(format!("HPT quick model load failed: {e}")))?;
         let refine = WhisperEngine::load_with_gpu(refine_path, use_gpu, gpu_device)

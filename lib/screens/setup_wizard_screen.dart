@@ -603,7 +603,7 @@ class _ModelChoiceStep extends StatelessWidget {
     (
       'qwen3-asr-0.6b',
       '🧪 Cepat-Eksperimental',
-      '397 MB · unduh sekali\nSeakurat model "Akurat" tapi secepat model '
+      '631 MB · unduh sekali\nSeakurat model "Akurat" tapi secepat model '
           '"Cepat" (Qwen3-ASR). Baru, belum teruji selengkap model lain.',
     ),
     (
@@ -621,7 +621,7 @@ class _ModelChoiceStep extends StatelessWidget {
     (
       'qwen3-asr-1.7b',
       '🧪 Akurat-Eksperimental',
-      '1.1 GB · unduh sekali\nModel paling teliti yang tersedia (Qwen3-ASR). '
+      '1.5 GB · unduh sekali\nModel paling teliti yang tersedia (Qwen3-ASR). '
           'Baru, belum teruji selengkap model lain.',
     ),
   ];

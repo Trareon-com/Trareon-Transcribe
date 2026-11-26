@@ -101,6 +101,7 @@ bool shouldAutoEnhance({
   required bool hasAudio,
   required bool alreadyDone,
   required bool liveModelWasAccurate,
+  bool liveModelWasExperimental = false,
   bool? preference,
 }) {
   // Off unless the user explicitly turned it on in Settings. A silent
@@ -109,6 +110,10 @@ bool shouldAutoEnhance({
   if (preference != true) return false;
   if (alreadyDone || !accurateModelInstalled || !hasAudio) return false;
   if (liveModelWasAccurate) return false;
+  // The enhance pass is whisper. Over an Eksperimental (Qwen3-ASR) session
+  // it would replace the engine the user picked with a less accurate one,
+  // and stitch two engines' "handwriting" into one notulen.
+  if (liveModelWasExperimental) return false;
   return true;
 }
 
@@ -523,6 +528,7 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
       hasAudio: audio != null,
       alreadyDone: meta.autoRetranscribeDone,
       liveModelWasAccurate: handoff.modelId == kAccurateModelId,
+      liveModelWasExperimental: isExperimentalModel(handoff.modelId),
       preference: handoff.autoRetranscribePreference,
     );
     if (!enqueue || audio == null) return false;

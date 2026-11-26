@@ -39,11 +39,17 @@ const List<String> kImportExtensions = [
 /// existed, the import path read that live-only toggle directly, so
 /// turning Progressive Mode off (to make live recording single-pass)
 /// silently made every import single-pass too.
+///
+/// An Eksperimental (CrispASR) pick is never refined: the refine pass is
+/// whisper and would replace the model the user chose with a less
+/// accurate one, and HPT cannot load a CrispASR model as its quick pass.
 bool shouldRefineImport({
   required String modelId,
   required bool refineModelAvailable,
 }) {
-  return modelId != kAccurateModelId && refineModelAvailable;
+  return modelId != kAccurateModelId &&
+      !isExperimentalModel(modelId) &&
+      refineModelAvailable;
 }
 
 String formatBytes(int bytes) {

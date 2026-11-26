@@ -234,31 +234,6 @@ impl LiveWorker {
         }
     }
 
-    /// Where to find the `crispasr` CLI binary for a given installed
-    /// model path. Temporary resolution strategy, pending a proper
-    /// settings field + download flow (tracked alongside the Dart
-    /// 6-tier selector work): checks `CRISPASR_CLI_PATH` first, then
-    /// falls back to a binary named `crispasr`/`crispasr.exe` sitting
-    /// next to the model file itself — the convention this session's
-    /// manual cross-platform validation used on all three OSes.
-    #[cfg(feature = "crispasr-experimental")]
-    fn resolve_crispasr_cli_path(model_path: &Path) -> Option<PathBuf> {
-        if let Ok(from_env) = std::env::var("CRISPASR_CLI_PATH") {
-            let candidate = PathBuf::from(from_env);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-        let dir = model_path.parent()?;
-        let name = if cfg!(windows) {
-            "crispasr.exe"
-        } else {
-            "crispasr"
-        };
-        let sibling = dir.join(name);
-        sibling.exists().then_some(sibling)
-    }
-
     /// CrispASR (Qwen3-ASR) live worker — a persistent
     /// `crispasr --stream --stream-json` subprocess rather than the
     /// whisper HPT/VAD path above. CrispASR does its own VAD-based
@@ -283,7 +258,7 @@ impl LiveWorker {
             ..
         } = config;
 
-        let cli_path = match Self::resolve_crispasr_cli_path(&quick_model_path) {
+        let cli_path = match crate::stt::loader::resolve_crispasr_cli_path(&quick_model_path) {
             Some(path) => path,
             None => {
                 return Err(TranscribeError::Transcription(format!(

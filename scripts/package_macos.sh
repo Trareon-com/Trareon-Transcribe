@@ -35,10 +35,13 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 # `tryLoadRustCoreLibrary`. This only touches the macOS build invoked from
 # this script; Linux/Windows release profiles are unaffected.
 echo "==> Building rust_core for aarch64-apple-darwin"
-(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target aarch64-apple-darwin --lib)
+# crispasr-experimental: the "Eksperimental" (Qwen3-ASR) tiers. The Xcode
+# build phase enables it, and the universal dylib below replaces that build,
+# so leaving it off here shipped a DMG where those tiers could never run.
+(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target aarch64-apple-darwin --lib --features crispasr-experimental)
 
 echo "==> Building rust_core for x86_64-apple-darwin"
-(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target x86_64-apple-darwin --lib --no-default-features)  # ort: no prebuilt for macOS Intel → energy VAD fallback
+(cd rust_core && CARGO_PROFILE_RELEASE_STRIP=none cargo build --release --target x86_64-apple-darwin --lib --no-default-features --features crispasr-experimental)  # ort: no prebuilt for macOS Intel → energy VAD fallback
 
 echo "==> Creating universal librust_core.dylib"
 mkdir -p rust_core/target/universal
@@ -70,6 +73,12 @@ fi
 FRAMEWORKS="$APP_PATH/Contents/Frameworks"
 echo "==> Copying universal librust_core.dylib into bundle"
 cp rust_core/target/universal/librust_core.dylib "$FRAMEWORKS/"
+
+# ── Bundle the CrispASR CLI (universal) ───────────────────────────────
+# The Xcode phase bundled a native-arch CLI; replace it with arm64+x86_64
+# to match the universal dylib. Signed again by the step below.
+echo "==> Bundling universal CrispASR CLI"
+bash macos/scripts/bundle_crispasr.sh "$APP_PATH" arm64 x86_64
 
 # ── Bundle models ──────────────────────────────────────────────
 # App Sandbox blocks reading arbitrary paths outside the bundle/container,
@@ -110,15 +119,27 @@ fi
 # the app ships with (it was missing the sandbox and screen-capture grants
 # that the production entitlements file already declared).
 ENTITLEMENTS="$(cd "$(dirname "$0")/.." && pwd)/macos/Runner/Release.entitlements"
+HELPER_ENTITLEMENTS="$(cd "$(dirname "$0")/.." && pwd)/macos/Runner/CrispASRHelper.entitlements"
+HELPER="$APP_PATH/Contents/Helpers/crispasr/crispasr"
 if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
   echo "==> Signing $APP_PATH with Developer ID"
   codesign --force --deep --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$MACOS_SIGN_IDENTITY" "$APP_PATH"
+  # --deep gave the CrispASR CLI the app's entitlements; it needs the
+  # sandbox-inherit pair instead, then the outer bundle is sealed again.
+  codesign --force --options runtime --timestamp \
+    --entitlements "$HELPER_ENTITLEMENTS" \
+    --sign "$MACOS_SIGN_IDENTITY" "$HELPER"
+  codesign --force --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" \
     --sign "$MACOS_SIGN_IDENTITY" "$APP_PATH"
   codesign --verify --strict --verbose=2 "$APP_PATH"
 else
   echo "==> Ad-hoc signing $APP_PATH (no MACOS_SIGN_IDENTITY)"
   codesign --force --deep --entitlements "$ENTITLEMENTS" --sign - "$APP_PATH"
+  codesign --force --entitlements "$HELPER_ENTITLEMENTS" --sign - "$HELPER"
+  codesign --force --entitlements "$ENTITLEMENTS" --sign - "$APP_PATH"
   codesign --verify --verbose "$APP_PATH"
 fi
 

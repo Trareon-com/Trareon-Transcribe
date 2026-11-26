@@ -132,6 +132,7 @@ void main() {
       bool hasAudio = true,
       bool alreadyDone = false,
       bool liveModelWasAccurate = false,
+      bool liveModelWasExperimental = false,
       bool? preference,
     }) => shouldAutoEnhance(
       usedQuickModel: usedQuickModel,
@@ -139,6 +140,7 @@ void main() {
       hasAudio: hasAudio,
       alreadyDone: alreadyDone,
       liveModelWasAccurate: liveModelWasAccurate,
+      liveModelWasExperimental: liveModelWasExperimental,
       preference: preference,
     );
 
@@ -167,6 +169,15 @@ void main() {
       expect(decide(preference: true, hasAudio: false), isFalse);
       expect(decide(preference: true, alreadyDone: false), isTrue);
       expect(decide(preference: true, alreadyDone: true), isFalse);
+    });
+
+    test('off when the live pass used an Eksperimental (CrispASR) model', () {
+      // The enhance pass is whisper large-v3-turbo; over a Qwen3-ASR
+      // transcript it would swap in a less accurate engine.
+      expect(
+        decide(preference: true, liveModelWasExperimental: true),
+        isFalse,
+      );
     });
 
     test('never runs twice for the same session', () {
