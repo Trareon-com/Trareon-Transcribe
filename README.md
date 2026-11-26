@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml">
-    <img src="https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <a href="https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml">
+    <img src="https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"/>
@@ -240,7 +240,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the complete layout, data flow diag
 
 ```bash
 # Clone
-git clone https://github.com/Trareon-com/Transcribe.git
+git clone https://github.com/Trareon-com/Trareon-Transcribe.git
 cd Transcribe
 
 # Flutter dependencies
@@ -297,7 +297,7 @@ memerlukan akun atau koneksi internet yang menetap setelah instalasi awal.
 
 ```bash
 # 1. Klon & dependensi Flutter
-git clone https://github.com/Trareon-com/Transcribe.git
+git clone https://github.com/Trareon-com/Trareon-Transcribe.git
 cd Transcribe
 flutter pub get
 

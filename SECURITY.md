@@ -48,7 +48,7 @@ If you find a security issue (memory safety bug, path traversal, unsafe
 deserialization, dependency vulnerability, etc.), please report it privately
 rather than opening a public issue:
 
-- Open a [GitHub Security Advisory](https://github.com/Trareon-com/Transcribe/security/advisories/new)
+- Open a [GitHub Security Advisory](https://github.com/Trareon-com/Trareon-Transcribe/security/advisories/new)
   on this repository, or
 - Email the maintainer directly (see repository profile) with details and,
   if possible, a reproduction.

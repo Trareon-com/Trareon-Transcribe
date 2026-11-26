@@ -74,3 +74,6 @@ l10n-untranslated.json
 
 # Byte-cache from the Python helper scripts in scripts/
 __pycache__/
+
+# Local agent working files (plans, skill symlinks) — not part of the product
+.hermes/

@@ -5,7 +5,7 @@
 - **License**: MIT (source) + binary for $5 via Lynk.ID
 - **Primary channel**: [Lynk.ID](https://lynk.id) — Indonesian payment gateway
 - **Backup channel**: [Gumroad](https://gumroad.com) — international coverage
-- **Source code**: Public on GitHub (MIT) at `github.com/Trareon-com/Transcribe`
+- **Source code**: Public on GitHub (MIT) at `github.com/Trareon-com/Trareon-Transcribe`
 
 ## Binary Builds
 
@@ -72,7 +72,7 @@ Trareon Transcribe's CI pipeline (GitHub Actions) runs on every push and pull re
 - **Flutter**: `flutter analyze`, `flutter test`, builds for macOS/Windows/Linux  
 - **Smoke tests**: macOS DMG and Windows ZIP packaging verified on every push
 
-CI status: [![CI](https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml/badge.svg)](https://github.com/Trareon-com/Transcribe/actions/workflows/ci.yml)
+CI status: [![CI](https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml/badge.svg)](https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml)
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`:
 1. Source tarball (GitHub Releases — for transparency)
