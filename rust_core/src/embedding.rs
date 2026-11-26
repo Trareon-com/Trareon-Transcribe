@@ -56,9 +56,7 @@ impl IndonesianEmbedder {
         let onnx_path = onnx_path.as_ref();
         let tokenizer_path = tokenizer_path.as_ref();
 
-        ort::init().commit();
-
-        let session = Session::builder()
+        let session = Session::builder(crate::ort_env::get()?)
             .map_err(|e| TranscribeError::Model(format!("embedding session build failed: {e}")))?
             .commit_from_file(onnx_path)
             .map_err(|e| {

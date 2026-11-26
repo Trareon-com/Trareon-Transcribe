@@ -29,8 +29,7 @@ impl SileroVad {
             )));
         }
 
-        ort::init().commit();
-        let session = Session::builder()
+        let session = Session::builder(crate::ort_env::get()?)
             .map_err(|e| TranscribeError::Model(format!("Silero session build failed: {e}")))?
             .commit_from_file(model_path)
             .map_err(|e| TranscribeError::Model(format!("Silero model load failed: {e}")))?;
