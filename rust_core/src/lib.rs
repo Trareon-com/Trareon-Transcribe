@@ -85,12 +85,12 @@ pub mod mapreduce;
 pub mod memory;
 pub mod model;
 pub mod model_select;
-#[cfg(any(feature = "silero-onnx", feature = "semantic-embedding"))]
-pub(crate) mod ort_env;
 /// Mesin notulen: templat naskah dinas, skema JSON ketat, periksa fakta,
 /// dan pemeriksa ragam bahasa baku. Local-only — the model round trip
 /// itself belongs to `summary`.
 pub mod notulen;
+#[cfg(any(feature = "silero-onnx", feature = "semantic-embedding"))]
+pub(crate) mod ort_env;
 /// Mode Kepatuhan UU PDP: redaction, retention, audit log, consent.
 pub mod pdp;
 pub mod pipeline;
