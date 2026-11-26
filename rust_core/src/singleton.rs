@@ -71,7 +71,9 @@ fn pid_is_alive(pid: u32) -> bool {
             0,
             pid,
         );
-        if handle == 0 {
+        // windows-sys 0.61 returns the handle as a raw pointer rather than a
+        // `HANDLE`/isize, so the null check has to be a pointer check.
+        if handle.is_null() {
             return false;
         }
         // A handle can still be opened for a process that has already
