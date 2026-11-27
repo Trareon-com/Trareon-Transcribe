@@ -17,6 +17,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/library_index.dart';
 import '../src/rust/archive.dart' as rust_archive;
 import '../state/archive_chat_model.dart';
@@ -72,15 +73,15 @@ class _ArchiveChatScreenState extends ConsumerState<ArchiveChatScreen> {
         backgroundColor: colors.headerBackground,
         foregroundColor: colors.text,
         elevation: 0,
-        title: const Text(
-          'Tanya Arsip Rapat',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.archiveChatScreenTitle,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         actions: [
           if (state.turns.isNotEmpty)
             TextButton(
               onPressed: notifier.clear,
-              child: const Text('Bersihkan'),
+              child: Text(context.l10n.archiveChatScreenClear),
             ),
         ],
       ),
@@ -140,6 +141,7 @@ class _EmptyPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(Spacing.xl),
@@ -153,17 +155,13 @@ class _EmptyPrompt extends StatelessWidget {
             ),
             Spacing.gapMd,
             Text(
-              sessions == 0
-                  ? 'Belum ada rapat di perpustakaan.'
-                  : 'Tanyakan apa saja tentang $sessions rapat yang tersimpan.',
+              l10n.archiveChatScreenEmpty(sessions),
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: FontSizes.body, color: colors.text),
             ),
             Spacing.gapSm,
             Text(
-              '"Cari" bekerja sepenuhnya di komputer ini. "Jawab" juga '
-              'mengirim kutipan yang ditemukan ke endpoint ringkasan yang '
-              'Anda atur, dan dicatat di Laporan Privasi.',
+              l10n.archiveChatScreenExplain,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: FontSizes.caption,
@@ -177,10 +175,10 @@ class _EmptyPrompt extends StatelessWidget {
               runSpacing: Spacing.sm,
               alignment: WrapAlignment.center,
               children: [
-                for (final example in const [
-                  'Apa keputusan soal anggaran?',
-                  'Siapa penanggung jawab laporan keuangan?',
-                  'Kapan tenggat peluncuran?',
+                for (final example in [
+                  l10n.archiveChatScreenExample1,
+                  l10n.archiveChatScreenExample2,
+                  l10n.archiveChatScreenExample3,
                 ])
                   Chip(
                     label: Text(
@@ -251,7 +249,7 @@ class _TurnView extends StatelessWidget {
         if (turn.sources.isNotEmpty) ...[
           Spacing.gapSm,
           Text(
-            'Kutipan',
+            context.l10n.archiveChatScreenSources,
             style: TextStyle(
               fontSize: FontSizes.micro,
               fontWeight: FontWeight.w600,
@@ -288,7 +286,7 @@ class _SourceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = hit.timestamp < 0
-        ? '${hit.title} (${hit.date}) · ringkasan'
+        ? context.l10n.archiveChatScreenSourceSummary(hit.title, hit.date)
         : '${hit.title} (${hit.date}) · ${formatTimestamp(hit.timestamp)}';
     return InkWell(
       onTap: onOpen == null
@@ -371,10 +369,10 @@ class _Composer extends StatelessWidget {
               controller: controller,
               enabled: !busy,
               onSubmitted: (_) => onSearch(),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                border: OutlineInputBorder(),
-                hintText: 'Tanyakan sesuatu tentang rapat-rapat Anda…',
+                border: const OutlineInputBorder(),
+                hintText: context.l10n.archiveChatScreenHint,
               ),
             ),
           ),
@@ -382,7 +380,7 @@ class _Composer extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: busy ? null : onSearch,
             icon: const Icon(AppIcons.search, size: IconSizes.md),
-            label: const Text('Cari'),
+            label: Text(context.l10n.archiveChatScreenSearch),
           ),
           const SizedBox(width: Spacing.sm),
           FilledButton.icon(
@@ -394,7 +392,7 @@ class _Composer extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(AppIcons.enhance, size: IconSizes.md),
-            label: const Text('Jawab'),
+            label: Text(context.l10n.archiveChatScreenAnswer),
           ),
         ],
       ),

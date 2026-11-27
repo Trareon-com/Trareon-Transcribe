@@ -173,5 +173,613 @@
         "type": "String"
       }
     }
-  }
+  },
+
+  "notulenDialogSummaryNotConfigured": "Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan → Ringkasan AI.",
+  "notulenDialogPickReferenceDocTitle": "Pilih dokumen rujukan",
+  "@notulenDialogPickReferenceDocTitle": {
+    "description": "Title of the file picker for the optional reference document"
+  },
+  "notulenDialogReadDocFailed": "Gagal membaca dokumen: {error}",
+  "@notulenDialogReadDocFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogPickFolderTitle": "Pilih folder untuk notulen",
+  "@notulenDialogPickFolderTitle": {
+    "description": "Title of the folder picker for the DOCX export"
+  },
+  "notulenDialogSaved": "Notulen tersimpan: {path}",
+  "@notulenDialogSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogExportFailed": "Gagal membuat notulen: {error}",
+  "@notulenDialogExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogTitle": "Notulen Rapat",
+  "notulenDialogComposing": "Menyusun…",
+  "@notulenDialogComposing": {
+    "description": "Button label while the minutes are being generated or exported"
+  },
+  "notulenDialogCreateDocx": "Buat Notulen (DOCX)",
+  "notulenDialogMeetingIdentity": "Identitas rapat",
+  "@notulenDialogMeetingIdentity": {
+    "description": "Group label above the meeting title/number/date fields"
+  },
+  "notulenDialogFieldTitle": "Judul Rapat",
+  "notulenDialogFieldNumber": "Nomor Notulen",
+  "@notulenDialogFieldNumber": {
+    "description": "Official document number of the minutes"
+  },
+  "notulenDialogFieldNumberHint": "mis. ND-12/AG.3/2026",
+  "notulenDialogFieldAgency": "Instansi (kop surat)",
+  "notulenDialogFieldUnit": "Unit kerja (baris kedua kop)",
+  "notulenDialogFieldDay": "Hari",
+  "notulenDialogFieldDate": "Tanggal",
+  "notulenDialogFieldTime": "Waktu",
+  "notulenDialogFieldPlace": "Tempat/Media",
+  "@notulenDialogFieldPlace": {
+    "description": "Where the meeting took place, or the online medium used"
+  },
+  "notulenDialogFieldChair": "Pimpinan Rapat",
+  "notulenDialogFieldMinuteTaker": "Notulis",
+  "notulenDialogParties": "Para Pihak",
+  "@notulenDialogParties": {
+    "description": "The named parties of a berita acara (official record of an act)"
+  },
+  "notulenDialogPartiesHelp": "Urutan menentukan kolom tanda tangan: pihak pertama di kanan, pihak kedua di kiri. Sebutkan nama beserta jabatannya.",
+  "notulenDialogPartyHint": "Nama, jabatan",
+  "notulenDialogAddParty": "Tambah pihak",
+  "notulenDialogAttendees": "Peserta",
+  "notulenDialogAttendeeHint": "Nama peserta",
+  "notulenDialogAddAttendee": "Tambah peserta",
+  "notulenDialogAgenda": "Agenda",
+  "notulenDialogAgendaHint": "Butir agenda",
+  "notulenDialogAddAgenda": "Tambah agenda",
+  "notulenDialogDiscussion": "Pembahasan",
+  "notulenDialogDiscussionHint": "Isi pembahasan. Terisi otomatis dari ringkasan AI kalau ada.",
+  "notulenDialogDecisions": "Keputusan",
+  "notulenDialogDecisionHint": "Keputusan rapat",
+  "notulenDialogAddDecision": "Tambah keputusan",
+  "notulenDialogFollowUp": "Tindak Lanjut",
+  "notulenDialogArchivalExport": "Ekspor kearsipan",
+  "notulenDialogExportSrikandi": "Ekspor siap-SRIKANDI…",
+  "notulenDialogBookmarksIncluded": "{count, plural, other{{count} poin penting yang Anda tandai saat rapat akan disertakan.}}",
+  "@notulenDialogBookmarksIncluded": {
+    "description": "Shown only when at least one bookmark exists",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogAttachTranscript": "Lampirkan transkrip lengkap",
+  "notulenDialogTranscriptLines": "{count} baris transkrip ditambahkan di halaman terpisah.",
+  "@notulenDialogTranscriptLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogFormType": "Bentuk naskah",
+  "@notulenDialogFormType": {
+    "description": "Label of the minutes template picker"
+  },
+  "notulenDialogAutoFill": "Isi otomatis dengan AI",
+  "notulenDialogSourceTranscript": "Transkrip sesi",
+  "notulenDialogSourceNotes": "Poin catatan",
+  "@notulenDialogSourceNotes": {
+    "description": "Source option: generate the minutes from notes the user types instead of the transcript"
+  },
+  "notulenDialogNotesHint": "Tempel atau ketik butir-butir catatan rapat, satu poin per baris.",
+  "notulenDialogLength": "Panjang notulen",
+  "notulenDialogAddReferenceDoc": "Tambahkan dokumen rujukan (opsional)",
+  "notulenDialogRemoveReferenceDoc": "Hapus dokumen rujukan",
+  "notulenDialogGenerate": "Buat Otomatis",
+  "notulenDialogRetry": "Coba lagi",
+  "notulenDialogGenerateFailed": "Gagal membuat notulen otomatis: {error}",
+  "@notulenDialogGenerateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogFactCheckSection": "Periksa Fakta & Ragam",
+  "notulenDialogRecheck": "Periksa Ulang",
+  "notulenDialogFactCheck": "Periksa Fakta",
+  "notulenDialogTidyRegister": "Rapikan Ragam",
+  "@notulenDialogTidyRegister": {
+    "description": "Rewrites the discussion in standard official Indonesian (EYD V)"
+  },
+  "notulenDialogCheckFailed": "Gagal memeriksa: {error}",
+  "@notulenDialogCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogFactSummary": "{checked} pernyataan diperiksa, {clean} bersih, {flagged} butir perlu ditinjau.",
+  "@notulenDialogFactSummary": {
+    "placeholders": {
+      "checked": {
+        "type": "int"
+      },
+      "clean": {
+        "type": "int"
+      },
+      "flagged": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogTidyPreview": "Pratinjau Rapikan Ragam",
+  "notulenDialogApply": "Terapkan",
+  "notulenDialogRemoveItem": "Hapus {item}",
+  "@notulenDialogRemoveItem": {
+    "description": "Tooltip of the delete button on a list chip",
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogTaskField": "Tugas",
+  "notulenDialogOwnerField": "Penanggung Jawab",
+  "notulenDialogDueField": "Tenggat",
+  "notulenDialogRemoveTaskRow": "Hapus baris tindak lanjut",
+  "notulenDialogAddTask": "Tambah tindak lanjut",
+  "notulenDialogIssueNoCitation": "Tanpa rujukan segmen",
+  "notulenDialogIssueInvalidCitation": "Rujukan segmen tidak sah",
+  "notulenDialogIssueWeakSupport": "Dukungan dari transkrip lemah",
+  "notulenDialogIssueCitationOff": "Rujukan segmen meleset",
+  "notulenDialogIssueNumberMissing": "Angka tidak ditemukan di transkrip",
+  "notulenDialogIssueNameMissing": "Nama tidak ditemukan di transkrip",
+  "notulenDialogRegisterLine": "Baris {line}: \"{found}\"",
+  "@notulenDialogRegisterLine": {
+    "description": "A style finding: the line number and the text found there",
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "found": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogRegisterSuggestion": "Saran: \"{suggestion}\" (diterapkan oleh Rapikan Ragam)",
+  "@notulenDialogRegisterSuggestion": {
+    "placeholders": {
+      "suggestion": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelStatusNotStarted": "Belum mulai",
+  "actionItemsPanelStatusInProgress": "Sedang berjalan",
+  "actionItemsPanelStatusDone": "Selesai",
+  "actionItemsPanelStatusCancelled": "Dibatalkan",
+  "actionItemsPanelSaved": "{what} disimpan: {filename}",
+  "@actionItemsPanelSaved": {
+    "description": "Toast after an export; {what} is actionItemsPanelIcsWhat or actionItemsPanelCsvWhat",
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelSaveFailed": "Gagal menyimpan {what}: {error}",
+  "@actionItemsPanelSaveFailed": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelIcsWhat": "Kalender tindak lanjut",
+  "@actionItemsPanelIcsWhat": {
+    "description": "Inserted into actionItemsPanelSaved / actionItemsPanelSaveFailed"
+  },
+  "actionItemsPanelCsvWhat": "Tabel tindak lanjut",
+  "@actionItemsPanelCsvWhat": {
+    "description": "Inserted into actionItemsPanelSaved / actionItemsPanelSaveFailed"
+  },
+  "actionItemsPanelIcsFailed": "Gagal membuat .ics: {error}",
+  "@actionItemsPanelIcsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelCsvFailed": "Gagal membuat .csv: {error}",
+  "@actionItemsPanelCsvFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelCopied": "Tindak lanjut disalin.",
+  "actionItemsPanelTitle": "Tindak Lanjut",
+  "actionItemsPanelProgress": "{done}/{total} selesai",
+  "@actionItemsPanelProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "actionItemsPanelEmpty": "Belum ada tindak lanjut. Nyalakan \"Tindak lanjut terstruktur\" di Pengaturan → Ringkasan AI agar ringkasan berikutnya mengisinya sendiri, atau tambahkan sendiri di bawah.",
+  "actionItemsPanelAddTask": "Tambah tugas",
+  "actionItemsPanelCopy": "Salin",
+  "actionItemsPanelExportCsv": "Ekspor CSV",
+  "actionItemsPanelShareCsv": "Bagikan CSV",
+  "actionItemsPanelExportIcs": "Ekspor .ics",
+  "actionItemsPanelShareIcs": "Bagikan .ics",
+  "actionItemsPanelMarkDone": "Tandai \"{task}\" selesai",
+  "@actionItemsPanelMarkDone": {
+    "description": "Screen-reader label of the done checkbox",
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelTaskLabel": "Tugas",
+  "actionItemsPanelRemoveTask": "Hapus tugas",
+  "actionItemsPanelOwnerLabel": "Penanggung jawab",
+  "actionItemsPanelDueLabel": "Tenggat",
+  "actionItemsPanelStatusLabel": "Status",
+  "diagnosticsScreenSaveDialogTitle": "Simpan log diagnostik",
+  "diagnosticsScreenSaved": "Log diagnostik tersimpan: {path}",
+  "@diagnosticsScreenSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "diagnosticsScreenSaveFailed": "Gagal menyimpan log diagnostik: {error}",
+  "@diagnosticsScreenSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "diagnosticsScreenTitle": "Diagnostik",
+  "diagnosticsScreenRecheck": "Periksa ulang",
+  "diagnosticsScreenIntro": "Pemeriksaan ini berjalan sepenuhnya di komputer Anda dan tidak mengirim apa pun ke internet.",
+  "diagnosticsScreenRunFailedTitle": "Pemeriksaan gagal dijalankan",
+  "diagnosticsScreenRunFailedRemediation": "Mesin transkripsi mungkin tidak termuat. Tutup dan buka ulang aplikasi; jika tetap gagal, pasang ulang Trareon.",
+  "diagnosticsScreenNoChecksTitle": "Tidak ada pemeriksaan yang berjalan",
+  "diagnosticsScreenNoChecksMessage": "Mesin tidak mengembalikan hasil apa pun.",
+  "diagnosticsScreenHasFailures": "Ada masalah yang perlu diperbaiki sebelum merekam.",
+  "diagnosticsScreenHasWarnings": "Aplikasi bisa dipakai, tapi ada hal yang sebaiknya diperiksa.",
+  "diagnosticsScreenAllGood": "Semua siap. Aplikasi bisa merekam.",
+  "diagnosticsScreenSeverityOk": "Baik",
+  "@diagnosticsScreenSeverityOk": {
+    "description": "Screen-reader word for the ✓ marker"
+  },
+  "diagnosticsScreenSeverityWarn": "Perlu diperiksa",
+  "@diagnosticsScreenSeverityWarn": {
+    "description": "Screen-reader word for the ! marker"
+  },
+  "diagnosticsScreenSeverityFail": "Gagal",
+  "@diagnosticsScreenSeverityFail": {
+    "description": "Screen-reader word for the ✗ marker"
+  },
+  "diagnosticsScreenExportTitle": "Log Diagnostik",
+  "diagnosticsScreenExportBody": "Satu berkas .zip berisi berkas log dan hasil pemeriksaan di atas. Tidak berisi transkrip, audio, atau nama berkas rapat Anda.",
+  "@diagnosticsScreenExportBody": {
+    "description": "Used before the number of log files is known"
+  },
+  "diagnosticsScreenExportBodyCount": "Satu berkas .zip berisi {count} berkas log dan hasil pemeriksaan di atas. Tidak berisi transkrip, audio, atau nama berkas rapat Anda.",
+  "@diagnosticsScreenExportBodyCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagnosticsScreenExport": "Ekspor",
+  "llmSetupWizardScreenTitle": "Siapkan Model AI",
+  "llmSetupWizardScreenNotDetected": "Ollama tidak terdeteksi di perangkat ini.",
+  "llmSetupWizardScreenInstallOn": "Pasang Ollama di {system}",
+  "@llmSetupWizardScreenInstallOn": {
+    "description": "{system} is the operating system name",
+    "placeholders": {
+      "system": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenOpenLink": "Buka {url}",
+  "@llmSetupWizardScreenOpenLink": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenInstalledRecheck": "Sudah dipasang, periksa ulang",
+  "llmSetupWizardScreenHardware": "Perangkat ini: {ram} GB RAM, {threads} thread CPU.",
+  "@llmSetupWizardScreenHardware": {
+    "description": "{ram} is already formatted with one decimal",
+    "placeholders": {
+      "ram": {
+        "type": "String"
+      },
+      "threads": {
+        "type": "int"
+      }
+    }
+  },
+  "llmSetupWizardScreenHardwareWithVram": "Perangkat ini: {ram} GB RAM, {threads} thread CPU, {vram} GB VRAM.",
+  "@llmSetupWizardScreenHardwareWithVram": {
+    "placeholders": {
+      "ram": {
+        "type": "String"
+      },
+      "threads": {
+        "type": "int"
+      },
+      "vram": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenBelowMinimum": "Perangkat ini di bawah rekomendasi minimum; model teringan tetap ditawarkan sebagai usaha terbaik.",
+  "llmSetupWizardScreenChooseModel": "Pilih model",
+  "llmSetupWizardScreenDownload": "Unduh {model}",
+  "@llmSetupWizardScreenDownload": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDownloading": "Mengunduh {model}…",
+  "@llmSetupWizardScreenDownloading": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDownloadingShort": "Mengunduh",
+  "@llmSetupWizardScreenDownloadingShort": {
+    "description": "Screen-reader label of the download progress bar"
+  },
+  "llmSetupWizardScreenPreparing": "Menyiapkan unduhan…",
+  "llmSetupWizardScreenReady": "Model siap dipakai",
+  "llmSetupWizardScreenReadyBody": "{model} sudah terunduh dan disetel sebagai model Ringkasan AI.",
+  "@llmSetupWizardScreenReadyBody": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDone": "Selesai",
+  "llmSetupWizardScreenReadyToast": "Model AI siap: {model}",
+  "@llmSetupWizardScreenReadyToast": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenModelMeta": "{tag} · unduh {size} GB · konteks {context}",
+  "@llmSetupWizardScreenModelMeta": {
+    "description": "{context} is the context window in tokens",
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      },
+      "context": {
+        "type": "int"
+      }
+    }
+  },
+  "llmSetupWizardScreenError": "Terjadi kesalahan: {error}",
+  "@llmSetupWizardScreenError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenRetry": "Coba lagi",
+  "capabilitiesScreenTitle": "Apa Jalan di Mana",
+  "capabilitiesScreenLoadFailed": "Daftar kemampuan tidak bisa dibaca: {error}",
+  "@capabilitiesScreenLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilitiesScreenRunsLocal": "Lokal",
+  "capabilitiesScreenRunsEndpoint": "Endpoint Anda",
+  "@capabilitiesScreenRunsEndpoint": {
+    "description": "The summary endpoint the user configured"
+  },
+  "capabilitiesScreenRunsInternet": "Internet",
+  "capabilitiesScreenLocalCount": "{local} dari {total} kemampuan berjalan sepenuhnya di komputer ini.",
+  "@capabilitiesScreenLocalCount": {
+    "placeholders": {
+      "local": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "capabilitiesScreenNetworked": "{count, plural, =0{Tidak ada kemampuan yang memakai jaringan.} other{{count} kemampuan bisa memakai jaringan; {active} di antaranya aktif sekarang. Perekaman, transkripsi, dan ekspor tidak termasuk, itu tidak pernah memakai jaringan.}}",
+  "@capabilitiesScreenNetworked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
+    }
+  },
+  "capabilitiesScreenSourceNote": "Daftar ini dibuat dari sumber yang sama dengan uji privasi di rust_core/src/privacy.rs: baris yang mengaku \"Lokal\" tetapi modulnya menyentuh jaringan akan menggagalkan build.",
+  "capabilitiesScreenRowSemantics": "{name}. {runsAt}. {status}.",
+  "@capabilitiesScreenRowSemantics": {
+    "description": "Screen-reader label of one capability row",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "runsAt": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilitiesScreenActive": "Aktif",
+  "capabilitiesScreenInactive": "Tidak aktif",
+  "capabilitiesScreenRunsAt": "Berjalan di: ",
+  "@capabilitiesScreenRunsAt": {
+    "description": "Followed by where the capability runs; keep the trailing space"
+  },
+  "capabilitiesScreenCode": "Kode: rust_core/src/{module}",
+  "@capabilitiesScreenCode": {
+    "placeholders": {
+      "module": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatScreenTitle": "Tanya Arsip Rapat",
+  "archiveChatScreenClear": "Bersihkan",
+  "archiveChatScreenEmpty": "{count, plural, =0{Belum ada rapat di perpustakaan.} other{Tanyakan apa saja tentang {count} rapat yang tersimpan.}}",
+  "@archiveChatScreenEmpty": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveChatScreenExplain": "\"Cari\" bekerja sepenuhnya di komputer ini. \"Jawab\" juga mengirim kutipan yang ditemukan ke endpoint ringkasan yang Anda atur, dan dicatat di Laporan Privasi.",
+  "archiveChatScreenExample1": "Apa keputusan soal anggaran?",
+  "archiveChatScreenExample2": "Siapa penanggung jawab laporan keuangan?",
+  "archiveChatScreenExample3": "Kapan tenggat peluncuran?",
+  "archiveChatScreenSources": "Kutipan",
+  "archiveChatScreenSourceSummary": "{title} ({date}) · ringkasan",
+  "@archiveChatScreenSourceSummary": {
+    "description": "A citation that points at a meeting's summary rather than a moment",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatScreenHint": "Tanyakan sesuatu tentang rapat-rapat Anda…",
+  "archiveChatScreenSearch": "Cari",
+  "archiveChatScreenAnswer": "Jawab",
+  "redactionPreviewTitle": "Pratinjau penyamaran",
+  "redactionPreviewClose": "Tutup",
+  "redactionPreviewFailed": "Pratinjau gagal: {error}",
+  "@redactionPreviewFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewNoneFound": "Tidak ada data pribadi yang terdeteksi. File hasil ekspor akan sama persis dengan transkrip.",
+  "redactionPreviewNothing": "Tidak ada yang akan disamarkan.",
+  "redactionPreviewSummaryPart": "{count} {kind}",
+  "@redactionPreviewSummaryPart": {
+    "description": "One category in the redaction summary, e.g. \"3 NIK\"",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewSummary": "{parts} akan disamarkan.",
+  "@redactionPreviewSummary": {
+    "description": "{parts} is a comma-separated list of redactionPreviewSummaryPart",
+    "placeholders": {
+      "parts": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewKindPhone": "Nomor telepon",
+  "redactionPreviewKindEmail": "Alamat email",
+  "redactionPreviewKindBankAccount": "Nomor rekening",
+  "redactionPreviewKindName": "Nama",
+  "liveQaPanelTitle": "Tanya Langsung",
+  "liveQaPanelHint": "Tanyakan sesuatu tentang rapat ini…",
+  "liveQaPanelAsk": "Tanya",
+  "liveQaPanelEmpty": "Tanyakan apa saja yang sudah dibahas di rapat ini sejauh ini.",
+  "liveQaPanelPrivacy": "Jawaban dikirim ke endpoint ringkasan yang Anda atur di Pengaturan → Ringkasan AI, dan dicatat di Laporan Privasi.",
+  "liveQaPanelSources": "Kutipan transkrip",
+  "recordButtonSaving": "Menyimpan…",
+  "recordButtonResume": "Lanjutkan",
+  "recordButtonStop": "Berhenti",
+  "recordButtonStart": "Mulai Rekam",
+  "recordButtonResumeSemantics": "Lanjutkan rekaman",
+  "recordButtonStopSemantics": "Berhenti merekam",
+  "recordButtonStartSemantics": "Mulai merekam",
+  "appDialogClose": "Tutup",
+  "appDialogBarrierLabel": "Tutup dialog",
+  "@appDialogBarrierLabel": {
+    "description": "Screen-reader label of the dimmed area behind a dialog"
+  },
+  "appDialogContinue": "Lanjutkan",
+  "@appDialogContinue": {
+    "description": "Default confirm button of a confirmation dialog"
+  },
+  "trayServiceOpen": "Buka Trareon Transcribe",
+  "trayServiceQuit": "Keluar",
+  "personalNotesPanelTitle": "Catatan Pribadi",
+  "personalNotesPanelSubtitle": "Tersimpan otomatis. Enhance nanti menggabungkannya dengan transkrip.",
+  "@personalNotesPanelSubtitle": {
+    "description": "\"Enhance\" is the name of the feature button; keep it"
+  },
+  "personalNotesPanelHint": "mis. PENTING: deadline Jumat…"
 }

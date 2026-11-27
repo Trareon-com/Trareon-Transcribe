@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/flight_recorder_service.dart';
 import '../services/preflight_service.dart';
 import '../state/settings_model.dart';
@@ -58,7 +59,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   Future<void> _exportDiagnostics() async {
     final result = _result;
     final destination = await FilePicker.saveFile(
-      dialogTitle: 'Simpan log diagnostik',
+      dialogTitle: context.l10n.diagnosticsScreenSaveDialogTitle,
       fileName:
           'trareon-diagnostik-'
           '${DateTime.now().toIso8601String().substring(0, 10)}.zip',
@@ -79,7 +80,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       setState(() => _exporting = false);
       AppToast.show(
         context,
-        'Log diagnostik tersimpan: $written',
+        context.l10n.diagnosticsScreenSaved(written),
         type: ToastType.success,
       );
     } catch (e) {
@@ -87,7 +88,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       setState(() => _exporting = false);
       AppToast.show(
         context,
-        'Gagal menyimpan log diagnostik: $e',
+        context.l10n.diagnosticsScreenSaveFailed('$e'),
         type: ToastType.error,
       );
     }
@@ -110,6 +111,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final result = _result;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -117,12 +119,12 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         backgroundColor: colors.headerBackground,
         foregroundColor: colors.text,
         elevation: 0,
-        title: const Text('Diagnostik'),
+        title: Text(l10n.diagnosticsScreenTitle),
         actions: [
           TextButton.icon(
             onPressed: _running ? null : _run,
             icon: const Icon(AppIcons.refresh, size: IconSizes.md),
-            label: const Text('Periksa ulang'),
+            label: Text(l10n.diagnosticsScreenRecheck),
           ),
           Spacing.hSm,
         ],
@@ -131,8 +133,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         padding: const EdgeInsets.all(Spacing.lg),
         children: [
           Text(
-            'Pemeriksaan ini berjalan sepenuhnya di komputer Anda dan tidak '
-            'mengirim apa pun ke internet.',
+            l10n.diagnosticsScreenIntro,
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: FontSizes.body,
@@ -145,18 +146,16 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               _DiagnosticCard(
                 marker: '✗',
                 color: colors.error,
-                title: 'Pemeriksaan gagal dijalankan',
+                title: l10n.diagnosticsScreenRunFailedTitle,
                 message: result.error!,
-                remediation:
-                    'Mesin transkripsi mungkin tidak termuat. Tutup dan buka '
-                    'ulang aplikasi; jika tetap gagal, pasang ulang Trareon.',
+                remediation: l10n.diagnosticsScreenRunFailedRemediation,
               )
             else if (result.checks.isEmpty)
               _DiagnosticCard(
                 marker: '!',
                 color: colors.textSecondary,
-                title: 'Tidak ada pemeriksaan yang berjalan',
-                message: 'Mesin tidak mengembalikan hasil apa pun.',
+                title: l10n.diagnosticsScreenNoChecksTitle,
+                message: l10n.diagnosticsScreenNoChecksMessage,
               )
             else
               for (final check in result.checks)
@@ -176,11 +175,10 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
             Spacing.gapMd,
             Text(
               result.hasFailures
-                  ? 'Ada masalah yang perlu diperbaiki sebelum merekam.'
+                  ? l10n.diagnosticsScreenHasFailures
                   : result.hasWarnings
-                  ? 'Aplikasi bisa dipakai, tapi ada hal yang sebaiknya '
-                        'diperiksa.'
-                  : 'Semua siap. Aplikasi bisa merekam.',
+                  ? l10n.diagnosticsScreenHasWarnings
+                  : l10n.diagnosticsScreenAllGood,
               style: TextStyle(
                 color: colors.text,
                 fontSize: FontSizes.body,
@@ -239,9 +237,9 @@ class _DiagnosticCard extends StatelessWidget {
               // are a punctuation mark. The label says it in words.
               child: Semantics(
                 label: switch (marker) {
-                  '✓' => 'Baik',
-                  '!' => 'Perlu diperiksa',
-                  _ => 'Gagal',
+                  '✓' => context.l10n.diagnosticsScreenSeverityOk,
+                  '!' => context.l10n.diagnosticsScreenSeverityWarn,
+                  _ => context.l10n.diagnosticsScreenSeverityFail,
                 },
                 excludeSemantics: true,
                 child: Text(
@@ -332,6 +330,7 @@ class _DiagnosticsExportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
@@ -353,7 +352,7 @@ class _DiagnosticsExportCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Log Diagnostik',
+                  l10n.diagnosticsScreenExportTitle,
                   style: TextStyle(
                     color: colors.text,
                     fontSize: FontSizes.bodyLarge,
@@ -362,9 +361,9 @@ class _DiagnosticsExportCard extends StatelessWidget {
                 ),
                 const SizedBox(height: Spacing.xs),
                 Text(
-                  'Satu berkas .zip berisi ${logFiles == null ? '' : '$logFiles '}'
-                  'berkas log dan hasil pemeriksaan di atas. '
-                  'Tidak berisi transkrip, audio, atau nama berkas rapat Anda.',
+                  logFiles == null
+                      ? l10n.diagnosticsScreenExportBody
+                      : l10n.diagnosticsScreenExportBodyCount(logFiles!),
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: FontSizes.caption,
@@ -384,7 +383,7 @@ class _DiagnosticsExportCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(AppIcons.download, size: IconSizes.md),
-            label: const Text('Ekspor'),
+            label: Text(l10n.diagnosticsScreenExport),
           ),
         ],
       ),

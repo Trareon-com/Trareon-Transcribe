@@ -3,6 +3,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
@@ -94,7 +95,7 @@ class AppDialog extends StatelessWidget {
                   if (showClose)
                     AppIconButton(
                       icon: AppIcons.close,
-                      tooltip: 'Tutup',
+                      tooltip: context.l10n.appDialogClose,
                       size: IconSizes.md,
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
@@ -150,7 +151,7 @@ Future<T?> showAppDialog<T>({
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
-    barrierLabel: 'Tutup dialog',
+    barrierLabel: context.l10n.appDialogBarrierLabel,
     barrierColor: context.colors.scrim,
     transitionDuration: motion.slowest,
     pageBuilder: (context, _, _) => builder(context),
@@ -176,8 +177,8 @@ Future<bool> showAppConfirm({
   required BuildContext context,
   required String title,
   required String message,
-  String confirmLabel = 'Lanjutkan',
-  String cancelLabel = 'Batal',
+  String? confirmLabel,
+  String? cancelLabel,
   bool destructive = false,
   IconData? icon,
 }) async {
@@ -190,18 +191,18 @@ Future<bool> showAppConfirm({
       width: Measure.dialog,
       actions: [
         AppButton(
-          label: cancelLabel,
+          label: cancelLabel ?? context.l10n.actionCancel,
           variant: AppButtonVariant.secondary,
           autofocus: true,
           onPressed: () => Navigator.of(context).pop(false),
         ),
         destructive
             ? AppButton.danger(
-                label: confirmLabel,
+                label: confirmLabel ?? context.l10n.appDialogContinue,
                 onPressed: () => Navigator.of(context).pop(true),
               )
             : AppButton.primary(
-                label: confirmLabel,
+                label: confirmLabel ?? context.l10n.appDialogContinue,
                 onPressed: () => Navigator.of(context).pop(true),
               ),
       ],
@@ -286,7 +287,7 @@ class AppSheet extends StatelessWidget {
                 ),
                 AppIconButton(
                   icon: AppIcons.close,
-                  tooltip: 'Tutup',
+                  tooltip: context.l10n.appDialogClose,
                   size: IconSizes.md,
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),

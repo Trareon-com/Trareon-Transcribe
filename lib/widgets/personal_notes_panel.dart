@@ -12,6 +12,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
@@ -62,6 +63,7 @@ class _PersonalNotesPanelState extends State<PersonalNotesPanel> {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Container(
       color: colors.surface,
       padding: const EdgeInsets.all(Spacing.md),
@@ -74,7 +76,7 @@ class _PersonalNotesPanelState extends State<PersonalNotesPanel> {
               Spacing.hSm,
               Expanded(
                 child: Text(
-                  'Catatan Pribadi',
+                  l10n.personalNotesPanelTitle,
                   style: AppText.bodyStrong.c(colors.text),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -84,8 +86,7 @@ class _PersonalNotesPanelState extends State<PersonalNotesPanel> {
           ),
           Spacing.gapXs,
           Text(
-            'Tersimpan otomatis. Enhance nanti menggabungkannya dengan '
-            'transkrip.',
+            l10n.personalNotesPanelSubtitle,
             style: AppText.caption.c(colors.textTertiary),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -104,7 +105,7 @@ class _PersonalNotesPanelState extends State<PersonalNotesPanel> {
                 maxLines: 1000,
                 minLines: 3,
                 reserveHelperSpace: false,
-                placeholder: 'mis. PENTING: deadline Jumat…',
+                placeholder: l10n.personalNotesPanelHint,
                 onChanged: widget.onChanged,
               ),
             ),

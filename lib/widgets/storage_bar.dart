@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
@@ -52,13 +53,13 @@ class _StorageBarState extends State<StorageBar> {
     return compute(_computeBytesSync, libraryPath);
   }
 
-  String _formatBytes(int bytes) {
+  String _formatBytes(AppLocalizations l10n, int bytes) {
     if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(0)} KB';
+      return l10n.bytesKb((bytes / 1024).toStringAsFixed(0));
     } else if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      return l10n.bytesMb((bytes / (1024 * 1024)).toStringAsFixed(1));
     } else {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+      return l10n.bytesGb((bytes / (1024 * 1024 * 1024)).toStringAsFixed(1));
     }
   }
 
@@ -66,6 +67,7 @@ class _StorageBarState extends State<StorageBar> {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -73,9 +75,7 @@ class _StorageBarState extends State<StorageBar> {
         vertical: Spacing.xs,
       ),
       child: Semantics(
-        label: widget.totalSessions > 0
-            ? 'Penyimpanan: ${widget.totalSessions} sesi tersimpan'
-            : 'Penyimpanan: belum ada sesi tersimpan',
+        label: l10n.storageTooltip(widget.totalSessions),
         child: Row(
           children: [
             ExcludeSemantics(
@@ -89,14 +89,17 @@ class _StorageBarState extends State<StorageBar> {
             FutureBuilder<int>(
               future: _bytesFuture,
               builder: (context, snapshot) {
-                final sessionLabel = widget.totalSessions > 0
-                    ? '${widget.totalSessions} sesi'
-                    : 'Belum ada sesi';
+                final sessionLabel = l10n.storageSessionCount(
+                  widget.totalSessions,
+                );
                 if (snapshot.connectionState == ConnectionState.done &&
                     snapshot.hasData &&
                     snapshot.data! > 0) {
                   return Text(
-                    '$sessionLabel · ${_formatBytes(snapshot.data!)}',
+                    l10n.storageSummary(
+                      sessionLabel,
+                      _formatBytes(l10n, snapshot.data!),
+                    ),
                     style: TextStyle(
                       color: colors.textTertiary,
                       fontSize: FontSizes.caption,
@@ -124,8 +127,8 @@ class _StorageBarState extends State<StorageBar> {
               ),
               child: Text(
                 widget.totalSessions > 0
-                    ? '📁 ${widget.totalSessions}'
-                    : '📂 Kosong',
+                    ? l10n.storageCountCompact(widget.totalSessions)
+                    : l10n.storageEmptyCompact,
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: FontSizes.micro,
