@@ -173,5 +173,726 @@
         "type": "String"
       }
     }
+  },
+
+  "appToastDismissTooltip": "Tutup pemberitahuan",
+  "@appToastDismissTooltip": {
+    "description": "Tooltip of the close button on a toast"
+  },
+  "settingsControlsInfoBadge": "Penjelasan",
+  "@settingsControlsInfoBadge": {
+    "description": "Small badge next to a setting that opens an explanation dialog"
+  },
+  "settingsControlsInfoDialogTitle": "Informasi",
+  "settingsControlsClose": "Tutup",
+  "taskProgressTileFailed": "Gagal.",
+  "@taskProgressTileFailed": {
+    "description": "Generic status line of a failed background task"
+  },
+  "taskProgressTileCancelled": "Dibatalkan.",
+  "taskProgressTileDone": "Selesai.",
+  "taskProgressTileQueued": "Menunggu antrean.",
+  "taskProgressTileProcessing": "Memproses",
+  "@taskProgressTileProcessing": {
+    "description": "Default stage name of a running task; an ellipsis and percentage are appended"
+  },
+  "enhanceQueueViewCompletingTitle": "Menyelesaikan transkrip",
+  "@enhanceQueueViewCompletingTitle": {
+    "description": "Sidebar heading when the queue is filling in audio that was never transcribed (a repair, not a polish)"
+  },
+  "enhanceQueueViewCompletingSource": "Menyelesaikan {source}",
+  "@enhanceQueueViewCompletingSource": {
+    "description": "Stage of a completion job. source is a lower-case source name such as \"mikrofon\"",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewEtaRemaining": "sisa {eta}",
+  "@enhanceQueueViewEtaRemaining": {
+    "description": "Estimated time remaining, e.g. \"sisa 5 menit\"",
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewQueuedCompletion": "Menunggu antrean, ada audio yang belum ditranskripsi.",
+  "enhanceQueueModelSourceMic": "mikrofon",
+  "@enhanceQueueModelSourceMic": {
+    "description": "Lower-case name of the microphone track, used inside sentences"
+  },
+  "enhanceQueueModelSourceSystem": "audio sistem",
+  "@enhanceQueueModelSourceSystem": {
+    "description": "Lower-case name of the system-audio (speaker) track, used inside sentences"
+  },
+  "enhanceQueueModelSourceRecording": "rekaman",
+  "@enhanceQueueModelSourceRecording": {
+    "description": "Lower-case name of an imported file track, used inside sentences"
+  },
+  "enhanceQueueModelQueuedForCompletion": "{count, plural, =1{Menunggu antrean untuk menyelesaikan transkrip.} other{Menunggu antrean untuk menyelesaikan {count} rekaman.}}",
+  "@enhanceQueueModelQueuedForCompletion": {
+    "description": "Player status line while completion jobs are queued; count is the number of tracks",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelCompletingLine": "Menyelesaikan transkrip…{source} {percent}%{eta}",
+  "@enhanceQueueModelCompletingLine": {
+    "description": "Player status line of a running completion job. source is empty or \" (mikrofon)\"; eta is empty or the enhanceQueueModelEtaSuffix text",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      },
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSuffix": ", sisa {eta}",
+  "@enhanceQueueModelEtaSuffix": {
+    "description": "Appended to the completion status line; note the leading comma and space",
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSeconds": "{seconds} detik",
+  "@enhanceQueueModelEtaSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaMinutes": "{minutes} menit",
+  "@enhanceQueueModelEtaMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHours": "{hours} jam",
+  "@enhanceQueueModelEtaHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHoursMinutes": "{hours} jam {minutes} menit",
+  "@enhanceQueueModelEtaHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelStagePreparing": "Menyiapkan model",
+  "@enhanceQueueModelStagePreparing": {
+    "description": "Stage of the background accurate pass"
+  },
+  "enhanceQueueModelStageTranscribing": "Mentranskripsi",
+  "@enhanceQueueModelStageTranscribing": {
+    "description": "Stage of the background accurate pass"
+  },
+  "enhanceQueueModelStageMerging": "Menggabungkan",
+  "@enhanceQueueModelStageMerging": {
+    "description": "Stage of the background accurate pass: writing the merged transcript"
+  },
+  "enhanceQueueModelNoSpeech": "Tidak ada ucapan terdeteksi.",
+  "batchUploadModelUnsupportedFormat": "format tidak didukung",
+  "@batchUploadModelUnsupportedFormat": {
+    "description": "Why a dropped file was rejected; shown after the file name"
+  },
+  "batchUploadModelTooLarge": "lebih besar dari batas 2 GB",
+  "@batchUploadModelTooLarge": {
+    "description": "Why a dropped file was rejected; shown after the file name"
+  },
+  "batchUploadModelNoSpeech": "Tidak ada ucapan terdeteksi",
+  "@batchUploadModelNoSpeech": {
+    "description": "Per-file import error (no trailing period, unlike enhanceQueueModelNoSpeech)"
+  },
+  "batchUploadModelStoppedEarly": "Proses berhenti sebelum file ini selesai",
+  "modelsSummaryTemplateNotulenRapat": "Notulen Rapat",
+  "@modelsSummaryTemplateNotulenRapat": {
+    "description": "Built-in AI summary template name"
+  },
+  "modelsSummaryTemplateRingkasanEksekutif": "Ringkasan Eksekutif",
+  "@modelsSummaryTemplateRingkasanEksekutif": {
+    "description": "Built-in AI summary template name"
+  },
+  "modelsSummaryTemplateActionItems": "Keputusan & Tindak Lanjut",
+  "@modelsSummaryTemplateActionItems": {
+    "description": "Built-in AI summary template name"
+  },
+  "modelsSummaryTemplateStandup": "Laporan Harian",
+  "@modelsSummaryTemplateStandup": {
+    "description": "Built-in AI summary template name"
+  },
+  "modelsSummaryTemplateKustom": "Kustom",
+  "@modelsSummaryTemplateKustom": {
+    "description": "AI summary template that uses the user's own instructions"
+  },
+  "modelsSummaryTemplateHintNotulenRapat": "Ringkasan, peserta, pembahasan, keputusan, tindak lanjut",
+  "@modelsSummaryTemplateHintNotulenRapat": {
+    "description": "One-line description under the template picker"
+  },
+  "modelsSummaryTemplateHintRingkasanEksekutif": "Paragraf singkat untuk yang tidak hadir",
+  "@modelsSummaryTemplateHintRingkasanEksekutif": {
+    "description": "One-line description under the template picker"
+  },
+  "modelsSummaryTemplateHintActionItems": "Hanya keputusan dan tugas beserta penanggung jawabnya",
+  "@modelsSummaryTemplateHintActionItems": {
+    "description": "One-line description under the template picker"
+  },
+  "modelsSummaryTemplateHintStandup": "Per orang: selesai, berikutnya, hambatan",
+  "@modelsSummaryTemplateHintStandup": {
+    "description": "One-line description under the template picker"
+  },
+  "modelsSummaryTemplateHintKustom": "Instruksi sendiri",
+  "@modelsSummaryTemplateHintKustom": {
+    "description": "One-line description under the template picker"
+  },
+  "modelsSummaryProviderOllama": "Ollama (lokal)",
+  "@modelsSummaryProviderOllama": {
+    "description": "AI summary provider option"
+  },
+  "modelsSummaryProviderOpenAiCompatible": "Layanan serupa OpenAI",
+  "@modelsSummaryProviderOpenAiCompatible": {
+    "description": "AI summary provider option"
+  },
+  "modelsSessionModeWebinar": "Webinar",
+  "@modelsSessionModeWebinar": {
+    "description": "Session mode: system audio only"
+  },
+  "modelsSessionModeOnline": "Rapat Online",
+  "@modelsSessionModeOnline": {
+    "description": "Session mode: microphone and system audio"
+  },
+  "modelsSessionModeOffline": "Rapat Offline",
+  "@modelsSessionModeOffline": {
+    "description": "Session mode: microphone only, everyone in the room"
+  },
+  "usageDashboardScreenTitle": "Dasbor Penggunaan",
+  "usageDashboardScreenTotalSessions": "Total Sesi",
+  "usageDashboardScreenHoursTranscribed": "Jam Ditranskrip",
+  "usageDashboardScreenTotalSegments": "Total Segmen Transkrip",
+  "usageDashboardScreenEmpty": "Belum ada data sesi tersimpan.",
+  "usageDashboardScreenSessionsByMode": "Sesi per Mode",
+  "usageDashboardScreenSessionCount": "{count} sesi",
+  "@usageDashboardScreenSessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerModeWebinar": "Webinar",
+  "meetingTemplatePickerModeOnline": "Rapat online",
+  "meetingTemplatePickerModeOffline": "Rapat tatap muka",
+  "meetingTemplatePickerLanguageAuto": "Otomatis",
+  "@meetingTemplatePickerLanguageAuto": {
+    "description": "Transcription language: detect automatically"
+  },
+  "meetingTemplatePickerLanguageIndonesian": "Indonesia",
+  "@meetingTemplatePickerLanguageIndonesian": {
+    "description": "Transcription language option"
+  },
+  "meetingTemplatePickerLanguageEnglish": "Inggris",
+  "@meetingTemplatePickerLanguageEnglish": {
+    "description": "Transcription language option"
+  },
+  "meetingTemplatePickerTitle": "Mulai dari template",
+  "meetingTemplatePickerEmptyDescription": "Belum ada template tersimpan. Buat satu agar judul, peserta, agenda, bahasa, dan mode rapat yang sering dipakai tidak perlu diisi ulang setiap kali.",
+  "meetingTemplatePickerDescription": "Pilih template untuk mengisi judul, mode, dan bahasa sesi secara otomatis.",
+  "meetingTemplatePickerCreate": "Buat template baru",
+  "meetingTemplatePickerOptionalNote": "Template tidak wajib. \"Rapat baru\" tetap memulai sesi kosong seperti biasa.",
+  "@meetingTemplatePickerOptionalNote": {
+    "description": "Quoted text is the label of the main-screen new-meeting button"
+  },
+  "meetingTemplatePickerParticipantCount": "{count} peserta",
+  "@meetingTemplatePickerParticipantCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerAgendaCount": "{count} agenda",
+  "@meetingTemplatePickerAgendaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerDelete": "Hapus template",
+  "meetingTemplatePickerUse": "Pakai",
+  "@meetingTemplatePickerUse": {
+    "description": "Button that applies a saved meeting template"
+  },
+  "meetingTemplatePickerNewTitle": "Template baru",
+  "meetingTemplatePickerNamePlaceholder": "Nama template, mis. \"Rapat Mingguan Tim\"",
+  "meetingTemplatePickerParticipantsPlaceholder": "Peserta default (satu nama per baris)",
+  "meetingTemplatePickerAgendaPlaceholder": "Agenda default (satu poin per baris)",
+  "meetingTemplatePickerModeLabel": "Mode",
+  "meetingTemplatePickerLanguageLabel": "Bahasa",
+  "@meetingTemplatePickerLanguageLabel": {
+    "description": "Transcription language of the template"
+  },
+  "glossarySettingsSectionImportDialogTitle": "Impor kamus istilah",
+  "glossarySettingsSectionImportEmpty": "Tidak ada istilah di berkas itu.",
+  "glossarySettingsSectionImported": "{added} istilah baru ditambahkan dari {lines} baris.",
+  "@glossarySettingsSectionImported": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionImportFailed": "Gagal mengimpor: {error}",
+  "@glossarySettingsSectionImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportDialogTitle": "Simpan kamus istilah",
+  "glossarySettingsSectionExported": "{count} istilah diekspor ke {path}",
+  "@glossarySettingsSectionExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportFailed": "Gagal mengekspor: {error}",
+  "@glossarySettingsSectionExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionTitle": "Kamus Istilah",
+  "glossarySettingsSectionEnable": "Pakai kamus istilah",
+  "glossarySettingsSectionEnabledSubtitle": "Istilah di bawah dibisikkan ke mesin transkripsi supaya singkatan dan nama lembaga tidak salah tulis.",
+  "glossarySettingsSectionDisabledSubtitle": "Mesin transkripsi menebak sendiri semua istilah.",
+  "glossarySettingsSectionPostCorrection": "Perbaiki ejaan yang mirip",
+  "glossarySettingsSectionPostCorrectionOnSubtitle": "Kata yang hampir sama dengan istilah di kamus diperbaiki setelah transkripsi. Kata lain tidak disentuh.",
+  "glossarySettingsSectionPostCorrectionOffSubtitle": "Hasil transkripsi dibiarkan apa adanya.",
+  "glossarySettingsSectionListTitle": "Daftar Istilah ({count})",
+  "@glossarySettingsSectionListTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionAddLabel": "Tambah istilah",
+  "glossarySettingsSectionAddHint": "mis. PPBJ, Kemenkeu, Pak Budi Santoso",
+  "@glossarySettingsSectionAddHint": {
+    "description": "Example terms; the Indonesian acronyms and name are deliberate"
+  },
+  "glossarySettingsSectionAdd": "Tambah",
+  "glossarySettingsSectionTermSemantics": "Istilah {term}",
+  "@glossarySettingsSectionTermSemantics": {
+    "description": "Screen-reader label of a glossary term chip",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionRemoveTerm": "Hapus {term}",
+  "@glossarySettingsSectionRemoveTerm": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionSuggestions": "Saran istilah umum",
+  "glossarySettingsSectionAddSuggestion": "Tambahkan {term} ke kamus",
+  "@glossarySettingsSectionAddSuggestion": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionImportButton": "Impor .txt / .csv",
+  "glossarySettingsSectionExportTxt": "Ekspor .txt",
+  "glossarySettingsSectionExportCsv": "Ekspor .csv",
+  "glossarySettingsSectionNoTerms": "Belum ada istilah. Tanpa kamus, mesin transkripsi menebak sendiri.",
+  "glossarySettingsSectionBudgetOverflow": "{used} dari {total} istilah dipakai, daftar terlalu panjang untuk dibisikkan sekaligus. Istilah paling atas yang dibuang; pindahkan yang penting ke atas atau kurangi daftarnya.",
+  "@glossarySettingsSectionBudgetOverflow": {
+    "description": "Shown when the glossary does not fit the transcription prompt",
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionBudgetAll": "Semua {total} istilah dipakai.",
+  "@glossarySettingsSectionBudgetAll": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "summarySettingsSectionOllamaModelHint": "nama model Ollama",
+  "@summarySettingsSectionOllamaModelHint": {
+    "description": "Placeholder of the model field until the engine supplies its default model tag"
+  },
+  "summarySettingsSectionNoModels": "Endpoint terhubung, tapi tidak ada model terpasang.",
+  "summarySettingsSectionEnable": "Aktifkan Ringkasan AI",
+  "summarySettingsSectionEnabledSubtitle": "Transkrip dikirim ke endpoint di bawah hanya saat Anda menekan \"Buat Ringkasan\". Tidak ada audio yang dikirim.",
+  "@summarySettingsSectionEnabledSubtitle": {
+    "description": "Quoted text is the label of the summary panel's generate button"
+  },
+  "summarySettingsSectionDisabledSubtitle": "Mati. Aplikasi tetap 100% offline.",
+  "summarySettingsSectionProvider": "Penyedia",
+  "summarySettingsSectionEndpointUrl": "URL endpoint",
+  "summarySettingsSectionApiKey": "Kunci API",
+  "summarySettingsSectionApiKeyHelper": "Disimpan apa adanya di file pengaturan aplikasi (tanpa keychain).",
+  "summarySettingsSectionApiKeyHint": "Tempel kunci di sini",
+  "summarySettingsSectionModel": "Model",
+  "summarySettingsSectionLoadModels": "Muat daftar model dari endpoint",
+  "summarySettingsSectionSetupWizard": "Siapkan Model AI (deteksi, pasang, unduh)…",
+  "summarySettingsSectionDefaultTemplate": "Template default",
+  "summarySettingsSectionCitations": "Rujukan ke transkrip",
+  "summarySettingsSectionCitationsSubtitle": "Minta model menyebut nomor segmen untuk setiap poin, sehingga tiap baris ringkasan bisa diklik ke menit asalnya. Rujukan yang tidak cocok dibuang.",
+  "summarySettingsSectionActionItems": "Tindak lanjut terstruktur",
+  "summarySettingsSectionActionItemsSubtitle": "Minta daftar tugas, penanggung jawab, dan tenggat dalam format yang bisa disunting dan diekspor ke kalender (.ics) atau tabel (.csv).",
+  "summarySettingsSectionCustomInstructions": "Instruksi kustom",
+  "summarySettingsSectionCustomInstructionsHint": "Contoh: Buat daftar risiko dan mitigasinya.",
+  "pdpSettingsSectionRetentionForever": "Simpan selamanya",
+  "@pdpSettingsSectionRetentionForever": {
+    "description": "Retention choice: never delete"
+  },
+  "pdpSettingsSectionRetentionDays": "{days} hari",
+  "@pdpSettingsSectionRetentionDays": {
+    "description": "Retention choice",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionDaysMonths": "{days} hari ({months} bulan)",
+  "@pdpSettingsSectionRetentionDaysMonths": {
+    "description": "Retention choice, e.g. \"90 hari (3 bulan)\"",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionYears": "{years} tahun",
+  "@pdpSettingsSectionRetentionYears": {
+    "description": "Retention choice",
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionTitle": "Kepatuhan UU PDP",
+  "@pdpSettingsSectionTitle": {
+    "description": "UU PDP is the Indonesian personal data protection law; keep \"PDP\""
+  },
+  "pdpSettingsSectionEnable": "Aktifkan Mode Kepatuhan PDP",
+  "pdpSettingsSectionEnableSubtitle": "Penyamaran data pribadi saat ekspor, batas retensi, log audit, dan pemberitahuan perekaman. Mati secara bawaan.",
+  "pdpSettingsSectionRedactionTitle": "Penyamaran saat ekspor",
+  "pdpSettingsSectionRedactionIntro": "Transkrip tersimpan tidak diubah. Penyamaran hanya berlaku pada salinan yang diekspor, dan selalu bisa dilihat dulu sebelum file ditulis.",
+  "pdpSettingsSectionNik": "NIK",
+  "@pdpSettingsSectionNik": {
+    "description": "Indonesian national identity number (Nomor Induk Kependudukan)"
+  },
+  "pdpSettingsSectionNikHint": "16 digit dengan kode provinsi yang sah",
+  "pdpSettingsSectionNpwp": "NPWP",
+  "@pdpSettingsSectionNpwp": {
+    "description": "Indonesian taxpayer identification number"
+  },
+  "pdpSettingsSectionNpwpHint": "15 digit, dengan atau tanpa titik",
+  "pdpSettingsSectionPhone": "Nomor telepon",
+  "pdpSettingsSectionPhoneHint": "08…, +62…, dan nomor kantor dengan kode area",
+  "pdpSettingsSectionEmail": "Alamat email",
+  "pdpSettingsSectionEmailHint": "nama@instansi.go.id",
+  "@pdpSettingsSectionEmailHint": {
+    "description": "Example email address format"
+  },
+  "pdpSettingsSectionBankAccount": "Nomor rekening",
+  "pdpSettingsSectionBankAccountHint": "Hanya bila ada kata \"rekening\" atau nama bank di dekatnya, supaya angka anggaran tidak ikut disamarkan",
+  "@pdpSettingsSectionBankAccountHint": {
+    "description": "Keep the Indonesian word \"rekening\" in quotes: it is the keyword the detector looks for in the transcript"
+  },
+  "pdpSettingsSectionNamesTitle": "Nama yang disamarkan",
+  "pdpSettingsSectionNamesIntro": "Hanya Anda yang tahu nama mana yang sensitif di rapat ini. Entri kurang dari 3 huruf diabaikan.",
+  "pdpSettingsSectionNameHint": "Mis. Budi Santoso",
+  "pdpSettingsSectionAdd": "Tambah",
+  "pdpSettingsSectionRetentionTitle": "Retensi data",
+  "pdpSettingsSectionRetentionIntro": "Audio dan transkrip punya batas sendiri-sendiri: rekaman biasanya harus dihapus jauh lebih cepat daripada notulennya. Tidak ada yang dihapus otomatis. Anda melihat daftarnya dulu.",
+  "pdpSettingsSectionDeleteAudioAfter": "Hapus audio setelah",
+  "pdpSettingsSectionDeleteTranscriptAfter": "Hapus transkrip (seluruh sesi) setelah",
+  "pdpSettingsSectionPreviewRetention": "Lihat & jalankan sekarang",
+  "pdpSettingsSectionRetentionDialogTitle": "Jalankan kebijakan retensi?",
+  "pdpSettingsSectionWholeSessionAge": "Seluruh sesi · {days} hari",
+  "@pdpSettingsSectionWholeSessionAge": {
+    "description": "Item in the retention preview; days is the session age",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionAudioOnlyAge": "Audio saja · {days} hari",
+  "@pdpSettingsSectionAudioOnlyAge": {
+    "description": "Item in the retention preview; days is the session age",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionCannotUndo": "Tindakan ini tidak bisa dibatalkan.",
+  "pdpSettingsSectionDeleteNow": "Hapus sekarang",
+  "pdpSettingsSectionRetentionApplied": "{count} item dihapus sesuai kebijakan retensi.",
+  "@pdpSettingsSectionRetentionApplied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPartial": "{deleted} dihapus, {failed} gagal.",
+  "@pdpSettingsSectionRetentionPartial": {
+    "placeholders": {
+      "deleted": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPreviewFailed": "Pratinjau retensi gagal: {error}",
+  "@pdpSettingsSectionRetentionPreviewFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionConsentTitle": "Pemberitahuan perekaman",
+  "pdpSettingsSectionConsentReminder": "Ingatkan sebelum mulai merekam",
+  "pdpSettingsSectionConsentReminderSubtitle": "Tampilkan teks pemberitahuan yang bisa disalin ke obrolan rapat, dan catat penyampaiannya di log audit.",
+  "pdpSettingsSectionConsentTextLabel": "Teks pemberitahuan",
+  "pdpSettingsSectionConsentTextHelper": "{titleToken} dan {dateToken} diganti otomatis. Kosongkan untuk memakai teks bawaan.",
+  "@pdpSettingsSectionConsentTextHelper": {
+    "description": "titleToken and dateToken are the literal template tokens \"{judul}\" and \"{tanggal}\", passed in from code so the braces survive ICU parsing; they must not be translated",
+    "placeholders": {
+      "titleToken": {
+        "type": "String"
+      },
+      "dateToken": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionCopyNotice": "Salin teks pemberitahuan",
+  "pdpSettingsSectionNoticeCopied": "Teks pemberitahuan disalin.",
+  "pdpSettingsSectionCopyFailed": "Gagal menyalin: {error}",
+  "@pdpSettingsSectionCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditTitle": "Log audit",
+  "pdpSettingsSectionAuditIntro": "Catatan lokal tentang apa yang terjadi pada data: sesi dibuat, transkrip diekspor, ringkasan dikirim, data dihapus. Isinya hanya metadata, tidak ada kutipan transkrip di dalamnya.",
+  "pdpSettingsSectionViewLog": "Lihat log",
+  "pdpSettingsSectionExportCsv": "Ekspor CSV",
+  "pdpSettingsSectionSaveAuditDialogTitle": "Simpan log audit",
+  "pdpSettingsSectionAuditSaved": "Log audit disimpan ke {path}",
+  "@pdpSettingsSectionAuditSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditExportFailed": "Ekspor log gagal: {error}",
+  "@pdpSettingsSectionAuditExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewNewLinesAnnouncement": "{count} baris baru. Terakhir, {speaker}: {text}",
+  "@transcriptViewNewLinesAnnouncement": {
+    "description": "Screen-reader announcement when several transcript lines arrive at once (count is always 2 or more)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "speaker": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentCopied": "Segmen disalin.",
+  "transcriptViewTranscriptCopied": "Transkrip disalin.",
+  "transcriptViewEmptyTitle": "Belum ada transkrip",
+  "transcriptViewEmptySubtitle": "Mulai sesi untuk memulai transkripsi\nTekan Mulai atau {shortcut}",
+  "@transcriptViewEmptySubtitle": {
+    "description": "\"Mulai\" is the record button label; shortcut is a key combination such as Ctrl+R",
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSearchHint": "Cari…",
+  "transcriptViewClearSearch": "Bersihkan pencarian",
+  "transcriptViewSegmentCount": "{count} segmen",
+  "@transcriptViewSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFilteredSegmentCount": "{shown} dari {total} segmen",
+  "@transcriptViewFilteredSegmentCount": {
+    "description": "Segment count while a search is active",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewRefiningCount": "{count} sedang diperbaiki",
+  "@transcriptViewRefiningCount": {
+    "description": "Segments a background refine pass has not finished yet",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFollowPlaybackOn": "Ikuti pemutaran: aktif",
+  "transcriptViewFollowPlaybackOff": "Ikuti pemutaran: mati",
+  "transcriptViewAutoScrollOn": "Auto-scroll aktif",
+  "transcriptViewAutoScrollOff": "Auto-scroll mati",
+  "transcriptViewReviewOnly": "Tinjau: hanya segmen yang perlu diperiksa",
+  "transcriptViewReviewCount": "Tinjau ({count} segmen perlu diperiksa)",
+  "@transcriptViewReviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewCopyAll": "Salin semua",
+  "transcriptViewNoMatches": "Tidak ada segmen cocok",
+  "transcriptViewEditingHint": "Enter simpan · Esc batal · {split} pisah di kursor",
+  "@transcriptViewEditingHint": {
+    "description": "Keyboard crib while editing a segment; split is a key combination",
+    "placeholders": {
+      "split": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewBrowsingHint": "↑↓ pilih · Enter sunting · {move} pindahkan · {merge} gabung ke atas",
+  "@transcriptViewBrowsingHint": {
+    "description": "Keyboard crib for the transcript list; move and merge are key combinations",
+    "placeholders": {
+      "move": {
+        "type": "String"
+      },
+      "merge": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentSemantics": "{speaker} pada {time}: {text}",
+  "@transcriptViewSegmentSemantics": {
+    "description": "Screen-reader label of a transcript row",
+    "placeholders": {
+      "speaker": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewProcessing": "Diproses…",
+  "@transcriptViewProcessing": {
+    "description": "Row badge: the refine pass is working on this segment now"
+  },
+  "transcriptViewQueued": "Antre",
+  "@transcriptViewQueued": {
+    "description": "Row badge: the refine pass has not reached this segment yet"
+  },
+  "transcriptViewLowConfidence": "Kepercayaan rendah",
+  "transcriptViewCopySegment": "Salin segmen",
+  "transcriptViewEdit": "Edit",
+  "transcriptViewEditDialogTitle": "Edit Transkrip",
+  "transcriptViewEditHint": "Ketik koreksi transkrip…",
+  "transcriptViewRenameSpeakerTitle": "Ganti Nama Pembicara",
+  "transcriptViewNewNameHint": "Nama baru…",
+  "transcriptViewTentativeSemantics": "Sementara, belum final: {text}",
+  "@transcriptViewTentativeSemantics": {
+    "description": "Screen-reader label of the not-yet-confirmed live words",
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewTentativePrefix": "sementara · ",
+  "@transcriptViewTentativePrefix": {
+    "description": "Prefix before the not-yet-confirmed live words; note the trailing space"
   }
 }
