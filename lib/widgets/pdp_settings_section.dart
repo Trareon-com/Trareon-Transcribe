@@ -23,6 +23,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -38,16 +39,19 @@ import '../theme/app_icons.dart';
 /// one to turn on for them.
 const List<int> kRetentionChoices = [0, 7, 30, 90, 180, 365, 730];
 
-String retentionLabel(int days) => switch (days) {
-  0 => 'Simpan selamanya',
-  7 => '7 hari',
-  30 => '30 hari',
-  90 => '90 hari (3 bulan)',
-  180 => '180 hari (6 bulan)',
-  365 => '1 tahun',
-  730 => '2 tahun',
-  _ => '$days hari',
-};
+/// [l10n] defaults to [currentL10n] so the label can be computed without a
+/// `BuildContext`; widgets pass `context.l10n`.
+String retentionLabel(int days, [AppLocalizations? l10n]) {
+  final strings = l10n ?? currentL10n;
+  return switch (days) {
+    0 => strings.pdpSettingsSectionRetentionForever,
+    90 => strings.pdpSettingsSectionRetentionDaysMonths(90, 3),
+    180 => strings.pdpSettingsSectionRetentionDaysMonths(180, 6),
+    365 => strings.pdpSettingsSectionRetentionYears(1),
+    730 => strings.pdpSettingsSectionRetentionYears(2),
+    _ => strings.pdpSettingsSectionRetentionDays(days),
+  };
+}
 
 class PdpSettingsSection extends ConsumerStatefulWidget {
   const PdpSettingsSection({super.key});
@@ -98,18 +102,17 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
     final pdp = ref.watch(settingsProvider).pdp;
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingsSection(
-          title: 'Kepatuhan UU PDP',
+          title: l10n.pdpSettingsSectionTitle,
           children: [
             SettingsSwitch(
               icon: AppIcons.verifiedUser,
-              label: 'Aktifkan Mode Kepatuhan PDP',
-              subtitle:
-                  'Penyamaran data pribadi saat ekspor, batas retensi, log '
-                  'audit, dan pemberitahuan perekaman. Mati secara bawaan.',
+              label: l10n.pdpSettingsSectionEnable,
+              subtitle: l10n.pdpSettingsSectionEnableSubtitle,
               value: pdp.enabled,
               onChanged: (value) => _update(_pdp.copyWith(enabled: value)),
             ),
@@ -133,8 +136,9 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
 
   Widget _redactionSection(PdpSettings pdp, AppColorSet colors) {
     final redaction = pdp.redaction;
+    final l10n = context.l10n;
     return SettingsSection(
-      title: 'Penyamaran saat ekspor',
+      title: l10n.pdpSettingsSectionRedactionTitle,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -144,9 +148,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
             Spacing.xs,
           ),
           child: Text(
-            'Transkrip tersimpan tidak diubah. Penyamaran hanya berlaku pada '
-            'salinan yang diekspor, dan selalu bisa dilihat dulu sebelum '
-            'file ditulis.',
+            l10n.pdpSettingsSectionRedactionIntro,
             style: TextStyle(
               fontSize: FontSizes.caption,
               color: colors.textTertiary,
@@ -157,33 +159,32 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
         for (final entry
             in <(String, String, bool, RedactionConfig Function(bool))>[
               (
-                'NIK',
-                '16 digit dengan kode provinsi yang sah',
+                l10n.pdpSettingsSectionNik,
+                l10n.pdpSettingsSectionNikHint,
                 redaction.nik,
                 (v) => redaction.copyWith(nik: v),
               ),
               (
-                'NPWP',
-                '15 digit, dengan atau tanpa titik',
+                l10n.pdpSettingsSectionNpwp,
+                l10n.pdpSettingsSectionNpwpHint,
                 redaction.npwp,
                 (v) => redaction.copyWith(npwp: v),
               ),
               (
-                'Nomor telepon',
-                '08…, +62…, dan nomor kantor dengan kode area',
+                l10n.pdpSettingsSectionPhone,
+                l10n.pdpSettingsSectionPhoneHint,
                 redaction.phone,
                 (v) => redaction.copyWith(phone: v),
               ),
               (
-                'Alamat email',
-                'nama@instansi.go.id',
+                l10n.pdpSettingsSectionEmail,
+                l10n.pdpSettingsSectionEmailHint,
                 redaction.email,
                 (v) => redaction.copyWith(email: v),
               ),
               (
-                'Nomor rekening',
-                'Hanya bila ada kata "rekening" atau nama bank di dekatnya, '
-                    'supaya angka anggaran tidak ikut disamarkan',
+                l10n.pdpSettingsSectionBankAccount,
+                l10n.pdpSettingsSectionBankAccountHint,
                 redaction.bankAccount,
                 (v) => redaction.copyWith(bankAccount: v),
               ),
@@ -216,7 +217,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Nama yang disamarkan',
+                l10n.pdpSettingsSectionNamesTitle,
                 style: TextStyle(
                   fontSize: FontSizes.bodyLarge,
                   fontWeight: FontWeight.w500,
@@ -225,8 +226,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
               ),
               Spacing.gapXs,
               Text(
-                'Hanya Anda yang tahu nama mana yang sensitif di rapat ini. '
-                'Entri kurang dari 3 huruf diabaikan.',
+                l10n.pdpSettingsSectionNamesIntro,
                 style: TextStyle(
                   fontSize: FontSizes.micro,
                   color: colors.textTertiary,
@@ -238,10 +238,10 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                   Expanded(
                     child: TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        border: OutlineInputBorder(),
-                        hintText: 'Mis. Budi Santoso',
+                        border: const OutlineInputBorder(),
+                        hintText: l10n.pdpSettingsSectionNameHint,
                       ),
                       onSubmitted: (_) => _addName(),
                     ),
@@ -249,7 +249,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                   const SizedBox(width: Spacing.sm),
                   FilledButton(
                     onPressed: _addName,
-                    child: const Text('Tambah'),
+                    child: Text(l10n.pdpSettingsSectionAdd),
                   ),
                 ],
               ),
@@ -303,8 +303,9 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
 
   Widget _retentionSection(PdpSettings pdp, AppColorSet colors) {
     final retention = pdp.retention;
+    final l10n = context.l10n;
     return SettingsSection(
-      title: 'Retensi data',
+      title: l10n.pdpSettingsSectionRetentionTitle,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -314,9 +315,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
             Spacing.xs,
           ),
           child: Text(
-            'Audio dan transkrip punya batas sendiri-sendiri: rekaman '
-            'biasanya harus dihapus jauh lebih cepat daripada notulennya. '
-            'Tidak ada yang dihapus otomatis. Anda melihat daftarnya dulu.',
+            l10n.pdpSettingsSectionRetentionIntro,
             style: TextStyle(
               fontSize: FontSizes.caption,
               color: colors.textTertiary,
@@ -325,7 +324,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
           ),
         ),
         _retentionDropdown(
-          label: 'Hapus audio setelah',
+          label: l10n.pdpSettingsSectionDeleteAudioAfter,
           value: retention.audioDays,
           colors: colors,
           onChanged: (days) => _update(
@@ -333,7 +332,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
           ),
         ),
         _retentionDropdown(
-          label: 'Hapus transkrip (seluruh sesi) setelah',
+          label: l10n.pdpSettingsSectionDeleteTranscriptAfter,
           value: retention.transcriptDays,
           colors: colors,
           onChanged: (days) => _update(
@@ -355,7 +354,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                   ? null
                   : _previewRetention,
               icon: const Icon(AppIcons.factCheck, size: IconSizes.md),
-              label: const Text('Lihat & jalankan sekarang'),
+              label: Text(l10n.pdpSettingsSectionPreviewRetention),
             ),
           ),
         ),
@@ -391,7 +390,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
               for (final days in kRetentionChoices)
                 DropdownMenuItem(
                   value: days,
-                  child: Text(retentionLabel(days)),
+                  child: Text(retentionLabel(days, context.l10n)),
                 ),
             ],
             onChanged: (days) => onChanged(days ?? 0),
@@ -419,7 +418,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Jalankan kebijakan retensi?'),
+          title: Text(context.l10n.pdpSettingsSectionRetentionDialogTitle),
           content: SizedBox(
             width: 460,
             child: Column(
@@ -440,7 +439,11 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                             size: IconSizes.md,
                           ),
                           title: Text(item.title),
-                          subtitle: Text('Seluruh sesi · ${item.ageDays} hari'),
+                          subtitle: Text(
+                            context.l10n.pdpSettingsSectionWholeSessionAge(
+                              item.ageDays,
+                            ),
+                          ),
                         ),
                       for (final item in plan.audioToDelete)
                         ListTile(
@@ -450,15 +453,19 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                             size: IconSizes.md,
                           ),
                           title: Text(item.title),
-                          subtitle: Text('Audio saja · ${item.ageDays} hari'),
+                          subtitle: Text(
+                            context.l10n.pdpSettingsSectionAudioOnlyAge(
+                              item.ageDays,
+                            ),
+                          ),
                         ),
                     ],
                   ),
                 ),
                 const SizedBox(height: Spacing.sm),
-                const Text(
-                  'Tindakan ini tidak bisa dibatalkan.',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                Text(
+                  context.l10n.pdpSettingsSectionCannotUndo,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -466,11 +473,11 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Batal'),
+              child: Text(context.l10n.actionCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Hapus sekarang'),
+              child: Text(context.l10n.pdpSettingsSectionDeleteNow),
             ),
           ],
         ),
@@ -481,15 +488,20 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
       AppToast.show(
         context,
         outcome.failed.isEmpty
-            ? '${outcome.deleted.length} item dihapus sesuai kebijakan retensi.'
-            : '${outcome.deleted.length} dihapus, ${outcome.failed.length} gagal.',
+            ? context.l10n.pdpSettingsSectionRetentionApplied(
+                outcome.deleted.length,
+              )
+            : context.l10n.pdpSettingsSectionRetentionPartial(
+                outcome.deleted.length,
+                outcome.failed.length,
+              ),
         type: outcome.failed.isEmpty ? ToastType.success : ToastType.error,
       );
     } catch (e) {
       if (mounted) {
         AppToast.show(
           context,
-          'Pratinjau retensi gagal: $e',
+          context.l10n.pdpSettingsSectionRetentionPreviewFailed('$e'),
           type: ToastType.error,
         );
       }
@@ -499,15 +511,14 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
   // ── Pemberitahuan ────────────────────────────────────────────────────
 
   Widget _consentSection(PdpSettings pdp, AppColorSet colors) {
+    final l10n = context.l10n;
     return SettingsSection(
-      title: 'Pemberitahuan perekaman',
+      title: l10n.pdpSettingsSectionConsentTitle,
       children: [
         SettingsSwitch(
           icon: AppIcons.announce,
-          label: 'Ingatkan sebelum mulai merekam',
-          subtitle:
-              'Tampilkan teks pemberitahuan yang bisa disalin ke obrolan '
-              'rapat, dan catat penyampaiannya di log audit.',
+          label: l10n.pdpSettingsSectionConsentReminder,
+          subtitle: l10n.pdpSettingsSectionConsentReminderSubtitle,
           value: pdp.consentReminder,
           onChanged: (value) => _update(_pdp.copyWith(consentReminder: value)),
         ),
@@ -526,11 +537,14 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                 maxLines: 4,
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
-                  labelText: 'Teks pemberitahuan',
+                  labelText: l10n.pdpSettingsSectionConsentTextLabel,
                   hintText: _defaultNotice,
-                  helperText:
-                      '{judul} dan {tanggal} diganti otomatis. Kosongkan '
-                      'untuk memakai teks bawaan.',
+                  // The tokens are what the engine substitutes, so they stay
+                  // literal in every language.
+                  helperText: l10n.pdpSettingsSectionConsentTextHelper(
+                    '{judul}',
+                    '{tanggal}',
+                  ),
                   helperMaxLines: 2,
                 ),
                 onChanged: (text) => _update(_pdp.copyWith(consentText: text)),
@@ -541,7 +555,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
                 child: TextButton.icon(
                   onPressed: _copyNotice,
                   icon: const Icon(AppIcons.copy, size: IconSizes.md),
-                  label: const Text('Salin teks pemberitahuan'),
+                  label: Text(l10n.pdpSettingsSectionCopyNotice),
                 ),
               ),
             ],
@@ -560,10 +574,16 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
         date: '${now.day}/${now.month}/${now.year}',
       );
       await Clipboard.setData(ClipboardData(text: text));
-      if (mounted) AppToast.show(context, 'Teks pemberitahuan disalin.');
+      if (mounted) {
+        AppToast.show(context, context.l10n.pdpSettingsSectionNoticeCopied);
+      }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Gagal menyalin: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          context.l10n.pdpSettingsSectionCopyFailed('$e'),
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -571,8 +591,9 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
   // ── Log audit ────────────────────────────────────────────────────────
 
   Widget _auditSection(AppColorSet colors) {
+    final l10n = context.l10n;
     return SettingsSection(
-      title: 'Log audit',
+      title: l10n.pdpSettingsSectionAuditTitle,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -582,9 +603,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
             Spacing.xs,
           ),
           child: Text(
-            'Catatan lokal tentang apa yang terjadi pada data: sesi dibuat, '
-            'transkrip diekspor, ringkasan dikirim, data dihapus. Isinya '
-            'hanya metadata, tidak ada kutipan transkrip di dalamnya.',
+            l10n.pdpSettingsSectionAuditIntro,
             style: TextStyle(
               fontSize: FontSizes.caption,
               color: colors.textTertiary,
@@ -604,13 +623,13 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
               OutlinedButton.icon(
                 onPressed: () => showAuditLogDialog(context),
                 icon: const Icon(AppIcons.history, size: IconSizes.md),
-                label: const Text('Lihat log'),
+                label: Text(l10n.pdpSettingsSectionViewLog),
               ),
               const SizedBox(width: Spacing.sm),
               OutlinedButton.icon(
                 onPressed: _exportAuditLog,
                 icon: const Icon(AppIcons.download, size: IconSizes.md),
-                label: const Text('Ekspor CSV'),
+                label: Text(l10n.pdpSettingsSectionExportCsv),
               ),
             ],
           ),
@@ -621,17 +640,23 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
 
   Future<void> _exportAuditLog() async {
     final directory = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Simpan log audit',
+      dialogTitle: context.l10n.pdpSettingsSectionSaveAuditDialogTitle,
     );
     if (directory == null || !mounted) return;
     try {
       final path = await rust_api.exportAuditLog(
         destination: '$directory/log-audit-trareon.csv',
       );
-      if (mounted) AppToast.show(context, 'Log audit disimpan ke $path');
+      if (mounted) {
+        AppToast.show(context, context.l10n.pdpSettingsSectionAuditSaved(path));
+      }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Ekspor log gagal: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          context.l10n.pdpSettingsSectionAuditExportFailed('$e'),
+          type: ToastType.error,
+        );
       }
     }
   }

@@ -29,6 +29,10 @@ Widget _appWithLocalizations(Widget home) => MaterialApp(
     AppLocalizations.delegate,
   ],
   supportedLocales: AppLocalizations.supportedLocales,
+  // The test binding reports en-US as the device locale, and this screen's
+  // strings are localized now: pin the product's first language so the
+  // Indonesian expectations below describe what is rendered.
+  locale: const Locale('id'),
   home: home,
 );
 

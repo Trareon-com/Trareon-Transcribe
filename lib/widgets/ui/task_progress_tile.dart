@@ -15,6 +15,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_tokens.dart';
@@ -131,19 +132,19 @@ class TaskProgressTile extends StatelessWidget {
   /// [onCancel] once [state] is no longer running.
   final VoidCallback? onDismiss;
 
-  String get _statusLine {
+  String _statusLine(AppLocalizations l10n) {
     if (statusOverride != null) return statusOverride!;
     return switch (state) {
-      TaskRunState.failed => 'Gagal.',
-      TaskRunState.cancelled => 'Dibatalkan.',
-      TaskRunState.done => 'Selesai.',
-      TaskRunState.queued => 'Menunggu antrean.',
-      TaskRunState.running => _runningLine,
+      TaskRunState.failed => l10n.taskProgressTileFailed,
+      TaskRunState.cancelled => l10n.taskProgressTileCancelled,
+      TaskRunState.done => l10n.taskProgressTileDone,
+      TaskRunState.queued => l10n.taskProgressTileQueued,
+      TaskRunState.running => _runningLine(l10n),
     };
   }
 
-  String get _runningLine {
-    final stage = this.stage ?? 'Memproses';
+  String _runningLine(AppLocalizations l10n) {
+    final stage = this.stage ?? l10n.taskProgressTileProcessing;
     final progress = this.progress;
     if (progress == null) return '$stage…';
     final percent = (progress.clamp(0.0, 1.0) * 100).round();
@@ -155,7 +156,7 @@ class TaskProgressTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final statusLine = _statusLine;
+    final statusLine = _statusLine(context.l10n);
     return Semantics(
       label: '$title: $statusLine',
       liveRegion: state == TaskRunState.running || state == TaskRunState.queued,
@@ -225,7 +226,7 @@ class TaskProgressTile extends StatelessWidget {
           if (onCancel != null &&
               (state == TaskRunState.running || state == TaskRunState.queued))
             Tooltip(
-              message: 'Batalkan',
+              message: context.l10n.actionCancelThis,
               child: IconButton(
                 visualDensity: VisualDensity.compact,
                 constraints: TouchTarget.constraints,
@@ -241,7 +242,7 @@ class TaskProgressTile extends StatelessWidget {
               state != TaskRunState.running &&
               state != TaskRunState.queued)
             Tooltip(
-              message: 'Sembunyikan',
+              message: context.l10n.actionHide,
               child: IconButton(
                 visualDensity: VisualDensity.compact,
                 constraints: TouchTarget.constraints,

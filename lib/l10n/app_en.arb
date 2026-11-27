@@ -2205,5 +2205,563 @@
     }
   },
   "downloadConsentDialogTotal": "Total",
-  "downloadConsentDialogDeferOnMetered": "Wait when on a metered connection"
+  "downloadConsentDialogDeferOnMetered": "Wait when on a metered connection",
+  "appToastDismissTooltip": "Dismiss notification",
+  "settingsControlsInfoBadge": "Explanation",
+  "settingsControlsInfoDialogTitle": "Information",
+  "settingsControlsClose": "Close",
+  "taskProgressTileFailed": "Failed.",
+  "taskProgressTileCancelled": "Cancelled.",
+  "taskProgressTileDone": "Done.",
+  "taskProgressTileQueued": "Waiting in queue.",
+  "taskProgressTileProcessing": "Processing",
+  "enhanceQueueViewCompletingTitle": "Completing transcript",
+  "enhanceQueueViewCompletingSource": "Completing {source}",
+  "@enhanceQueueViewCompletingSource": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewEtaRemaining": "{eta} left",
+  "@enhanceQueueViewEtaRemaining": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewQueuedCompletion": "Waiting in queue. Some audio hasn't been transcribed yet.",
+  "enhanceQueueModelSourceMic": "microphone",
+  "enhanceQueueModelSourceSystem": "system audio",
+  "enhanceQueueModelSourceRecording": "recording",
+  "enhanceQueueModelQueuedForCompletion": "{count, plural, =1{Waiting in queue to complete the transcript.} other{Waiting in queue to complete {count} recordings.}}",
+  "@enhanceQueueModelQueuedForCompletion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelCompletingLine": "Completing transcript…{source} {percent}%{eta}",
+  "@enhanceQueueModelCompletingLine": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      },
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSuffix": ", {eta} left",
+  "@enhanceQueueModelEtaSuffix": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSeconds": "{seconds, plural, =1{1 second} other{{seconds} seconds}}",
+  "@enhanceQueueModelEtaSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaMinutes": "{minutes, plural, =1{1 minute} other{{minutes} minutes}}",
+  "@enhanceQueueModelEtaMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHours": "{hours, plural, =1{1 hour} other{{hours} hours}}",
+  "@enhanceQueueModelEtaHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHoursMinutes": "{hours, plural, =1{1 hour} other{{hours} hours}} {minutes, plural, =1{1 minute} other{{minutes} minutes}}",
+  "@enhanceQueueModelEtaHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelStagePreparing": "Preparing model",
+  "enhanceQueueModelStageTranscribing": "Transcribing",
+  "enhanceQueueModelStageMerging": "Merging",
+  "enhanceQueueModelNoSpeech": "No speech detected.",
+  "batchUploadModelUnsupportedFormat": "unsupported format",
+  "batchUploadModelTooLarge": "larger than the 2 GB limit",
+  "batchUploadModelNoSpeech": "No speech detected",
+  "batchUploadModelStoppedEarly": "Processing stopped before this file finished",
+  "modelsSummaryTemplateNotulenRapat": "Meeting minutes",
+  "modelsSummaryTemplateRingkasanEksekutif": "Executive summary",
+  "modelsSummaryTemplateActionItems": "Decisions & follow-ups",
+  "modelsSummaryTemplateStandup": "Daily report",
+  "modelsSummaryTemplateKustom": "Custom",
+  "modelsSummaryTemplateHintNotulenRapat": "Summary, attendees, discussion, decisions, follow-ups",
+  "modelsSummaryTemplateHintRingkasanEksekutif": "A short paragraph for those who weren't there",
+  "modelsSummaryTemplateHintActionItems": "Only decisions and tasks, with who owns each",
+  "modelsSummaryTemplateHintStandup": "Per person: done, next, blockers",
+  "modelsSummaryTemplateHintKustom": "Your own instructions",
+  "modelsSummaryProviderOllama": "Ollama (local)",
+  "modelsSummaryProviderOpenAiCompatible": "OpenAI-compatible service",
+  "modelsSessionModeWebinar": "Webinar",
+  "modelsSessionModeOnline": "Online meeting",
+  "modelsSessionModeOffline": "In-person meeting",
+  "usageDashboardScreenTitle": "Usage dashboard",
+  "usageDashboardScreenTotalSessions": "Total sessions",
+  "usageDashboardScreenHoursTranscribed": "Hours transcribed",
+  "usageDashboardScreenTotalSegments": "Total transcript segments",
+  "usageDashboardScreenEmpty": "No saved session data yet.",
+  "usageDashboardScreenSessionsByMode": "Sessions by mode",
+  "usageDashboardScreenSessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@usageDashboardScreenSessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerModeWebinar": "Webinar",
+  "meetingTemplatePickerModeOnline": "Online meeting",
+  "meetingTemplatePickerModeOffline": "In-person meeting",
+  "meetingTemplatePickerLanguageAuto": "Automatic",
+  "meetingTemplatePickerLanguageIndonesian": "Indonesian",
+  "meetingTemplatePickerLanguageEnglish": "English",
+  "meetingTemplatePickerTitle": "Start from a template",
+  "meetingTemplatePickerEmptyDescription": "No saved templates yet. Create one so the title, participants, agenda, language and meeting mode you use often don't have to be filled in every time.",
+  "meetingTemplatePickerDescription": "Pick a template to fill in the session's title, mode and language automatically.",
+  "meetingTemplatePickerCreate": "Create new template",
+  "meetingTemplatePickerOptionalNote": "Templates are optional. \"New meeting\" still starts a blank session as usual.",
+  "meetingTemplatePickerParticipantCount": "{count, plural, =1{1 participant} other{{count} participants}}",
+  "@meetingTemplatePickerParticipantCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerAgendaCount": "{count, plural, =1{1 agenda item} other{{count} agenda items}}",
+  "@meetingTemplatePickerAgendaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerDelete": "Delete template",
+  "meetingTemplatePickerUse": "Use",
+  "meetingTemplatePickerNewTitle": "New template",
+  "meetingTemplatePickerNamePlaceholder": "Template name, e.g. \"Weekly team meeting\"",
+  "meetingTemplatePickerParticipantsPlaceholder": "Default participants (one name per line)",
+  "meetingTemplatePickerAgendaPlaceholder": "Default agenda (one item per line)",
+  "meetingTemplatePickerModeLabel": "Mode",
+  "meetingTemplatePickerLanguageLabel": "Language",
+  "glossarySettingsSectionImportDialogTitle": "Import glossary",
+  "glossarySettingsSectionImportEmpty": "No terms found in that file.",
+  "glossarySettingsSectionImported": "{added, plural, =1{1 new term} other{{added} new terms}} added from {lines, plural, =1{1 line} other{{lines} lines}}.",
+  "@glossarySettingsSectionImported": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionImportFailed": "Import failed: {error}",
+  "@glossarySettingsSectionImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportDialogTitle": "Save glossary",
+  "glossarySettingsSectionExported": "{count, plural, =1{1 term} other{{count} terms}} exported to {path}",
+  "@glossarySettingsSectionExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportFailed": "Export failed: {error}",
+  "@glossarySettingsSectionExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionTitle": "Glossary",
+  "glossarySettingsSectionEnable": "Use glossary",
+  "glossarySettingsSectionEnabledSubtitle": "The terms below are hinted to the transcription engine so abbreviations and agency names are spelled correctly.",
+  "glossarySettingsSectionDisabledSubtitle": "The transcription engine guesses every term on its own.",
+  "glossarySettingsSectionPostCorrection": "Fix near-miss spellings",
+  "glossarySettingsSectionPostCorrectionOnSubtitle": "Words that nearly match a glossary term are corrected after transcription. Other words are left alone.",
+  "glossarySettingsSectionPostCorrectionOffSubtitle": "The transcription is left as is.",
+  "glossarySettingsSectionListTitle": "Terms ({count})",
+  "@glossarySettingsSectionListTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionAddLabel": "Add term",
+  "glossarySettingsSectionAddHint": "e.g. PPBJ, Kemenkeu, Pak Budi Santoso",
+  "glossarySettingsSectionAdd": "Add",
+  "glossarySettingsSectionTermSemantics": "Term {term}",
+  "@glossarySettingsSectionTermSemantics": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionRemoveTerm": "Remove {term}",
+  "@glossarySettingsSectionRemoveTerm": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionSuggestions": "Common term suggestions",
+  "glossarySettingsSectionAddSuggestion": "Add {term} to the glossary",
+  "@glossarySettingsSectionAddSuggestion": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionImportButton": "Import .txt / .csv",
+  "glossarySettingsSectionExportTxt": "Export .txt",
+  "glossarySettingsSectionExportCsv": "Export .csv",
+  "glossarySettingsSectionNoTerms": "No terms yet. Without a glossary, the transcription engine guesses on its own.",
+  "glossarySettingsSectionBudgetOverflow": "{used} of {total} terms in use; the list is too long to hint all at once. Terms further down the list are dropped first, so move the important ones up or shorten the list.",
+  "@glossarySettingsSectionBudgetOverflow": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionBudgetAll": "{total, plural, =1{The term is in use.} other{All {total} terms in use.}}",
+  "@glossarySettingsSectionBudgetAll": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "summarySettingsSectionOllamaModelHint": "Ollama model name",
+  "summarySettingsSectionNoModels": "Connected to the endpoint, but no models are installed.",
+  "summarySettingsSectionEnable": "Turn on AI summary",
+  "summarySettingsSectionEnabledSubtitle": "The transcript is sent to the endpoint below only when you press \"Create summary\". No audio is ever sent.",
+  "summarySettingsSectionDisabledSubtitle": "Off. The app stays 100% offline.",
+  "summarySettingsSectionProvider": "Provider",
+  "summarySettingsSectionEndpointUrl": "Endpoint URL",
+  "summarySettingsSectionApiKey": "API key",
+  "summarySettingsSectionApiKeyHelper": "Stored as is in the app's settings file (no keychain).",
+  "summarySettingsSectionApiKeyHint": "Paste the key here",
+  "summarySettingsSectionModel": "Model",
+  "summarySettingsSectionLoadModels": "Load the model list from the endpoint",
+  "summarySettingsSectionSetupWizard": "Set up AI model (detect, install, download)…",
+  "summarySettingsSectionDefaultTemplate": "Default template",
+  "summarySettingsSectionCitations": "Transcript references",
+  "summarySettingsSectionCitationsSubtitle": "Ask the model to cite a segment number for every point, so each summary line can be clicked through to the minute it came from. References that do not match are dropped.",
+  "summarySettingsSectionActionItems": "Structured follow-ups",
+  "summarySettingsSectionActionItemsSubtitle": "Ask for tasks, owners and deadlines in a format you can edit and export to a calendar (.ics) or a spreadsheet (.csv).",
+  "summarySettingsSectionCustomInstructions": "Custom instructions",
+  "summarySettingsSectionCustomInstructionsHint": "Example: List the risks and how to mitigate them.",
+  "pdpSettingsSectionRetentionForever": "Keep forever",
+  "pdpSettingsSectionRetentionDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionRetentionDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionDaysMonths": "{days} days ({months, plural, =1{1 month} other{{months} months}})",
+  "@pdpSettingsSectionRetentionDaysMonths": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionYears": "{years, plural, =1{1 year} other{{years} years}}",
+  "@pdpSettingsSectionRetentionYears": {
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionTitle": "PDP Law compliance",
+  "pdpSettingsSectionEnable": "Turn on PDP compliance mode",
+  "pdpSettingsSectionEnableSubtitle": "Personal data masking on export, retention limits, an audit log and recording notices. Off by default.",
+  "pdpSettingsSectionRedactionTitle": "Masking on export",
+  "pdpSettingsSectionRedactionIntro": "Saved transcripts are never changed. Masking applies only to the exported copy, and you can always preview it before the file is written.",
+  "pdpSettingsSectionNik": "NIK (national ID number)",
+  "pdpSettingsSectionNikHint": "16 digits with a valid province code",
+  "pdpSettingsSectionNpwp": "NPWP (tax ID)",
+  "pdpSettingsSectionNpwpHint": "15 digits, with or without dots",
+  "pdpSettingsSectionPhone": "Phone number",
+  "pdpSettingsSectionPhoneHint": "08…, +62…, and office numbers with an area code",
+  "pdpSettingsSectionEmail": "Email address",
+  "pdpSettingsSectionEmailHint": "name@agency.go.id",
+  "pdpSettingsSectionBankAccount": "Bank account number",
+  "pdpSettingsSectionBankAccountHint": "Only when the word \"rekening\" or a bank name is nearby, so budget figures are not masked too",
+  "pdpSettingsSectionNamesTitle": "Masked names",
+  "pdpSettingsSectionNamesIntro": "Only you know which names are sensitive in this meeting. Entries shorter than 3 letters are ignored.",
+  "pdpSettingsSectionNameHint": "E.g. Budi Santoso",
+  "pdpSettingsSectionAdd": "Add",
+  "pdpSettingsSectionRetentionTitle": "Data retention",
+  "pdpSettingsSectionRetentionIntro": "Audio and transcripts have separate limits: recordings usually have to be deleted much sooner than the minutes. Nothing is deleted automatically. You see the list first.",
+  "pdpSettingsSectionDeleteAudioAfter": "Delete audio after",
+  "pdpSettingsSectionDeleteTranscriptAfter": "Delete transcript (whole session) after",
+  "pdpSettingsSectionPreviewRetention": "Review & run now",
+  "pdpSettingsSectionRetentionDialogTitle": "Run the retention policy?",
+  "pdpSettingsSectionWholeSessionAge": "Whole session · {days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionWholeSessionAge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionAudioOnlyAge": "Audio only · {days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionAudioOnlyAge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionCannotUndo": "This can't be undone.",
+  "pdpSettingsSectionDeleteNow": "Delete now",
+  "pdpSettingsSectionRetentionApplied": "{count, plural, =1{1 item deleted} other{{count} items deleted}} under the retention policy.",
+  "@pdpSettingsSectionRetentionApplied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPartial": "{deleted} deleted, {failed} failed.",
+  "@pdpSettingsSectionRetentionPartial": {
+    "placeholders": {
+      "deleted": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPreviewFailed": "Retention preview failed: {error}",
+  "@pdpSettingsSectionRetentionPreviewFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionConsentTitle": "Recording notice",
+  "pdpSettingsSectionConsentReminder": "Remind me before recording starts",
+  "pdpSettingsSectionConsentReminderSubtitle": "Show a notice you can copy into the meeting chat, and note in the audit log that it was given.",
+  "pdpSettingsSectionConsentTextLabel": "Notice text",
+  "pdpSettingsSectionConsentTextHelper": "{titleToken} and {dateToken} are filled in automatically. Leave empty to use the default text.",
+  "@pdpSettingsSectionConsentTextHelper": {
+    "placeholders": {
+      "titleToken": {
+        "type": "String"
+      },
+      "dateToken": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionCopyNotice": "Copy notice text",
+  "pdpSettingsSectionNoticeCopied": "Notice text copied.",
+  "pdpSettingsSectionCopyFailed": "Copy failed: {error}",
+  "@pdpSettingsSectionCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditTitle": "Audit log",
+  "pdpSettingsSectionAuditIntro": "A local record of what happened to the data: sessions created, transcripts exported, summaries sent, data deleted. It holds metadata only, never transcript excerpts.",
+  "pdpSettingsSectionViewLog": "View log",
+  "pdpSettingsSectionExportCsv": "Export CSV",
+  "pdpSettingsSectionSaveAuditDialogTitle": "Save audit log",
+  "pdpSettingsSectionAuditSaved": "Audit log saved to {path}",
+  "@pdpSettingsSectionAuditSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditExportFailed": "Log export failed: {error}",
+  "@pdpSettingsSectionAuditExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewNewLinesAnnouncement": "{count} new lines. Latest from {speaker}: {text}",
+  "@transcriptViewNewLinesAnnouncement": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "speaker": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentCopied": "Segment copied.",
+  "transcriptViewTranscriptCopied": "Transcript copied.",
+  "transcriptViewEmptyTitle": "No transcript yet",
+  "transcriptViewEmptySubtitle": "Start a session to begin transcribing\nPress Start or {shortcut}",
+  "@transcriptViewEmptySubtitle": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSearchHint": "Search…",
+  "transcriptViewClearSearch": "Clear search",
+  "transcriptViewSegmentCount": "{count, plural, =1{1 segment} other{{count} segments}}",
+  "@transcriptViewSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFilteredSegmentCount": "{shown} of {total, plural, =1{1 segment} other{{total} segments}}",
+  "@transcriptViewFilteredSegmentCount": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewRefiningCount": "{count} being refined",
+  "@transcriptViewRefiningCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFollowPlaybackOn": "Follow playback: on",
+  "transcriptViewFollowPlaybackOff": "Follow playback: off",
+  "transcriptViewAutoScrollOn": "Auto-scroll on",
+  "transcriptViewAutoScrollOff": "Auto-scroll off",
+  "transcriptViewReviewOnly": "Review: only segments that need checking",
+  "transcriptViewReviewCount": "{count, plural, =1{Review (1 segment needs checking)} other{Review ({count} segments need checking)}}",
+  "@transcriptViewReviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewCopyAll": "Copy all",
+  "transcriptViewNoMatches": "No matching segments",
+  "transcriptViewEditingHint": "Enter save · Esc cancel · {split} split at cursor",
+  "@transcriptViewEditingHint": {
+    "placeholders": {
+      "split": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewBrowsingHint": "↑↓ select · Enter edit · {move} move · {merge} merge up",
+  "@transcriptViewBrowsingHint": {
+    "placeholders": {
+      "move": {
+        "type": "String"
+      },
+      "merge": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentSemantics": "{speaker} at {time}: {text}",
+  "@transcriptViewSegmentSemantics": {
+    "placeholders": {
+      "speaker": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewProcessing": "Processing…",
+  "transcriptViewQueued": "Queued",
+  "transcriptViewLowConfidence": "Low confidence",
+  "transcriptViewCopySegment": "Copy segment",
+  "transcriptViewEdit": "Edit",
+  "transcriptViewEditDialogTitle": "Edit transcript",
+  "transcriptViewEditHint": "Type your correction…",
+  "transcriptViewRenameSpeakerTitle": "Rename speaker",
+  "transcriptViewNewNameHint": "New name…",
+  "transcriptViewTentativeSemantics": "Tentative, not final: {text}",
+  "@transcriptViewTentativeSemantics": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewTentativePrefix": "tentative · "
 }

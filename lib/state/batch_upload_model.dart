@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:path/path.dart' as p;
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../services/session_store.dart';
 import 'models.dart';
@@ -30,8 +31,9 @@ class RejectedFile {
   String get filename => p.basename(path);
 
   String get message => switch (reason) {
-    RejectionReason.unsupportedFormat => 'format tidak didukung',
-    RejectionReason.tooLarge => 'lebih besar dari batas 2 GB',
+    RejectionReason.unsupportedFormat =>
+      currentL10n.batchUploadModelUnsupportedFormat,
+    RejectionReason.tooLarge => currentL10n.batchUploadModelTooLarge,
   };
 }
 
@@ -312,7 +314,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           updateStatus(
             path,
             BatchFileStatus.error,
-            error: outcome.error ?? 'Tidak ada ucapan terdeteksi',
+            error: outcome.error ?? currentL10n.batchUploadModelNoSpeech,
           );
           continue;
         }
@@ -329,7 +331,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
 
       // Anything the engine never reported on (it stopped early) must not be
       // left showing "Transkripsi" forever.
-      _failStragglers(paths, 'Proses berhenti sebelum file ini selesai');
+      _failStragglers(paths, currentL10n.batchUploadModelStoppedEarly);
     } catch (e) {
       _failStragglers(paths, e.toString());
     } finally {
@@ -415,7 +417,7 @@ class BatchUploadNotifier extends StateNotifier<List<BatchFileEntry>> {
           updateStatus(
             path,
             BatchFileStatus.error,
-            error: 'Tidak ada ucapan terdeteksi',
+            error: currentL10n.batchUploadModelNoSpeech,
           );
           continue;
         }

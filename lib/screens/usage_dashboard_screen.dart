@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
+import '../l10n/l10n.dart';
 import '../services/session_store.dart';
 import '../theme/app_tokens.dart';
 
@@ -27,9 +28,9 @@ class UsageStats {
 }
 
 String _sourceModeLabel(String source) => switch (source) {
-  'mic' => 'Rapat Offline',
-  'spk' => 'Webinar',
-  _ => 'Rapat Online',
+  'mic' => currentL10n.modelsSessionModeOffline,
+  'spk' => currentL10n.modelsSessionModeWebinar,
+  _ => currentL10n.modelsSessionModeOnline,
 };
 
 /// Scans `libraryPath` for session folders (one `.json` transcript per
@@ -144,15 +145,16 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Dasbor Penggunaan')),
+        appBar: AppBar(title: Text(context.l10n.usageDashboardScreenTitle)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     final stats = _stats ?? UsageStats.empty();
     final hours = (stats.totalMinutesTranscribed / 60).toStringAsFixed(1);
+    final l10n = context.l10n;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dasbor Penggunaan')),
+      appBar: AppBar(title: Text(l10n.usageDashboardScreenTitle)),
       body: ListView(
         padding: const EdgeInsets.all(Spacing.lg),
         children: [
@@ -160,27 +162,30 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Total Sesi',
+                  label: l10n.usageDashboardScreenTotalSessions,
                   value: '${stats.totalSessions}',
                 ),
               ),
               Spacing.hMd,
               Expanded(
-                child: _StatCard(label: 'Jam Ditranskrip', value: hours),
+                child: _StatCard(
+                  label: l10n.usageDashboardScreenHoursTranscribed,
+                  value: hours,
+                ),
               ),
             ],
           ),
           Spacing.gapMd,
           _StatCard(
-            label: 'Total Segmen Transkrip',
+            label: l10n.usageDashboardScreenTotalSegments,
             value: '${stats.totalSegments}',
           ),
           Spacing.gapXl,
           if (stats.sessionsByMode.isEmpty)
-            const Text('Belum ada data sesi tersimpan.')
+            Text(l10n.usageDashboardScreenEmpty)
           else ...[
             Text(
-              'Sesi per Mode',
+              l10n.usageDashboardScreenSessionsByMode,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Spacing.gapSm,
@@ -189,7 +194,10 @@ class _UsageDashboardScreenState extends State<UsageDashboardScreen> {
                 padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [Text(entry.key), Text('${entry.value} sesi')],
+                  children: [
+                    Text(entry.key),
+                    Text(l10n.usageDashboardScreenSessionCount(entry.value)),
+                  ],
                 ),
               ),
           ],
