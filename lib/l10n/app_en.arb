@@ -2981,5 +2981,8 @@
   "notulenTemplatesBeritaAcaraLabel": "Official report (Berita Acara)",
   "notulenTemplatesBeritaAcaraDescription": "An evidentiary document: names the parties, what was carried out and its outcome, and closes with the standard formula \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".",
   "notulenTemplatesRingkasLabel": "Short minutes",
-  "notulenTemplatesRingkasDescription": "One page without letterhead or signatures, to circulate quickly after the meeting."
+  "notulenTemplatesRingkasDescription": "One page without letterhead or signatures, to circulate quickly after the meeting.",
+  "sessionModeWebinar": "Webinar",
+  "sessionModeOnline": "Online meeting",
+  "sessionModeOffline": "In-person meeting"
 }

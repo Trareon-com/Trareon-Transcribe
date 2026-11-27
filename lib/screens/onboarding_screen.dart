@@ -106,8 +106,10 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   Spacing.gapXl,
                   ModelDownloadCard(
-                    title: quick.title,
-                    subtitle: quick.subtitle,
+                    // Read here, not from the state: the state is built
+                    // before the saved interface language is loaded.
+                    title: l10n.onboardingScreenQuickModelTitle,
+                    subtitle: l10n.onboardingScreenQuickModelSubtitle,
                     sizeLabel: quick.size,
                     progress: quick.progress,
                     status: quick.status,
@@ -115,8 +117,8 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   Spacing.gapMd,
                   ModelDownloadCard(
-                    title: accurate.title,
-                    subtitle: accurate.subtitle,
+                    title: l10n.onboardingScreenAccurateModelTitle,
+                    subtitle: l10n.onboardingScreenAccurateModelSubtitle,
                     sizeLabel: accurate.size,
                     progress: accurate.progress,
                     status: accurate.status,
