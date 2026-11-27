@@ -3,6 +3,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';
@@ -72,7 +73,7 @@ class AppChip extends StatelessWidget {
             const SizedBox(width: Spacing.xs),
             AppIconButton(
               icon: AppIcons.close,
-              tooltip: deleteTooltip ?? 'Hapus $label',
+              tooltip: deleteTooltip ?? context.l10n.appChipDelete(label),
               size: IconSizes.xs,
               onPressed: onDeleted,
             ),

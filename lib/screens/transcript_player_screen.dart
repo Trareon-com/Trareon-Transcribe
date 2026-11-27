@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import '../l10n/l10n.dart';
 import '../services/session_store.dart';
 import '../utils/atomic_file.dart';
 import '../utils/model_labels.dart';
@@ -200,7 +201,10 @@ class _TranscriptPlayerScreenState
       );
     } catch (e) {
       if (mounted) {
-        setState(() => _saveError = 'Tanda poin gagal disimpan: $e');
+        setState(
+          () => _saveError = context.l10n
+              .transcriptPlayerScreenBookmarkSaveFailed('$e'),
+        );
       }
     }
   }
@@ -333,8 +337,10 @@ class _TranscriptPlayerScreenState
 
   Future<void> _initPlayer() async {
     if (widget.audioPath == null) {
+      // Runs from initState, where `context.l10n` may not look up
+      // inherited widgets yet.
       setState(
-        () => _error = 'File audio sumber tidak tersedia untuk diputar.',
+        () => _error = currentL10n.transcriptPlayerScreenAudioUnavailable,
       );
       return;
     }
@@ -531,7 +537,10 @@ class _TranscriptPlayerScreenState
     _onSegmentsMutated();
     _schedulePersist();
     if (!mounted) return;
-    AppToast.show(context, '${actions.length} perubahan pembicara diterapkan.');
+    AppToast.show(
+      context,
+      context.l10n.transcriptPlayerScreenSpeakerChangesApplied(actions.length),
+    );
   }
 
   void _schedulePersist() {
@@ -573,7 +582,10 @@ class _TranscriptPlayerScreenState
         return;
       }
       setState(
-        () => _saveError = 'Perubahan transkrip gagal disimpan ke $dirPath: $e',
+        () => _saveError = context.l10n.transcriptPlayerScreenSaveFailed(
+          dirPath,
+          '$e',
+        ),
       );
     }
   }
@@ -582,7 +594,8 @@ class _TranscriptPlayerScreenState
     String? directory;
     if (elsewhere) {
       directory = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Simpan transkrip ke folder lain',
+        dialogTitle:
+            context.l10n.transcriptPlayerScreenSaveElsewhereDialogTitle,
         initialDirectory: _sessionDirPath,
       );
       if (directory == null) return;
@@ -593,7 +606,11 @@ class _TranscriptPlayerScreenState
     if (!mounted) return;
     setState(() => _retryingSave = false);
     if (_saveError == null && context.mounted) {
-      AppToast.show(context, 'Transkrip tersimpan.', type: ToastType.success);
+      AppToast.show(
+        context,
+        context.l10n.transcriptPlayerScreenSaved,
+        type: ToastType.success,
+      );
     }
   }
 
@@ -625,9 +642,8 @@ class _TranscriptPlayerScreenState
     } catch (e) {
       if (!mounted) return;
       setState(
-        () => _saveError =
-            'Transkrip lama gagal dicadangkan ($e), jadi transkrip ulang '
-            'dibatalkan. Transkrip Anda tidak diubah.',
+        () =>
+            _saveError = context.l10n.transcriptPlayerScreenBackupFailed('$e'),
       );
       return;
     }
@@ -649,11 +665,12 @@ class _TranscriptPlayerScreenState
     if (!mounted) return;
     AppToast.show(
       context,
-      'Transkrip diperbarui: ${result.segments.length} segmen '
-      '(${modelDisplayLabel(result.modelId)}). Versi sebelumnya '
-      'dicadangkan.',
+      context.l10n.transcriptPlayerScreenRetranscribed(
+        result.segments.length,
+        modelDisplayLabel(result.modelId),
+      ),
       type: ToastType.success,
-      actionLabel: 'Pulihkan',
+      actionLabel: context.l10n.transcriptPlayerScreenRestore,
       onAction: _restoreBackup,
     );
   }
@@ -665,7 +682,9 @@ class _TranscriptPlayerScreenState
     final restored = await readTranscriptBackup(dirPath);
     if (!mounted) return;
     if (restored == null) {
-      setState(() => _saveError = 'Cadangan transkrip tidak bisa dibaca.');
+      setState(
+        () => _saveError = context.l10n.transcriptPlayerScreenBackupUnreadable,
+      );
       return;
     }
     setState(() => _segments = restored);
@@ -674,8 +693,7 @@ class _TranscriptPlayerScreenState
     if (!mounted) return;
     AppToast.show(
       context,
-      'Transkrip sebelum transkrip ulang dipulihkan '
-      '(${restored.length} segmen).',
+      context.l10n.transcriptPlayerScreenBackupRestored(restored.length),
       type: ToastType.success,
     );
   }
@@ -791,8 +809,11 @@ class _TranscriptPlayerScreenState
     AppToast.show(
       context,
       choice.autoReplace
-          ? 'Disimpan. "$before" akan ditulis "$after" selanjutnya.'
-          : '"$after" ditambahkan ke kamus istilah.',
+          ? context.l10n.transcriptPlayerScreenGlossaryReplaceSaved(
+              before,
+              after,
+            )
+          : context.l10n.transcriptPlayerScreenGlossaryAdded(after),
       type: ToastType.success,
     );
   }
@@ -930,18 +951,19 @@ class _TranscriptPlayerScreenState
                 size: IconSizes.lg,
               ),
               onPressed: widget.onClose ?? () => Navigator.of(context).pop(),
-              tooltip: widget.onClose != null ? 'Tutup sesi' : 'Kembali',
+              tooltip: widget.onClose != null
+                  ? context.l10n.transcriptPlayerScreenCloseSession
+                  : context.l10n.transcriptPlayerScreenBack,
             ),
             actions: [
               IconButton(
                 icon: const Icon(AppIcons.event, size: IconSizes.lg),
-                tooltip: 'Simpan sebagai template rapat',
+                tooltip: context.l10n.transcriptPlayerScreenSaveAsTemplate,
                 onPressed: _saveAsTemplate,
               ),
               IconButton(
                 icon: const Icon(AppIcons.keyboard, size: IconSizes.lg),
-                tooltip:
-                    'Pintasan: Spasi putar/jeda · ←/→ 5 detik · J/K/L 10 detik',
+                tooltip: context.l10n.transcriptPlayerScreenShortcutsTooltip,
                 onPressed: () => _showShortcutHelp(context, colors),
               ),
             ],
@@ -980,12 +1002,16 @@ class _TranscriptPlayerScreenState
                           onPressed: _retryingSave
                               ? null
                               : () => _retrySave(elsewhere: true),
-                          child: const Text('Simpan ke folder lain'),
+                          child: Text(
+                            context.l10n.transcriptPlayerScreenSaveElsewhere,
+                          ),
                         ),
                         FilledButton(
                           onPressed: _retryingSave ? null : () => _retrySave(),
                           child: Text(
-                            _retryingSave ? 'Menyimpan…' : 'Coba lagi',
+                            _retryingSave
+                                ? context.l10n.transcriptPlayerScreenSaving
+                                : context.l10n.transcriptPlayerScreenRetry,
                           ),
                         ),
                       ],
@@ -1147,7 +1173,8 @@ class _TranscriptPlayerScreenState
                               onPressed: hasAudio
                                   ? () => _seekBy(-kJlSeekSeconds)
                                   : null,
-                              tooltip: 'Mundur 10 detik (J)',
+                              tooltip:
+                                  context.l10n.transcriptPlayerScreenRewind,
                             ),
                             Spacing.hSm,
                             ValueListenableBuilder<bool>(
@@ -1161,8 +1188,8 @@ class _TranscriptPlayerScreenState
                                   color: colors.primary,
                                 ),
                                 tooltip: playing
-                                    ? 'Jeda (Spasi)'
-                                    : 'Putar (Spasi)',
+                                    ? context.l10n.transcriptPlayerScreenPause
+                                    : context.l10n.transcriptPlayerScreenPlay,
                                 onPressed: hasAudio ? _togglePlayback : null,
                               ),
                             ),
@@ -1174,17 +1201,24 @@ class _TranscriptPlayerScreenState
                               onPressed: hasAudio
                                   ? () => _seekBy(kJlSeekSeconds)
                                   : null,
-                              tooltip: 'Maju 10 detik (L)',
+                              tooltip:
+                                  context.l10n.transcriptPlayerScreenForward,
                             ),
                             Spacing.hLg,
                             // The kit's menu, not a Material DropdownButton: the
                             // dropdown rendered its label outside the app's
                             // typeface and brought a second menu style with it.
                             AppMenu<double>(
-                              tooltip: 'Kecepatan pemutaran',
+                              tooltip: context
+                                  .l10n
+                                  .transcriptPlayerScreenPlaybackSpeed,
                               onSelected: (v) => unawaited(_setSpeed(v)),
                               entries: [
-                                const AppMenuEntry.header('Kecepatan'),
+                                AppMenuEntry.header(
+                                  context
+                                      .l10n
+                                      .transcriptPlayerScreenSpeedHeader,
+                                ),
                                 for (final s in kPlaybackSpeeds)
                                   AppMenuEntry(
                                     value: s,
@@ -1259,9 +1293,13 @@ class _TranscriptPlayerScreenState
                                   AppIcons.bookmarkAdd,
                                   size: IconSizes.sm,
                                 ),
-                                label: const Text(
-                                  'Tandai di sini',
-                                  style: TextStyle(fontSize: FontSizes.body),
+                                label: Text(
+                                  context
+                                      .l10n
+                                      .transcriptPlayerScreenBookmarkHere,
+                                  style: const TextStyle(
+                                    fontSize: FontSizes.body,
+                                  ),
                                 ),
                                 onPressed: _addBookmarkHere,
                                 style: OutlinedButton.styleFrom(
@@ -1281,9 +1319,11 @@ class _TranscriptPlayerScreenState
                                 AppIcons.document,
                                 size: IconSizes.sm,
                               ),
-                              label: const Text(
-                                'Notulen Rapat',
-                                style: TextStyle(fontSize: FontSizes.body),
+                              label: Text(
+                                context.l10n.transcriptPlayerScreenMinutes,
+                                style: const TextStyle(
+                                  fontSize: FontSizes.body,
+                                ),
                               ),
                               onPressed: () => unawaited(_openNotulen()),
                             ),
@@ -1293,9 +1333,13 @@ class _TranscriptPlayerScreenState
                                   AppIcons.undo,
                                   size: IconSizes.sm,
                                 ),
-                                label: const Text(
-                                  'Pulihkan cadangan',
-                                  style: TextStyle(fontSize: FontSizes.body),
+                                label: Text(
+                                  context
+                                      .l10n
+                                      .transcriptPlayerScreenRestoreBackup,
+                                  style: const TextStyle(
+                                    fontSize: FontSizes.body,
+                                  ),
                                 ),
                                 onPressed: _restoreBackup,
                                 style: OutlinedButton.styleFrom(
@@ -1319,9 +1363,13 @@ class _TranscriptPlayerScreenState
                                   AppIcons.refresh,
                                   size: IconSizes.sm,
                                 ),
-                                label: const Text(
-                                  'Transkrip Ulang',
-                                  style: TextStyle(fontSize: FontSizes.body),
+                                label: Text(
+                                  context
+                                      .l10n
+                                      .transcriptPlayerScreenRetranscribe,
+                                  style: const TextStyle(
+                                    fontSize: FontSizes.body,
+                                  ),
                                 ),
                                 onPressed: _retranscribe,
                                 style: OutlinedButton.styleFrom(
@@ -1351,8 +1399,11 @@ class _TranscriptPlayerScreenState
                                 ),
                                 label: Text(
                                   _tags.isEmpty
-                                      ? 'Tag'
-                                      : 'Tag (${_tags.length})',
+                                      ? context.l10n.transcriptPlayerScreenTags
+                                      : context.l10n
+                                            .transcriptPlayerScreenTagsCount(
+                                              _tags.length,
+                                            ),
                                   style: const TextStyle(
                                     fontSize: FontSizes.body,
                                   ),
@@ -1382,9 +1433,11 @@ class _TranscriptPlayerScreenState
                                   AppIcons.people,
                                   size: IconSizes.sm,
                                 ),
-                                label: const Text(
-                                  'Pembicara',
-                                  style: TextStyle(fontSize: FontSizes.body),
+                                label: Text(
+                                  context.l10n.transcriptPlayerScreenSpeakers,
+                                  style: const TextStyle(
+                                    fontSize: FontSizes.body,
+                                  ),
                                 ),
                                 onPressed: _manageSpeakers,
                                 style: OutlinedButton.styleFrom(
@@ -1410,9 +1463,11 @@ class _TranscriptPlayerScreenState
                                 AppIcons.upload,
                                 size: IconSizes.sm,
                               ),
-                              label: const Text(
-                                'Ekspor',
-                                style: TextStyle(fontSize: FontSizes.body),
+                              label: Text(
+                                context.l10n.transcriptPlayerScreenExport,
+                                style: const TextStyle(
+                                  fontSize: FontSizes.body,
+                                ),
                               ),
                               onPressed: () => _exportTranscript(context),
                               style: OutlinedButton.styleFrom(
@@ -1460,34 +1515,38 @@ class _TranscriptPlayerScreenState
     );
     await ref.read(meetingTemplatesProvider.notifier).upsert(template);
     if (!mounted) return;
-    AppToast.show(context, 'Template "${widget.title}" disimpan.');
+    AppToast.show(
+      context,
+      context.l10n.transcriptPlayerScreenTemplateSaved(widget.title),
+    );
   }
 
   void _showShortcutHelp(BuildContext context, AppColorSet colors) {
+    final l10n = context.l10n;
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: colors.surface,
-        title: const Text('Pintasan pemutar'),
-        content: const Column(
+        title: Text(l10n.transcriptPlayerScreenShortcutHelpTitle),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Spasi atau K: putar atau jeda'),
+            Text(l10n.transcriptPlayerScreenShortcutHelpPlay),
             Spacing.gapSm,
-            Text('Panah kiri atau kanan: mundur atau maju 5 detik'),
+            Text(l10n.transcriptPlayerScreenShortcutHelpSeek5),
             Spacing.gapSm,
-            Text('J atau L: mundur atau maju 10 detik'),
+            Text(l10n.transcriptPlayerScreenShortcutHelpSeek10),
             Spacing.gapSm,
-            Text('Klik baris transkrip: lompat ke waktu itu'),
+            Text(l10n.transcriptPlayerScreenShortcutHelpClickRow),
             Spacing.gapSm,
-            Text('Klik tanda di garis waktu: lompat ke poin yang ditandai'),
+            Text(l10n.transcriptPlayerScreenShortcutHelpClickMark),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Tutup'),
+            child: Text(l10n.transcriptPlayerScreenClose),
           ),
         ],
       ),

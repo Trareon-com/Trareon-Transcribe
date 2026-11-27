@@ -17,6 +17,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../services/speaker_aliases.dart';
 import '../state/models.dart';
 import '../theme/app_colors.dart';
@@ -198,25 +199,27 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Ganti nama "${speaker.label}"'),
+        title: Text(
+          dialogContext.l10n.speakerManagerDialogRenameTitle(speaker.label),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nama',
-            border: OutlineInputBorder(),
-            helperText: 'Berlaku untuk seluruh sesi ini.',
+          decoration: InputDecoration(
+            labelText: dialogContext.l10n.speakerManagerDialogNameLabel,
+            border: const OutlineInputBorder(),
+            helperText: dialogContext.l10n.speakerManagerDialogNameHelper,
           ),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Batal'),
+            child: Text(dialogContext.l10n.actionCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Ganti'),
+            child: Text(dialogContext.l10n.speakerManagerDialogRenameConfirm),
           ),
         ],
       ),
@@ -231,16 +234,23 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
     final target = await showDialog<String>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: Text('Gabungkan "${speaker.label}" ke siapa?'),
+        title: Text(
+          dialogContext.l10n.speakerManagerDialogMergeTitle(speaker.label),
+        ),
         children: [
           for (final other in others)
             SimpleDialogOption(
               onPressed: () => Navigator.of(dialogContext).pop(other.label),
-              child: Text('${other.label} (${other.segments} segmen)'),
+              child: Text(
+                dialogContext.l10n.speakerManagerDialogMergeOption(
+                  other.label,
+                  other.segments,
+                ),
+              ),
             ),
           SimpleDialogOption(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Batal'),
+            child: Text(dialogContext.l10n.actionCancel),
           ),
         ],
       ),
@@ -265,7 +275,7 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
 
     return AlertDialog(
-      title: const Text('Kelola Pembicara'),
+      title: Text(context.l10n.speakerManagerDialogTitle),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -274,7 +284,7 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
           children: [
             if (_speakers.isEmpty)
               Text(
-                'Transkrip ini belum punya pembicara.',
+                context.l10n.speakerManagerDialogNoSpeakers,
                 style: TextStyle(color: colors.textSecondary),
               )
             else
@@ -311,8 +321,7 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
             if (_actions.isNotEmpty) ...[
               Spacing.gapSm,
               Text(
-                '${_actions.length} perubahan menunggu. Tekan Terapkan untuk '
-                'menuliskannya ke transkrip.',
+                context.l10n.speakerManagerDialogPending(_actions.length),
                 style: TextStyle(
                   fontSize: FontSizes.micro,
                   color: colors.textTertiary,
@@ -326,23 +335,26 @@ class _SpeakerManagerDialogState extends State<_SpeakerManagerDialog> {
         TextButton(
           onPressed: () async {
             if (readSpeakerAliases().isEmpty) {
-              AppToast.show(context, 'Belum ada nama yang diingat.');
+              AppToast.show(
+                context,
+                context.l10n.speakerManagerDialogNothingRemembered,
+              );
               return;
             }
             await forgetAllSpeakerAliases();
             if (!context.mounted) return;
             setState(() => _suggestions = const {});
-            AppToast.show(context, 'Nama pembicara yang diingat dihapus.');
+            AppToast.show(context, context.l10n.speakerManagerDialogForgotten);
           },
-          child: const Text('Lupakan nama tersimpan'),
+          child: Text(context.l10n.speakerManagerDialogForgetAll),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
+          child: Text(context.l10n.actionCancel),
         ),
         FilledButton(
           onPressed: _actions.isEmpty && _toRemember.isEmpty ? null : _confirm,
-          child: const Text('Terapkan'),
+          child: Text(context.l10n.speakerManagerDialogApply),
         ),
       ],
     );
@@ -404,8 +416,15 @@ class _SpeakerRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${speaker.segments} segmen · '
-                      '${minutes < 1 ? "${speaker.seconds.round()} detik" : "${minutes.round()} menit"}',
+                      minutes < 1
+                          ? context.l10n.speakerManagerDialogStatsSeconds(
+                              speaker.segments,
+                              speaker.seconds.round(),
+                            )
+                          : context.l10n.speakerManagerDialogStatsMinutes(
+                              speaker.segments,
+                              minutes.round(),
+                            ),
                       style: TextStyle(
                         fontSize: FontSizes.micro,
                         color: colors.textTertiary,
@@ -415,14 +434,14 @@ class _SpeakerRow extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Ganti nama',
+                tooltip: context.l10n.speakerManagerDialogRename,
                 icon: const Icon(AppIcons.edit, size: IconSizes.sm),
                 onPressed: onRename,
               ),
               IconButton(
                 tooltip: canMerge
-                    ? 'Gabungkan dengan pembicara lain'
-                    : 'Tidak ada pembicara lain untuk digabung',
+                    ? context.l10n.speakerManagerDialogMerge
+                    : context.l10n.speakerManagerDialogNoMerge,
                 icon: const Icon(AppIcons.merge, size: IconSizes.sm),
                 onPressed: canMerge ? onMerge : null,
               ),
@@ -436,7 +455,7 @@ class _SpeakerRow extends StatelessWidget {
                 spacing: Spacing.xs,
                 children: [
                   Text(
-                    'Diingat dari rapat sebelumnya: $suggestion',
+                    context.l10n.speakerManagerDialogSuggestion(suggestion!),
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textSecondary,
@@ -444,7 +463,7 @@ class _SpeakerRow extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: onApplySuggestion,
-                    child: const Text('Pakai'),
+                    child: Text(context.l10n.speakerManagerDialogUseSuggestion),
                   ),
                 ],
               ),
@@ -460,10 +479,13 @@ class _SpeakerRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     engineLabel == speaker.label
-                        ? 'Ingat nama ini untuk label "${speaker.label}" di '
-                              'rapat berikutnya (ganti namanya dulu)'
-                        : 'Ingat "${speaker.label}" untuk label '
-                              '"$engineLabel" di rapat berikutnya',
+                        ? context.l10n.speakerManagerDialogRememberUnrenamed(
+                            speaker.label,
+                          )
+                        : context.l10n.speakerManagerDialogRemember(
+                            speaker.label,
+                            engineLabel,
+                          ),
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textSecondary,
