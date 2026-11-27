@@ -115,7 +115,7 @@ sqlite-vec = "0.1.9"
 # Fast tokenizer for the semantic-search embedding model (loads the
 # model's own tokenizer.json from HuggingFace Hub directly, no Python
 # dependency) — same crate family HuggingFace itself uses.
-tokenizers = { version = "0.20", default-features = false, features = ["onig"], optional = true }
+tokenizers = { version = "0.23", default-features = false, features = ["onig"], optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "stream", "json"] }
 futures-util = "0.3"
 bytes = "1"
