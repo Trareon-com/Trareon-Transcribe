@@ -101,6 +101,7 @@ impl SileroGate {
         let path = model_path
             .to_str()
             .ok_or_else(|| TranscribeError::Model("VAD model path is not valid UTF-8".into()))?;
+        crate::stt::prepare_metal_backend();
         let mut params = WhisperVadContextParams::new();
         params.set_n_threads(threads.max(1));
         // Deliberately CPU: the VAD is ~1 ms per 30 ms of audio, and

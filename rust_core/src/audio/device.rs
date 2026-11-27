@@ -11,6 +11,8 @@
 //! cause of the POLLERR flood this module's Linux branch exists to prevent.
 
 use cpal::traits::{DeviceTrait, HostTrait};
+
+use crate::audio::capture::device_name;
 use serde::Serialize;
 
 use crate::error::TranscribeError;
@@ -101,7 +103,7 @@ mod linux {
 fn list_input_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
     crate::audio::alsa_quiet::silence_once();
     let host = cpal::default_host();
-    let default_name = host.default_input_device().and_then(|d| d.name().ok());
+    let default_name = host.default_input_device().and_then(|d| device_name(&d));
 
     let devices = host
         .input_devices()
@@ -109,9 +111,8 @@ fn list_input_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeError
 
     let mut out = Vec::new();
     for device in devices {
-        let name = device
-            .name()
-            .map_err(|e| TranscribeError::AudioDevice(e.to_string()))?;
+        let name = device_name(&device)
+            .ok_or_else(|| TranscribeError::AudioDevice("device has no readable name".into()))?;
         let is_default = default_name.as_deref() == Some(name.as_str());
 
         let (channels, sample_rates) = match device.supported_input_configs() {
@@ -120,7 +121,7 @@ fn list_input_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeError
                 let channels = configs.first().map(|c| c.channels()).unwrap_or(1);
                 let rates = configs
                     .iter()
-                    .map(|c| c.min_sample_rate().0)
+                    .map(|c| c.min_sample_rate())
                     .collect::<Vec<_>>();
                 (channels, rates)
             }
@@ -141,7 +142,7 @@ fn list_input_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeError
 fn list_output_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeError> {
     crate::audio::alsa_quiet::silence_once();
     let host = cpal::default_host();
-    let default_name = host.default_output_device().and_then(|d| d.name().ok());
+    let default_name = host.default_output_device().and_then(|d| device_name(&d));
 
     let devices = host
         .output_devices()
@@ -149,9 +150,8 @@ fn list_output_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeErro
 
     let mut out = Vec::new();
     for device in devices {
-        let name = device
-            .name()
-            .map_err(|e| TranscribeError::AudioDevice(e.to_string()))?;
+        let name = device_name(&device)
+            .ok_or_else(|| TranscribeError::AudioDevice("device has no readable name".into()))?;
         let is_default = default_name.as_deref() == Some(name.as_str());
 
         let (channels, sample_rates) = match device.supported_output_configs() {
@@ -160,7 +160,7 @@ fn list_output_devices_via_cpal() -> Result<Vec<AudioDeviceInfo>, TranscribeErro
                 let channels = configs.first().map(|c| c.channels()).unwrap_or(1);
                 let rates = configs
                     .iter()
-                    .map(|c| c.min_sample_rate().0)
+                    .map(|c| c.min_sample_rate())
                     .collect::<Vec<_>>();
                 (channels, rates)
             }

@@ -237,6 +237,31 @@ pub struct EngineOptions {
     pub dtw_alignment: bool,
 }
 
+/// Configures ggml's Metal backend before its first use. Call it before any
+/// whisper context (STT or VAD) is created; later calls do nothing.
+///
+/// Turns off Metal residency sets. With them on, ggml-metal frees its device
+/// from a C++ static destructor at process exit and asserts
+/// (`GGML_ASSERT([rsets->data count] == 0)` in `ggml_metal_device_free`)
+/// when any whisper context is still alive. A live session, or the
+/// transcript-completion pass that keeps running after Stop, holds one, so
+/// quitting the app then ended in an abort and macOS's "quit unexpectedly"
+/// report instead of a clean exit. Measured on an M-series MacBook Pro with
+/// `small` over 77 s of speech: 5.5–5.9 s without residency sets against
+/// 6.2–7.8 s with them, so nothing is given up. An explicit
+/// `GGML_METAL_NO_RESIDENCY` in the environment is left as it is.
+pub fn prepare_metal_backend() {
+    #[cfg(target_os = "macos")]
+    {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            if std::env::var_os("GGML_METAL_NO_RESIDENCY").is_none() {
+                std::env::set_var("GGML_METAL_NO_RESIDENCY", "1");
+            }
+        });
+    }
+}
+
 pub struct WhisperEngine {
     context: Mutex<WhisperContext>,
     model_path: String,
@@ -296,6 +321,7 @@ impl WhisperEngine {
         let dtw_preset = dtw_alignment.then(|| dtw_preset_for(model_path)).flatten();
         let dtw_alignment = dtw_preset.is_some();
 
+        prepare_metal_backend();
         let mut params = WhisperContextParameters::new();
         params.use_gpu(use_gpu).gpu_device(gpu_device);
         if let Some(model_preset) = dtw_preset {

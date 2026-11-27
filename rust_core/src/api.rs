@@ -78,6 +78,9 @@ pub fn gpu_capability() -> GpuCapability {
 /// harmless no-op via `try_init`).
 pub fn init_logging() {
     let _ = tracing_subscriber::fmt::try_init();
+    // The earliest call Dart makes into the engine, before any whisper
+    // context exists: see `prepare_metal_backend` for why.
+    crate::stt::prepare_metal_backend();
 }
 
 pub fn engine_version() -> String {
@@ -324,13 +327,17 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
     // before the first progress callback for this one lands.
     crate::model::reset_download_progress();
 
-    crate::model::download_with_resume(&info.url, &dest_path, |progress| {
+    // Downloaded into `<name>.part` and renamed only once complete and
+    // verified: an interrupted download must never leave a file at the
+    // final name, which the app reads as "installed".
+    let part_path = crate::model::partial_download_path(&dest_path);
+    crate::model::download_with_resume(&info.url, &part_path, |progress| {
         crate::model::set_download_progress(progress.bytes_downloaded, progress.total_bytes);
     })
     .await?;
 
     if !info.sha256.is_empty() {
-        if let Err(e) = crate::model::verify_checksum(&dest_path, &info.sha256) {
+        if let Err(e) = crate::model::verify_checksum(&part_path, &info.sha256) {
             // A file that fails its checksum is corrupt or partial. Leaving
             // it on disk is worse than having nothing: `is_model_downloaded`
             // then reports the model as installed, and the next attempt's
@@ -338,11 +345,14 @@ pub async fn download_model(models_dir: String, model_id: String) -> Result<(), 
             // recorded offset, so the checksum can never come out right
             // again — a poisoned resume the user cannot clear from the UI.
             // Removing it makes the retry a clean download.
-            crate::model::discard_corrupt_download(&dest_path);
+            crate::model::discard_corrupt_download(&part_path);
             return Err(e);
         }
     }
 
+    // Same directory, so the rename is atomic: the final name holds either
+    // nothing or the whole verified model.
+    std::fs::rename(&part_path, &dest_path).map_err(TranscribeError::from)?;
     Ok(())
 }
 
