@@ -10,6 +10,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_shortcuts.dart';
@@ -30,25 +31,27 @@ Future<String?> showBookmarkNoteDialog(
   return showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: Text('Catatan untuk ${formatTimestamp(timestamp)}'),
+      title: Text(
+        dialogContext.l10n.bookmarkNoteDialogTitle(formatTimestamp(timestamp)),
+      ),
       content: TextField(
         controller: controller,
         autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Catatan (opsional)',
-          hintText: 'mis. keputusan penting, tindak lanjut',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: dialogContext.l10n.bookmarkNoteLabel,
+          hintText: dialogContext.l10n.bookmarkNoteHint,
+          border: const OutlineInputBorder(),
         ),
         onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Lewati'),
+          child: Text(dialogContext.l10n.actionSkip),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-          child: const Text('Simpan'),
+          child: Text(dialogContext.l10n.actionSave),
         ),
       ],
     ),
@@ -100,14 +103,15 @@ class BookmarkTicks extends StatelessWidget {
                   child: Semantics(
                     button: true,
                     label:
-                        'Poin ditandai pada '
-                        '${formatTimestamp(bookmark.timestamp)}'
+                        '${context.l10n.bookmarkMarkedAt(formatTimestamp(bookmark.timestamp))}'
                         '${bookmark.note.trim().isEmpty ? '' : ', ${bookmark.note.trim()}'}',
                     child: Tooltip(
                       message: bookmark.note.trim().isEmpty
                           ? formatTimestamp(bookmark.timestamp)
-                          : '${formatTimestamp(bookmark.timestamp)} · '
-                                '${bookmark.note.trim()}',
+                          : context.l10n.bookmarkRowLabel(
+                              formatTimestamp(bookmark.timestamp),
+                              bookmark.note.trim(),
+                            ),
                       child: InkWell(
                         onTap: () => onJump(bookmark),
                         child: SizedBox(
@@ -177,16 +181,19 @@ class BookmarkJumpList extends StatelessWidget {
                 label: Text(
                   bookmark.note.trim().isEmpty
                       ? formatTimestamp(bookmark.timestamp)
-                      : '${formatTimestamp(bookmark.timestamp)} · '
-                            '${bookmark.note.trim()}',
+                      : context.l10n.bookmarkRowLabel(
+                          formatTimestamp(bookmark.timestamp),
+                          bookmark.note.trim(),
+                        ),
                 ),
-                tooltip:
-                    'Klik: lompat ke ${formatTimestamp(bookmark.timestamp)} · '
-                    'Tahan: ubah catatan',
+                tooltip: context.l10n.bookmarkJumpTooltip(
+                  formatTimestamp(bookmark.timestamp),
+                ),
                 onPressed: () => onJump(bookmark),
                 onDeleted: () => onRemove(bookmark),
-                deleteButtonTooltipMessage:
-                    'Hapus tanda ${formatTimestamp(bookmark.timestamp)}',
+                deleteButtonTooltipMessage: context.l10n.bookmarkRemoveTooltip(
+                  formatTimestamp(bookmark.timestamp),
+                ),
               ),
             ),
           ),
@@ -234,18 +241,18 @@ class BookmarkBar extends StatelessWidget {
           Row(
             children: [
               Tooltip(
-                message:
-                    'Tandai poin penting di posisi sekarang '
-                    '(${AppShortcuts.bookmark.shortcut.label})',
+                message: context.l10n.bookmarkBarAddTooltip(
+                  AppShortcuts.bookmark.shortcut.label,
+                ),
                 child: OutlinedButton.icon(
                   onPressed: live ? onAdd : null,
                   icon: const Icon(AppIcons.bookmarkAdd, size: IconSizes.md),
-                  label: const Text('Tandai'),
+                  label: Text(context.l10n.bookmarkAdd),
                 ),
               ),
               const SizedBox(width: Spacing.sm),
               Tooltip(
-                message: 'Tandai dan tulis catatan',
+                message: context.l10n.bookmarkAddWithNoteTooltip,
                 child: IconButton(
                   onPressed: live ? onAddWithNote : null,
                   constraints: TouchTarget.constraints,
@@ -258,8 +265,8 @@ class BookmarkBar extends StatelessWidget {
                   liveRegion: true,
                   child: Text(
                     bookmarks.isEmpty
-                        ? 'Belum ada poin yang ditandai.'
-                        : '${bookmarks.length} poin ditandai.',
+                        ? context.l10n.bookmarkNone
+                        : context.l10n.bookmarkCount(bookmarks.length),
                     style: TextStyle(
                       fontSize: FontSizes.caption,
                       color: colors.textTertiary,
@@ -285,14 +292,18 @@ class BookmarkBar extends StatelessWidget {
                     label: Text(
                       bookmark.note.trim().isEmpty
                           ? formatTimestamp(bookmark.timestamp)
-                          : '${formatTimestamp(bookmark.timestamp)} · '
-                                '${bookmark.note.trim()}',
+                          : context.l10n.bookmarkRowLabel(
+                              formatTimestamp(bookmark.timestamp),
+                              bookmark.note.trim(),
+                            ),
                     ),
-                    tooltip: 'Klik untuk ubah catatan',
+                    tooltip: context.l10n.bookmarkEditNoteTooltip,
                     onPressed: () => onEditNote(bookmark),
                     onDeleted: () => onRemove(bookmark),
-                    deleteButtonTooltipMessage:
-                        'Hapus tanda ${formatTimestamp(bookmark.timestamp)}',
+                    deleteButtonTooltipMessage: context.l10n
+                        .bookmarkRemoveTooltip(
+                          formatTimestamp(bookmark.timestamp),
+                        ),
                   ),
               ],
             ),

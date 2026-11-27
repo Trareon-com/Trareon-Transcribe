@@ -150,7 +150,7 @@ class TranscribeApp extends ConsumerWidget {
     final modelsReady = ref.watch(modelsReadyProvider);
 
     return MaterialApp(
-      title: 'Trareon Transcribe',
+      onGenerateTitle: (context) => context.l10n.appTitle,
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

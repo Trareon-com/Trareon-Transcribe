@@ -10,31 +10,30 @@
 /// machine-readable check names.
 library;
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/doctor.dart';
 
 /// Human-readable name for each check `doctor.rs` runs.
-const Map<String, String> kCheckTitles = {
-  'library_path': 'Folder penyimpanan',
-  'model': 'Model transkripsi',
-  'config_dir': 'Folder pengaturan',
-  'audio_input': 'Perangkat mikrofon',
-  'disk_space': 'Ruang disk',
+String checkTitle(String name) => switch (name) {
+  'library_path' => currentL10n.preflightServiceTitleLibraryPath,
+  'model' => currentL10n.preflightServiceTitleModel,
+  'config_dir' => currentL10n.preflightServiceTitleConfigDir,
+  'audio_input' => currentL10n.preflightServiceTitleAudioInput,
+  'disk_space' => currentL10n.preflightServiceTitleDiskSpace,
+  _ => name,
 };
 
 /// One-line explanation of why the check exists, shown under its title so
 /// the screen teaches rather than just reports.
-const Map<String, String> kCheckPurposes = {
-  'library_path': 'Tempat rekaman dan transkrip disimpan.',
-  'model': 'Berkas model yang dipakai untuk mengubah suara jadi teks.',
-  'config_dir': 'Tempat pengaturan aplikasi disimpan.',
-  'audio_input': 'Sumber suara untuk merekam.',
-  'disk_space': 'Rekaman tiga jam butuh sekitar 1,4 GB.',
+String checkPurpose(String name) => switch (name) {
+  'library_path' => currentL10n.preflightServicePurposeLibraryPath,
+  'model' => currentL10n.preflightServicePurposeModel,
+  'config_dir' => currentL10n.preflightServicePurposeConfigDir,
+  'audio_input' => currentL10n.preflightServicePurposeAudioInput,
+  'disk_space' => currentL10n.preflightServicePurposeDiskSpace,
+  _ => '',
 };
-
-String checkTitle(String name) => kCheckTitles[name] ?? name;
-
-String checkPurpose(String name) => kCheckPurposes[name] ?? '';
 
 enum PreflightSeverity { ok, warn, fail }
 
