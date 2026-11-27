@@ -761,6 +761,21 @@ class AppSettings {
   /// sensitif privasi, jadi harus mudah dimatikan dari Pengaturan.
   final bool meetingAutoDetectEnabled;
 
+  /// Whether the quality resolver (see `quality_profile.dart`) may decide the
+  /// two switches that can make a transcript worse when they are wrong:
+  /// noise reduction and automatic gain. Flips to false the moment the user
+  /// moves either one by hand, so a machine decision never overwrites a
+  /// person's.
+  final bool autoAudioTuning;
+
+  /// Tunda unduhan komponen bila koneksi metered. Dart-only preference.
+  final bool deferDownloads;
+
+  /// Mode Sederhana: panel Pengaturan hanya menampilkan empat kontrol yang
+  /// benar-benar mengubah hasil; sisanya di balik "Lanjutan". Menyaring
+  /// tampilan, bukan nilai — semua setelan tetap tersimpan dan berlaku.
+  final bool simpleMode;
+
   /// F16 bagian B: ambang sunyi berkepanjangan (menit) sebelum sesi yang
   /// sedang merekam ditawari untuk dihentikan otomatis. `null` = nonaktif.
   /// Mirrors `AppSettings::silence_auto_stop_minutes` in Rust.
@@ -790,12 +805,18 @@ class AppSettings {
     this.autoRetranscribe,
     this.pdp = kDefaultPdpSettings,
     this.noiseReduction = false,
-    this.agcEnabled = true,
+    // Off by default. AGC on already-normalised speech only lifts the noise
+    // floor, and Whisper turns noise into invented words — measured tuning
+    // (quality_profile.dart) turns it back on when the level really is low.
+    this.agcEnabled = false,
     this.neuralDiarization = false,
     this.defaultModelUpgradeDismissed = false,
     this.consentBannerDismissed = false,
     this.meetingAutoDetectEnabled = true,
     this.silenceAutoStopMinutes = 5,
+    this.autoAudioTuning = true,
+    this.deferDownloads = true,
+    this.simpleMode = true,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -823,6 +844,9 @@ class AppSettings {
     HptMode? hptMode,
     bool? gpuEnabled,
     int? gpuDevice,
+    bool? autoAudioTuning,
+    bool? deferDownloads,
+    bool? simpleMode,
     // `audioToDisk` used to be missing here, so every copyWith silently
     // reset the user's choice to the default.
     bool? audioToDisk,
@@ -873,6 +897,9 @@ class AppSettings {
           : autoRetranscribe as bool?,
       pdp: pdp ?? this.pdp,
       noiseReduction: noiseReduction ?? this.noiseReduction,
+      autoAudioTuning: autoAudioTuning ?? this.autoAudioTuning,
+      deferDownloads: deferDownloads ?? this.deferDownloads,
+      simpleMode: simpleMode ?? this.simpleMode,
       agcEnabled: agcEnabled ?? this.agcEnabled,
       neuralDiarization: neuralDiarization ?? this.neuralDiarization,
       defaultModelUpgradeDismissed:

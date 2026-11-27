@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart' show StateProvider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_version.dart';
@@ -9,6 +10,7 @@ import '../services/update_checker.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/enhance_queue_model.dart' show kAccurateModelId;
 import '../state/models.dart';
+import '../state/quality_profile.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -330,6 +332,13 @@ class _CategoryChips extends StatelessWidget {
   }
 }
 
+/// Whether the advanced rows are unfolded.
+///
+/// Session-scoped UI state, not a preference: Mode Sederhana has to be the
+/// resting state on every visit, otherwise "simple" only applies until
+/// someone reopens Pengaturan (blueprint §8.1).
+final settingsAdvancedOpenProvider = StateProvider<bool>((ref) => false);
+
 class _CategoryContent extends ConsumerWidget {
   const _CategoryContent({required this.category, required this.gpu});
 
@@ -383,7 +392,7 @@ class _CategoryContent extends ConsumerWidget {
         notifier,
         colors,
       ),
-      SettingsCategory.audio => _audio(settings, notifier),
+      SettingsCategory.audio => _audio(settings, notifier, ref),
       SettingsCategory.kamus => const [GlossarySettingsSection()],
       SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
       SettingsCategory.ringkasan => const [
@@ -429,10 +438,46 @@ class _CategoryContent extends ConsumerWidget {
     AppSettings settings,
     SettingsNotifier notifier,
     AppColorSet colors,
-  ) => [
+  ) {
+    final advancedOpen = ref.watch(settingsAdvancedOpenProvider);
+    return [
     SettingsSection(
       title: 'Model & Mode',
       children: [
+        SettingsSwitch(
+          icon: AppIcons.tune,
+          label: 'Mode Sederhana',
+          subtitle: settings.simpleMode
+              ? 'Hanya kontrol yang mengubah hasil transkrip yang tampil. '
+                    'Sisanya ada di balik "Pengaturan lanjutan".'
+              : 'Semua kontrol ditampilkan.',
+          value: settings.simpleMode,
+          onChanged: notifier.setSimpleMode,
+        ),
+        const SettingsDivider(),
+        // "Otomatis" has to be legible, not a black box: this row is the
+        // resolver's own words for the current session's audio tuning.
+        SettingsTile(
+          icon: AppIcons.autoFix,
+          label: 'Penyetelan audio otomatis',
+          subtitle: settings.autoAudioTuning
+              ? _audioDecisionSubtitle(settings)
+              : 'Dimatikan karena Anda pernah mengubah derau/AGC sendiri. '
+                    'Nilai Anda yang dipakai.',
+          trailing: TextButton(
+            onPressed: settings.autoAudioTuning
+                ? () {
+                    notifier.setAutoAudioTuning(false);
+                    ref.read(settingsAdvancedOpenProvider.notifier).state =
+                        true;
+                  }
+                : () => notifier.setAutoAudioTuning(true),
+            child: Text(
+              settings.autoAudioTuning ? 'Ubah manual' : 'Pakai otomatis',
+            ),
+          ),
+        ),
+        const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.model,
           label: 'Model default',
@@ -479,6 +524,7 @@ class _CategoryContent extends ConsumerWidget {
           ),
         ),
         _ModelAccuracyAndUpgradeRow(settings: settings, notifier: notifier),
+        if (!settings.simpleMode || advancedOpen) ...[
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.speed,
@@ -511,6 +557,8 @@ class _CategoryContent extends ConsumerWidget {
           value: settings.autoRetranscribe ?? false,
           onChanged: notifier.setAutoRetranscribe,
         ),
+        ],
+        if (!settings.simpleMode || advancedOpen) ...[
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.chip,
@@ -535,6 +583,7 @@ class _CategoryContent extends ConsumerWidget {
             onChanged: notifier.setDefaultMode,
           ),
         ),
+        ],
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.translate,
@@ -552,6 +601,20 @@ class _CategoryContent extends ConsumerWidget {
             onChanged: notifier.setLanguage,
           ),
         ),
+        if (settings.simpleMode) ...[
+          const SettingsDivider(),
+          SettingsTile(
+            icon: advancedOpen ? AppIcons.expandLess : AppIcons.expandMore,
+            label: advancedOpen
+                ? 'Sembunyikan pengaturan lanjutan'
+                : 'Pengaturan lanjutan',
+            subtitle: 'Akselerasi GPU · cepat-lalu-diperhalus · perbaikan di '
+                'latar belakang · mode rekaman.',
+            trailing: const SizedBox.shrink(),
+            onTap: () => ref.read(settingsAdvancedOpenProvider.notifier).state =
+                !advancedOpen,
+          ),
+        ],
       ],
     ),
     Spacing.gapMd,
@@ -569,7 +632,28 @@ class _CategoryContent extends ConsumerWidget {
         ),
       ],
     ),
-  ];
+    ];
+  }
+
+  /// The resolver's own words for the audio tuning this build will use.
+  ///
+  /// No measurement is wired yet (blueprint §5, fase 2), so the honest answer
+  /// is the conservative branch. Saying that out loud is better than implying
+  /// the app already listened to the room.
+  String _audioDecisionSubtitle(AppSettings settings) {
+    final profile = resolveQualityProfile(
+      measurement: null,
+      gpuAvailable: gpu?.available ?? false,
+      refineModelInstalled: settings.progressiveEnabled,
+      tuningSource: TuningSource.auto,
+      userNoiseReduction: settings.noiseReduction,
+      userAgc: settings.agcEnabled,
+      userVad: settings.vadEnabled,
+    );
+    final nr = settings.noiseReduction ? 'nyala' : 'mati';
+    final agc = settings.agcEnabled ? 'nyala' : 'mati';
+    return '${profile.reason}. Derau $nr, AGC $agc.';
+  }
 
   /// Says what the machine will actually do, not what the switch is set to.
   String _gpuSubtitle(bool enabled) {
@@ -588,10 +672,34 @@ class _CategoryContent extends ConsumerWidget {
         : 'GPU (${capability.backend}) tersedia, tapi transkripsi memakai CPU.';
   }
 
-  List<Widget> _audio(AppSettings settings, SettingsNotifier notifier) => [
+  List<Widget> _audio(
+    AppSettings settings,
+    SettingsNotifier notifier,
+    WidgetRef ref,
+  ) {
+    final advancedOpen = ref.watch(settingsAdvancedOpenProvider);
+    final folded = settings.simpleMode && !advancedOpen;
+    return [
     // The downloadable engine assets go first: whether the neural VAD is
     // installed decides what "Abaikan jeda sunyi" below actually does.
     const EngineAssetsSection(),
+    if (folded)
+      SettingsSection(
+        title: 'Audio & Suara',
+        children: [
+          SettingsTile(
+            icon: AppIcons.autoFix,
+            label: 'Diputuskan otomatis',
+            subtitle: _audioDecisionSubtitle(settings),
+            trailing: TextButton(
+              onPressed: () =>
+                  ref.read(settingsAdvancedOpenProvider.notifier).state = true,
+              child: const Text('Ubah manual'),
+            ),
+          ),
+        ],
+      )
+    else
     SettingsSection(
       title: 'Audio & Suara',
       children: [
@@ -673,7 +781,8 @@ class _CategoryContent extends ConsumerWidget {
         ],
       ],
     ),
-  ];
+    ];
+  }
 
   List<Widget> _penyimpanan(
     AppSettings settings,
