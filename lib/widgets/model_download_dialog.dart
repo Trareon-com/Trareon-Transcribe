@@ -55,7 +55,12 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   @override
   void initState() {
     super.initState();
-    _startDownload();
+    // After the first frame: the download records itself in the Privacy
+    // Report, and Riverpod refuses provider writes while the dialog is
+    // still being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startDownload();
+    });
   }
 
   @override

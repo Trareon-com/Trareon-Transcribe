@@ -206,6 +206,7 @@ void main() {
           themed(
             OnboardingScreen(
               state: const OnboardingState(
+                phase: OnboardingPhase.downloading,
                 quick: DownloadProgress(
                   status: DownloadStatus.ready,
                   progress: 1,

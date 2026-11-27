@@ -21,6 +21,7 @@ import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'utils/debug_screenshot.dart';
+import 'widgets/download_consent_dialog.dart';
 import 'widgets/platform_chrome.dart';
 import 'widgets/setup_overlay.dart';
 
@@ -200,6 +201,27 @@ class _OnboardingRoute extends ConsumerStatefulWidget {
 }
 
 class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
+  bool _askingConsent = false;
+
+  /// Shows the download consent dialog once, when onboarding finds models
+  /// missing and no earlier answer (issue #70).
+  Future<void> _askConsent() async {
+    if (_askingConsent) return;
+    _askingConsent = true;
+    final notifier = ref.read(onboardingProvider.notifier);
+    final answer = await showDownloadConsentDialog(
+      context: context,
+      items: notifier.pendingDownloads,
+      initialDeferOnMetered: ref.read(settingsProvider).deferDownloads,
+    );
+    _askingConsent = false;
+    if (answer.downloadNow) {
+      await notifier.grantConsent(deferOnMetered: answer.deferOnMetered);
+    } else {
+      await notifier.postpone(deferOnMetered: answer.deferOnMetered);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -213,6 +235,9 @@ class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(onboardingProvider.select((s) => s.phase), (_, phase) {
+      if (phase == OnboardingPhase.awaitingConsent) _askConsent();
+    });
     final state = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
     return OnboardingScreen(
@@ -220,6 +245,9 @@ class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
       onContinue: () => ref.read(modelsReadyProvider.notifier).state = true,
       onRetryQuick: notifier.retryQuick,
       onRetryAccurate: notifier.retryAccurate,
+      onDownloadNow: () => notifier.grantConsent(
+        deferOnMetered: ref.read(settingsProvider).deferDownloads,
+      ),
     );
   }
 }

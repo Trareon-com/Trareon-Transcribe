@@ -124,6 +124,16 @@ enum _SettingField {
   };
 }
 
+/// [isModelAvailable] behind a provider, for the checks the UI makes before
+/// recording. Widget tests have no model files on disk; they override this
+/// instead of every test that presses "Mulai" meeting a download dialog.
+final modelOnDiskProvider =
+    Provider<bool Function(String modelId, String? libraryPath)>(
+      (ref) =>
+          (modelId, libraryPath) =>
+              isModelAvailable(modelId, libraryPath: libraryPath),
+    );
+
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final RustBridge _bridge;
 
