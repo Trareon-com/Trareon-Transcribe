@@ -4337,5 +4337,9 @@
   "notulenTemplatesRingkasDescription": "Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.",
   "@notulenTemplatesDinasLabel": {
     "description": "Notulen template picker entry. Indonesian document-type names are kept in parentheses in English because they are the official format names."
+  },
+  "mainScreenMeasuringRoom": "Mengukur suara ruangan…",
+  "@mainScreenMeasuringRoom": {
+    "description": "Record button label during the 3-second pre-session microphone probe (issue #69)"
   }
 }

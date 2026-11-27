@@ -1178,6 +1178,17 @@ Future<AudioProbe> probeAudioInput({String? deviceName, required int millis}) =>
       millis: millis,
     );
 
+/// Applies the quality resolver's noise-reduction and AGC decision to the
+/// session about to start, without writing it to the saved settings. The
+/// next settings load or save puts the user's own values back.
+Future<void> setSessionAudioTuning({
+  required bool noiseReduction,
+  required bool agc,
+}) => RustLib.instance.api.crateApiSetSessionAudioTuning(
+  noiseReduction: noiseReduction,
+  agc: agc,
+);
+
 /// What the glossary actually contributes to one inference call.
 ///
 /// `terms_used` / `terms_total` let Settings say "18 dari 40 istilah dipakai"

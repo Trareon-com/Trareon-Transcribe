@@ -657,9 +657,9 @@ class _CategoryContent extends ConsumerWidget {
 
   /// The resolver's own words for the audio tuning this build will use.
   ///
-  /// No measurement is wired yet (blueprint §5, fase 2), so the honest answer
-  /// is the conservative branch. Saying that out loud is better than implying
-  /// the app already listened to the room.
+  /// Settings has no measurement of its own: the room is measured for three
+  /// seconds when a recording starts (issue #69), so before that the honest
+  /// answer here is the conservative branch.
   String _audioDecisionSubtitle(BuildContext context, AppSettings settings) {
     final profile = resolveQualityProfile(
       measurement: null,

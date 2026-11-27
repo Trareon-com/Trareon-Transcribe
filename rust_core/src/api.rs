@@ -1861,6 +1861,14 @@ pub fn probe_audio_input(
     crate::audio::probe::probe_input(device_name, millis)
 }
 
+/// Applies the quality resolver's noise-reduction and AGC decision to the
+/// session about to start, without writing it to the saved settings. The
+/// next settings load or save puts the user's own values back.
+pub fn set_session_audio_tuning(noise_reduction: bool, agc: bool) {
+    crate::denoise::set_enabled(noise_reduction);
+    crate::agc::set_enabled(agc);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

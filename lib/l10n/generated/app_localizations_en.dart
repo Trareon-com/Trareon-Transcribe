@@ -5159,4 +5159,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notulenTemplatesRingkasDescription =>
       'One page without letterhead or signatures, to circulate quickly after the meeting.';
+
+  @override
+  String get mainScreenMeasuringRoom => 'Measuring the room…';
 }

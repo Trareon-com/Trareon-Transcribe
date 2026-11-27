@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
 import '../src/rust/actions.dart' as rust_actions;
 import '../src/rust/api.dart' as rust_api;
@@ -29,6 +29,7 @@ import '../src/rust/srikandi.dart' as rust_srikandi;
 import '../src/rust/stt/file.dart' as rust_stt_file;
 import '../src/rust/summary.dart' as rust_summary;
 import '../state/models.dart';
+import '../state/quality_profile.dart';
 
 /// Abstraction over the Rust engine, callable from Dart. [RustEngineBridge]
 /// is the real flutter_rust_bridge-backed implementation; [RustBridgeMock]
@@ -36,6 +37,17 @@ import '../state/models.dart';
 /// UI work that doesn't need a live Rust build.
 abstract class RustBridge {
   Future<String> startSession(SessionConfig config);
+
+  /// Listens to the microphone for [millis] before a session starts and
+  /// reports its SNR and peak (issue #69). `null` when the probe could not
+  /// run; the session then uses the conservative defaults.
+  Future<AudioMeasurement?> probeAudioInput(String? deviceName, int millis);
+
+  /// Applies noise reduction and AGC for the next session only.
+  Future<void> setSessionAudioTuning({
+    required bool noiseReduction,
+    required bool agc,
+  });
   Future<void> stopSession(String sessionId);
   Future<void> toggleMic(String sessionId, bool enabled);
   Future<void> toggleSpeaker(String sessionId, bool enabled);
@@ -660,6 +672,18 @@ class RustBridgeMock implements RustBridge {
   final Map<String, StreamController<String>> _tentativeControllers = {};
   final Map<String, Timer> _timers = {};
   AppSettings _settings = AppSettings.defaults();
+
+  @override
+  Future<AudioMeasurement?> probeAudioInput(
+    String? deviceName,
+    int millis,
+  ) async => null;
+
+  @override
+  Future<void> setSessionAudioTuning({
+    required bool noiseReduction,
+    required bool agc,
+  }) async {}
 
   @override
   Future<String> startSession(SessionConfig config) async {
@@ -1390,6 +1414,29 @@ class RustEngineBridge implements RustBridge {
   @visibleForTesting
   void openSessionStreamsForTest(String sessionId) =>
       _openSessionStreams(sessionId);
+
+  @override
+  Future<AudioMeasurement?> probeAudioInput(
+    String? deviceName,
+    int millis,
+  ) async {
+    try {
+      final probe = await rust_api.probeAudioInput(
+        deviceName: deviceName,
+        millis: millis,
+      );
+      return AudioMeasurement(snrDb: probe.snrDb, peakDbfs: probe.peakDbfs);
+    } catch (e) {
+      debugPrint('audio probe failed: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<void> setSessionAudioTuning({
+    required bool noiseReduction,
+    required bool agc,
+  }) => rust_api.setSessionAudioTuning(noiseReduction: noiseReduction, agc: agc);
 
   @override
   Future<String> startSession(SessionConfig config) async {
