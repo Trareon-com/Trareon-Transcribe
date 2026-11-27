@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../screens/llm_setup_wizard_screen.dart';
 import '../src/rust/api.dart' show llmDefaultModel;
 import '../state/models.dart';
@@ -42,7 +43,9 @@ class _SummarySettingsSectionState
   /// because a user who types it verbatim pulls a model the app has no
   /// measurements for. That is exactly what the previous hardcoded
   /// `qwen2.5:7b` did.
-  String _ollamaModelHint = 'nama model Ollama';
+  ///
+  /// `null` until then, which shows the localized neutral hint.
+  String? _ollamaModelHint;
 
   @override
   void initState() {
@@ -112,7 +115,7 @@ class _SummarySettingsSectionState
         _discoveredModels = models;
         _loadingModels = false;
         _modelsError = models.isEmpty
-            ? 'Endpoint terhubung, tapi tidak ada model terpasang.'
+            ? context.l10n.summarySettingsSectionNoModels
             : null;
       });
     } catch (e) {
@@ -129,6 +132,7 @@ class _SummarySettingsSectionState
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final summary = ref.watch(settingsProvider.select((s) => s.summary));
+    final l10n = context.l10n;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,7 +153,7 @@ class _SummarySettingsSectionState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Aktifkan Ringkasan AI',
+                    l10n.summarySettingsSectionEnable,
                     style: TextStyle(
                       color: colors.text,
                       fontSize: FontSizes.bodyLarge,
@@ -158,9 +162,8 @@ class _SummarySettingsSectionState
                   Spacing.gapXs,
                   Text(
                     summary.enabled
-                        ? 'Transkrip dikirim ke endpoint di bawah hanya saat Anda '
-                              'menekan "Buat Ringkasan". Tidak ada audio yang dikirim.'
-                        : 'Mati. Aplikasi tetap 100% offline.',
+                        ? l10n.summarySettingsSectionEnabledSubtitle
+                        : l10n.summarySettingsSectionDisabledSubtitle,
                     style: TextStyle(
                       color: colors.textTertiary,
                       fontSize: FontSizes.micro,
@@ -179,7 +182,7 @@ class _SummarySettingsSectionState
         if (summary.enabled) ...[
           Spacing.gapXs,
           _Field(
-            label: 'Penyedia',
+            label: l10n.summarySettingsSectionProvider,
             child: DropdownButtonFormField<SummaryProvider>(
               initialValue: summary.provider,
               isDense: true,
@@ -188,7 +191,7 @@ class _SummarySettingsSectionState
                 for (final p in SummaryProvider.values)
                   DropdownMenuItem(
                     value: p,
-                    child: Text(summaryProviderLabel(p)),
+                    child: Text(_providerLabel(l10n, p)),
                   ),
               ],
               onChanged: (p) {
@@ -206,7 +209,7 @@ class _SummarySettingsSectionState
             ),
           ),
           _Field(
-            label: 'URL endpoint',
+            label: l10n.summarySettingsSectionEndpointUrl,
             child: TextField(
               controller: _baseUrlController,
               decoration: _decoration(
@@ -222,13 +225,14 @@ class _SummarySettingsSectionState
           ),
           if (summary.provider == SummaryProvider.openAiCompatible)
             _Field(
-              label: 'Kunci API',
-              helper:
-                  'Disimpan apa adanya di file pengaturan aplikasi (tanpa keychain).',
+              label: l10n.summarySettingsSectionApiKey,
+              helper: l10n.summarySettingsSectionApiKeyHelper,
               child: TextField(
                 controller: _apiKeyController,
                 obscureText: true,
-                decoration: _decoration(hint: 'Tempel kunci di sini'),
+                decoration: _decoration(
+                  hint: l10n.summarySettingsSectionApiKeyHint,
+                ),
                 onSubmitted: (v) => _update(summary.copyWith(apiKey: v.trim())),
                 onTapOutside: (_) => _update(
                   summary.copyWith(apiKey: _apiKeyController.text.trim()),
@@ -236,7 +240,7 @@ class _SummarySettingsSectionState
               ),
             ),
           _Field(
-            label: 'Model',
+            label: l10n.summarySettingsSectionModel,
             child: Row(
               children: [
                 Expanded(
@@ -245,7 +249,8 @@ class _SummarySettingsSectionState
                           controller: _modelController,
                           decoration: _decoration(
                             hint: summary.provider == SummaryProvider.ollama
-                                ? _ollamaModelHint
+                                ? _ollamaModelHint ??
+                                      l10n.summarySettingsSectionOllamaModelHint
                                 : 'gpt-4o-mini',
                           ),
                           onSubmitted: (v) =>
@@ -284,7 +289,7 @@ class _SummarySettingsSectionState
                       )
                     : IconButton(
                         icon: const Icon(AppIcons.refresh, size: IconSizes.md),
-                        tooltip: 'Muat daftar model dari endpoint',
+                        tooltip: l10n.summarySettingsSectionLoadModels,
                         onPressed: _loadModels,
                       ),
               ],
@@ -305,14 +310,14 @@ class _SummarySettingsSectionState
             Padding(
               padding: const EdgeInsets.only(bottom: Spacing.md),
               child: AppButton(
-                label: 'Siapkan Model AI (deteksi, pasang, unduh)…',
+                label: l10n.summarySettingsSectionSetupWizard,
                 icon: AppIcons.download,
                 onPressed: () => _openSetupWizard(),
               ),
             ),
           _Field(
-            label: 'Template default',
-            helper: summaryTemplateHint(summary.template),
+            label: l10n.summarySettingsSectionDefaultTemplate,
+            helper: _templateHint(l10n, summary.template),
             child: DropdownButtonFormField<SummaryTemplate>(
               initialValue: summary.template,
               isDense: true,
@@ -322,7 +327,7 @@ class _SummarySettingsSectionState
                 for (final t in SummaryTemplate.values)
                   DropdownMenuItem(
                     value: t,
-                    child: Text(summaryTemplateLabel(t)),
+                    child: Text(_templateLabel(l10n, t)),
                   ),
               ],
               onChanged: (t) {
@@ -335,35 +340,29 @@ class _SummarySettingsSectionState
           // master switch.
           SettingsSwitch(
             icon: AppIcons.quote,
-            label: 'Rujukan ke transkrip',
-            subtitle:
-                'Minta model menyebut nomor segmen untuk setiap poin, '
-                'sehingga tiap baris ringkasan bisa diklik ke menit '
-                'asalnya. Rujukan yang tidak cocok dibuang.',
+            label: l10n.summarySettingsSectionCitations,
+            subtitle: l10n.summarySettingsSectionCitationsSubtitle,
             value: summary.withCitations,
             onChanged: (value) =>
                 _update(summary.copyWith(withCitations: value)),
           ),
           SettingsSwitch(
             icon: AppIcons.checklist,
-            label: 'Tindak lanjut terstruktur',
-            subtitle:
-                'Minta daftar tugas, penanggung jawab, dan tenggat dalam '
-                'format yang bisa disunting dan diekspor ke kalender '
-                '(.ics) atau tabel (.csv).',
+            label: l10n.summarySettingsSectionActionItems,
+            subtitle: l10n.summarySettingsSectionActionItemsSubtitle,
             value: summary.withActionItems,
             onChanged: (value) =>
                 _update(summary.copyWith(withActionItems: value)),
           ),
           if (summary.template == SummaryTemplate.kustom)
             _Field(
-              label: 'Instruksi kustom',
+              label: l10n.summarySettingsSectionCustomInstructions,
               child: TextField(
                 controller: _customPromptController,
                 maxLines: 4,
                 minLines: 2,
                 decoration: _decoration(
-                  hint: 'Contoh: Buat daftar risiko dan mitigasinya.',
+                  hint: l10n.summarySettingsSectionCustomInstructionsHint,
                 ),
                 onTapOutside: (_) => _update(
                   summary.copyWith(
@@ -387,6 +386,37 @@ class _SummarySettingsSectionState
     ),
   );
 }
+
+/// Localized counterparts of `summaryProviderLabel`, `summaryTemplateLabel`
+/// and `summaryTemplateHint` in `state/models.dart`, which stays free of the
+/// widget layer (and so of `AppLocalizations`). Same wording in Indonesian.
+String _providerLabel(AppLocalizations l10n, SummaryProvider provider) =>
+    switch (provider) {
+      SummaryProvider.ollama => l10n.modelsSummaryProviderOllama,
+      SummaryProvider.openAiCompatible =>
+        l10n.modelsSummaryProviderOpenAiCompatible,
+    };
+
+String _templateLabel(AppLocalizations l10n, SummaryTemplate template) =>
+    switch (template) {
+      SummaryTemplate.notulenRapat => l10n.modelsSummaryTemplateNotulenRapat,
+      SummaryTemplate.ringkasanEksekutif =>
+        l10n.modelsSummaryTemplateRingkasanEksekutif,
+      SummaryTemplate.actionItems => l10n.modelsSummaryTemplateActionItems,
+      SummaryTemplate.standup => l10n.modelsSummaryTemplateStandup,
+      SummaryTemplate.kustom => l10n.modelsSummaryTemplateKustom,
+    };
+
+String _templateHint(AppLocalizations l10n, SummaryTemplate template) =>
+    switch (template) {
+      SummaryTemplate.notulenRapat =>
+        l10n.modelsSummaryTemplateHintNotulenRapat,
+      SummaryTemplate.ringkasanEksekutif =>
+        l10n.modelsSummaryTemplateHintRingkasanEksekutif,
+      SummaryTemplate.actionItems => l10n.modelsSummaryTemplateHintActionItems,
+      SummaryTemplate.standup => l10n.modelsSummaryTemplateHintStandup,
+      SummaryTemplate.kustom => l10n.modelsSummaryTemplateHintKustom,
+    };
 
 class _Field extends StatelessWidget {
   const _Field({required this.label, required this.child, this.helper});

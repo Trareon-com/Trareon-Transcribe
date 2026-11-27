@@ -6,6 +6,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
@@ -312,7 +313,7 @@ class InfoBadge extends StatelessWidget {
             Icon(AppIcons.info, size: IconSizes.xs, color: colors.primary),
             Spacing.hXs,
             Text(
-              'Penjelasan',
+              context.l10n.settingsControlsInfoBadge,
               style: TextStyle(
                 fontSize: FontSizes.micro,
                 fontWeight: FontWeight.w600,
@@ -330,12 +331,18 @@ class InfoBadge extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Informasi', style: TextStyle(color: colors.text)),
+        title: Text(
+          context.l10n.settingsControlsInfoDialogTitle,
+          style: TextStyle(color: colors.text),
+        ),
         content: Text(message, style: TextStyle(color: colors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Tutup', style: TextStyle(color: colors.primary)),
+            child: Text(
+              context.l10n.settingsControlsClose,
+              style: TextStyle(color: colors.primary),
+            ),
           ),
         ],
       ),

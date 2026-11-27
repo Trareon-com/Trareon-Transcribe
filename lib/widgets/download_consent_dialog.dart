@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../state/download_consent.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
@@ -78,18 +79,20 @@ class _DownloadConsentDialogState extends State<DownloadConsentDialog> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final total = totalMegabytes(widget.items);
+    final l10n = context.l10n;
 
     return AppDialog(
       icon: AppIcons.download,
-      title: 'Unduh model transkripsi?',
-      description:
-          'Trareon bekerja offline, jadi modelnya perlu ada di perangkat ini. '
-          'Unduhan hanya sekali dan tercatat di Laporan Privasi.',
+      title: l10n.downloadConsentDialogTitle,
+      description: l10n.downloadConsentDialogDescription,
       showClose: false,
       actions: [
-        AppButton.ghost(label: 'Nanti', onPressed: () => _answer(false)),
+        AppButton.ghost(
+          label: l10n.downloadConsentDialogLater,
+          onPressed: () => _answer(false),
+        ),
         AppButton.primary(
-          label: 'Unduh sekarang',
+          label: l10n.downloadConsentDialogDownloadNow,
           icon: AppIcons.download,
           onPressed: () => _answer(true),
         ),
@@ -105,10 +108,13 @@ class _DownloadConsentDialogState extends State<DownloadConsentDialog> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(item.label, style: AppText.body.c(colors.text)),
+                    child: Text(
+                      item.labelOf(l10n),
+                      style: AppText.body.c(colors.text),
+                    ),
                   ),
                   Text(
-                    '±${item.megabytes} MB',
+                    l10n.downloadConsentDialogSize(item.megabytes),
                     style: AppText.body.c(colors.textSecondary),
                   ),
                 ],
@@ -119,12 +125,12 @@ class _DownloadConsentDialogState extends State<DownloadConsentDialog> {
             children: [
               Expanded(
                 child: Text(
-                  'Total',
+                  l10n.downloadConsentDialogTotal,
                   style: AppText.title.c(colors.textStrong),
                 ),
               ),
               Text(
-                '±$total MB',
+                l10n.downloadConsentDialogSize(total),
                 key: const Key('download-consent-total'),
                 style: AppText.title.c(colors.textStrong),
               ),
@@ -134,7 +140,7 @@ class _DownloadConsentDialogState extends State<DownloadConsentDialog> {
           AppCheckbox(
             value: _deferOnMetered,
             onChanged: (v) => setState(() => _deferOnMetered = v),
-            label: 'Tunda kalau koneksi metered',
+            label: l10n.downloadConsentDialogDeferOnMetered,
           ),
           Spacing.gapMd,
         ],

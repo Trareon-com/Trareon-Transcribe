@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
@@ -47,7 +49,7 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  String _status = 'Mengunduh…';
+  String _status = currentL10n.modelDownloadDialogDownloading;
   double _progress = 0.0;
   Stream<double>? _progressStream;
   StreamSubscription<double>? _progressSubscription;
@@ -72,7 +74,9 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
-      _status = 'Mengunduh ${widget.displayName}…';
+      _status = context.l10n.modelDownloadDialogDownloadingName(
+        widget.displayName,
+      );
     });
 
     try {
@@ -94,8 +98,10 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _progress = progress;
-              _status =
-                  'Mengunduh ${widget.displayName}… ${(progress * 100).toInt()}%';
+              _status = context.l10n.modelDownloadDialogDownloadingProgress(
+                widget.displayName,
+                (progress * 100).toInt(),
+              );
             });
           }
         },
@@ -103,7 +109,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _downloading = false;
-              _status = 'Gagal mengunduh: $error';
+              _status = context.l10n.modelDownloadDialogFailed('$error');
             });
           }
         },
@@ -120,7 +126,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
       if (mounted) {
         setState(() {
           _downloading = false;
-          _status = 'Gagal mengunduh: $e';
+          _status = context.l10n.modelDownloadDialogFailed('$e');
         });
       }
     }
@@ -130,18 +136,19 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: colors.surface,
       title: Text(
-        'Unduh ${widget.displayName}',
+        l10n.modelDownloadDialogTitle(widget.displayName),
         style: TextStyle(color: colors.text),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
+            l10n.modelDownloadDialogPrompt(widget.displayName),
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
@@ -167,10 +174,16 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           onPressed: _downloading
               ? null
               : () => Navigator.of(context).pop(false),
-          child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
+          child: Text(
+            l10n.actionCancel,
+            style: TextStyle(color: colors.textSecondary),
+          ),
         ),
         if (!_downloading)
-          FilledButton(onPressed: _startDownload, child: const Text('Unduh')),
+          FilledButton(
+            onPressed: _startDownload,
+            child: Text(l10n.modelDownloadDialogDownload),
+          ),
       ],
     );
   }

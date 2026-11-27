@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../services/flight_recorder_service.dart';
 import '../services/session_store.dart';
@@ -586,7 +587,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       );
     } catch (e) {
       throw TranscribeSaveError(
-        'Sesi berhenti, tapi gagal menyimpan transkrip ke $outputDir: $e',
+        currentL10n.sessionModelSaveFailed(outputDir, '$e'),
       );
     }
     // The transcript is on disk; a retry must not write it a second time.

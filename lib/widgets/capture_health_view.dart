@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../state/audio_watchdog_model.dart';
 import '../theme/app_colors.dart';
@@ -8,9 +9,11 @@ import '../utils/format_time.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
 
-/// Indonesian label for a capture source id.
-String captureSourceLabel(String source) =>
-    source == 'spk' ? 'Audio sistem' : 'Mikrofon';
+/// User-facing label for a capture source id.
+String captureSourceLabel(BuildContext context, String source) =>
+    source == 'spk'
+    ? context.l10n.captureHealthViewSourceSystem
+    : context.l10n.captureHealthViewSourceMic;
 
 /// Whether every source the user asked for has delivered real audio.
 ///
@@ -42,28 +45,28 @@ class CaptureConfirmationBadge extends StatelessWidget {
     final confirmed = allExpectedConfirmed(health);
     final unconfirmed = health.channels
         .where((c) => c.expected && !c.confirmed)
-        .map((c) => captureSourceLabel(c.source))
+        .map((c) => captureSourceLabel(context, c.source))
         .toList();
     final wentQuiet = health.channels
         .where((c) => c.expected && c.confirmed && c.silentForSecs >= 60)
-        .map((c) => captureSourceLabel(c.source))
+        .map((c) => captureSourceLabel(context, c.source))
         .toList();
 
     final (icon, color, label) = switch (null) {
       _ when wentQuiet.isNotEmpty => (
         AppIcons.warning,
         colors.error,
-        '${wentQuiet.join(' & ')} senyap',
+        context.l10n.captureHealthViewWentSilent(wentQuiet.join(' & ')),
       ),
       _ when confirmed => (
         AppIcons.verified,
         colors.primary,
-        'Rekaman terkonfirmasi',
+        context.l10n.captureHealthViewConfirmed,
       ),
       _ => (
         AppIcons.waiting,
         colors.textSecondary,
-        'Menunggu suara dari ${unconfirmed.join(' & ')}',
+        context.l10n.captureHealthViewWaiting(unconfirmed.join(' & ')),
       ),
     };
 
@@ -72,9 +75,8 @@ class CaptureConfirmationBadge extends StatelessWidget {
       label: label,
       child: Tooltip(
         message: confirmed
-            ? 'Setiap sumber yang diminta sudah menghasilkan suara di atas '
-                  'ambang derau.'
-            : 'Belum ada suara nyata dari semua sumber yang diminta.',
+            ? context.l10n.captureHealthViewConfirmedTooltip
+            : context.l10n.captureHealthViewUnconfirmedTooltip,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -110,13 +112,11 @@ class AudioHealthIndicator extends ConsumerWidget {
     if (!active) return const SizedBox.shrink();
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    const label = 'Masalah audio belum teratasi';
+    final label = context.l10n.captureHealthViewAudioIssue;
     return Semantics(
       label: label,
       child: Tooltip(
-        message:
-            '$label. Mikrofon atau audio sistem belum mengirim suara; lihat '
-            'pemberitahuan terakhir atau periksa Pengaturan Sistem.',
+        message: context.l10n.captureHealthViewAudioIssueTooltip(label),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -160,14 +160,16 @@ class CaptureIntegritySummary extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Durasi ${formatDurationId(health.elapsedSecs)} · '
-          '${health.segmentCount} segmen transkrip',
+          context.l10n.captureHealthViewSummary(
+            formatDurationId(health.elapsedSecs),
+            health.segmentCount,
+          ),
           style: TextStyle(color: colors.text, fontSize: FontSizes.body),
         ),
         Spacing.gapSm,
         if (expected.isEmpty)
           Text(
-            'Tidak ada sumber audio yang diminta untuk sesi ini.',
+            context.l10n.captureHealthViewNoSources,
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: FontSizes.caption,
@@ -228,11 +230,15 @@ class _ChannelRow extends StatelessWidget {
         Expanded(
           child: Text(
             delivered
-                ? '${captureSourceLabel(channel.source)}: '
-                      '${formatDurationId(channel.secondsCaptured)} terekam, '
-                      '${channel.percentSilent.toStringAsFixed(0)}% senyap'
-                : '${captureSourceLabel(channel.source)}: tidak ada suara sama '
-                      'sekali (${formatDurationId(channel.secondsCaptured)} terekam)',
+                ? context.l10n.captureHealthViewChannelOk(
+                    captureSourceLabel(context, channel.source),
+                    formatDurationId(channel.secondsCaptured),
+                    channel.percentSilent.toStringAsFixed(0),
+                  )
+                : context.l10n.captureHealthViewChannelSilent(
+                    captureSourceLabel(context, channel.source),
+                    formatDurationId(channel.secondsCaptured),
+                  ),
             style: TextStyle(
               color: delivered ? colors.textSecondary : colors.error,
               fontSize: FontSizes.caption,
@@ -255,7 +261,9 @@ Future<void> showCaptureIntegrityDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(
-        health.warnings.isEmpty ? 'Sesi selesai' : 'Sesi selesai, ada masalah',
+        health.warnings.isEmpty
+            ? context.l10n.captureHealthViewSessionDone
+            : context.l10n.captureHealthViewSessionDoneIssues,
       ),
       content: SizedBox(
         width: 420,
@@ -266,7 +274,7 @@ Future<void> showCaptureIntegrityDialog(
             CaptureIntegritySummary(health: health),
             if (!saved) ...[
               Spacing.gapSm,
-              const Text('Transkrip belum tersimpan.'),
+              Text(context.l10n.captureHealthViewNotSaved),
             ],
           ],
         ),
@@ -274,7 +282,7 @@ Future<void> showCaptureIntegrityDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Tutup'),
+          child: Text(context.l10n.captureHealthViewClose),
         ),
       ],
     ),

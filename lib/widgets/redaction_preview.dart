@@ -10,6 +10,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
@@ -79,6 +80,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final matches = _matches;
+    final l10n = context.l10n;
     return SizedBox(
       width: 640,
       height: 480,
@@ -95,7 +97,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                   child: Semantics(
                     header: true,
                     child: Text(
-                      'Pratinjau penyamaran',
+                      l10n.redactionPreviewTitle,
                       style: TextStyle(
                         fontSize: FontSizes.title,
                         fontWeight: FontWeight.w600,
@@ -105,7 +107,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Tutup',
+                  tooltip: l10n.redactionPreviewClose,
                   icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -121,7 +123,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                 Spacing.sm,
               ),
               child: Text(
-                redactionSummary(matches),
+                redactionSummary(matches, l10n: l10n),
                 style: TextStyle(
                   fontSize: FontSizes.caption,
                   color: colors.text,
@@ -135,7 +137,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                 child: Padding(
                   padding: const EdgeInsets.all(Spacing.lg),
                   child: Text(
-                    'Pratinjau gagal: $error',
+                    l10n.redactionPreviewFailed(error),
                     style: TextStyle(color: colors.error),
                   ),
                 ),
@@ -145,8 +147,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                 child: Padding(
                   padding: const EdgeInsets.all(Spacing.lg),
                   child: Text(
-                    'Tidak ada data pribadi yang terdeteksi. File hasil '
-                    'ekspor akan sama persis dengan transkrip.',
+                    l10n.redactionPreviewNoneFound,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: colors.textTertiary),
                   ),
@@ -161,7 +162,7 @@ class _RedactionPreviewState extends State<RedactionPreview> {
                     dense: true,
                     leading: Chip(
                       label: Text(
-                        piiKindLabel(match.kind),
+                        piiKindLabel(match.kind, l10n: l10n),
                         style: const TextStyle(fontSize: FontSizes.micro),
                       ),
                       visualDensity: VisualDensity.compact,
@@ -203,23 +204,33 @@ class _RedactionPreviewState extends State<RedactionPreview> {
 }
 
 /// "3 NIK, 1 alamat email akan disamarkan." — the one-line count.
-String redactionSummary(List<PiiMatch> matches) {
-  if (matches.isEmpty) return 'Tidak ada yang akan disamarkan.';
+///
+/// [l10n] defaults to the language the app is showing.
+String redactionSummary(List<PiiMatch> matches, {AppLocalizations? l10n}) {
+  final strings = l10n ?? currentL10n;
+  if (matches.isEmpty) return strings.redactionPreviewNothing;
   final counts = <String, int>{};
   for (final match in matches) {
-    final label = piiKindLabel(match.kind);
+    final label = piiKindLabel(match.kind, l10n: strings);
     counts[label] = (counts[label] ?? 0) + 1;
   }
-  final parts = counts.entries.map((e) => '${e.value} ${e.key}').toList()
-    ..sort();
-  return '${parts.join(', ')} akan disamarkan.';
+  final parts =
+      counts.entries
+          .map((e) => strings.redactionPreviewSummaryPart(e.value, e.key))
+          .toList()
+        ..sort();
+  return strings.redactionPreviewSummary(parts.join(', '));
 }
 
-String piiKindLabel(PiiKind kind) => switch (kind) {
-  PiiKind.nik => 'NIK',
-  PiiKind.npwp => 'NPWP',
-  PiiKind.phone => 'Nomor telepon',
-  PiiKind.email => 'Alamat email',
-  PiiKind.bankAccount => 'Nomor rekening',
-  PiiKind.name => 'Nama',
-};
+/// NIK and NPWP are Indonesian identifier names and stay as they are.
+String piiKindLabel(PiiKind kind, {AppLocalizations? l10n}) {
+  final strings = l10n ?? currentL10n;
+  return switch (kind) {
+    PiiKind.nik => 'NIK',
+    PiiKind.npwp => 'NPWP',
+    PiiKind.phone => strings.redactionPreviewKindPhone,
+    PiiKind.email => strings.redactionPreviewKindEmail,
+    PiiKind.bankAccount => strings.redactionPreviewKindBankAccount,
+    PiiKind.name => strings.redactionPreviewKindName,
+  };
+}

@@ -13,6 +13,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/enhance_queue_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
@@ -71,7 +72,7 @@ class CompletionBanner extends ConsumerWidget {
             ),
             const SizedBox(width: Spacing.sm),
             Text(
-              'Transkrip terisi sendiri; ekspor sekarang akan belum lengkap.',
+              context.l10n.completionBannerExportIncomplete,
               style: TextStyle(
                 color: colors.textTertiary,
                 fontSize: FontSizes.micro,
@@ -103,12 +104,10 @@ class IncompleteBadge extends StatelessWidget {
         ? null
         : (fraction!.clamp(0.0, 1.0) * 100).round();
     final label = percent == null
-        ? 'Belum selesai'
-        : 'Belum selesai · $percent%';
+        ? context.l10n.completionBannerIncomplete
+        : context.l10n.completionBannerIncompletePercent(percent);
     return Tooltip(
-      message:
-          'Masih ada audio yang belum ditranskripsi. Transkrip akan '
-          'dilengkapi otomatis di latar belakang.',
+      message: context.l10n.completionBannerIncompleteTooltip,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: Spacing.sm,

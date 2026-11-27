@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -120,9 +121,8 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
           // Distinguish "engine failed" from "nothing to hear" — the fix is
           // different, and either way the old transcript is kept.
           _error = outcome?.error != null
-              ? 'Gagal transkrip ulang: ${outcome!.error}. '
-                    'Transkrip lama tetap dipertahankan.'
-              : 'Tidak ada ucapan terdeteksi. Transkrip lama tetap dipertahankan.';
+              ? context.l10n.retranscribeDialogEngineFailed('${outcome!.error}')
+              : context.l10n.retranscribeDialogNoSpeech;
         });
         return;
       }
@@ -137,7 +137,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
       if (!mounted) return;
       setState(() {
         _running = false;
-        _error = 'Gagal transkrip ulang (transkrip lama tetap aman): $e';
+        _error = context.l10n.retranscribeDialogFailed('$e');
       });
     }
   }
@@ -148,10 +148,11 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final settings = ref.watch(settingsProvider);
     final models = availableModelIds(settings.libraryPath);
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: colors.surface,
-      title: const Text('Transkrip Ulang'),
+      title: Text(l10n.retranscribeDialogTitle),
       content: SizedBox(
         width: 360,
         child: Column(
@@ -159,8 +160,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Audio asli akan ditranskrip ulang. Transkrip lama diganti hanya '
-              'kalau proses berhasil.',
+              l10n.retranscribeDialogDescription,
               style: TextStyle(
                 color: colors.textSecondary,
                 fontSize: FontSizes.caption,
@@ -172,9 +172,9 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
                   ? _modelId
                   : models.firstOrNull,
               isDense: true,
-              decoration: const InputDecoration(
-                labelText: 'Kualitas model',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.retranscribeDialogModelLabel,
+                border: const OutlineInputBorder(),
               ),
               items: [
                 for (final id in models)
@@ -193,21 +193,30 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
             DropdownButtonFormField<String?>(
               initialValue: _language,
               isDense: true,
-              decoration: const InputDecoration(
-                labelText: 'Bahasa',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.retranscribeDialogLanguageLabel,
+                border: const OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Deteksi otomatis')),
-                DropdownMenuItem(value: 'id', child: Text('Indonesia')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
+              items: [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text(l10n.retranscribeDialogAutoDetect),
+                ),
+                DropdownMenuItem(
+                  value: 'id',
+                  child: Text(l10n.retranscribeDialogIndonesian),
+                ),
+                DropdownMenuItem(
+                  value: 'en',
+                  child: Text(l10n.languageEnglish),
+                ),
               ],
               onChanged: _running ? null : (v) => setState(() => _language = v),
             ),
             if (models.isEmpty) ...[
               Spacing.gapMd,
               Text(
-                'Tidak ada model terpasang.',
+                l10n.retranscribeDialogNoModels,
                 style: TextStyle(
                   color: colors.error,
                   fontSize: FontSizes.caption,
@@ -226,7 +235,7 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
                   Spacing.hMd,
                   Expanded(
                     child: Text(
-                      'Memproses… ini bisa memakan waktu untuk rekaman panjang.',
+                      l10n.retranscribeDialogProcessing,
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: FontSizes.caption,
@@ -252,11 +261,11 @@ class _RetranscribeDialogState extends ConsumerState<_RetranscribeDialog> {
       actions: [
         TextButton(
           onPressed: _running ? null : () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
+          child: Text(l10n.actionCancel),
         ),
         FilledButton(
           onPressed: _running || models.isEmpty ? null : _run,
-          child: const Text('Mulai'),
+          child: Text(l10n.retranscribeDialogStart),
         ),
       ],
     );

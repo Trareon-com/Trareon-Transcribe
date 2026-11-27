@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';
@@ -78,20 +79,19 @@ class _DictionaryLearningDialogState extends State<_DictionaryLearningDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     return AppDialog(
-      title: 'Ingat koreksi ini?',
+      title: l10n.dictionaryLearningDialogTitle,
       icon: AppIcons.glossary,
-      description:
-          'Anda mengubah satu kata. Trareon bisa mengingatnya agar '
-          'tidak perlu dikoreksi lagi di rapat berikutnya.',
+      description: l10n.dictionaryLearningDialogDescription,
       actions: [
         AppButton(
-          label: 'Jangan ingat',
+          label: l10n.dictionaryLearningDialogDontRemember,
           variant: AppButtonVariant.ghost,
           onPressed: () => Navigator.of(context).pop(),
         ),
         AppButton(
-          label: 'Simpan',
+          label: l10n.actionSave,
           variant: AppButtonVariant.primary,
           onPressed: _addToGlossary || _autoReplace
               ? () => Navigator.of(context).pop(
@@ -112,28 +112,26 @@ class _DictionaryLearningDialogState extends State<_DictionaryLearningDialog> {
           _Option(
             value: _addToGlossary,
             onChanged: (value) => setState(() => _addToGlossary = value),
-            label: 'Tambahkan "${widget.after}" ke kamus istilah',
-            helper:
-                'Mesin pengenal suara diberi tahu istilah ini sebelum '
-                'mentranskrip, sehingga lebih mungkin menuliskannya dengan '
-                'benar sejak awal.',
+            label: l10n.dictionaryLearningDialogAddToGlossary(widget.after),
+            helper: l10n.dictionaryLearningDialogAddToGlossaryHelper,
           ),
           Spacing.gapSm,
           _Option(
             value: _autoReplace,
             onChanged: (value) => setState(() => _autoReplace = value),
-            label:
-                'Ganti otomatis "${widget.before}" → "${widget.after}" '
-                'selanjutnya',
-            helper:
-                'Setiap kata "${widget.before}" yang berdiri sendiri akan '
-                'ditulis "${widget.after}" di transkrip berikutnya. Bisa '
-                'dihapus di Pengaturan → Kamus istilah.',
+            label: l10n.dictionaryLearningDialogAutoReplace(
+              widget.before,
+              widget.after,
+            ),
+            helper: l10n.dictionaryLearningDialogAutoReplaceHelper(
+              widget.before,
+              widget.after,
+            ),
           ),
           if (!_addToGlossary && !_autoReplace) ...[
             Spacing.gapSm,
             Text(
-              'Pilih setidaknya satu agar ada yang disimpan.',
+              l10n.dictionaryLearningDialogPickOne,
               style: AppText.caption.c(colors.textTertiary),
             ),
           ],

@@ -15,6 +15,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/library_index.dart';
 import '../state/enhance_queue_model.dart';
 import '../state/library_model.dart';
@@ -51,11 +52,11 @@ const Duration kSidebarSearchDebounce = Duration(milliseconds: 250);
 enum SessionGroup { hariIni, kemarin, mingguIni, lebihLama }
 
 extension SessionGroupLabel on SessionGroup {
-  String get label => switch (this) {
-    SessionGroup.hariIni => 'Hari ini',
-    SessionGroup.kemarin => 'Kemarin',
-    SessionGroup.mingguIni => '7 hari terakhir',
-    SessionGroup.lebihLama => 'Lebih lama',
+  String label(AppLocalizations l10n) => switch (this) {
+    SessionGroup.hariIni => l10n.sessionSidebarGroupToday,
+    SessionGroup.kemarin => l10n.sessionSidebarGroupYesterday,
+    SessionGroup.mingguIni => l10n.sessionSidebarGroupLast7Days,
+    SessionGroup.lebihLama => l10n.sessionSidebarGroupOlder,
   };
 }
 
@@ -217,7 +218,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                       Spacing.sm,
                     ),
                     child: AppButton.primary(
-                      label: 'Sesi Baru',
+                      label: context.l10n.sessionSidebarNewSession,
                       icon: AppIcons.add,
                       expand: true,
                       onPressed: widget.onNewSession,
@@ -229,8 +230,9 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                       controller: _search,
                       focusNode: widget.searchFocusNode,
                       onChanged: _onSearchChanged,
-                      placeholder: 'Cari sesi…',
-                      semanticLabel: 'Cari di riwayat sesi',
+                      placeholder: context.l10n.sessionSidebarSearchPlaceholder,
+                      semanticLabel:
+                          context.l10n.sessionSidebarSearchSemanticLabel,
                       shortcut: AppShortcuts.searchSessions.shortcut,
                     ),
                   ),
@@ -256,7 +258,7 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                             ),
                           if (_tagFilter.isNotEmpty)
                             AppFilterChip(
-                              label: 'Semua',
+                              label: context.l10n.sessionSidebarAllTags,
                               selected: false,
                               onSelected: (_) => setState(_tagFilter.clear),
                             ),
@@ -296,22 +298,22 @@ class _SessionSidebarState extends ConsumerState<SessionSidebar> {
                   AppHairline(color: colors.hairline),
                   _FooterAction(
                     icon: AppIcons.uploadFile,
-                    label: 'Impor berkas',
+                    label: context.l10n.sessionSidebarImportFile,
                     onTap: widget.onOpenUpload,
                   ),
                   _FooterAction(
                     icon: AppIcons.chat,
-                    label: 'Tanya arsip rapat',
+                    label: context.l10n.sessionSidebarAskArchive,
                     onTap: widget.onOpenArchiveChat,
                   ),
                   _FooterAction(
                     icon: AppIcons.folderOpen,
-                    label: 'Kelola perpustakaan',
+                    label: context.l10n.sessionSidebarManageLibrary,
                     onTap: widget.onOpenLibrary,
                   ),
                   _FooterAction(
                     icon: AppIcons.settings,
-                    label: 'Pengaturan',
+                    label: context.l10n.sessionSidebarSettings,
                     shortcut: AppShortcuts.settings.shortcut,
                     onTap: widget.onOpenSettings,
                   ),
@@ -373,7 +375,7 @@ class _SessionList extends ConsumerWidget {
         final row = rows[index];
         final group = row.group;
         if (group != null) {
-          return AppListGroupHeader(label: group.label);
+          return AppListGroupHeader(label: group.label(context.l10n));
         }
         final entry = row.entry!;
         return Padding(
@@ -432,7 +434,7 @@ class _Header extends StatelessWidget {
           Spacing.hSm,
           Expanded(
             child: Text(
-              'Trareon Transcribe',
+              context.l10n.appTitle,
               overflow: TextOverflow.ellipsis,
               style: AppText.subheading.c(colors.text),
             ),
@@ -440,9 +442,9 @@ class _Header extends StatelessWidget {
           if (onCollapse != null)
             AppIconButton(
               icon: AppIcons.sidebarCollapse,
-              tooltip:
-                  'Sembunyikan sidebar '
-                  '(${AppShortcuts.toggleSidebar.shortcut.label})',
+              tooltip: context.l10n.sessionSidebarHideSidebar(
+                AppShortcuts.toggleSidebar.shortcut.label,
+              ),
               size: IconSizes.md,
               onPressed: onCollapse,
             ),
@@ -482,15 +484,15 @@ class _Rail extends StatelessWidget {
         if (onExpand != null)
           AppIconButton(
             icon: AppIcons.sidebarExpand,
-            tooltip:
-                'Tampilkan sidebar '
-                '(${AppShortcuts.toggleSidebar.shortcut.label})',
+            tooltip: context.l10n.sessionSidebarShowSidebar(
+              AppShortcuts.toggleSidebar.shortcut.label,
+            ),
             size: IconSizes.md,
             onPressed: onExpand,
           ),
         AppIconButton(
           icon: AppIcons.add,
-          tooltip: 'Sesi baru',
+          tooltip: context.l10n.sessionSidebarNewSessionTooltip,
           onPressed: onNewSession,
         ),
         if (isRecording)
@@ -501,23 +503,23 @@ class _Rail extends StatelessWidget {
         const Spacer(),
         AppIconButton(
           icon: AppIcons.history,
-          tooltip: 'Riwayat sesi',
+          tooltip: context.l10n.sessionSidebarHistoryTooltip,
           badge: sessionCount,
           onPressed: onExpand ?? onOpenLibrary,
         ),
         AppIconButton(
           icon: AppIcons.uploadFile,
-          tooltip: 'Impor berkas',
+          tooltip: context.l10n.sessionSidebarImportFile,
           onPressed: onOpenUpload,
         ),
         AppIconButton(
           icon: AppIcons.chat,
-          tooltip: 'Tanya arsip rapat',
+          tooltip: context.l10n.sessionSidebarAskArchive,
           onPressed: onOpenArchiveChat,
         ),
         AppIconButton(
           icon: AppIcons.settings,
-          tooltip: 'Pengaturan',
+          tooltip: context.l10n.sessionSidebarSettings,
           onPressed: onOpenSettings,
         ),
         Spacing.gapSm,
@@ -546,7 +548,10 @@ class _RecordingRow extends StatelessWidget {
         children: [
           const RecordingDot(size: Spacing.sm - 2),
           Spacing.hSm,
-          Text('Sedang merekam', style: AppText.captionStrong.c(colors.text)),
+          Text(
+            context.l10n.sessionSidebarRecording,
+            style: AppText.captionStrong.c(colors.text),
+          ),
         ],
       ),
     );
@@ -575,7 +580,7 @@ class _SessionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final meta = [
       if (entry.durationSeconds > 0) formatDurationId(entry.durationSeconds),
-      '${entry.segmentsCount} segmen',
+      context.l10n.sessionSidebarSegments(entry.segmentsCount),
     ].join('  ');
 
     final job = retranscribingJob;
@@ -587,7 +592,9 @@ class _SessionRow extends StatelessWidget {
         : job.stage ??
               (job.kind == EnhanceJobKind.complete &&
                       job.status == EnhanceJobStatus.running
-                  ? 'Menyelesaikan ${sourceLabel(job.source)}'
+                  ? context.l10n.sessionSidebarFinishing(
+                      sourceLabel(job.source),
+                    )
                   : null);
     final stageLabel = job != null && stage != null
         ? '$stage ${(job.progress.clamp(0.0, 1.0) * 100).round()}%'
@@ -606,17 +613,17 @@ class _SessionRow extends StatelessWidget {
         if (job != null)
           Tooltip(
             message: stageLabel == null
-                ? 'Menunggu antrean untuk ditranskrip ulang.'
-                : 'Ditranskrip ulang: $stageLabel',
+                ? context.l10n.sessionSidebarRetranscribeQueued
+                : context.l10n.sessionSidebarRetranscribingStage(stageLabel),
             child: AppStatusBadge(
-              label: stageLabel ?? 'Ditranskrip ulang',
+              label: stageLabel ?? context.l10n.sessionSidebarRetranscribing,
               status: AppStatus.info,
               icon: AppIcons.enhance,
             ),
           ),
         if (entry.hasSummary)
-          const AppStatusBadge(
-            label: 'Ada ringkasan',
+          AppStatusBadge(
+            label: context.l10n.sessionSidebarHasSummary,
             status: AppStatus.success,
             icon: AppIcons.shortText,
           ),
@@ -638,27 +645,27 @@ class _EmptyList extends StatelessWidget {
         compact: true,
         tone: AppEmptyTone.error,
         icon: AppIcons.folderOpen,
-        title: 'Folder sesi tidak terbaca',
+        title: context.l10n.sessionSidebarFolderUnreadable,
         message: error!,
       );
     }
     if (searching) {
-      return const AppEmptyState(
+      return AppEmptyState(
         compact: true,
         icon: AppIcons.searchOff,
-        title: 'Tidak ada yang cocok',
-        message: 'Coba kata kunci lain atau lepaskan filter tag.',
+        title: context.l10n.sessionSidebarNoMatchTitle,
+        message: context.l10n.sessionSidebarNoMatchMessage,
       );
     }
     // No action button here: "Sesi Baru" is already the filled button three
     // rows above, and two CTAs with the same intent on one surface is a
     // defect rather than helpfulness.
-    return const AppEmptyState(
+    return AppEmptyState(
       compact: true,
       icon: AppIcons.history,
       badgeIcon: AppIcons.add,
-      title: 'Belum ada sesi',
-      message: 'Rapat yang sudah direkam muncul di sini.',
+      title: context.l10n.sessionSidebarEmptyTitle,
+      message: context.l10n.sessionSidebarEmptyMessage,
     );
   }
 }

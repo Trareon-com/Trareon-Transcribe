@@ -16,6 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/summary.dart' show OllamaStatus;
 import '../state/models.dart';
@@ -215,7 +216,7 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         foregroundColor: colors.text,
-        title: const Text('Siapkan Model AI'),
+        title: Text(context.l10n.llmSetupWizardScreenTitle),
         automaticallyImplyLeading: !_pulling,
       ),
       body: SafeArea(
@@ -252,16 +253,20 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
 
   Widget _pasangStep(AppColorSet colors) {
     final guide = _installGuide;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _status?.pesan ?? 'Ollama tidak terdeteksi di perangkat ini.',
+          _status?.pesan ?? l10n.llmSetupWizardScreenNotDetected,
           style: AppText.body.c(colors.textSecondary),
         ),
         Spacing.gapLg,
         if (guide != null) ...[
-          Text('Pasang Ollama di ${guide.sistem}', style: AppText.title),
+          Text(
+            l10n.llmSetupWizardScreenInstallOn(guide.sistem),
+            style: AppText.title,
+          ),
           Spacing.gapMd,
           for (var i = 0; i < guide.langkah.length; i++)
             Padding(
@@ -283,7 +288,7 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
           ],
           Spacing.gapMd,
           AppButton(
-            label: 'Buka ${guide.tautan}',
+            label: l10n.llmSetupWizardScreenOpenLink(guide.tautan),
             icon: AppIcons.link,
             onPressed: () {
               ref.read(privacyReportProvider.notifier).recordExternalLink(
@@ -298,7 +303,7 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
         ],
         Spacing.gapLg,
         AppButton.primary(
-          label: 'Sudah dipasang, periksa ulang',
+          label: l10n.llmSetupWizardScreenInstalledRecheck,
           icon: AppIcons.refresh,
           onPressed: _detect,
         ),
@@ -309,14 +314,22 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
   Widget _katalogStep(AppColorSet colors) {
     final recommendation = _recommendation;
     final hardware = _hardware;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (hardware != null)
           Text(
-            'Perangkat ini: ${hardware.ramGb.toStringAsFixed(1)} GB RAM, '
-            '${hardware.cpuThreads} thread CPU'
-            '${hardware.vramGb > 0 ? ', ${hardware.vramGb.toStringAsFixed(1)} GB VRAM' : ''}.',
+            hardware.vramGb > 0
+                ? l10n.llmSetupWizardScreenHardwareWithVram(
+                    hardware.ramGb.toStringAsFixed(1),
+                    hardware.cpuThreads,
+                    hardware.vramGb.toStringAsFixed(1),
+                  )
+                : l10n.llmSetupWizardScreenHardware(
+                    hardware.ramGb.toStringAsFixed(1),
+                    hardware.cpuThreads,
+                  ),
             style: AppText.body.c(colors.textSecondary),
           ),
         if (recommendation != null) ...[
@@ -325,14 +338,13 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
           if (recommendation.terlaluKecil) ...[
             Spacing.gapSm,
             Text(
-              'Perangkat ini di bawah rekomendasi minimum; model teringan '
-              'tetap ditawarkan sebagai usaha terbaik.',
+              l10n.llmSetupWizardScreenBelowMinimum,
               style: AppText.caption.c(colors.warning),
             ),
           ],
         ],
         Spacing.gapLg,
-        Text('Pilih model', style: AppText.title),
+        Text(l10n.llmSetupWizardScreenChooseModel, style: AppText.title),
         Spacing.gapSm,
         for (final model in _catalogue)
           _ModelCard(
@@ -342,7 +354,7 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
           ),
         Spacing.gapLg,
         AppButton.primary(
-          label: 'Unduh ${_selected?.label ?? ''}',
+          label: l10n.llmSetupWizardScreenDownload(_selected?.label ?? ''),
           icon: AppIcons.download,
           onPressed: _selected == null ? null : _pull,
         ),
@@ -355,21 +367,23 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
     final ratio = progress != null && progress.totalBytes > BigInt.zero
         ? progress.selesaiBytes.toDouble() / progress.totalBytes.toDouble()
         : null;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mengunduh ${_selected?.label ?? ''}…',
+          l10n.llmSetupWizardScreenDownloading(_selected?.label ?? ''),
           style: AppText.title,
         ),
         Spacing.gapMd,
         AppLinearProgress(
           value: ratio,
-          semanticLabel: progress?.label ?? 'Mengunduh',
+          semanticLabel:
+              progress?.label ?? l10n.llmSetupWizardScreenDownloadingShort,
         ),
         Spacing.gapSm,
         Text(
-          progress?.label ?? 'Menyiapkan unduhan…',
+          progress?.label ?? l10n.llmSetupWizardScreenPreparing,
           style: AppText.caption.c(colors.textSecondary),
         ),
       ],
@@ -377,6 +391,7 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
   }
 
   Widget _selesaiStep(AppColorSet colors) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -384,25 +399,24 @@ class _LlmSetupWizardScreenState extends ConsumerState<LlmSetupWizardScreen> {
           children: [
             Icon(AppIcons.checkFilled, color: colors.success),
             Spacing.hSm,
-            Text('Model siap dipakai', style: AppText.title),
+            Text(l10n.llmSetupWizardScreenReady, style: AppText.title),
           ],
         ),
         Spacing.gapSm,
         Text(
-          '${_selected?.label ?? ''} sudah terunduh dan disetel sebagai '
-          'model Ringkasan AI.',
+          l10n.llmSetupWizardScreenReadyBody(_selected?.label ?? ''),
           style: AppText.body.c(colors.textSecondary),
         ),
         Spacing.gapLg,
         AppButton.primary(
-          label: 'Selesai',
+          label: l10n.llmSetupWizardScreenDone,
           onPressed: () {
             final tag = _selected?.tag;
             if (!mounted) return;
             Navigator.of(context).pop(tag);
             AppToast.show(
               context,
-              'Model AI siap: ${_selected?.label ?? ''}',
+              l10n.llmSetupWizardScreenReadyToast(_selected?.label ?? ''),
               type: ToastType.success,
             );
           },
@@ -444,8 +458,11 @@ class _ModelCard extends StatelessWidget {
                     Text(model.label, style: AppText.body.c(colors.text)),
                     Spacing.gapXs,
                     Text(
-                      '${model.tag} · unduh ${model.unduhGb.toStringAsFixed(1)} GB · '
-                      'konteks ${model.konteks}',
+                      context.l10n.llmSetupWizardScreenModelMeta(
+                        model.tag,
+                        model.unduhGb.toStringAsFixed(1),
+                        model.konteks,
+                      ),
                       style: AppText.caption.c(colors.textTertiary),
                     ),
                     Spacing.gapXs,
@@ -484,11 +501,15 @@ class _ErrorCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Terjadi kesalahan: $error',
+          context.l10n.llmSetupWizardScreenError('$error'),
           style: AppText.body.c(colors.error),
         ),
         Spacing.gapMd,
-        AppButton(label: 'Coba lagi', icon: AppIcons.refresh, onPressed: onRetry),
+        AppButton(
+          label: context.l10n.llmSetupWizardScreenRetry,
+          icon: AppIcons.refresh,
+          onPressed: onRetry,
+        ),
       ],
     );
   }

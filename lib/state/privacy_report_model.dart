@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
+
 /// Tracks network activity since app launch for the Privacy Report screen.
 ///
 /// The app makes zero network calls during transcription by design (see
@@ -59,7 +61,7 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   /// (first-run onboarding and the "Model Akurat/Cepat" dialog) — never
   /// from the transcription pipeline.
   void recordModelDownload(String modelId) {
-    _record('Mengunduh model "$modelId" dari huggingface.co');
+    _record(currentL10n.privacyReportModelEventModelDownload(modelId));
   }
 
   /// Called when the user presses "Buat Ringkasan". Records the endpoint so
@@ -67,7 +69,7 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   /// happened — with a user-configurable endpoint, that is the fact worth
   /// auditing.
   void recordSummaryRequest(String endpoint) {
-    _record('Ringkasan AI dikirim ke $endpoint');
+    _record(currentL10n.privacyReportModelEventSummary(endpoint));
   }
 
   /// Called when the user asks the meeting archive a question (F12).
@@ -78,7 +80,10 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   /// that filed it under "Ringkasan AI" would understate that.
   void recordArchiveQuestion(String endpoint, int passageCount) {
     _record(
-      'Pertanyaan arsip dikirim ke $endpoint ($passageCount kutipan rapat)',
+      currentL10n.privacyReportModelEventArchiveQuestion(
+        endpoint,
+        passageCount,
+      ),
     );
   }
 
@@ -90,21 +95,21 @@ class PrivacyReportNotifier extends StateNotifier<PrivacyReportState> {
   /// passages retrieved from past meetings.
   void recordLiveQaQuestion(String endpoint, int passageCount) {
     _record(
-      'Pertanyaan Tanya Langsung dikirim ke $endpoint ($passageCount kutipan transkrip)',
+      currentL10n.privacyReportModelEventLiveQaQuestion(endpoint, passageCount),
     );
   }
 
   /// Called when the user presses "Cek Pembaruan". Only the version manifest
   /// is fetched; nothing is downloaded or executed.
   void recordUpdateCheck(String endpoint) {
-    _record('Memeriksa pembaruan ke $endpoint');
+    _record(currentL10n.privacyReportModelEventUpdateCheck(endpoint));
   }
 
   /// Called when the app hands a URL to the system browser ("Lihat Rilis").
   /// Trareon itself opens no socket here, but the user's machine does, and a
   /// privacy report that omits it would be misleading.
   void recordExternalLink(String url) {
-    _record('Membuka $url di peramban');
+    _record(currentL10n.privacyReportModelEventExternalLink(url));
   }
 }
 

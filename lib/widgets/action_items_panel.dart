@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../state/summary_model.dart';
@@ -42,6 +43,18 @@ String actionStatusLabel(ActionStatus status) => switch (status) {
   ActionStatus.selesai => 'Selesai',
   ActionStatus.dibatalkan => 'Dibatalkan',
 };
+
+/// The on-screen label for a status, in the interface language.
+///
+/// [actionStatusLabel] stays Indonesian because it mirrors the Rust label
+/// that the `.ics`/`.csv` exports (and the copied text) carry.
+String _statusUiLabel(AppLocalizations l10n, ActionStatus status) =>
+    switch (status) {
+      ActionStatus.belum => l10n.actionItemsPanelStatusNotStarted,
+      ActionStatus.berjalan => l10n.actionItemsPanelStatusInProgress,
+      ActionStatus.selesai => l10n.actionItemsPanelStatusDone,
+      ActionStatus.dibatalkan => l10n.actionItemsPanelStatusCancelled,
+    };
 
 class ActionItemsPanel extends ConsumerStatefulWidget {
   const ActionItemsPanel({
@@ -105,13 +118,16 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
       final path = '${widget.sessionDirPath}${Platform.pathSeparator}$filename';
       await writeStringAtomic(File(path), content);
       if (!mounted) return path;
-      AppToast.show(context, '$what disimpan: $filename');
+      AppToast.show(
+        context,
+        context.l10n.actionItemsPanelSaved(what, filename),
+      );
       return path;
     } catch (e) {
       if (!mounted) return null;
       AppToast.show(
         context,
-        'Gagal menyimpan $what: $e',
+        context.l10n.actionItemsPanelSaveFailed(what, '$e'),
         type: ToastType.error,
       );
       return null;
@@ -127,28 +143,40 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
         '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
+    // Resolved before the await: the file is written even if the panel
+    // goes away meanwhile.
+    final what = context.l10n.actionItemsPanelIcsWhat;
     try {
       final ics = await bridge.actionItemsToIcs(
         items: items,
         calendarName: 'Tindak Lanjut: ${widget.sessionTitle}',
         today: today,
       );
-      return await _write('tindak-lanjut.ics', ics, 'Kalender tindak lanjut');
+      return await _write('tindak-lanjut.ics', ics, what);
     } catch (e) {
       if (!mounted) return null;
-      AppToast.show(context, 'Gagal membuat .ics: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        context.l10n.actionItemsPanelIcsFailed('$e'),
+        type: ToastType.error,
+      );
       return null;
     }
   }
 
   Future<String?> _exportCsv(List<ActionItem> items) async {
     final bridge = ref.read(rustBridgeProvider);
+    final what = context.l10n.actionItemsPanelCsvWhat;
     try {
       final csv = await bridge.actionItemsToCsv(items);
-      return await _write('tindak-lanjut.csv', csv, 'Tabel tindak lanjut');
+      return await _write('tindak-lanjut.csv', csv, what);
     } catch (e) {
       if (!mounted) return null;
-      AppToast.show(context, 'Gagal membuat .csv: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        context.l10n.actionItemsPanelCsvFailed('$e'),
+        type: ToastType.error,
+      );
       return null;
     }
   }
@@ -180,13 +208,14 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
     ];
     await Clipboard.setData(ClipboardData(text: lines.join('\n')));
     if (!mounted) return;
-    AppToast.show(context, 'Tindak lanjut disalin.');
+    AppToast.show(context, context.l10n.actionItemsPanelCopied);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     final items = ref.watch(widget.provider).actionItems;
     // Only rows with a task can be exported; a blank row the user added
     // and has not filled in yet is not something to put in a calendar.
@@ -222,7 +251,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                   ),
                   Spacing.hSm,
                   Text(
-                    'Tindak Lanjut',
+                    l10n.actionItemsPanelTitle,
                     style: TextStyle(
                       color: colors.text,
                       fontSize: FontSizes.bodyLarge,
@@ -232,7 +261,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                   if (exportable.isNotEmpty) ...[
                     Spacing.hSm,
                     Text(
-                      '$done/${exportable.length} selesai',
+                      l10n.actionItemsPanelProgress(done, exportable.length),
                       style: TextStyle(
                         color: colors.textTertiary,
                         fontSize: FontSizes.micro,
@@ -271,10 +300,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: Spacing.sm),
                       child: Text(
-                        'Belum ada tindak lanjut. Nyalakan "Tindak lanjut '
-                        'terstruktur" di Pengaturan → Ringkasan AI agar '
-                        'ringkasan berikutnya mengisinya sendiri, atau '
-                        'tambahkan sendiri di bawah.',
+                        l10n.actionItemsPanelEmpty,
                         style: TextStyle(
                           fontSize: FontSizes.caption,
                           color: colors.textSecondary,
@@ -303,14 +329,14 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                       TextButton.icon(
                         onPressed: _notifier.addActionItem,
                         icon: const Icon(AppIcons.add, size: IconSizes.sm),
-                        label: const Text('Tambah tugas'),
+                        label: Text(l10n.actionItemsPanelAddTask),
                       ),
                       TextButton.icon(
                         onPressed: exportable.isEmpty || _exporting
                             ? null
                             : () => _copyAsText(exportable),
                         icon: const Icon(AppIcons.copy, size: IconSizes.sm),
-                        label: const Text('Salin'),
+                        label: Text(l10n.actionItemsPanelCopy),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
@@ -323,7 +349,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                                 );
                               },
                         icon: const Icon(AppIcons.table, size: IconSizes.sm),
-                        label: const Text('Ekspor CSV'),
+                        label: Text(l10n.actionItemsPanelExportCsv),
                       ),
                       OutlinedButton.icon(
                         key: const ValueKey('bagikan-csv'),
@@ -336,7 +362,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                                 );
                               },
                         icon: const Icon(AppIcons.share, size: IconSizes.sm),
-                        label: const Text('Bagikan CSV'),
+                        label: Text(l10n.actionItemsPanelShareCsv),
                       ),
                       OutlinedButton.icon(
                         onPressed: exportable.isEmpty || _exporting
@@ -349,7 +375,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                                 );
                               },
                         icon: const Icon(AppIcons.event, size: IconSizes.sm),
-                        label: const Text('Ekspor .ics'),
+                        label: Text(l10n.actionItemsPanelExportIcs),
                       ),
                       OutlinedButton.icon(
                         key: const ValueKey('bagikan-ics'),
@@ -362,7 +388,7 @@ class _ActionItemsPanelState extends ConsumerState<ActionItemsPanel> {
                                 );
                               },
                         icon: const Icon(AppIcons.share, size: IconSizes.sm),
-                        label: const Text('Bagikan .ics'),
+                        label: Text(l10n.actionItemsPanelShareIcs),
                       ),
                     ],
                   ),
@@ -441,6 +467,7 @@ class _ActionRowState extends State<_ActionRow> {
     final colors = widget.colors;
     final selesai = widget.item.status == ActionStatus.selesai;
     final citations = widget.item.segmentIds;
+    final l10n = context.l10n;
 
     // Two lines rather than one: five controls plus a delete button in a
     // single row overflowed the status dropdown off the right edge at the
@@ -459,7 +486,7 @@ class _ActionRowState extends State<_ActionRow> {
               Padding(
                 padding: const EdgeInsets.only(top: Spacing.xs),
                 child: Semantics(
-                  label: 'Tandai "${widget.item.tugas}" selesai',
+                  label: l10n.actionItemsPanelMarkDone(widget.item.tugas),
                   child: Checkbox(
                     value: selesai,
                     onChanged: (value) => _emit(
@@ -479,15 +506,15 @@ class _ActionRowState extends State<_ActionRow> {
                     decoration: selesai ? TextDecoration.lineThrough : null,
                     color: selesai ? colors.textTertiary : colors.text,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    labelText: 'Tugas',
-                    border: OutlineInputBorder(),
+                    labelText: l10n.actionItemsPanelTaskLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
               IconButton(
-                tooltip: 'Hapus tugas',
+                tooltip: l10n.actionItemsPanelRemoveTask,
                 icon: const Icon(AppIcons.close, size: IconSizes.sm),
                 onPressed: widget.onRemove,
               ),
@@ -530,10 +557,10 @@ class _ActionRowState extends State<_ActionRow> {
                     controller: _pj,
                     onChanged: (_) => _emit(),
                     style: const TextStyle(fontSize: FontSizes.caption),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Penanggung jawab',
-                      border: OutlineInputBorder(),
+                      labelText: l10n.actionItemsPanelOwnerLabel,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -544,10 +571,10 @@ class _ActionRowState extends State<_ActionRow> {
                     controller: _tenggat,
                     onChanged: (_) => _emit(),
                     style: const TextStyle(fontSize: FontSizes.caption),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Tenggat',
-                      border: OutlineInputBorder(),
+                      labelText: l10n.actionItemsPanelDueLabel,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -561,17 +588,17 @@ class _ActionRowState extends State<_ActionRow> {
                     // is wider than the column at a narrow window.
                     isExpanded: true,
                     style: AppText.caption.c(colors.text),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
+                      labelText: l10n.actionItemsPanelStatusLabel,
+                      border: const OutlineInputBorder(),
                     ),
                     items: [
                       for (final status in ActionStatus.values)
                         DropdownMenuItem(
                           value: status,
                           child: Text(
-                            actionStatusLabel(status),
+                            _statusUiLabel(l10n, status),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

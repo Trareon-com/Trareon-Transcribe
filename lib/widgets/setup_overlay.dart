@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../screens/diagnostics_screen.dart';
 import '../services/preflight_service.dart';
 import '../theme/app_colors.dart';
@@ -107,7 +108,9 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
                     child: Semantics(
                       liveRegion: true,
                       child: Text(
-                        'Perlu diperiksa: ${summariseNames(result.warnings)}.',
+                        context.l10n.setupOverlayNeedsAttention(
+                          summariseNames(result.warnings),
+                        ),
                         style: TextStyle(
                           color: colors.text,
                           fontSize: FontSizes.body,
@@ -117,11 +120,11 @@ class _SetupOverlayState extends ConsumerState<SetupOverlay> {
                   ),
                   TextButton(
                     onPressed: () => openDiagnostics(context),
-                    child: const Text('Lihat diagnostik'),
+                    child: Text(context.l10n.setupOverlayViewDiagnostics),
                   ),
                   IconButton(
                     icon: const Icon(AppIcons.close, size: IconSizes.md),
-                    tooltip: 'Tutup',
+                    tooltip: context.l10n.setupOverlayClose,
                     onPressed: () => setState(() => _dismissed = true),
                   ),
                 ],
@@ -166,7 +169,7 @@ class _BlockingFailure extends StatelessWidget {
                 Icon(AppIcons.error, size: IconSizes.hero, color: colors.error),
                 Spacing.gapLg,
                 Text(
-                  'Trareon belum siap merekam',
+                  context.l10n.setupOverlayNotReady,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.text,
@@ -213,7 +216,11 @@ class _BlockingFailure extends StatelessWidget {
                 Spacing.gapSm,
                 FilledButton(
                   onPressed: busy ? null : onRetry,
-                  child: Text(busy ? 'Memeriksa…' : 'Periksa Ulang'),
+                  child: Text(
+                    busy
+                        ? context.l10n.setupOverlayChecking
+                        : context.l10n.setupOverlayCheckAgain,
+                  ),
                 ),
                 Spacing.gapSm,
                 // Always a way past: a preflight that is wrong about the
@@ -221,7 +228,7 @@ class _BlockingFailure extends StatelessWidget {
                 // own recordings.
                 TextButton(
                   onPressed: onContinue,
-                  child: const Text('Lanjutkan saja'),
+                  child: Text(context.l10n.setupOverlayContinueAnyway),
                 ),
               ],
             ),

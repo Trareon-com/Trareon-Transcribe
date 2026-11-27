@@ -17,6 +17,7 @@ library;
 
 import 'dart:io';
 
+import '../l10n/l10n.dart';
 import 'bridge_service.dart';
 import 'session_store.dart';
 
@@ -128,18 +129,15 @@ Future<ValidatedSessionImport> extractAndValidateSessionArchive(
       destinationDir: tempDir.path,
     );
   } catch (e) {
-    return fail('Gagal membuka arsip: tidak terbaca atau rusak ($e).');
+    return fail(currentL10n.sessionArchiveServiceOpenFailed('$e'));
   }
   if (written.isEmpty) {
-    return fail('Arsip ini kosong atau bukan arsip sesi Trareon.');
+    return fail(currentL10n.sessionArchiveServiceEmpty);
   }
 
   final transcript = transcriptFileIn(tempDir);
   if (transcript == null) {
-    return fail(
-      'File ini bukan arsip sesi Trareon yang valid: '
-      'tidak ada transkrip di dalamnya.',
-    );
+    return fail(currentL10n.sessionArchiveServiceNoTranscript);
   }
 
   final meta = await readSessionMeta(tempDir.path);

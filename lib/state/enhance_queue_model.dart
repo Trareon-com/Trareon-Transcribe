@@ -39,6 +39,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../services/session_store.dart';
 import '../src/rust/api.dart' as rust_api;
@@ -140,11 +141,11 @@ String sourceForAudioPath(String audioPath) {
   };
 }
 
-/// Indonesian label for a source, for the progress line.
+/// Label for a source, for the progress line, in the app's language.
 String sourceLabel(String source) => switch (source) {
-  'mic' => 'mikrofon',
-  'spk' => 'audio sistem',
-  _ => 'rekaman',
+  'mic' => currentL10n.enhanceQueueModelSourceMic,
+  'spk' => currentL10n.enhanceQueueModelSourceSystem,
+  _ => currentL10n.enhanceQueueModelSourceRecording,
 };
 
 /// One track waiting for, or undergoing, a background pass.
@@ -293,9 +294,7 @@ String completionStatusLine(
       .where((j) => j.status == EnhanceJobStatus.running)
       .toList();
   if (running.isEmpty) {
-    return jobs.length == 1
-        ? 'Menunggu antrean untuk menyelesaikan transkrip.'
-        : 'Menunggu antrean untuk menyelesaikan ${jobs.length} rekaman.';
+    return currentL10n.enhanceQueueModelQueuedForCompletion(jobs.length);
   }
   final parts = <String>[];
   for (final job in running) {
@@ -303,8 +302,10 @@ String completionStatusLine(
     final where = includeSource && jobs.length > 1
         ? ' (${sourceLabel(job.source)})'
         : '';
-    final eta = job.etaSecs >= 5 ? ', sisa ${_humanEta(job.etaSecs)}' : '';
-    parts.add('Menyelesaikan transkrip…$where $percent%$eta');
+    final eta = job.etaSecs >= 5
+        ? currentL10n.enhanceQueueModelEtaSuffix(_humanEta(job.etaSecs))
+        : '';
+    parts.add(currentL10n.enhanceQueueModelCompletingLine(where, percent, eta));
   }
   return parts.join('\n');
 }
@@ -314,12 +315,15 @@ String completionStatusLine(
 String formatEta(double seconds) => _humanEta(seconds);
 
 String _humanEta(double seconds) {
-  if (seconds < 60) return '${seconds.round()} detik';
+  final l10n = currentL10n;
+  if (seconds < 60) return l10n.enhanceQueueModelEtaSeconds(seconds.round());
   final minutes = (seconds / 60).round();
-  if (minutes < 60) return '$minutes menit';
+  if (minutes < 60) return l10n.enhanceQueueModelEtaMinutes(minutes);
   final hours = minutes ~/ 60;
   final rest = minutes % 60;
-  return rest == 0 ? '$hours jam' : '$hours jam $rest menit';
+  return rest == 0
+      ? l10n.enhanceQueueModelEtaHours(hours)
+      : l10n.enhanceQueueModelEtaHoursMinutes(hours, rest);
 }
 
 /// Merges an accurate-pass transcript over the one the user may have edited.
@@ -779,7 +783,7 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
       job.id,
       EnhanceJobStatus.running,
       progress: 0,
-      stage: 'Menyiapkan model',
+      stage: currentL10n.enhanceQueueModelStagePreparing,
     );
     final progress = _watchEnhanceProgress(job);
     try {
@@ -806,7 +810,7 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
         _updateJob(
           job.id,
           EnhanceJobStatus.failed,
-          error: outcome?.error ?? 'Tidak ada ucapan terdeteksi.',
+          error: outcome?.error ?? currentL10n.enhanceQueueModelNoSpeech,
           stage: null,
         );
         return;
@@ -819,7 +823,7 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
         job.id,
         EnhanceJobStatus.running,
         progress: 0.95,
-        stage: 'Menggabungkan',
+        stage: currentL10n.enhanceQueueModelStageMerging,
       );
       await _replaceTranscript(job, enhanced);
       _updateJob(job.id, EnhanceJobStatus.done, progress: 1, stage: null);
@@ -842,15 +846,28 @@ class EnhanceQueueNotifier extends StateNotifier<EnhanceQueueState> {
       try {
         final snapshot = await _bridge.batchProgress();
         if (snapshot == null || !mounted) return;
+        final l10n = currentL10n;
         final (stage, fraction) = switch (snapshot.status) {
-          rust_stt_file.BatchFileStatus.queued => ('Menyiapkan model', 0.0),
-          rust_stt_file.BatchFileStatus.decoding => ('Menyiapkan model', 0.05),
+          rust_stt_file.BatchFileStatus.queued => (
+            l10n.enhanceQueueModelStagePreparing,
+            0.0,
+          ),
+          rust_stt_file.BatchFileStatus.decoding => (
+            l10n.enhanceQueueModelStagePreparing,
+            0.05,
+          ),
           rust_stt_file.BatchFileStatus.transcribing => (
-            'Mentranskripsi',
+            l10n.enhanceQueueModelStageTranscribing,
             0.1 + snapshot.progress.clamp(0.0, 1.0) * 0.8,
           ),
-          rust_stt_file.BatchFileStatus.done => ('Menggabungkan', 0.95),
-          rust_stt_file.BatchFileStatus.error => ('Menyiapkan model', 0.0),
+          rust_stt_file.BatchFileStatus.done => (
+            l10n.enhanceQueueModelStageMerging,
+            0.95,
+          ),
+          rust_stt_file.BatchFileStatus.error => (
+            l10n.enhanceQueueModelStagePreparing,
+            0.0,
+          ),
         };
         _updateJob(
           job.id,
