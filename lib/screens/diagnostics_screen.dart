@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_toast.dart';
 import '../theme/app_icons.dart';
+import '../utils/file_dialogs.dart';
 
 /// "Diagnostik" — runs `doctor.rs` on demand and says, in Indonesian, what
 /// is wrong and what to do about it.
@@ -57,13 +57,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   /// exactly what the user saw on screen.
   Future<void> _exportDiagnostics() async {
     final result = _result;
-    final destination = await FilePicker.saveFile(
+    final destination = await pickSaveLocation(
       dialogTitle: 'Simpan log diagnostik',
       fileName:
           'trareon-diagnostik-'
           '${DateTime.now().toIso8601String().substring(0, 10)}.zip',
-      type: FileType.custom,
-      allowedExtensions: const ['zip'],
     );
     if (destination == null || !mounted) return;
     setState(() => _exporting = true);
@@ -83,6 +81,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         type: ToastType.success,
       );
     } catch (e) {
+      await discardEmptyPlaceholder(destination);
       if (!mounted) return;
       setState(() => _exporting = false);
       AppToast.show(

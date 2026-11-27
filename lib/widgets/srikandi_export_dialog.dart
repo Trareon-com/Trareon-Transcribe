@@ -11,7 +11,6 @@ library;
 
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,6 +29,7 @@ import 'ui/app_dialog.dart';
 import 'ui/app_feedback.dart';
 import 'ui/app_field.dart';
 import 'ui/app_surface.dart' show AppGroupLabel;
+import '../utils/file_dialogs.dart';
 
 /// Opens the SRIKANDI metadata form for a notulen already prefilled by the
 /// notulen dialog. Returns `true` when the four files were written.
@@ -204,7 +204,7 @@ class _SrikandiExportDialogState
         });
         return;
       }
-      final outputDir = await FilePicker.getDirectoryPath(
+      final outputDir = await pickDirectoryPath(
         dialogTitle: 'Pilih folder untuk ekspor SRIKANDI',
       );
       if (outputDir == null) {
