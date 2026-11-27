@@ -382,6 +382,32 @@ pub fn verify_checksum(path: &Path, expected_sha256: &str) -> Result<(), Transcr
 /// Failing to remove it is only logged: the checksum error the caller is
 /// about to return is the one worth showing the user.
 #[flutter_rust_bridge::frb(ignore)]
+/// Where a download of `dest_path` is written while it is in progress:
+/// `ggml-small.bin` downloads into `ggml-small.bin.part`.
+///
+/// The final name only ever appears once the whole file has arrived and
+/// passed its checksum (see `api::download_model`). Before this, the
+/// download wrote straight to the final name, so a download cut short (the
+/// app quit, the network dropped, the process was killed) left a truncated
+/// model that every "is it installed?" check, which only looks for the
+/// file, reported as installed.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn partial_download_path(dest_path: &Path) -> PathBuf {
+    let mut name = dest_path.as_os_str().to_owned();
+    name.push(".part");
+    PathBuf::from(name)
+}
+
+/// The file name a mirror serves for `path`, which may be the `.part` file
+/// the download is written to.
+fn mirror_file_name(path: &Path) -> &str {
+    let name = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("model.bin");
+    name.strip_suffix(".part").unwrap_or(name)
+}
+
 pub fn discard_corrupt_download(dest_path: &Path) {
     match std::fs::remove_file(dest_path) {
         Ok(()) => tracing::warn!(
@@ -438,10 +464,7 @@ pub async fn download_with_resume(
     dest_path: &Path,
     mut on_progress: impl FnMut(DownloadProgress),
 ) -> Result<(), TranscribeError> {
-    let filename = dest_path
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or("model.bin");
+    let filename = mirror_file_name(dest_path);
 
     // The mirror fallbacks only exist for the whisper.cpp GGML repository.
     // Appending them unconditionally sent every Silero-VAD and
@@ -786,5 +809,26 @@ mod tests {
         .is_ok());
 
         let _ = std::fs::remove_file(&dest);
+    }
+
+    #[test]
+    fn a_download_is_written_beside_its_final_name() {
+        let dest = Path::new("/models/ggml-small.bin");
+        assert_eq!(
+            partial_download_path(dest),
+            PathBuf::from("/models/ggml-small.bin.part")
+        );
+    }
+
+    #[test]
+    fn mirrors_are_asked_for_the_final_file_name() {
+        assert_eq!(
+            mirror_file_name(Path::new("/m/ggml-base.bin.part")),
+            "ggml-base.bin"
+        );
+        assert_eq!(
+            mirror_file_name(Path::new("/m/ggml-base.bin")),
+            "ggml-base.bin"
+        );
     }
 }
