@@ -4947,4 +4947,13 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get notulenTemplatesRingkasDescription =>
       'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.';
+
+  @override
+  String get sessionModeWebinar => 'Webinar';
+
+  @override
+  String get sessionModeOnline => 'Rapat Online';
+
+  @override
+  String get sessionModeOffline => 'Rapat Offline';
 }

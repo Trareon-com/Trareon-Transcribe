@@ -7,6 +7,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../state/models.dart' show SessionMode;
 import 'generated/app_localizations.dart';
 
 export 'generated/app_localizations.dart';
@@ -29,4 +30,14 @@ void updateCurrentL10n(AppLocalizations l10n) => _current = l10n;
 extension AppL10nContext on BuildContext {
   AppLocalizations get l10n =>
       Localizations.of<AppLocalizations>(this, AppLocalizations) ?? _fallback;
+}
+
+/// [SessionMode.label] in the interface language. The getter itself stays
+/// Indonesian because `models.dart` keeps clear of the widget layer.
+extension SessionModeL10n on SessionMode {
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    SessionMode.webinar => l10n.sessionModeWebinar,
+    SessionMode.online => l10n.sessionModeOnline,
+    SessionMode.offline => l10n.sessionModeOffline,
+  };
 }

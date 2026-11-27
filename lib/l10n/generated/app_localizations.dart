@@ -8081,6 +8081,24 @@ abstract class AppLocalizations {
   /// In id, this message translates to:
   /// **'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.'**
   String get notulenTemplatesRingkasDescription;
+
+  /// No description provided for @sessionModeWebinar.
+  ///
+  /// In id, this message translates to:
+  /// **'Webinar'**
+  String get sessionModeWebinar;
+
+  /// Session mode card title (SessionMode.online)
+  ///
+  /// In id, this message translates to:
+  /// **'Rapat Online'**
+  String get sessionModeOnline;
+
+  /// No description provided for @sessionModeOffline.
+  ///
+  /// In id, this message translates to:
+  /// **'Rapat Offline'**
+  String get sessionModeOffline;
 }
 
 class _AppLocalizationsDelegate

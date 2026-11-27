@@ -5159,4 +5159,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notulenTemplatesRingkasDescription =>
       'One page without letterhead or signatures, to circulate quickly after the meeting.';
+
+  @override
+  String get sessionModeWebinar => 'Webinar';
+
+  @override
+  String get sessionModeOnline => 'Online meeting';
+
+  @override
+  String get sessionModeOffline => 'In-person meeting';
 }

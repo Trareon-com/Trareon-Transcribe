@@ -1966,7 +1966,7 @@ class _ModeCard extends StatelessWidget {
                 Spacing.hSm,
                 Expanded(
                   child: Text(
-                    mode.label,
+                    mode.localizedLabel(context.l10n),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.subheading.c(
@@ -2108,7 +2108,7 @@ class _RecordingStrip extends StatelessWidget {
                     AppStatusBadge(
                       label: isPaused
                           ? context.l10n.mainScreenPaused
-                          : mode.label,
+                          : mode.localizedLabel(context.l10n),
                       status: isPaused
                           ? AppStatus.warning
                           : AppStatus.recording,
