@@ -8,13 +8,16 @@ import 'api.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'audio/probe.dart';
 import 'calendar_import.dart';
 import 'capabilities.dart';
 import 'completion.dart';
 import 'coverage.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
+
 import 'disk.dart';
 import 'doctor.dart';
 import 'error.dart';
@@ -31,7 +34,9 @@ import 'notulen.dart';
 import 'notulen/factcheck.dart';
 import 'notulen/register.dart';
 import 'notulen/schema.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
+
 import 'pdp.dart';
 import 'pdp/audit.dart';
 import 'pdp/redaction.dart';
@@ -80,6 +85,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AudioDeviceInfo dco_decode_audio_device_info(dynamic raw);
+
+  @protected
+  AudioProbe dco_decode_audio_probe(dynamic raw);
 
   @protected
   AuditAction dco_decode_audit_action(dynamic raw);
@@ -657,6 +665,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AudioDeviceInfo sse_decode_audio_device_info(SseDeserializer deserializer);
+
+  @protected
+  AudioProbe sse_decode_audio_probe(SseDeserializer deserializer);
 
   @protected
   AuditAction sse_decode_audit_action(SseDeserializer deserializer);
@@ -1336,6 +1347,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     AudioDeviceInfo self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_audio_probe(AudioProbe self, SseSerializer serializer);
 
   @protected
   void sse_encode_audit_action(AuditAction self, SseSerializer serializer);

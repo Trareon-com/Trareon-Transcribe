@@ -36,6 +36,11 @@ path = "src/bin/transcribe_cli.rs"
 name = "device_probe"
 path = "src/bin/device_probe.rs"
 
+# Issue #69: what the pre-session level probe measures on a real input.
+[[bin]]
+name = "input_probe"
+path = "src/bin/input_probe.rs"
+
 [[bin]]
 name = "dual_capture_probe"
 path = "src/bin/dual_capture_probe.rs"

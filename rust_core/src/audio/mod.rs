@@ -9,6 +9,9 @@ pub mod alsa_quiet;
 pub mod capture;
 pub mod device;
 pub mod loopback;
+/// Pre-session input level probe (issue #69). Exposed to Dart through
+/// `api::probe_audio_input`.
+pub mod probe;
 /// Rust-side capture plumbing: driven from `session`, never from Dart. Every
 /// public item carries `#[frb(ignore)]` — an attribute on the `mod` line
 /// itself is a proc macro on a file module, which is still unstable.

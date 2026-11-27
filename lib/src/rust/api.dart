@@ -7,6 +7,7 @@ import 'actions.dart';
 import 'archive.dart';
 import 'audio.dart';
 import 'audio/device.dart';
+import 'audio/probe.dart';
 import 'calendar_import.dart';
 import 'capabilities.dart';
 import 'completion.dart';
@@ -27,7 +28,9 @@ import 'notulen.dart';
 import 'notulen/factcheck.dart';
 import 'notulen/register.dart';
 import 'notulen/schema.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
 import 'pdp.dart';
 import 'pdp/audit.dart';
 import 'pdp/redaction.dart';
@@ -1163,6 +1166,17 @@ Future<void> acquireInstanceLock() =>
 /// Linux, selalu `None` di macOS/Windows (belum diimplementasikan).
 Future<DetectedMeeting?> detectMeetingWindow() =>
     RustLib.instance.api.crateApiDetectMeetingWindow();
+
+/// Listens to the microphone for `millis` (clamped to 0.5–10 s) through
+/// the same capture path a session uses, and returns its noise floor to
+/// speech distance (SNR) and peak level. Dart runs this before
+/// `start_session` and feeds the result to `resolveQualityProfile`; on
+/// `Err` the session starts with the conservative defaults instead.
+Future<AudioProbe> probeAudioInput({String? deviceName, required int millis}) =>
+    RustLib.instance.api.crateApiProbeAudioInput(
+      deviceName: deviceName,
+      millis: millis,
+    );
 
 /// What the glossary actually contributes to one inference call.
 ///

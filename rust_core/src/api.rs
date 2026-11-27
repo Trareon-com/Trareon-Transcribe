@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::audio::probe::AudioProbe;
 use crate::audio::{AudioDeviceInfo, SessionConfig};
 use crate::doctor::{format_checks, run_checks, Check};
 use crate::error::TranscribeError;
@@ -1844,6 +1845,20 @@ pub fn acquire_instance_lock() -> Result<(), TranscribeError> {
 /// Linux, selalu `None` di macOS/Windows (belum diimplementasikan).
 pub fn detect_meeting_window() -> Option<crate::meeting_detect::DetectedMeeting> {
     crate::meeting_detect::detect_active_meeting_window()
+}
+
+// ── "3 detik pertama" input probe (QUALITY-PROFILE-BLUEPRINT §5, #69) ────
+
+/// Listens to the microphone for `millis` (clamped to 0.5–10 s) through
+/// the same capture path a session uses, and returns its noise floor to
+/// speech distance (SNR) and peak level. Dart runs this before
+/// `start_session` and feeds the result to `resolveQualityProfile`; on
+/// `Err` the session starts with the conservative defaults instead.
+pub fn probe_audio_input(
+    device_name: Option<String>,
+    millis: u32,
+) -> Result<AudioProbe, TranscribeError> {
+    crate::audio::probe::probe_input(device_name, millis)
 }
 
 #[cfg(test)]
