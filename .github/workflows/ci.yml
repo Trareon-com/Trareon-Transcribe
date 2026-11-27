@@ -46,6 +46,25 @@ jobs:
         with:
           workspaces: rust_core
 
+      # `sherpa-onnx-sys`'s build script downloads and extracts a prebuilt
+      # shared library into `target/sherpa-onnx-prebuilt/…` and treats an
+      # existing directory as "already there". A restored cache can carry
+      # that directory with the extraction half-finished — no `lib/*.so` —
+      # and the build script then panics instead of re-downloading, which is
+      # #63 (red on #51/#52/#61, green after a rerun). Repaired here rather
+      # than excluded from the cache: Swatinem/rust-cache caches a
+      # workspace's `target` directory as one unit (`cache-targets` is a
+      # boolean, there is no per-subpath exclude), so dropping just this
+      # subtree would mean hand-rolling actions/cache and losing the
+      # dependency cache the same jobs depend on.
+      - name: Repair incomplete sherpa-onnx prebuilt cache
+        run: |
+          d=target/sherpa-onnx-prebuilt
+          if [ -d "$d" ] && [ -z "$(find "$d" -name '*.so' -print -quit)" ]; then
+            rm -rf "$d"
+            echo "removed incomplete prebuilt cache: $d"
+          fi
+
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
