@@ -43,6 +43,7 @@ import 'ui/app_feedback.dart';
 import 'ui/app_field.dart';
 import 'settings_controls.dart';
 import 'ui/app_surface.dart';
+import '../utils/file_dialogs.dart';
 
 /// Indonesian day names, indexed by `DateTime.weekday` (1 = Monday).
 const List<String> kHariIndonesia = [
@@ -519,12 +520,12 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   }
 
   Future<void> _pickKonteksDokumen() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.pickFile(
       dialogTitle: 'Pilih dokumen rujukan',
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
     );
-    final path = result?.files.singleOrNull?.path;
+    final path = result?.path;
     if (path == null) return;
     try {
       final text = await ref
@@ -561,7 +562,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       final poinPenting = widget.bookmarks.isEmpty
           ? const <String>[]
           : await bridge.formatBookmarks(widget.bookmarks);
-      final outputDir = await FilePicker.getDirectoryPath(
+      final outputDir = await pickDirectoryPath(
         dialogTitle: 'Pilih folder untuk notulen',
       );
       if (outputDir == null) {
