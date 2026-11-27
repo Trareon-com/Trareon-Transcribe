@@ -43,29 +43,53 @@ pub fn start_loopback(
     }
 }
 
-/// Turns `SCStream::add_output_handler`'s return value into a `Result`.
+/// Turns `SCStream::add_output_handler`'s return value into our `Result`.
 ///
-/// The registration returns `Option<usize>`: `Some(handler_id)` on success,
-/// `None` on failure. The call site used to write that as
-/// `.map_or(Ok(()), |e| Err(..))`, which is the mapping *inverted* — every
-/// successful registration became an `Err` (so ScreenCaptureKit "failed" on
-/// every healthy machine and macOS fell through to the mic-recording
-/// fallback), and a genuine `None` became `Ok` (starting a handler-less
-/// stream that captured silence).
+/// screencapturekit 12 returns `Result<usize, SCError>`: `Ok(handler_id)` on
+/// success. screencapturekit 8 returned `Option<usize>`, and the call site
+/// once wrote that as `.map_or(Ok(()), |e| Err(..))` — the mapping
+/// *inverted*, so every successful registration became an `Err` (macOS then
+/// fell through to the mic-recording fallback) and a genuine failure became
+/// `Ok` (a handler-less stream that captured silence).
 ///
 /// Deliberately lives outside the `#[cfg(target_os = "macos")]` module and is
-/// generic over the handler id: the inversion is a logic bug, not a platform
-/// one, so [`sck_handler_registration_is_ok_only_on_some`] compiles and runs
-/// on Linux and Windows CI too. Nothing about this can regress unnoticed
-/// again just because the gate has no Mac.
+/// generic over the error type, so the mapping rule is still compiled and
+/// exercised on Linux and Windows CI — where the crate itself is not even a
+/// dependency. Nothing about this can regress unnoticed again just because
+/// the gate has no Mac.
 // Only the macOS module calls it; off a Mac it exists purely so the tests can.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(crate) fn sck_handler_registration<T>(handler_id: Option<T>) -> Result<(), TranscribeError> {
-    handler_id.map(|_| ()).ok_or_else(|| {
-        TranscribeError::AudioDevice(
-            "ScreenCaptureKit: failed to register audio output handler".into(),
-        )
+pub(crate) fn sck_handler_registration<E: std::fmt::Display>(
+    handler_id: Result<usize, E>,
+) -> Result<(), TranscribeError> {
+    handler_id.map(|_| ()).map_err(|e| {
+        TranscribeError::AudioDevice(format!(
+            "ScreenCaptureKit: failed to register audio output handler ({e})"
+        ))
     })
+}
+
+/// Downmixes one buffer of interleaved stereo f32 PCM to mono.
+///
+/// apple-cf 0.12 exposes `AudioBuffer::data()` as `&[u8]` — the crate used to
+/// hand out a raw pointer plus a byte count, which the call site dereferenced
+/// as `*const f32`. Decoding through `from_le_bytes` instead of casting keeps
+/// this free of alignment UB (nothing in the API promises the buffer is
+/// 4-byte aligned) and needs no `unsafe` at all. Every Mac is little-endian,
+/// so this reads the bytes ScreenCaptureKit actually wrote.
+///
+/// A trailing partial sample (fewer than 4 bytes) and an odd trailing channel
+/// (a stereo pair is the smallest downmixable unit) are dropped. Pure, so it
+/// is tested on Linux CI rather than only on a Mac.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn downmix_stereo_f32(pcm: &[u8]) -> Vec<f32> {
+    let (samples, _tail) = pcm.as_chunks::<4>();
+    let interleaved: Vec<f32> = samples
+        .iter()
+        .map(|sample| f32::from_le_bytes(*sample))
+        .collect();
+    let (pairs, _odd_channel) = interleaved.as_chunks::<2>();
+    pairs.iter().map(|pair| (pair[0] + pair[1]) * 0.5).collect()
 }
 
 /// Whether macOS should try ScreenCaptureKit's zero-setup system-audio
@@ -86,7 +110,7 @@ pub(crate) fn wants_zero_setup_capture(device_hint: Option<&str>) -> bool {
 // ---------------------------------------------------------------------------
 #[cfg(target_os = "macos")]
 pub(crate) mod macos {
-    use super::{sck_handler_registration, wants_zero_setup_capture};
+    use super::{downmix_stereo_f32, sck_handler_registration, wants_zero_setup_capture};
     use crate::audio::capture::AudioCapture;
     use crate::error::TranscribeError;
     use std::sync::mpsc;
@@ -236,7 +260,12 @@ pub(crate) mod macos {
         let filter = SCContentFilter::create()
             .with_display(display)
             .with_excluding_windows(&[])
-            .build();
+            .build()
+            .map_err(|e| {
+                TranscribeError::AudioDevice(format!(
+                    "ScreenCaptureKit: cannot build content filter for display ({e})"
+                ))
+            })?;
 
         // Minimal video config (2×2) — we only need audio.
         // The purple recording indicator only appears for video captures,
@@ -280,7 +309,9 @@ pub(crate) mod macos {
             .with_channel_count(2)
             .with_excludes_current_process_audio(true);
 
-        let mut stream = SCStream::new(&filter, &config);
+        let mut stream = SCStream::new(&filter, &config).map_err(|e| {
+            TranscribeError::AudioDevice(format!("ScreenCaptureKit: cannot create stream ({e})"))
+        })?;
         let tx = samples_tx.clone();
 
         // ScreenCaptureKit hands over ~10 ms buffers. One resampler lives for
@@ -295,24 +326,27 @@ pub(crate) mod macos {
                 if of_type != SCStreamOutputType::Audio {
                     return;
                 }
-                let Some(list) = sample.audio_buffer_list() else {
-                    tracing::debug!("ScreenCaptureKit audio sample without a buffer list");
-                    return;
+                // screencapturekit 12 returns `Result<AudioBufferList, i32>`
+                // (an OSStatus) — the same "no list" case the `Option` used to
+                // cover, now with the reason attached.
+                let list = match sample.audio_buffer_list() {
+                    Ok(list) => list,
+                    Err(status) => {
+                        tracing::debug!(
+                            status,
+                            "ScreenCaptureKit audio sample without a buffer list"
+                        );
+                        return;
+                    }
                 };
                 // Interleaved stereo f32 at SCK_SAMPLE_RATE (see the config
                 // comment above). Downmix to mono, then resample to the
                 // pipeline's 16 kHz target.
                 for buf in list.iter() {
-                    let ptr = buf.data().as_ptr() as *const f32;
-                    let len = buf.data_byte_size() / 4;
-                    if ptr.is_null() || len == 0 {
+                    let mono = downmix_stereo_f32(buf.data());
+                    if mono.is_empty() {
                         continue;
                     }
-                    let interleaved = unsafe { std::slice::from_raw_parts(ptr, len) };
-                    let mono: Vec<f32> = interleaved
-                        .chunks_exact(2)
-                        .map(|pair| (pair[0] + pair[1]) * 0.5)
-                        .collect();
                     let resampled = resampler
                         .lock()
                         .map_err(|_| "resampler poisoned".to_string())
@@ -652,22 +686,62 @@ pub(crate) mod linux {
 /// that CI (Linux) does exercise.
 #[cfg(test)]
 mod macos_policy_tests {
-    use super::{sck_handler_registration, wants_zero_setup_capture};
+    use super::{downmix_stereo_f32, sck_handler_registration, wants_zero_setup_capture};
 
-    /// The regression that made ScreenCaptureKit unusable: `Some(handler_id)`
-    /// is success. Before this, a healthy registration was reported as an
-    /// error and macOS fell through to recording the microphone.
+    /// The regression that made ScreenCaptureKit unusable: a registered
+    /// handler is success. Before this, a healthy registration was reported as
+    /// an error and macOS fell through to recording the microphone.
     #[test]
-    fn sck_handler_registration_is_ok_only_on_some() {
-        assert!(sck_handler_registration(Some(7usize)).is_ok());
+    fn sck_handler_registration_passes_success_and_keeps_failures() {
+        assert!(sck_handler_registration(Ok::<usize, String>(7)).is_ok());
         // A handler id of 0 is still a handler id, not a failure.
-        assert!(sck_handler_registration(Some(0usize)).is_ok());
+        assert!(sck_handler_registration(Ok::<usize, String>(0)).is_ok());
 
-        let err = sck_handler_registration(None::<usize>).expect_err("None must be an error");
+        let err = sck_handler_registration(Err::<usize, String>("stream not ready".into()))
+            .expect_err("Err must stay an error");
         assert!(
             err.to_string().contains("output handler"),
             "error should name what failed to register, got: {err}"
         );
+        // The crate's own reason must survive into the user-facing error:
+        // dropping it is what left the original failure undiagnosable.
+        assert!(
+            err.to_string().contains("stream not ready"),
+            "the underlying reason must be preserved, got: {err}"
+        );
+    }
+
+    /// Stereo f32 → mono. This is the byte-level half of the loopback path:
+    /// `AudioBuffer::data()` is a byte slice in apple-cf 0.12, so the decode
+    /// is now ours to get right — and it is testable without a Mac.
+    #[test]
+    fn downmix_averages_stereo_pairs() {
+        let mut pcm = Vec::new();
+        pcm.extend_from_slice(&1.0f32.to_le_bytes());
+        pcm.extend_from_slice(&(-1.0f32).to_le_bytes());
+        pcm.extend_from_slice(&0.5f32.to_le_bytes());
+        pcm.extend_from_slice(&0.25f32.to_le_bytes());
+
+        assert_eq!(downmix_stereo_f32(&pcm), vec![0.0, 0.375]);
+    }
+
+    #[test]
+    fn downmix_drops_partial_samples_and_dangling_channels() {
+        let mut pcm = Vec::new();
+        pcm.extend_from_slice(&0.5f32.to_le_bytes());
+        pcm.extend_from_slice(&0.5f32.to_le_bytes());
+        // A single stray channel: not a stereo frame, so it cannot be mixed.
+        pcm.extend_from_slice(&1.0f32.to_le_bytes());
+        // A partial sample (3 of 4 bytes).
+        pcm.extend_from_slice(&[0xAA, 0xBB, 0xCC]);
+
+        assert_eq!(
+            downmix_stereo_f32(&pcm),
+            vec![0.5],
+            "an odd trailing channel must not shift or corrupt the output"
+        );
+        assert!(downmix_stereo_f32(&[]).is_empty());
+        assert!(downmix_stereo_f32(&[0x00, 0x01, 0x02]).is_empty());
     }
 
     #[test]

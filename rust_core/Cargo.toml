@@ -216,7 +216,7 @@ version = "0.16"
 features = ["metal", "coreml"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-screencapturekit = "8"
+screencapturekit = "12"
 
 # ONNX Runtime prebuilt binaries tidak tersedia untuk macOS Intel (x86_64).
 # ort hanya di-build di platform yang didukung; macOS Intel memakai fallback energy VAD.
