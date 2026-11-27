@@ -88,10 +88,8 @@ pub(crate) fn downmix_stereo_f32(pcm: &[u8]) -> Vec<f32> {
         .iter()
         .map(|sample| f32::from_le_bytes(*sample))
         .collect();
-    interleaved
-        .chunks_exact(2)
-        .map(|pair| (pair[0] + pair[1]) * 0.5)
-        .collect()
+    let (pairs, _odd_channel) = interleaved.as_chunks::<2>();
+    pairs.iter().map(|pair| (pair[0] + pair[1]) * 0.5).collect()
 }
 
 /// Whether macOS should try ScreenCaptureKit's zero-setup system-audio
