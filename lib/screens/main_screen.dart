@@ -832,6 +832,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       modelId: modelId,
       modelsDir: defaultModelsCacheDir(),
       displayName: modelDisplayLabel(modelId),
+      // Already confirmed in the dialog just above.
+      startImmediately: true,
     );
   }
 
