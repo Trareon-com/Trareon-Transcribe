@@ -31,6 +31,7 @@ import 'privacy_report_screen.dart';
 import 'setup_wizard_screen.dart';
 import 'usage_dashboard_screen.dart';
 import '../theme/app_icons.dart';
+import '../l10n/l10n.dart';
 
 /// Below this width the category rail becomes a horizontal chip strip.
 /// Two panes still fit at the app's 800 px minimum window (232 px rail +
@@ -384,7 +385,7 @@ class _CategoryContent extends ConsumerWidget {
     AppColorSet colors,
   ) {
     return switch (category) {
-      SettingsCategory.tampilan => _tampilan(settings, notifier),
+      SettingsCategory.tampilan => _tampilan(context, settings, notifier),
       SettingsCategory.modelMode => _modelMode(
         context,
         ref,
@@ -408,7 +409,11 @@ class _CategoryContent extends ConsumerWidget {
     };
   }
 
-  List<Widget> _tampilan(AppSettings settings, SettingsNotifier notifier) => [
+  List<Widget> _tampilan(
+    BuildContext context,
+    AppSettings settings,
+    SettingsNotifier notifier,
+  ) => [
     SettingsSection(
       title: 'Tampilan',
       children: [
@@ -426,6 +431,21 @@ class _CategoryContent extends ConsumerWidget {
             items: AppThemeMode.values,
             labelBuilder: _themeLabel,
             onChanged: notifier.setTheme,
+          ),
+        ),
+        SettingsTile(
+          icon: AppIcons.language,
+          label: context.l10n.languageLabel,
+          subtitle: context.l10n.languageSubtitle,
+          trailing: CompactDropdown<UiLanguage>(
+            value: settings.uiLanguage,
+            items: UiLanguage.values,
+            labelBuilder: (language) => switch (language) {
+              UiLanguage.system => context.l10n.languageSystem,
+              UiLanguage.indonesian => context.l10n.languageIndonesian,
+              UiLanguage.english => context.l10n.languageEnglish,
+            },
+            onChanged: notifier.setUiLanguage,
           ),
         ),
       ],

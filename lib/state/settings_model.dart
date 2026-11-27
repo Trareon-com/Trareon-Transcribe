@@ -80,6 +80,7 @@ enum _SettingField {
   autoAudioTuning,
   deferDownloads,
   simpleMode,
+  uiLanguage,
   neuralDiarization,
   defaultModelUpgradeDismissed,
   consentBannerDismissed,
@@ -114,6 +115,7 @@ enum _SettingField {
     autoAudioTuning => s.autoAudioTuning,
     deferDownloads => s.deferDownloads,
     simpleMode => s.simpleMode,
+    uiLanguage => s.uiLanguage,
     neuralDiarization => s.neuralDiarization,
     defaultModelUpgradeDismissed => s.defaultModelUpgradeDismissed,
     consentBannerDismissed => s.consentBannerDismissed,
@@ -244,6 +246,9 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         simpleMode: untouched(_SettingField.simpleMode)
             ? prefs.getBool('simpleMode') ?? cur.simpleMode
             : cur.simpleMode,
+        uiLanguage: untouched(_SettingField.uiLanguage)
+            ? UiLanguage.fromPrefsValue(prefs.getString('uiLanguage'))
+            : cur.uiLanguage,
       );
       final settled = state;
       if (settled.progressiveEnabled && settled.rtfScore == 0.0) {
@@ -361,6 +366,11 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         _SettingField.simpleMode,
         cur.simpleMode,
         loaded.simpleMode,
+      ),
+      uiLanguage: pick(
+        _SettingField.uiLanguage,
+        cur.uiLanguage,
+        loaded.uiLanguage,
       ),
       neuralDiarization: pick(
         _SettingField.neuralDiarization,
@@ -664,6 +674,18 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await _apply(state.copyWith(simpleMode: enabled), label: 'Mode Sederhana');
     if (!state.simpleMode == enabled) return;
     _persistBool('simpleMode', enabled);
+  }
+
+  /// Switches the interface language (issue #47). Dart-only, like
+  /// [setSimpleMode]: Rust owns the *transcription* language ([setLanguage]).
+  Future<void> setUiLanguage(UiLanguage language) async {
+    await _apply(
+      state.copyWith(uiLanguage: language),
+      label: 'Bahasa antarmuka',
+    );
+    if (state.uiLanguage != language) return;
+    DartPrefs.instance.setString('uiLanguage', language.prefsValue);
+    unawaited(DartPrefs.instance.save());
   }
 
   Future<void> setDeferDownloads(bool enabled) async {

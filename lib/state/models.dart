@@ -4,6 +4,8 @@
 library;
 
 import 'dart:io';
+// `Locale` only: this file stays free of the widget layer.
+import 'dart:ui' show Locale;
 
 import '../src/rust/glossary.dart' show GlossaryConfig, ReplacementRule;
 import '../src/rust/pdp.dart' show PdpSettings;
@@ -655,6 +657,48 @@ class SessionNotice {
 
 enum AppThemeMode { light, dark, system }
 
+/// Language of the *interface*: buttons, menus, labels (issue #47).
+///
+/// Distinct from [AppSettings.language], which is the language Whisper is
+/// told to transcribe. A notulis may want an Indonesian interface while
+/// transcribing an English call.
+///
+/// Dart-only, persisted through `DartPrefs`: the engine never renders a
+/// label, so it has no business knowing the UI locale, and keeping it out
+/// of Rust needs no FRB regeneration.
+enum UiLanguage {
+  /// Follow the operating system, resolved Indonesian-first by
+  /// `resolveLocale` in `main.dart`.
+  system,
+  indonesian,
+  english;
+
+  /// The locale to force on `MaterialApp`, or null to let the system
+  /// preference and `localeListResolutionCallback` decide.
+  Locale? get locale => switch (this) {
+    UiLanguage.system => null,
+    UiLanguage.indonesian => const Locale('id'),
+    UiLanguage.english => const Locale('en'),
+  };
+
+  /// Stable key written to `DartPrefs`. Not `index`: persisting the
+  /// ordinal would make the saved choice depend on declaration order.
+  String get prefsValue => switch (this) {
+    UiLanguage.system => 'system',
+    UiLanguage.indonesian => 'id',
+    UiLanguage.english => 'en',
+  };
+
+  /// Reads back a [prefsValue]. Anything unrecognised resolves to
+  /// [UiLanguage.system]: a presentation preference must never stop the
+  /// app from starting.
+  static UiLanguage fromPrefsValue(String? raw) => switch (raw) {
+    'id' => UiLanguage.indonesian,
+    'en' => UiLanguage.english,
+    _ => UiLanguage.system,
+  };
+}
+
 /// HPT (Hybrid Progressive Transcription) strategy chosen by the user.
 enum HptMode {
   /// Benchmark q5 RTF; direct if fast, dual-pass if slow (default).
@@ -776,6 +820,10 @@ class AppSettings {
   /// tampilan, bukan nilai — semua setelan tetap tersimpan dan berlaku.
   final bool simpleMode;
 
+  /// Interface language (issue #47). Not [language], which is the
+  /// transcription language; see [UiLanguage].
+  final UiLanguage uiLanguage;
+
   /// F16 bagian B: ambang sunyi berkepanjangan (menit) sebelum sesi yang
   /// sedang merekam ditawari untuk dihentikan otomatis. `null` = nonaktif.
   /// Mirrors `AppSettings::silence_auto_stop_minutes` in Rust.
@@ -817,6 +865,7 @@ class AppSettings {
     this.autoAudioTuning = true,
     this.deferDownloads = true,
     this.simpleMode = true,
+    this.uiLanguage = UiLanguage.system,
   });
 
   factory AppSettings.defaults() => const AppSettings(
@@ -847,6 +896,7 @@ class AppSettings {
     bool? autoAudioTuning,
     bool? deferDownloads,
     bool? simpleMode,
+    UiLanguage? uiLanguage,
     // `audioToDisk` used to be missing here, so every copyWith silently
     // reset the user's choice to the default.
     bool? audioToDisk,
@@ -900,6 +950,7 @@ class AppSettings {
       autoAudioTuning: autoAudioTuning ?? this.autoAudioTuning,
       deferDownloads: deferDownloads ?? this.deferDownloads,
       simpleMode: simpleMode ?? this.simpleMode,
+      uiLanguage: uiLanguage ?? this.uiLanguage,
       agcEnabled: agcEnabled ?? this.agcEnabled,
       neuralDiarization: neuralDiarization ?? this.neuralDiarization,
       defaultModelUpgradeDismissed:
