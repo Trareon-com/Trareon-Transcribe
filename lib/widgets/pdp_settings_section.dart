@@ -620,7 +620,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
   }
 
   Future<void> _exportAuditLog() async {
-    final directory = await FilePicker.platform.getDirectoryPath(
+    final directory = await FilePicker.getDirectoryPath(
       dialogTitle: 'Simpan log audit',
     );
     if (directory == null || !mounted) return;

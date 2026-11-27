@@ -5,6 +5,7 @@
 // tidak pernah dipanggil (lihat docs/SPRINT-REPORTS.md §Sprint 7 Item 4).
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
@@ -170,7 +171,28 @@ Future<void> _open(WidgetTester tester, RustBridge bridge) async {
   await tester.pumpAndSettle();
 }
 
+/// file_picker 11's folder dialog is the plugin's method channel, and under
+/// `flutter test` there is no plugin registrant on the other end — the call
+/// simply never answers, which used to surface as a `pumpAndSettle` timeout
+/// rather than as the "user cancelled" case these tests describe. Answering
+/// with `null` states that case explicitly.
+const _filePickerChannel = MethodChannel(
+  'miguelruivo.flutter.plugins.filepicker',
+  StandardMethodCodec(),
+);
+
 void main() {
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_filePickerChannel, (call) async => null);
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_filePickerChannel, null);
+  });
+
   testWidgets(
     'membuka formulir memanggil srikandiMetadataDefault dan srikandiValidate sungguhan',
     (tester) async {

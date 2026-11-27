@@ -32,7 +32,7 @@ import '../theme/app_typography.dart';
 Future<rust_calendar.CalendarEvent?> importCalendarInvite(
   BuildContext context,
 ) async {
-  final picked = await FilePicker.platform.pickFiles(
+  final picked = await FilePicker.pickFiles(
     dialogTitle: 'Impor undangan rapat (.ics)',
     type: FileType.custom,
     allowedExtensions: const ['ics'],

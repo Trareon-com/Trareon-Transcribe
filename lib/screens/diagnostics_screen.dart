@@ -57,7 +57,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   /// exactly what the user saw on screen.
   Future<void> _exportDiagnostics() async {
     final result = _result;
-    final destination = await FilePicker.platform.saveFile(
+    final destination = await FilePicker.saveFile(
       dialogTitle: 'Simpan log diagnostik',
       fileName:
           'trareon-diagnostik-'

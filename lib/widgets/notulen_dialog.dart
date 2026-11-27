@@ -519,7 +519,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   }
 
   Future<void> _pickKonteksDokumen() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       dialogTitle: 'Pilih dokumen rujukan',
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
@@ -561,7 +561,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       final poinPenting = widget.bookmarks.isEmpty
           ? const <String>[]
           : await bridge.formatBookmarks(widget.bookmarks);
-      final outputDir = await FilePicker.platform.getDirectoryPath(
+      final outputDir = await FilePicker.getDirectoryPath(
         dialogTitle: 'Pilih folder untuk notulen',
       );
       if (outputDir == null) {
