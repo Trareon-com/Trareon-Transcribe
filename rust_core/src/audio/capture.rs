@@ -18,7 +18,9 @@ use std::time::Instant;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Sample, SampleFormat, StreamConfig};
 
-use crate::audio::stream_error::{fatal_stream_message, ErrorAction, StreamErrorReporter};
+use crate::audio::stream_error::{
+    fatal_stream_message, ErrorAction, StreamErrorReporter, FATAL_WINDOW, SUMMARY_INTERVAL,
+};
 use crate::decode::resample_to_target;
 use crate::error::TranscribeError;
 
@@ -234,9 +236,31 @@ struct StreamWatchdog {
 
 impl StreamWatchdog {
     /// Consumes `self` into the `FnMut` cpal wants for its error callback.
-    fn into_error_callback(self) -> impl FnMut(cpal::StreamError) + Send + 'static {
+    fn into_error_callback(self) -> impl FnMut(cpal::Error) + Send + 'static {
         let mut reporter = StreamErrorReporter::default();
-        move |e: cpal::StreamError| {
+        // cpal 0.18 also reports glitches the stream survives (xruns, which
+        // CoreAudio/WASAPI used to drop silently, and a default-device
+        // reroute). Those are rate-limited like any other error but never
+        // count toward the fatal threshold: a CPU spike that causes 100
+        // xruns in 5 s must not end a recording that is still capturing.
+        let mut glitches = StreamErrorReporter::with_policy(
+            Instant::now(),
+            SUMMARY_INTERVAL,
+            u32::MAX,
+            FATAL_WINDOW,
+        );
+        move |e: cpal::Error| {
+            if is_survivable(e.kind()) {
+                if let ErrorAction::Log { suppressed } = glitches.observe(Instant::now()) {
+                    tracing::warn!(
+                        source = %self.source,
+                        error = %e,
+                        suppressed,
+                        "audio input stream glitch"
+                    );
+                }
+                return;
+            }
             match reporter.observe(Instant::now()) {
                 ErrorAction::Log { suppressed: 0 } => {
                     tracing::error!(source = %self.source, error = %e, "audio input stream error");
@@ -268,6 +292,32 @@ impl StreamWatchdog {
     }
 }
 
+/// Stream errors after which the stream is still running and capturing.
+fn is_survivable(kind: cpal::ErrorKind) -> bool {
+    matches!(
+        kind,
+        cpal::ErrorKind::Xrun | cpal::ErrorKind::DeviceChanged | cpal::ErrorKind::RealtimeDenied
+    )
+}
+
+/// The name a device is listed, stored and looked up by.
+///
+/// cpal 0.17 removed `Device::name()`. On CoreAudio and WASAPI its
+/// replacement, `description().name()`, reads the same OS property, so names
+/// saved in settings still match. On ALSA it now returns the card's
+/// human-readable description, while the old name was the PCM id
+/// (`default`, `hw:CARD=…`), which cpal keeps in `driver()`. Using the PCM
+/// id there keeps a saved device selection working across the upgrade.
+#[flutter_rust_bridge::frb(ignore)]
+pub fn device_name(device: &cpal::Device) -> Option<String> {
+    let desc = device.description().ok()?;
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
+    if let Some(pcm_id) = desc.driver() {
+        return Some(pcm_id.to_string());
+    }
+    Some(desc.name().to_string())
+}
+
 impl Drop for AudioCapture {
     fn drop(&mut self) {
         self.stop();
@@ -290,14 +340,14 @@ fn resolve_named_device(host: &cpal::Host, name: &str) -> Result<cpal::Device, T
     if let Some(device) = host
         .input_devices()
         .map_err(|e| TranscribeError::AudioDevice(e.to_string()))?
-        .find(|d| d.name().map(|n| n == name).unwrap_or(false))
+        .find(|d| device_name(d).as_deref() == Some(name))
     {
         return Ok(device);
     }
     if let Some(device) = host
         .output_devices()
         .map_err(|e| TranscribeError::AudioDevice(e.to_string()))?
-        .find(|d| d.name().map(|n| n == name).unwrap_or(false))
+        .find(|d| device_name(d).as_deref() == Some(name))
     {
         return Ok(device);
     }
@@ -323,7 +373,7 @@ fn build_input_stream(
     let config: StreamConfig = supported_config.config();
     let sample_format = supported_config.sample_format();
     let channels = config.channels as usize;
-    let source_rate = config.sample_rate.0;
+    let source_rate = config.sample_rate;
 
     let err_fn = watchdog.into_error_callback();
 
@@ -434,8 +484,8 @@ fn build_generic_input_stream<T>(
     channels: usize,
     source_rate: u32,
     samples_tx: mpsc::Sender<Vec<f32>>,
-    err_fn: impl FnMut(cpal::StreamError) + Send + 'static,
-) -> Result<cpal::Stream, cpal::BuildStreamError>
+    err_fn: impl FnMut(cpal::Error) + Send + 'static,
+) -> Result<cpal::Stream, cpal::Error>
 where
     T: Sample + cpal::SizedSample + Send + 'static,
     f32: cpal::FromSample<T>,
@@ -477,7 +527,7 @@ where
     });
 
     device.build_input_stream(
-        config,
+        *config,
         move |data: &[T], _| {
             let mono = downmix_generic(data, channels);
             let _ = raw_tx.send(mono);
