@@ -96,7 +96,7 @@ class _AlreadyRunningApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kAppLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       localeListResolutionCallback: resolveLocale,
       home: Builder(
@@ -152,7 +152,7 @@ class TranscribeApp extends ConsumerWidget {
     return MaterialApp(
       onGenerateTitle: (context) => context.l10n.appTitle,
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kAppLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       // Null for `UiLanguage.system`, which hands the decision back to
       // `localeListResolutionCallback`; an explicit choice in Settings wins.

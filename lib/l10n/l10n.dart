@@ -12,6 +12,20 @@ import 'generated/app_localizations.dart';
 
 export 'generated/app_localizations.dart';
 
+/// The delegates every `MaterialApp` in this app needs.
+///
+/// Not `AppLocalizations.localizationsDelegates`: that generated list carries
+/// `flutter_localizations`' `GlobalMaterialLocalizations`, while the widgets
+/// here come from `package:material_ui`, a fork whose `MaterialLocalizations`
+/// is a different class. With the generated list, English only worked
+/// because `material_ui`'s `MaterialApp` appends its English
+/// `DefaultMaterialLocalizations`; in Indonesian every dropdown, AppBar and
+/// dialog failed with "No MaterialLocalizations found".
+const List<LocalizationsDelegate<dynamic>> kAppLocalizationsDelegates = [
+  AppLocalizations.delegate,
+  ...GlobalMaterialLocalizations.delegates,
+];
+
 /// Indonesian is the template locale and the product's first language: it
 /// is what a widget gets when no `Localizations` ancestor is present (a
 /// widget test pumping a bare `MaterialApp`, or a dialog built before the
