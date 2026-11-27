@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_tokens.dart';
@@ -293,7 +294,9 @@ class AppLinearProgress extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       label: semanticLabel,
-      value: value == null ? null : '${(value! * 100).round()} persen',
+      value: value == null
+          ? null
+          : context.l10n.appFeedbackPercent((value! * 100).round()),
       child: ClipRRect(
         borderRadius: Radii.pillAll,
         child: LinearProgressIndicator(
@@ -329,7 +332,9 @@ class AppProgressRing extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       label: semanticLabel,
-      value: value == null ? null : '${(value! * 100).round()} persen',
+      value: value == null
+          ? null
+          : context.l10n.appFeedbackPercent((value! * 100).round()),
       child: SizedBox(
         width: size,
         height: size,
@@ -373,7 +378,9 @@ class LevelMeter extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       label: semanticLabel,
-      value: '${(level.clamp(0.0, 1.0) * 100).round()} persen',
+      value: context.l10n.appFeedbackPercent(
+        (level.clamp(0.0, 1.0) * 100).round(),
+      ),
       child: ClipRRect(
         borderRadius: Radii.pillAll,
         child: SizedBox(

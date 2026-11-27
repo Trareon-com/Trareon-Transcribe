@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/batch_upload_model.dart';
 import '../state/enhance_queue_model.dart' show kAccurateModelId;
 import '../state/models.dart';
@@ -135,8 +136,11 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
             Expanded(
               child: Text(
                 queue.isEmpty
-                    ? 'Belum ada berkas di antrean.'
-                    : '${queue.length} berkas · $pending menunggu',
+                    ? context.l10n.fileUploadZoneQueueEmpty
+                    : context.l10n.fileUploadZoneQueueSummary(
+                        queue.length,
+                        pending,
+                      ),
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: FontSizes.caption,
@@ -150,13 +154,13 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
                     ? notifier.removeDone
                     : null,
                 icon: const Icon(AppIcons.clearAll),
-                label: const Text('Hapus selesai'),
+                label: Text(context.l10n.fileUploadZoneRemoveDone),
               ),
               Spacing.hXs,
               TextButton.icon(
                 onPressed: notifier.clear,
                 icon: const Icon(AppIcons.deleteSweep),
-                label: const Text('Kosongkan'),
+                label: Text(context.l10n.fileUploadZoneClear),
               ),
               Spacing.hXs,
             ],
@@ -169,7 +173,11 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(AppIcons.play, size: IconSizes.md),
-              label: Text(busy ? 'Memproses…' : 'Mulai Transkripsi'),
+              label: Text(
+                busy
+                    ? context.l10n.fileUploadZoneProcessing
+                    : context.l10n.fileUploadZoneStart,
+              ),
             ),
           ],
         ),
@@ -221,9 +229,13 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
         .map((r) => '${r.filename} (${r.message})')
         .join(', ');
     final more = rejected.length > 3
-        ? ' dan ${rejected.length - 3} lainnya'
+        ? context.l10n.fileUploadZoneRejectedMore(rejected.length - 3)
         : '';
-    AppToast.show(context, 'Dilewati: $detail$more.', type: ToastType.warning);
+    AppToast.show(
+      context,
+      context.l10n.fileUploadZoneRejected(detail, more),
+      type: ToastType.warning,
+    );
   }
 
   Future<void> _process() async {
@@ -293,8 +305,7 @@ class _DropZone extends StatelessWidget {
       onDragDone: (details) =>
           onFilesDropped(details.files.map((f) => f.path).toList()),
       child: Semantics(
-        label:
-            'Area impor berkas, tarik dan lepas berkas audio atau video ke sini',
+        label: context.l10n.fileUploadZoneDropAreaSemantics,
         // Intrinsic height, not a fixed one: the format list wraps to two
         // lines in a narrow window, and a fixed box clipped it.
         child: AnimatedContainer(
@@ -325,8 +336,8 @@ class _DropZone extends StatelessWidget {
                 Spacing.gapSm,
                 Text(
                   dragging
-                      ? 'Lepaskan untuk menambahkan ke antrean'
-                      : 'Tarik & lepas berkas audio/video ke sini',
+                      ? context.l10n.fileUploadZoneDropRelease
+                      : context.l10n.fileUploadZoneDropHint,
                   style: TextStyle(
                     color: dragging ? colors.primary : colors.text,
                     fontWeight: dragging ? FontWeight.w600 : FontWeight.w500,
@@ -334,7 +345,9 @@ class _DropZone extends StatelessWidget {
                 ),
                 Spacing.gapSm,
                 Text(
-                  'Format: ${kImportExtensions.map((e) => e.toUpperCase()).join(' · ')}',
+                  context.l10n.fileUploadZoneFormats(
+                    kImportExtensions.map((e) => e.toUpperCase()).join(' · '),
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colors.textTertiary,
@@ -342,7 +355,9 @@ class _DropZone extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Maksimum ${formatBytes(kMaxImportBytes)} per berkas',
+                  context.l10n.fileUploadZoneMaxSize(
+                    formatBytes(kMaxImportBytes),
+                  ),
                   style: TextStyle(
                     color: colors.textTertiary,
                     fontSize: FontSizes.caption,
@@ -350,11 +365,11 @@ class _DropZone extends StatelessWidget {
                 ),
                 Spacing.gapSm,
                 Semantics(
-                  label: 'Pilih file untuk diupload',
+                  label: context.l10n.fileUploadZonePickSemantics,
                   button: true,
                   child: OutlinedButton(
                     onPressed: onPick,
-                    child: const Text('Pilih Berkas'),
+                    child: Text(context.l10n.fileUploadZonePick),
                   ),
                 ),
               ],
@@ -389,13 +404,14 @@ class _ImportOptions extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          'Bahasa',
+          l10n.fileUploadZoneLanguage,
           style: TextStyle(
             color: colors.textSecondary,
             fontSize: FontSizes.caption,
@@ -404,15 +420,21 @@ class _ImportOptions extends StatelessWidget {
         DropdownButton<String?>(
           value: language,
           onChanged: enabled ? onLanguageChanged : null,
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Deteksi otomatis')),
-            DropdownMenuItem(value: 'id', child: Text('Indonesia')),
-            DropdownMenuItem(value: 'en', child: Text('English')),
+          items: [
+            DropdownMenuItem(
+              value: null,
+              child: Text(l10n.fileUploadZoneAutoDetect),
+            ),
+            DropdownMenuItem(
+              value: 'id',
+              child: Text(l10n.fileUploadZoneIndonesian),
+            ),
+            DropdownMenuItem(value: 'en', child: Text(l10n.languageEnglish)),
           ],
         ),
         Spacing.hSm,
         Text(
-          'Model',
+          l10n.fileUploadZoneModel,
           style: TextStyle(
             color: colors.textSecondary,
             fontSize: FontSizes.caption,
@@ -430,7 +452,7 @@ class _ImportOptions extends StatelessWidget {
         ),
         Spacing.hSm,
         Text(
-          'Jumlah pembicara',
+          l10n.fileUploadZoneSpeakerCount,
           style: TextStyle(
             color: colors.textSecondary,
             fontSize: FontSizes.caption,
@@ -441,16 +463,16 @@ class _ImportOptions extends StatelessWidget {
           onChanged: enabled
               ? (v) => v == null ? null : onSpeakerHintChanged(v)
               : null,
-          items: const [
-            DropdownMenuItem(value: 0, child: Text('Deteksi otomatis')),
-            DropdownMenuItem(value: 1, child: Text('1 orang')),
-            DropdownMenuItem(value: 2, child: Text('2 orang')),
-            DropdownMenuItem(value: 3, child: Text('3 orang')),
-            DropdownMenuItem(value: 4, child: Text('4 orang')),
-            DropdownMenuItem(value: 5, child: Text('5 orang')),
-            DropdownMenuItem(value: 6, child: Text('6 orang')),
-            DropdownMenuItem(value: 8, child: Text('8 orang')),
-            DropdownMenuItem(value: 10, child: Text('10 orang')),
+          items: [
+            DropdownMenuItem(
+              value: 0,
+              child: Text(l10n.fileUploadZoneAutoDetect),
+            ),
+            for (final count in const [1, 2, 3, 4, 5, 6, 8, 10])
+              DropdownMenuItem(
+                value: count,
+                child: Text(l10n.fileUploadZoneSpeakerCountOption(count)),
+              ),
           ],
         ),
       ],
@@ -503,7 +525,7 @@ class _QueueTileState extends State<_QueueTile> {
       if (mounted) {
         AppToast.show(
           context,
-          'Tidak bisa memutar berkas ini.',
+          context.l10n.fileUploadZonePreviewFailed,
           type: ToastType.error,
         );
       }
@@ -522,9 +544,16 @@ class _QueueTileState extends State<_QueueTile> {
         entry.status == BatchFileStatus.decoding;
 
     return Semantics(
-      label:
-          '${entry.filename}: ${_statusLabel(entry.status)}'
-          '${entry.error != null ? ', error: ${entry.error}' : ''}',
+      label: entry.error != null
+          ? context.l10n.fileUploadZoneEntrySemanticsError(
+              entry.filename,
+              _statusLabel(entry.status),
+              entry.error!,
+            )
+          : context.l10n.fileUploadZoneEntrySemantics(
+              entry.filename,
+              _statusLabel(entry.status),
+            ),
       // A hand-built row rather than a ListTile: the status line plus a
       // progress bar does not fit a dense ListTile's subtitle box, and an
       // overflow warning in the import queue is exactly the bug this
@@ -593,7 +622,9 @@ class _QueueTileState extends State<_QueueTile> {
                   color: colors.primary,
                 ),
                 onPressed: _togglePreview,
-                tooltip: _playing ? 'Hentikan pratinjau' : 'Pratinjau audio',
+                tooltip: _playing
+                    ? context.l10n.fileUploadZoneStopPreview
+                    : context.l10n.fileUploadZonePreview,
                 visualDensity: VisualDensity.compact,
               ),
             if (entry.status == BatchFileStatus.error ||
@@ -601,14 +632,14 @@ class _QueueTileState extends State<_QueueTile> {
               IconButton(
                 icon: const Icon(AppIcons.refresh),
                 onPressed: widget.onRetry,
-                tooltip: 'Coba lagi',
+                tooltip: context.l10n.fileUploadZoneRetry,
                 visualDensity: VisualDensity.compact,
               ),
             if (!entry.isFinished)
               IconButton(
                 icon: const Icon(AppIcons.close),
                 onPressed: widget.onCancel,
-                tooltip: 'Batalkan berkas ini',
+                tooltip: context.l10n.fileUploadZoneCancelFile,
                 visualDensity: VisualDensity.compact,
               ),
           ],
@@ -618,12 +649,13 @@ class _QueueTileState extends State<_QueueTile> {
   }
 
   String _statusLabel(BatchFileStatus status) => switch (status) {
-    BatchFileStatus.queued => 'Antre',
-    BatchFileStatus.decoding => 'Membaca berkas',
-    BatchFileStatus.transcribing => 'Transkripsi',
-    BatchFileStatus.done => 'Selesai',
-    BatchFileStatus.error => 'Gagal',
-    BatchFileStatus.cancelled => 'Dibatalkan',
+    BatchFileStatus.queued => context.l10n.fileUploadZoneStatusQueued,
+    BatchFileStatus.decoding => context.l10n.fileUploadZoneStatusDecoding,
+    BatchFileStatus.transcribing =>
+      context.l10n.fileUploadZoneStatusTranscribing,
+    BatchFileStatus.done => context.l10n.fileUploadZoneStatusDone,
+    BatchFileStatus.error => context.l10n.fileUploadZoneStatusError,
+    BatchFileStatus.cancelled => context.l10n.fileUploadZoneStatusCancelled,
   };
 
   Widget _statusIcon(

@@ -13,6 +13,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../services/library_index.dart' show normaliseTags;
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
@@ -80,7 +81,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
         .toList();
 
     return AlertDialog(
-      title: const Text('Tag sesi'),
+      title: Text(context.l10n.tagEditorDialogTitle),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -88,8 +89,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tag dipakai untuk memfilter daftar sesi di bilah kiri. '
-              'Tidak ada berkas yang dipindahkan.',
+              context.l10n.tagEditorDialogDescription,
               style: TextStyle(
                 fontSize: FontSizes.caption,
                 color: colors.textSecondary,
@@ -102,12 +102,12 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
               autofocus: true,
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
-                labelText: 'Tambah tag',
+                labelText: context.l10n.tagEditorDialogAddLabel,
                 border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: IconButton(
                   icon: const Icon(AppIcons.add, size: IconSizes.sm),
-                  tooltip: 'Tambah',
+                  tooltip: context.l10n.tagEditorDialogAdd,
                   onPressed: () => _add(_controller.text),
                 ),
               ),
@@ -116,7 +116,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
             Spacing.gapMd,
             if (_tags.isEmpty)
               Text(
-                'Sesi ini belum punya tag.',
+                context.l10n.tagEditorDialogEmpty,
                 style: TextStyle(
                   fontSize: FontSizes.caption,
                   color: colors.textTertiary,
@@ -144,7 +144,7 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
             if (suggestions.isNotEmpty) ...[
               Spacing.gapMd,
               Text(
-                'Tag lain di perpustakaan',
+                context.l10n.tagEditorDialogSuggestions,
                 style: TextStyle(
                   fontSize: FontSizes.micro,
                   color: colors.textTertiary,
@@ -173,11 +173,11 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
+          child: Text(context.l10n.actionCancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_tags),
-          child: const Text('Simpan'),
+          child: Text(context.l10n.actionSave),
         ),
       ],
     );

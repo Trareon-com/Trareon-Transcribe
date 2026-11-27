@@ -3545,5 +3545,786 @@
   "transcriptViewTentativePrefix": "sementara · ",
   "@transcriptViewTentativePrefix": {
     "description": "Prefix before the not-yet-confirmed live words; note the trailing space"
+  },
+  "transcriptPlayerScreenBookmarkSaveFailed": "Tanda poin gagal disimpan: {error}",
+  "@transcriptPlayerScreenBookmarkSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenAudioUnavailable": "File audio sumber tidak tersedia untuk diputar.",
+  "transcriptPlayerScreenSpeakerChangesApplied": "{count} perubahan pembicara diterapkan.",
+  "@transcriptPlayerScreenSpeakerChangesApplied": {
+    "description": "Toast after applying the speaker manager's renames and merges",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptPlayerScreenSaveFailed": "Perubahan transkrip gagal disimpan ke {path}: {error}",
+  "@transcriptPlayerScreenSaveFailed": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenSaveElsewhereDialogTitle": "Simpan transkrip ke folder lain",
+  "@transcriptPlayerScreenSaveElsewhereDialogTitle": {
+    "description": "Title of the OS folder picker"
+  },
+  "transcriptPlayerScreenSaved": "Transkrip tersimpan.",
+  "transcriptPlayerScreenBackupFailed": "Transkrip lama gagal dicadangkan ({error}), jadi transkrip ulang dibatalkan. Transkrip Anda tidak diubah.",
+  "@transcriptPlayerScreenBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenRetranscribed": "Transkrip diperbarui: {count} segmen ({model}). Versi sebelumnya dicadangkan.",
+  "@transcriptPlayerScreenRetranscribed": {
+    "description": "Toast after re-transcribing; model is the model's display name",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenRestore": "Pulihkan",
+  "@transcriptPlayerScreenRestore": {
+    "description": "Toast action that restores the pre-re-transcription backup"
+  },
+  "transcriptPlayerScreenBackupUnreadable": "Cadangan transkrip tidak bisa dibaca.",
+  "transcriptPlayerScreenBackupRestored": "Transkrip sebelum transkrip ulang dipulihkan ({count} segmen).",
+  "@transcriptPlayerScreenBackupRestored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptPlayerScreenGlossaryReplaceSaved": "Disimpan. \"{before}\" akan ditulis \"{after}\" selanjutnya.",
+  "@transcriptPlayerScreenGlossaryReplaceSaved": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenGlossaryAdded": "\"{term}\" ditambahkan ke kamus istilah.",
+  "@transcriptPlayerScreenGlossaryAdded": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenCloseSession": "Tutup sesi",
+  "transcriptPlayerScreenBack": "Kembali",
+  "transcriptPlayerScreenSaveAsTemplate": "Simpan sebagai template rapat",
+  "transcriptPlayerScreenShortcutsTooltip": "Pintasan: Spasi putar/jeda · ←/→ 5 detik · J/K/L 10 detik",
+  "transcriptPlayerScreenSaveElsewhere": "Simpan ke folder lain",
+  "transcriptPlayerScreenSaving": "Menyimpan…",
+  "transcriptPlayerScreenRetry": "Coba lagi",
+  "transcriptPlayerScreenRewind": "Mundur 10 detik (J)",
+  "transcriptPlayerScreenPause": "Jeda (Spasi)",
+  "transcriptPlayerScreenPlay": "Putar (Spasi)",
+  "transcriptPlayerScreenForward": "Maju 10 detik (L)",
+  "transcriptPlayerScreenPlaybackSpeed": "Kecepatan pemutaran",
+  "transcriptPlayerScreenSpeedHeader": "Kecepatan",
+  "@transcriptPlayerScreenSpeedHeader": {
+    "description": "Header of the playback-speed menu"
+  },
+  "transcriptPlayerScreenBookmarkHere": "Tandai di sini",
+  "@transcriptPlayerScreenBookmarkHere": {
+    "description": "Button that bookmarks the current playback position"
+  },
+  "transcriptPlayerScreenMinutes": "Notulen Rapat",
+  "@transcriptPlayerScreenMinutes": {
+    "description": "Button that opens the meeting-minutes generator"
+  },
+  "transcriptPlayerScreenRestoreBackup": "Pulihkan cadangan",
+  "transcriptPlayerScreenRetranscribe": "Transkrip Ulang",
+  "transcriptPlayerScreenTags": "Tag",
+  "transcriptPlayerScreenTagsCount": "Tag ({count})",
+  "@transcriptPlayerScreenTagsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptPlayerScreenSpeakers": "Pembicara",
+  "transcriptPlayerScreenExport": "Ekspor",
+  "transcriptPlayerScreenTemplateSaved": "Template \"{title}\" disimpan.",
+  "@transcriptPlayerScreenTemplateSaved": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptPlayerScreenShortcutHelpTitle": "Pintasan pemutar",
+  "transcriptPlayerScreenShortcutHelpPlay": "Spasi atau K: putar atau jeda",
+  "transcriptPlayerScreenShortcutHelpSeek5": "Panah kiri atau kanan: mundur atau maju 5 detik",
+  "transcriptPlayerScreenShortcutHelpSeek10": "J atau L: mundur atau maju 10 detik",
+  "transcriptPlayerScreenShortcutHelpClickRow": "Klik baris transkrip: lompat ke waktu itu",
+  "transcriptPlayerScreenShortcutHelpClickMark": "Klik tanda di garis waktu: lompat ke poin yang ditandai",
+  "transcriptPlayerScreenClose": "Tutup",
+  "fileUploadZoneQueueEmpty": "Belum ada berkas di antrean.",
+  "fileUploadZoneQueueSummary": "{count} berkas · {pending} menunggu",
+  "@fileUploadZoneQueueSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
+  "fileUploadZoneRemoveDone": "Hapus selesai",
+  "fileUploadZoneClear": "Kosongkan",
+  "@fileUploadZoneClear": {
+    "description": "Empties the whole import queue"
+  },
+  "fileUploadZoneProcessing": "Memproses…",
+  "fileUploadZoneStart": "Mulai Transkripsi",
+  "fileUploadZoneRejectedMore": " dan {count} lainnya",
+  "@fileUploadZoneRejectedMore": {
+    "description": "Appended to fileUploadZoneRejected when more than three files were skipped. Keep the leading space.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileUploadZoneRejected": "Dilewati: {detail}{more}.",
+  "@fileUploadZoneRejected": {
+    "description": "detail lists up to three 'file (reason)' pairs; more is fileUploadZoneRejectedMore or empty",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      },
+      "more": {
+        "type": "String"
+      }
+    }
+  },
+  "fileUploadZoneDropAreaSemantics": "Area impor berkas, tarik dan lepas berkas audio atau video ke sini",
+  "@fileUploadZoneDropAreaSemantics": {
+    "description": "Screen-reader label of the drop zone"
+  },
+  "fileUploadZoneDropRelease": "Lepaskan untuk menambahkan ke antrean",
+  "fileUploadZoneDropHint": "Tarik & lepas berkas audio/video ke sini",
+  "fileUploadZoneFormats": "Format: {formats}",
+  "@fileUploadZoneFormats": {
+    "placeholders": {
+      "formats": {
+        "type": "String"
+      }
+    }
+  },
+  "fileUploadZoneMaxSize": "Maksimum {size} per berkas",
+  "@fileUploadZoneMaxSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "fileUploadZonePickSemantics": "Pilih file untuk diupload",
+  "fileUploadZonePick": "Pilih Berkas",
+  "fileUploadZoneLanguage": "Bahasa",
+  "@fileUploadZoneLanguage": {
+    "description": "Label of the transcription-language picker for imported files"
+  },
+  "fileUploadZoneAutoDetect": "Deteksi otomatis",
+  "fileUploadZoneIndonesian": "Indonesia",
+  "@fileUploadZoneIndonesian": {
+    "description": "Transcription-language option"
+  },
+  "fileUploadZoneModel": "Model",
+  "fileUploadZoneSpeakerCount": "Jumlah pembicara",
+  "fileUploadZoneSpeakerCountOption": "{count} orang",
+  "@fileUploadZoneSpeakerCountOption": {
+    "description": "Option in the expected-speaker-count picker",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileUploadZonePreviewFailed": "Tidak bisa memutar berkas ini.",
+  "fileUploadZoneEntrySemantics": "{filename}: {status}",
+  "@fileUploadZoneEntrySemantics": {
+    "description": "Screen-reader label of a queued file",
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "fileUploadZoneEntrySemanticsError": "{filename}: {status}, error: {error}",
+  "@fileUploadZoneEntrySemanticsError": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileUploadZoneStopPreview": "Hentikan pratinjau",
+  "fileUploadZonePreview": "Pratinjau audio",
+  "fileUploadZoneRetry": "Coba lagi",
+  "fileUploadZoneCancelFile": "Batalkan berkas ini",
+  "fileUploadZoneStatusQueued": "Antre",
+  "fileUploadZoneStatusDecoding": "Membaca berkas",
+  "fileUploadZoneStatusTranscribing": "Transkripsi",
+  "fileUploadZoneStatusDone": "Selesai",
+  "fileUploadZoneStatusError": "Gagal",
+  "fileUploadZoneStatusCancelled": "Dibatalkan",
+  "libraryScreenDeleted": "\"{title}\" dihapus.",
+  "@libraryScreenDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenUndo": "Urungkan",
+  "libraryScreenRenameTitle": "Ganti Nama Sesi",
+  "libraryScreenRenameLabel": "Nama sesi",
+  "libraryScreenRenameFailed": "Gagal mengganti nama: {error}",
+  "@libraryScreenRenameFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenSaveArchiveDialogTitle": "Simpan arsip sesi",
+  "@libraryScreenSaveArchiveDialogTitle": {
+    "description": "Title of the OS save dialog"
+  },
+  "libraryScreenArchiveSaved": "Arsip sesi tersimpan: {path}",
+  "@libraryScreenArchiveSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenArchiveExportFailed": "Gagal mengekspor arsip sesi: {error}",
+  "@libraryScreenArchiveExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenPickArchiveDialogTitle": "Pilih arsip sesi (.zip)",
+  "@libraryScreenPickArchiveDialogTitle": {
+    "description": "Title of the OS open dialog"
+  },
+  "libraryScreenImportSkipped": "Impor arsip sesi dilewati.",
+  "libraryScreenImported": "Sesi \"{name}\" diimpor.",
+  "@libraryScreenImported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenConflictTitle": "Sesi sudah ada",
+  "libraryScreenConflictBody": "Sesi dengan nama \"{name}\" sudah ada di perpustakaan ini. Apa yang ingin dilakukan?",
+  "@libraryScreenConflictBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenImportDuplicate": "Impor sebagai duplikat",
+  "libraryScreenOverwrite": "Timpa",
+  "libraryScreenOpenFailed": "\"{title}\" tidak bisa dibuka.",
+  "@libraryScreenOpenFailed": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryScreenTitle": "Perpustakaan",
+  "libraryScreenBack": "Kembali",
+  "libraryScreenTabSessions": "Sesi",
+  "libraryScreenTabImport": "Impor Berkas",
+  "libraryScreenSearchHint": "Cari judul, isi transkrip, atau ringkasan…",
+  "libraryScreenClearSearch": "Bersihkan pencarian",
+  "libraryScreenDeepSearching": "Mencari di dalam transkrip…",
+  "libraryScreenEmptyTitle": "Belum ada sesi tersimpan",
+  "libraryScreenEmptySubtitle": "Sesi transkripsi akan muncul di sini",
+  "libraryScreenNoMatch": "Tidak ada sesi cocok",
+  "libraryScreenImportArchive": "Impor arsip sesi (.zip)",
+  "exportDialogTitle": "Ekspor \"{title}\"",
+  "@exportDialogTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDialogIncomplete": "Transkrip sesi ini belum lengkap, masih ada audio yang sedang ditranskripsi. Hasil ekspor sekarang akan kehilangan bagian itu.",
+  "exportDialogChooseFormat": "Pilih format ekspor:",
+  "exportDialogFormatMd": "Dengan waktu & nama pembicara",
+  "@exportDialogFormatMd": {
+    "description": "Description of the Markdown export format"
+  },
+  "exportDialogFormatTxt": "Teks biasa tanpa waktu",
+  "@exportDialogFormatTxt": {
+    "description": "Description of the TXT export format"
+  },
+  "exportDialogFormatJson": "Data lengkap untuk program lain",
+  "@exportDialogFormatJson": {
+    "description": "Description of the JSON export format"
+  },
+  "exportDialogFormatSrt": "Takarir untuk pemutar video",
+  "@exportDialogFormatSrt": {
+    "description": "Description of the SRT export format"
+  },
+  "exportDialogFormatVtt": "Takarir untuk web",
+  "@exportDialogFormatVtt": {
+    "description": "Description of the VTT export format"
+  },
+  "exportDialogFormatHtml": "Halaman web yang sudah ditata",
+  "@exportDialogFormatHtml": {
+    "description": "Description of the HTML export format"
+  },
+  "exportDialogFormatDocx": "Dokumen Microsoft Word",
+  "@exportDialogFormatDocx": {
+    "description": "Description of the DOCX export format"
+  },
+  "exportDialogFormatPdf": "Dokumen siap cetak, font ikut disertakan",
+  "@exportDialogFormatPdf": {
+    "description": "Description of the PDF export format"
+  },
+  "exportDialogFormatCsv": "Tabel per segmen untuk spreadsheet",
+  "@exportDialogFormatCsv": {
+    "description": "Description of the CSV export format"
+  },
+  "exportDialogBookmarksIncluded": "{count} poin penting disertakan sebagai bagian \"Poin Penting\"",
+  "@exportDialogBookmarksIncluded": {
+    "description": "\"Poin Penting\" is the section heading the exporter writes into the document, which stays Indonesian, so it is quoted verbatim",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportDialogSummaryIncluded": "Ringkasan AI disertakan di Markdown, TXT, HTML & DOCX",
+  "exportDialogPdpRedaction": "Mode Kepatuhan PDP aktif: data pribadi akan disamarkan di file hasil ekspor. Transkrip tersimpan tidak berubah.",
+  "exportDialogPreview": "Pratinjau",
+  "@exportDialogPreview": {
+    "description": "Opens the redaction preview"
+  },
+  "exportDialogSingleFolder": "Semua file dalam 1 folder",
+  "exportDialogChooseFolder": "Pilih Folder",
+  "exportDialogFolderPickerTitle": "Pilih folder ekspor untuk \"{title}\"",
+  "@exportDialogFolderPickerTitle": {
+    "description": "Title of the OS folder picker",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDialogExporting": "Mengekspor {count} format…",
+  "@exportDialogExporting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportDialogSuccess": "Ekspor berhasil ke: {path}",
+  "@exportDialogSuccess": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportDialogShare": "Bagikan",
+  "exportDialogFailed": "Ekspor gagal: {error}",
+  "@exportDialogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "speakerManagerDialogRenameTitle": "Ganti nama \"{name}\"",
+  "@speakerManagerDialogRenameTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speakerManagerDialogNameLabel": "Nama",
+  "speakerManagerDialogNameHelper": "Berlaku untuk seluruh sesi ini.",
+  "speakerManagerDialogRenameConfirm": "Ganti",
+  "@speakerManagerDialogRenameConfirm": {
+    "description": "Confirms a speaker rename"
+  },
+  "speakerManagerDialogMergeTitle": "Gabungkan \"{name}\" ke siapa?",
+  "@speakerManagerDialogMergeTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speakerManagerDialogMergeOption": "{name} ({count} segmen)",
+  "@speakerManagerDialogMergeOption": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "speakerManagerDialogTitle": "Kelola Pembicara",
+  "speakerManagerDialogNoSpeakers": "Transkrip ini belum punya pembicara.",
+  "speakerManagerDialogPending": "{count} perubahan menunggu. Tekan Terapkan untuk menuliskannya ke transkrip.",
+  "@speakerManagerDialogPending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "speakerManagerDialogNothingRemembered": "Belum ada nama yang diingat.",
+  "speakerManagerDialogForgotten": "Nama pembicara yang diingat dihapus.",
+  "speakerManagerDialogForgetAll": "Lupakan nama tersimpan",
+  "speakerManagerDialogApply": "Terapkan",
+  "speakerManagerDialogStatsSeconds": "{segments} segmen · {seconds} detik",
+  "@speakerManagerDialogStatsSeconds": {
+    "description": "Speaker row stats for a speaker who talked under a minute",
+    "placeholders": {
+      "segments": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "speakerManagerDialogStatsMinutes": "{segments} segmen · {minutes} menit",
+  "@speakerManagerDialogStatsMinutes": {
+    "placeholders": {
+      "segments": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "speakerManagerDialogRename": "Ganti nama",
+  "speakerManagerDialogMerge": "Gabungkan dengan pembicara lain",
+  "speakerManagerDialogNoMerge": "Tidak ada pembicara lain untuk digabung",
+  "speakerManagerDialogSuggestion": "Diingat dari rapat sebelumnya: {name}",
+  "@speakerManagerDialogSuggestion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "speakerManagerDialogUseSuggestion": "Pakai",
+  "speakerManagerDialogRememberUnrenamed": "Ingat nama ini untuk label \"{label}\" di rapat berikutnya (ganti namanya dulu)",
+  "@speakerManagerDialogRememberUnrenamed": {
+    "description": "label is the diarizer's speaker label, e.g. Pembicara 1",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "speakerManagerDialogRemember": "Ingat \"{name}\" untuk label \"{label}\" di rapat berikutnya",
+  "@speakerManagerDialogRemember": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionCardDurationHours": "{hours}j {minutes}m",
+  "@sessionCardDurationHours": {
+    "description": "Compact session duration, e.g. 1j 32m",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCardDurationMinutes": "{minutes} menit",
+  "@sessionCardDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCardDate": "{day} {month} {year}",
+  "@sessionCardDate": {
+    "description": "Session date; month is one of the sessionCardMonth* abbreviations",
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "month": {
+        "type": "String"
+      },
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionCardMonthJan": "Jan",
+  "sessionCardMonthFeb": "Feb",
+  "sessionCardMonthMar": "Mar",
+  "sessionCardMonthApr": "Apr",
+  "sessionCardMonthMay": "Mei",
+  "sessionCardMonthJun": "Jun",
+  "sessionCardMonthJul": "Jul",
+  "sessionCardMonthAug": "Agu",
+  "sessionCardMonthSep": "Sep",
+  "sessionCardMonthOct": "Okt",
+  "sessionCardMonthNov": "Nov",
+  "sessionCardMonthDec": "Des",
+  "sessionCardHasSummary": "Punya ringkasan AI",
+  "sessionCardSegments": "{count} segmen",
+  "@sessionCardSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCardRename": "Ganti nama",
+  "sessionCardExport": "Ekspor",
+  "sessionCardExportArchive": "Ekspor sebagai arsip (.zip)",
+  "sessionCardDelete": "Hapus",
+  "dictionaryLearningDialogTitle": "Ingat koreksi ini?",
+  "dictionaryLearningDialogDescription": "Anda mengubah satu kata. Trareon bisa mengingatnya agar tidak perlu dikoreksi lagi di rapat berikutnya.",
+  "dictionaryLearningDialogDontRemember": "Jangan ingat",
+  "dictionaryLearningDialogAddToGlossary": "Tambahkan \"{term}\" ke kamus istilah",
+  "@dictionaryLearningDialogAddToGlossary": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "dictionaryLearningDialogAddToGlossaryHelper": "Mesin pengenal suara diberi tahu istilah ini sebelum mentranskrip, sehingga lebih mungkin menuliskannya dengan benar sejak awal.",
+  "dictionaryLearningDialogAutoReplace": "Ganti otomatis \"{before}\" → \"{after}\" selanjutnya",
+  "@dictionaryLearningDialogAutoReplace": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "dictionaryLearningDialogAutoReplaceHelper": "Setiap kata \"{before}\" yang berdiri sendiri akan ditulis \"{after}\" di transkrip berikutnya. Bisa dihapus di Pengaturan → Kamus istilah.",
+  "@dictionaryLearningDialogAutoReplaceHelper": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "dictionaryLearningDialogPickOne": "Pilih setidaknya satu agar ada yang disimpan.",
+  "tagEditorDialogTitle": "Tag sesi",
+  "tagEditorDialogDescription": "Tag dipakai untuk memfilter daftar sesi di bilah kiri. Tidak ada berkas yang dipindahkan.",
+  "tagEditorDialogAddLabel": "Tambah tag",
+  "tagEditorDialogAdd": "Tambah",
+  "tagEditorDialogEmpty": "Sesi ini belum punya tag.",
+  "tagEditorDialogSuggestions": "Tag lain di perpustakaan",
+  "appShortcutsStartStop": "Mulai atau berhenti merekam",
+  "@appShortcutsStartStop": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsPauseResume": "Jeda atau lanjutkan",
+  "@appShortcutsPauseResume": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsSearchSessions": "Cari di riwayat sesi",
+  "@appShortcutsSearchSessions": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsBookmark": "Tandai poin penting",
+  "@appShortcutsBookmark": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsSettings": "Buka Pengaturan",
+  "@appShortcutsSettings": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsShortcutsPanel": "Tampilkan pintasan keyboard",
+  "@appShortcutsShortcutsPanel": {
+    "description": "Keyboard shortcut action name"
+  },
+  "appShortcutsToggleSidebar": "Sembunyikan atau tampilkan sidebar",
+  "@appShortcutsToggleSidebar": {
+    "description": "Keyboard shortcut action name"
+  },
+  "formatTimeSeconds": "{seconds} detik",
+  "@formatTimeSeconds": {
+    "description": "Coarse duration in list rows and status lines",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "formatTimeMinutes": "{minutes} menit",
+  "@formatTimeMinutes": {
+    "description": "Coarse duration in list rows and status lines",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "formatTimeHours": "{hours} jam",
+  "@formatTimeHours": {
+    "description": "Coarse duration in list rows and status lines",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "formatTimeHoursMinutes": "{hours} jam {minutes} menit",
+  "@formatTimeHoursMinutes": {
+    "description": "Coarse duration in list rows and status lines",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "modelDownloadCardNotDownloaded": "Belum diunduh",
+  "modelDownloadCardReady": "Siap",
+  "modelDownloadCardFailed": "Gagal, coba lagi",
+  "appFeedbackPercent": "{percent} persen",
+  "@appFeedbackPercent": {
+    "description": "Screen-reader value of a progress bar or level meter",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "appChipDelete": "Hapus {label}",
+  "@appChipDelete": {
+    "description": "Default tooltip of a chip's delete button",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "resourceIndicatorSemantics": "Penggunaan memori tinggi, pertimbangkan tutup aplikasi lain",
+  "resourceIndicatorHigh": "Tinggi, pertimbangkan tutup aplikasi lain",
+  "@resourceIndicatorHigh": {
+    "description": "Memory-pressure pill shown while recording"
+  },
+  "summaryModelSaveActionItemsFailed": "Gagal menyimpan tindak lanjut: {error}",
+  "@summaryModelSaveActionItemsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryModelDisabled": "Ringkasan AI belum diaktifkan. Nyalakan di Pengaturan → Ringkasan AI.",
+  "summaryModelNotConfigured": "Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan → Ringkasan AI.",
+  "summaryModelEmptyTranscriptSummarize": "Transkrip kosong, tidak ada yang bisa diringkas.",
+  "summaryModelTemplateUnusable": "Template \"{name}\" tidak bisa dipakai: {error}",
+  "@summaryModelTemplateUnusable": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryModelGenerateFailed": "Gagal membuat ringkasan (transkrip tetap aman): {error}",
+  "@summaryModelGenerateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryModelEmptyTranscriptMerge": "Transkrip kosong, tidak ada yang bisa digabung.",
+  "summaryModelEnhanceFailed": "Gagal menggabungkan catatan dengan transkrip: {error}",
+  "@summaryModelEnhanceFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryModelSaveFailed": "Gagal menyimpan ringkasan: {error}",
+  "@summaryModelSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }
