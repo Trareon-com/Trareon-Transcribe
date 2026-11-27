@@ -21,6 +21,9 @@ class DartPrefs {
 
   Map<String, dynamic> _data = {};
 
+  bool _loaded = false;
+  Future<void>? _firstLoad;
+
   Future<File> _prefsFile() async {
     final dir = await getApplicationSupportDirectory();
     return File('${dir.path}/dart_prefs.json');
@@ -41,6 +44,17 @@ class DartPrefs {
       // Corrupt / missing file — start fresh.
       _data = {};
     }
+    _loaded = true;
+  }
+
+  /// Loads once if nothing has loaded yet, and otherwise does nothing.
+  ///
+  /// For readers that may run before settings' phase 2 has called [load]
+  /// (onboarding starts on the first frame). Unlike a second [load], it
+  /// never re-reads the file over values set in memory but not yet saved.
+  Future<void> ensureLoaded() {
+    if (_loaded) return Future.value();
+    return _firstLoad ??= load();
   }
 
   /// Persist current in-memory data to disk.
