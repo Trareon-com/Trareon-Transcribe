@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart' show StateProvider;
@@ -32,6 +31,7 @@ import 'setup_wizard_screen.dart';
 import 'usage_dashboard_screen.dart';
 import '../theme/app_icons.dart';
 import '../l10n/l10n.dart';
+import '../utils/file_dialogs.dart';
 
 /// Below this width the category rail becomes a horizontal chip strip.
 /// Two panes still fit at the app's 800 px minimum window (232 px rail +
@@ -820,7 +820,7 @@ class _CategoryContent extends ConsumerWidget {
               size: IconSizes.md,
             ),
             onTap: () async {
-              final dir = await FilePicker.getDirectoryPath(
+              final dir = await pickDirectoryPath(
                 dialogTitle: context.l10n.settingsScreenPickOutputFolder,
                 initialDirectory: settings.libraryPath,
               );

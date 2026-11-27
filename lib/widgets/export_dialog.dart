@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/l10n.dart';
@@ -14,6 +13,7 @@ import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
 import '../utils/share_file.dart';
 import 'app_toast.dart';
+import '../utils/file_dialogs.dart';
 
 /// Records an export in the local audit log, best effort.
 ///
@@ -332,7 +332,7 @@ Future<bool> showEksporDialog(
 
   if (confirmed != true || !context.mounted) return false;
 
-  final outputDir = await FilePicker.getDirectoryPath(
+  final outputDir = await pickDirectoryPath(
     dialogTitle: l10n.exportDialogFolderPickerTitle(session.title),
     initialDirectory: defaultOutputDir.isNotEmpty ? defaultOutputDir : null,
   );

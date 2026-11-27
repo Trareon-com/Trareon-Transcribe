@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +37,7 @@ import '../theme/app_icons.dart';
 import '../widgets/ui/speech_timeline.dart';
 import '../theme/app_typography.dart';
 import '../widgets/ui/app_controls.dart';
+import '../utils/file_dialogs.dart';
 
 /// Playback speeds offered by the player. 0.75× is the slowest useful speed
 /// for re-listening to an unclear passage; below that Indonesian speech
@@ -593,7 +593,7 @@ class _TranscriptPlayerScreenState
   Future<void> _retrySave({bool elsewhere = false}) async {
     String? directory;
     if (elsewhere) {
-      directory = await FilePicker.getDirectoryPath(
+      directory = await pickDirectoryPath(
         dialogTitle:
             context.l10n.transcriptPlayerScreenSaveElsewhereDialogTitle,
         initialDirectory: _sessionDirPath,

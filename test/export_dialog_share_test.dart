@@ -4,6 +4,7 @@
 // its success toast, from a real widget tree, not just write files to disk
 // and leave the user to go find them.
 
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,15 +16,21 @@ import 'package:transcribe/widgets/ui/app_button.dart';
 import 'test_helpers.dart';
 
 /// file_picker's native folder dialog has no counterpart in a widget test
-/// sandbox. Since 11.0.0 the plugin's API is static (`FilePicker.getDirectoryPath`)
-/// with no injectable instance, so the fake sits at the plugin boundary: the
-/// default platform implementation is the method-channel one, and this channel
-/// is what it asks for a directory. The reply stands in for the user picking a
-/// real folder.
-const _filePickerChannel = MethodChannel(
-  'miguelruivo.flutter.plugins.filepicker',
-  StandardMethodCodec(),
-);
+/// sandbox. Since 13.0.0 the default `FilePickerPlatform` no longer answers
+/// over a method channel, so the fake replaces the platform instance the
+/// static `FilePicker` API dispatches to. Its answer stands in for the user
+/// picking a real folder.
+class _FakeFilePicker extends FilePickerPlatform {
+  @override
+  Future<String?> getDirectoryPath({
+    String? dialogTitle,
+    String? initialDirectory,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => _pickedDirectory;
+}
 
 const _pickedDirectory = '/tmp/sesi-ekspor';
 
@@ -59,23 +66,15 @@ const _segment = TranscriptSegment(
 );
 
 void main() {
-  // Reading `FilePicker`'s static API never needs an instance any more, but
-  // with no plugin registrant under `flutter test` the call still reaches the
-  // method channel with nothing on the other end, so answer it here. Only ever
-  // mock it; there is no real dialog to restore afterwards.
+  late FilePickerPlatform realPicker;
+
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-          _filePickerChannel,
-          (call) async => call.method == 'dir' ? _pickedDirectory : null,
-        );
+    realPicker = FilePickerPlatform.instance;
+    FilePickerPlatform.instance = _FakeFilePicker();
   });
 
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(_filePickerChannel, null);
-  });
+  tearDown(() => FilePickerPlatform.instance = realPicker);
 
   testWidgets(
     'ekspor berhasil menawarkan tombol Bagikan pada toast sukses',
