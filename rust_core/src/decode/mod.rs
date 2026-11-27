@@ -201,27 +201,35 @@ pub fn resample_to_target(samples: &[f32], from_rate: u32) -> Result<Vec<f32>, T
         return Ok(Vec::new());
     }
 
+    use rubato::audioadapter_buffers::direct::InterleavedSlice;
     use rubato::{
-        Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+        Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
+        WindowFunction,
     };
 
     let params = SincInterpolationParameters {
         sinc_len: 256,
-        f_cutoff: 0.95,
+        f_cutoff: Some(0.95),
         interpolation: SincInterpolationType::Linear,
         oversampling_factor: 256,
         window: WindowFunction::BlackmanHarris2,
     };
 
     let ratio = TARGET_SAMPLE_RATE as f64 / from_rate as f64;
-    let mut resampler = SincFixedIn::<f32>::new(ratio, 2.0, params, samples.len(), 1)
+    // rubato 1.0+ resamples a whole clip with `process_all`, which also trims
+    // the sinc filter's startup delay. The old single `process` call sized to
+    // the clip left that delay as leading silence.
+    let mut resampler = Async::<f32>::new_sinc(ratio, 2.0, &params, 1024, 1, FixedAsync::Input)
         .map_err(|e| TranscribeError::AudioDecode(format!("resampler init failed: {e}")))?;
 
+    let input = InterleavedSlice::new(samples, 1, samples.len())
+        .map_err(|e| TranscribeError::AudioDecode(format!("resample input invalid: {e}")))?;
     let output = resampler
-        .process(&[samples.to_vec()], None)
+        .process_all(&input, samples.len(), None)
         .map_err(|e| TranscribeError::AudioDecode(format!("resample failed: {e}")))?;
 
-    Ok(output.into_iter().next().unwrap_or_default())
+    // Mono, so the interleaved buffer is the channel itself.
+    Ok(output.take_data())
 }
 
 /// Stateful streaming resampler to [`TARGET_SAMPLE_RATE`].
@@ -232,7 +240,7 @@ pub fn resample_to_target(samples: &[f32], from_rate: u32) -> Result<Vec<f32>, T
 /// discontinuity between chunks. This keeps one resampler alive and feeds it
 /// fixed-size blocks, carrying leftover input to the next `push`.
 pub struct StreamResampler {
-    inner: Option<rubato::SincFixedIn<f32>>,
+    inner: Option<rubato::Async<f32>>,
     pending: Vec<f32>,
 }
 
@@ -247,17 +255,17 @@ impl StreamResampler {
             });
         }
         use rubato::{
-            SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+            Async, FixedAsync, SincInterpolationParameters, SincInterpolationType, WindowFunction,
         };
         let params = SincInterpolationParameters {
             sinc_len: 128,
-            f_cutoff: 0.95,
+            f_cutoff: Some(0.95),
             interpolation: SincInterpolationType::Linear,
             oversampling_factor: 128,
             window: WindowFunction::BlackmanHarris2,
         };
         let ratio = TARGET_SAMPLE_RATE as f64 / from_rate as f64;
-        let rs = SincFixedIn::<f32>::new(ratio, 2.0, params, Self::BLOCK, 1)
+        let rs = Async::<f32>::new_sinc(ratio, 2.0, &params, Self::BLOCK, 1, FixedAsync::Input)
             .map_err(|e| TranscribeError::AudioDecode(format!("resampler init failed: {e}")))?;
         Ok(Self {
             inner: Some(rs),
@@ -267,6 +275,7 @@ impl StreamResampler {
 
     /// Feed mono samples at the source rate; returns whatever 16 kHz output is ready.
     pub fn push(&mut self, mono: &[f32]) -> Result<Vec<f32>, TranscribeError> {
+        use rubato::audioadapter_buffers::direct::InterleavedSlice;
         use rubato::Resampler;
         let Some(rs) = self.inner.as_mut() else {
             return Ok(mono.to_vec());
@@ -278,11 +287,15 @@ impl StreamResampler {
             if self.pending.len() < need {
                 break;
             }
-            let block: Vec<f32> = self.pending.drain(..need).collect();
+            let input = InterleavedSlice::new(&self.pending[..need], 1, need).map_err(|e| {
+                TranscribeError::AudioDecode(format!("resample input invalid: {e}"))
+            })?;
             let res = rs
-                .process(&[block], None)
+                .process(&input, None)
                 .map_err(|e| TranscribeError::AudioDecode(format!("resample failed: {e}")))?;
-            out.extend(res.into_iter().next().unwrap_or_default());
+            self.pending.drain(..need);
+            // Mono: the interleaved output is the channel itself.
+            out.extend(res.take_data());
         }
         Ok(out)
     }
