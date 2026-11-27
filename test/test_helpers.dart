@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:transcribe/services/bridge_service.dart';
@@ -614,14 +615,22 @@ Widget buildTestAppWithOverrides({
   // Enable test mode to skip preflight checks
   skipPreflightChecks = true;
 
-  return ProviderScope(
-    overrides: [
+  // riverpod 3 asserts when two overrides target the same provider in one
+  // container; riverpod 2 silently kept the last one. Callers routinely
+  // override the bridge (or the library list) themselves, so the defaults are
+  // only added for providers the caller left alone.
+  final overridden = overrides.map((o) => (o as dynamic).origin).toSet();
+  final defaults = <Override>[
+    if (!overridden.contains(rustBridgeProvider))
       rustBridgeProvider.overrideWithValue(NoopBridge()),
+    if (!overridden.contains(libraryListProvider))
       libraryListProvider.overrideWith(
         (ref) => LibraryListNotifier.seeded(const []),
       ),
-      ...overrides,
-    ],
+  ];
+
+  return ProviderScope(
+    overrides: [...defaults, ...overrides],
     child: MaterialApp(
       title: 'Trareon Transcribe',
       debugShowCheckedModeBanner: false,

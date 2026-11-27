@@ -10,7 +10,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/bridge_service.dart';
 import '../src/rust/live_qa.dart' as rust_live_qa;
