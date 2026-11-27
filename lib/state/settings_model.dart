@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/bridge_service.dart';
+import '../l10n/l10n.dart';
 import '../services/dart_prefs.dart';
 import 'models.dart';
 
@@ -17,7 +18,8 @@ final rustBridgeProvider = Provider<RustBridge>((ref) => RustEngineBridge());
 /// disk, a permissions change — left the switch flipped on screen and
 /// nothing saved, and the user found out on the next launch (audit A.4-7).
 class SettingsSaveFailure {
-  /// Indonesian name of the setting, for the message.
+  /// Name of the setting, for the message, in the language shown when the
+  /// write failed.
   final String label;
   final String message;
 
@@ -36,8 +38,7 @@ class SettingsSaveFailure {
     this.savePrefs,
   });
 
-  String get userMessage =>
-      'Pengaturan "$label" gagal disimpan: $message. Perubahan dikembalikan.';
+  String get userMessage => currentL10n.settingsModelSaveFailed(label, message);
 }
 
 /// The last settings write that failed, or null. Watched by the settings
@@ -508,8 +509,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// Drops a failure the user has acknowledged.
   void dismissSaveFailure() => _report(null);
 
-  Future<void> setTheme(AppThemeMode theme) =>
-      _apply(state.copyWith(theme: theme), label: 'Tema');
+  Future<void> setTheme(AppThemeMode theme) => _apply(
+    state.copyWith(theme: theme),
+    label: currentL10n.settingsModelLabelTheme,
+  );
 
   Future<void> toggleTheme() async {
     final next = state.theme == AppThemeMode.dark
@@ -522,18 +525,22 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state.copyWith(progressiveEnabled: enabled),
     // Rust owns this now. It used to be written to DartPrefs and never
     // read back, so the toggle silently reverted to "on" on every launch.
-    label: 'Cepat dulu, lalu diperhalus',
+    label: currentL10n.settingsModelLabelProgressive,
   );
 
-  Future<void> setGpuEnabled(bool enabled) =>
-      _apply(state.copyWith(gpuEnabled: enabled), label: 'Akselerasi GPU');
+  Future<void> setGpuEnabled(bool enabled) => _apply(
+    state.copyWith(gpuEnabled: enabled),
+    label: currentL10n.settingsModelLabelGpu,
+  );
 
-  Future<void> setGpuDevice(int device) =>
-      _apply(state.copyWith(gpuDevice: device), label: 'Perangkat GPU');
+  Future<void> setGpuDevice(int device) => _apply(
+    state.copyWith(gpuDevice: device),
+    label: currentL10n.settingsModelLabelGpuDevice,
+  );
 
   Future<void> setRtfScore(double score) => _apply(
     state.copyWith(rtfScore: score),
-    label: 'Skor benchmark',
+    label: currentL10n.settingsModelLabelBenchmark,
     saveToBridge: false,
     savePrefs: () async {
       DartPrefs.instance.setDouble('rtfScore', score);
@@ -543,7 +550,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setHptMode(HptMode mode) => _apply(
     state.copyWith(hptMode: mode),
-    label: 'Cara transkripsi bertahap',
+    label: currentL10n.settingsModelLabelHptMode,
     savePrefs: () async {
       DartPrefs.instance.setInt('hptMode', mode.index);
       await DartPrefs.instance.save();
@@ -553,18 +560,22 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// Updates the opt-in AI-summary configuration. Persisted through Rust
   /// alongside the rest of the settings (see `SummarySettings` for why the
   /// API key lives in the same file).
-  Future<void> setSummarySettings(SummarySettings summary) =>
-      _apply(state.copyWith(summary: summary), label: 'Ringkasan AI');
+  Future<void> setSummarySettings(SummarySettings summary) => _apply(
+    state.copyWith(summary: summary),
+    label: currentL10n.settingsModelLabelSummary,
+  );
 
   // ── Kamus istilah (F3) ────────────────────────────────────────────────
 
-  Future<void> setGlossary(GlossarySettings glossary) =>
-      _apply(state.copyWith(glossary: glossary), label: 'Kamus istilah');
+  Future<void> setGlossary(GlossarySettings glossary) => _apply(
+    state.copyWith(glossary: glossary),
+    label: currentL10n.settingsModelLabelGlossary,
+  );
 
   /// "Pemisahan pembicara akurat" (sherpa-onnx neural diarization).
   Future<void> setNeuralDiarization(bool enabled) => _apply(
     state.copyWith(neuralDiarization: enabled),
-    label: 'Pemisahan pembicara akurat',
+    label: currentL10n.settingsModelLabelNeuralDiarization,
   );
 
   /// Re-sends the current settings to the engine without changing them.
@@ -574,11 +585,14 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// downloaded *after* the last save is invisible until something saves
   /// again. Called by the download flow so a freshly installed model takes
   /// effect on the next pass rather than the next launch.
-  Future<void> reapply() => _apply(state, label: 'Model mesin');
+  Future<void> reapply() =>
+      _apply(state, label: currentL10n.settingsModelLabelEngineModels);
 
   /// Mode Kepatuhan UU PDP (F13).
-  Future<void> setPdp(PdpSettings pdp) =>
-      _apply(state.copyWith(pdp: pdp), label: 'Mode Kepatuhan PDP');
+  Future<void> setPdp(PdpSettings pdp) => _apply(
+    state.copyWith(pdp: pdp),
+    label: currentL10n.settingsModelLabelPdp,
+  );
 
   Future<void> setGlossaryEnabled(bool enabled) =>
       setGlossary(state.glossary.copyWith(enabled: enabled));
@@ -614,7 +628,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     }
     return _apply(
       state.copyWith(summaryTemplates: next),
-      label: 'Template ringkasan',
+      label: currentL10n.settingsModelLabelSummaryTemplates,
     );
   }
 
@@ -624,49 +638,59 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           .where((t) => t.id != id)
           .toList(),
     ),
-    label: 'Template ringkasan',
+    label: currentL10n.settingsModelLabelSummaryTemplates,
   );
 
   // ── Notulen resmi (F2) ────────────────────────────────────────────────
 
-  Future<void> setNotulenDefaults(NotulenDefaults notulen) =>
-      _apply(state.copyWith(notulen: notulen), label: 'Kop surat notulen');
+  Future<void> setNotulenDefaults(NotulenDefaults notulen) => _apply(
+    state.copyWith(notulen: notulen),
+    label: currentL10n.settingsModelLabelNotulenLetterhead,
+  );
 
   // ── Transkrip ulang otomatis (F5) ─────────────────────────────────────
 
   Future<void> setAutoRetranscribe(bool? enabled) => _apply(
     state.copyWith(autoRetranscribe: enabled),
-    label: 'Perhalus transkrip otomatis',
+    label: currentL10n.settingsModelLabelAutoRetranscribe,
   );
 
-  Future<void> setDefaultModel(String modelId) =>
-      _apply(state.copyWith(defaultModel: modelId), label: 'Model default');
+  Future<void> setDefaultModel(String modelId) => _apply(
+    state.copyWith(defaultModel: modelId),
+    label: currentL10n.settingsModelLabelDefaultModel,
+  );
 
-  Future<void> setLanguage(String? language) =>
-      _apply(state.copyWith(language: language), label: 'Bahasa');
+  Future<void> setLanguage(String? language) => _apply(
+    state.copyWith(language: language),
+    label: currentL10n.settingsModelLabelLanguage,
+  );
 
-  Future<void> setDefaultMode(SessionMode mode) =>
-      _apply(state.copyWith(defaultMode: mode), label: 'Mode default');
+  Future<void> setDefaultMode(SessionMode mode) => _apply(
+    state.copyWith(defaultMode: mode),
+    label: currentL10n.settingsModelLabelDefaultMode,
+  );
 
-  Future<void> setVadEnabled(bool enabled) =>
-      _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
+  Future<void> setVadEnabled(bool enabled) => _apply(
+    state.copyWith(vadEnabled: enabled),
+    label: currentL10n.settingsModelLabelVad,
+  );
 
   /// Moving either audio switch by hand is an opinion the resolver must not
   /// overwrite later, so both setters also drop `autoAudioTuning`.
   Future<void> setNoiseReduction(bool enabled) => _setAudioTuning(
     state.copyWith(noiseReduction: enabled, autoAudioTuning: false),
-    label: 'Pengurangan derau',
+    label: currentL10n.settingsModelLabelNoiseReduction,
   );
 
   Future<void> setAgcEnabled(bool enabled) => _setAudioTuning(
     state.copyWith(agcEnabled: enabled, autoAudioTuning: false),
-    label: 'Penguatan suara otomatis',
+    label: currentL10n.settingsModelLabelAgc,
   );
 
   /// Hands the two audio switches back to the measured resolver.
   Future<void> setAutoAudioTuning(bool enabled) => _setAudioTuning(
     state.copyWith(autoAudioTuning: enabled),
-    label: 'Penyetelan audio otomatis',
+    label: currentL10n.settingsModelLabelAutoAudioTuning,
   );
 
   Future<void> _setAudioTuning(
@@ -681,7 +705,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> setSimpleMode(bool enabled) async {
-    await _apply(state.copyWith(simpleMode: enabled), label: 'Mode Sederhana');
+    await _apply(
+      state.copyWith(simpleMode: enabled),
+      label: currentL10n.settingsModelLabelSimpleMode,
+    );
     if (!state.simpleMode == enabled) return;
     _persistBool('simpleMode', enabled);
   }
@@ -691,7 +718,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setUiLanguage(UiLanguage language) async {
     await _apply(
       state.copyWith(uiLanguage: language),
-      label: 'Bahasa antarmuka',
+      label: currentL10n.languageLabel,
     );
     if (state.uiLanguage != language) return;
     DartPrefs.instance.setString('uiLanguage', language.prefsValue);
@@ -701,7 +728,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setDeferDownloads(bool enabled) async {
     await _apply(
       state.copyWith(deferDownloads: enabled),
-      label: 'Tunda unduhan',
+      label: currentL10n.settingsModelLabelDeferDownloads,
     );
     if (state.deferDownloads != enabled) return;
     _persistBool('deferDownloads', enabled);
@@ -720,7 +747,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// every time Settings is opened (Sprint 14a item 6).
   Future<void> dismissDefaultModelUpgradeOffer() => _apply(
     state.copyWith(defaultModelUpgradeDismissed: true),
-    label: 'Tawaran tingkatkan akurasi',
+    label: currentL10n.settingsModelLabelUpgradeOffer,
   );
 
   /// Dismisses the pre-recording consent reminder with "jangan tampilkan
@@ -729,31 +756,33 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   /// happens regardless, via `acknowledgeConsent` on the bridge.
   Future<void> dismissConsentBanner() => _apply(
     state.copyWith(consentBannerDismissed: true),
-    label: 'Pengingat persetujuan perekaman',
+    label: currentL10n.settingsModelLabelConsentReminder,
   );
 
   Future<void> setAutoStopMinutes(int? minutes) => _apply(
     minutes == null
         ? state.copyWith(clearAutoStop: true)
         : state.copyWith(autoStopMinutes: minutes),
-    label: 'Berhenti sendiri saat sunyi',
+    label: currentL10n.settingsModelLabelAutoStop,
   );
 
   Future<void> setDefaultExportFormat(String format) => _apply(
     state.copyWith(defaultExportFormat: format),
-    label: 'Format ekspor default',
+    label: currentL10n.settingsModelLabelExportFormat,
     savePrefs: () async {
       DartPrefs.instance.setString('defaultExportFormat', format);
       await DartPrefs.instance.save();
     },
   );
 
-  Future<void> setLibraryPath(String path) =>
-      _apply(state.copyWith(libraryPath: path), label: 'Folder output');
+  Future<void> setLibraryPath(String path) => _apply(
+    state.copyWith(libraryPath: path),
+    label: currentL10n.settingsModelLabelOutputFolder,
+  );
 
   Future<void> setMicDeviceName(String? name) => _apply(
     state.copyWith(micDeviceId: name),
-    label: 'Mikrofon',
+    label: currentL10n.settingsModelLabelMicrophone,
     savePrefs: () async {
       if (name != null) {
         DartPrefs.instance.setString('micDeviceId', name);
@@ -766,7 +795,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setSpeakerDeviceName(String? name) => _apply(
     state.copyWith(speakerDeviceId: name),
-    label: 'Pengeras suara',
+    label: currentL10n.settingsModelLabelSpeaker,
     savePrefs: () async {
       if (name != null) {
         DartPrefs.instance.setString('speakerDeviceId', name);

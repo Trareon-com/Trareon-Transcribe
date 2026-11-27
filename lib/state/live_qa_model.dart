@@ -12,6 +12,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../src/rust/live_qa.dart' as rust_live_qa;
 import 'models.dart';
@@ -86,11 +87,7 @@ class LiveQaNotifier extends StateNotifier<LiveQaState> {
         status: LiveQaStatus.failed,
         turns: [
           ...state.turns,
-          turn.copyWith(
-            error:
-                'Tanya Langsung memerlukan endpoint ringkasan yang sudah '
-                'diatur di Pengaturan → Ringkasan AI.',
-          ),
+          turn.copyWith(error: currentL10n.liveQaModelNeedsEndpoint),
         ],
       );
       return;
