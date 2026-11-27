@@ -1,30 +1,43 @@
-// ignore_for_file: deprecated_member_use
-//
-// tray_manager 0.9 / window_manager 0.7 moved their old API to
-// `legacy.dart` and marked it deprecated; the package authors ship that
-// bridge so a dependency bump does not have to become a rewrite of the
-// tray menu and the window lifecycle. Migrating to the nativeapi surface
-// is tracked in its own issue — deleting these ignores is the last step
-// of that migration, not this one.
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:screen_retriever/legacy.dart';
-import 'package:tray_manager/legacy.dart';
-import 'package:window_manager/legacy.dart';
+import 'package:screen_retriever/screen_retriever.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:window_manager/window_manager.dart' hide ListenerId;
 
 import '../l10n/l10n.dart';
+import 'app_window.dart';
 
 /// Minimize-to-tray (PRD: "Minimize-to-tray menjaga transkrip berjalan
 /// background"). Closing the window hides it instead of quitting the
 /// process, so a live transcription session keeps running; the tray
 /// icon's context menu is the only way to actually quit.
-class TrayService with TrayListener, WindowListener {
+///
+/// Built on window_manager's and tray_manager's nativeapi surface (#67):
+/// a [TrayIcon] with a native [Menu], and a close-request listener on the
+/// app [Window] in place of `setPreventClose`.
+class TrayService {
   static final TrayService instance = TrayService._();
   TrayService._();
 
   bool _initialized = false;
+
+  /// True only while quitting from the tray menu: lets the close request
+  /// through instead of turning it into a hide.
+  bool _quitting = false;
+
+  TrayIcon? _trayIcon;
+  Menu? _menu;
+  MenuItem? _showItem;
+  MenuItem? _quitItem;
+  Window? _window;
+  final List<void Function()> _unlisten = [];
+
+  /// The language the menu labels were last built in, so a language change
+  /// in Settings relabels the menu (it is created before `runApp`, when
+  /// only the Indonesian fallback exists).
+  String? _labelsLocale;
 
   /// Asked before the tray's "Keluar" actually quits. Returning false
   /// aborts the quit.
@@ -41,76 +54,147 @@ class TrayService with TrayListener, WindowListener {
     _initialized = true;
 
     try {
-      await WindowManager.instance.ensureInitialized();
-      // macOS secure state restoration restores the saved (possibly
-      // off-screen) window frame after launch. Poll for the first
-      // seconds of runtime and recenter whenever the frame lands
-      // outside the visible area (restoration can settle late).
-      _watchWindowFrame();
-      await WindowManager.instance.setPreventClose(true);
-      WindowManager.instance.addListener(this);
-
-      final iconPath = Platform.isWindows
-          ? 'assets/tray_icon.ico'
-          : 'assets/tray_icon.png';
-      await TrayManager.instance.setIcon(iconPath);
-      final l10n = currentL10n;
-      await TrayManager.instance.setToolTip(l10n.appTitle);
-      await TrayManager.instance.setContextMenu(
-        Menu(
-          items: [
-            MenuItem(key: 'show', label: l10n.trayServiceOpen),
-            MenuItem.separator(),
-            MenuItem(key: 'quit', label: l10n.trayServiceQuit),
-          ],
-        ),
-      );
-      TrayManager.instance.addListener(this);
-    } catch (e) {
+      _createTray();
+    } catch (_) {
       // Tray not available in headless/Xvfb environments — skip silently.
     }
+    // The window may not exist yet on Windows (see app_window.dart); the
+    // tray works without it, and the close and frame handling attach as
+    // soon as it appears.
+    unawaited(
+      waitForAppWindow(
+        timeout: const Duration(seconds: 10),
+      ).then((window) => window == null ? null : _attachWindow(window)),
+    );
+  }
+
+  void _createTray() {
+    final trayIcon = TrayIcon.create();
+    if (trayIcon == null) return;
+    final iconPath = Platform.isWindows
+        ? 'assets/tray_icon.ico'
+        : 'assets/tray_icon.png';
+    trayIcon.icon = ImageAsset.fromAsset(iconPath);
+
+    final menu = Menu.create();
+    final showItem = MenuItem.createWithLabelAndType('', MenuItemType.normal);
+    final quitItem = MenuItem.createWithLabelAndType('', MenuItemType.normal);
+    if (menu != null && showItem != null && quitItem != null) {
+      final showId = showItem.addListener((event) {
+        if (event is MenuItemClickedEvent) _showWindow();
+      });
+      final quitId = quitItem.addListener((event) {
+        if (event is MenuItemClickedEvent) _quitFromTray();
+      });
+      _unlisten
+        ..add(() => showItem.removeListener(showId))
+        ..add(() => quitItem.removeListener(quitId));
+      menu
+        ..addItem(showItem)
+        ..addSeparator()
+        ..addItem(quitItem);
+      trayIcon.setContextMenu(menu);
+      // The native default is no trigger at all. The legacy bridge only set
+      // one on Linux, and this app never called popUpContextMenu, so on
+      // macOS and Windows the "Keluar" menu could not be opened from the
+      // tray; right-click opens it everywhere now.
+      trayIcon.setContextMenuTrigger(ContextMenuTrigger.rightClicked);
+    }
+
+    final trayId = trayIcon.addListener((event) {
+      if (event is TrayIconClickedEvent) _showWindow();
+    });
+    _unlisten.add(() => trayIcon.removeListener(trayId));
+    trayIcon.setVisible(true);
+
+    _trayIcon = trayIcon;
+    _menu = menu;
+    _showItem = showItem;
+    _quitItem = quitItem;
+    updateLabels(currentL10n);
+  }
+
+  /// Sets the tooltip and menu labels in [l10n]'s language. Cheap to call on
+  /// every rebuild: it only touches the native objects when the language
+  /// actually changed.
+  void updateLabels(AppLocalizations l10n) {
+    if (_trayIcon == null || _labelsLocale == l10n.localeName) return;
+    _labelsLocale = l10n.localeName;
+    try {
+      _trayIcon?.setTooltip(l10n.appTitle);
+      _showItem?.label = l10n.trayServiceOpen;
+      _quitItem?.label = l10n.trayServiceQuit;
+    } catch (_) {
+      // A tray that refuses a label keeps the old one.
+    }
+  }
+
+  void _attachWindow(Window window) {
+    _window = window;
+    // Closing the window (title bar, Cmd+W) hides it to the tray instead;
+    // only "Keluar" in the tray menu lets the close through.
+    final id = window.addListener((event) {
+      switch (event) {
+        case WindowCloseRequestedEvent(:final request):
+          if (_quitting) return;
+          request.cancel();
+          window.hide();
+        case WindowMovedEvent():
+          _recenterIfOffScreen();
+        default:
+          break;
+      }
+    });
+    _unlisten.add(() => window.removeListener(id));
+    // macOS secure state restoration restores the saved (possibly
+    // off-screen) window frame after launch. Poll for the first
+    // seconds of runtime and recenter whenever the frame lands
+    // outside the visible area (restoration can settle late).
+    _watchWindowFrame();
   }
 
   Future<void> dispose() async {
     if (!_initialized) return;
-    TrayManager.instance.removeListener(this);
-    WindowManager.instance.removeListener(this);
-  }
-
-  @override
-  void onTrayIconMouseDown() {
-    _showWindow();
-  }
-
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) async {
-    switch (menuItem.key) {
-      case 'show':
-        _showWindow();
-      case 'quit':
-        final confirm = confirmQuit;
-        if (confirm != null) {
-          // The dialog lives in the window, so it has to be visible for
-          // the user to answer it.
-          await _showWindow();
-          if (!await confirm()) return;
-        }
-        await WindowManager.instance.setPreventClose(false);
-        await WindowManager.instance.close();
+    for (final unlisten in _unlisten) {
+      try {
+        unlisten();
+      } catch (_) {}
     }
+    _unlisten.clear();
+    _trayIcon?.dispose();
+    _menu?.dispose();
+    _trayIcon = null;
+    _menu = null;
   }
 
-  @override
-  void onWindowClose() async {
-    final preventClose = await WindowManager.instance.isPreventClose();
-    if (preventClose) {
-      await WindowManager.instance.hide();
+  Future<void> _quitFromTray() async {
+    final confirm = confirmQuit;
+    if (confirm != null) {
+      // The dialog lives in the window, so it has to be visible for the
+      // user to answer it.
+      await _showWindow();
+      if (!await confirm()) return;
+    }
+    final window = _window ?? appWindow();
+    if (window == null) {
+      exit(0);
+    }
+    _quitting = true;
+    // Closing the last window ends the app on every platform here
+    // (macOS: applicationShouldTerminateAfterLastWindowClosed).
+    if (!Window.isCloseSupported() || !window.close()) {
+      exit(0);
     }
   }
 
   Future<void> _showWindow() async {
-    await WindowManager.instance.show();
-    await WindowManager.instance.focus();
+    final window = _window ?? appWindow();
+    if (window == null) return;
+    try {
+      if (window.isMinimized) window.restore();
+      window.show();
+      window.focus();
+    } catch (_) {}
   }
 
   /// Keeps the window on a visible display.
@@ -122,37 +206,28 @@ class TrayService with TrayListener, WindowListener {
   /// window-moved event and a short launch-time poll.
   void _watchWindowFrame() {
     var checks = 0;
-    Timer.periodic(const Duration(milliseconds: 800), (timer) async {
+    Timer.periodic(const Duration(milliseconds: 800), (timer) {
       checks++;
       if (checks > 10) {
         timer.cancel();
         return;
       }
-      await _recenterIfOffScreen();
+      _recenterIfOffScreen();
     });
   }
 
-  @override
-  void onWindowMoved() {
-    _recenterIfOffScreen();
-  }
-
-  Future<void> _recenterIfOffScreen() async {
+  void _recenterIfOffScreen() {
+    final window = _window;
+    if (window == null) return;
     try {
-      final primary = await ScreenRetriever.instance.getPrimaryDisplay();
-      final vp = primary.visiblePosition ?? const Offset(0, 0);
-      final vs = primary.visibleSize ?? primary.size;
-      final bounds = await WindowManager.instance.getBounds();
-      final intersects =
-          bounds.left < vp.dx + vs.width &&
-          bounds.top < vp.dy + vs.height &&
-          bounds.left + bounds.width > vp.dx &&
-          bounds.top + bounds.height > vp.dy;
-      if (!intersects) {
-        final size = await WindowManager.instance.getSize();
-        final dx = vp.dx + ((vs.width - size.width) / 2);
-        final dy = vp.dy + ((vs.height - size.height) / 2);
-        await WindowManager.instance.setPosition(Offset(dx, dy));
+      final primary = DisplayManager.instance.getPrimary();
+      if (primary == null) return;
+      final visible = primary.workArea.toRect();
+      final bounds = window.bounds.toRect();
+      if (!bounds.overlaps(visible)) {
+        final dx = visible.left + (visible.width - bounds.width) / 2;
+        final dy = visible.top + (visible.height - bounds.height) / 2;
+        window.position = Offset(dx, dy).toNative();
       }
     } catch (_) {
       // Window not ready yet — keep polling.
