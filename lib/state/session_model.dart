@@ -895,27 +895,45 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     );
   }
 
+  /// The default mode the session config was last built from; `null`
+  /// before the first sync.
+  SessionMode? _syncedDefaultMode;
+
   void syncDefaultSettings(AppSettings settings) {
     _libraryPath = settings.libraryPath;
     _autoAudioTuning = settings.autoAudioTuning;
     _vadEnabled = settings.vadEnabled;
-    if (state.lifecycle == SessionLifecycle.recording ||
+    // `_launching` too: a settings save that lands during start (the 3 s
+    // room probe makes that window real) rebuilt the config the start was
+    // using, and the recording failed or started with the wrong sources.
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return;
     }
+    // The mode and its mic/speaker toggles are the user's choice for the
+    // next session. Only a change of the *default* mode resets them; any
+    // other save (picking a model quality, say) used to put them back to
+    // the default and silently switch "Rapat Offline" back to Webinar.
+    final keepSessionChoice =
+        _syncedDefaultMode != null && _syncedDefaultMode == settings.defaultMode;
+    _syncedDefaultMode = settings.defaultMode;
+    final mode = keepSessionChoice ? state.config.mode : settings.defaultMode;
     _autoStopMinutes = settings.autoStopMinutes;
     _globalLanguage = settings.language;
     _language = _languageOverride == _noLanguageOverride
         ? effectiveSessionLanguage(
             globalLanguage: settings.language,
-            mode: settings.defaultMode,
+            mode: mode,
           )
         : _languageOverride as String?;
     _modelId = settings.defaultModel;
     _glossarySettings = settings.glossary;
     _progressiveEnabled = settings.progressiveEnabled;
     _autoRetranscribe = settings.autoRetranscribe;
-    final (mic, speaker) = settings.defaultMode.defaultToggles;
+    final (mic, speaker) = keepSessionChoice
+        ? (state.config.micEnabled, state.config.speakerEnabled)
+        : settings.defaultMode.defaultToggles;
     // HPT: quick pass uses the default model; refine pass always targets
     // large-v3-turbo-q5 when progressive is enabled (and the quick model
     // is not itself the q5 — HPT only makes sense quick≠refine).
@@ -936,7 +954,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       config: SessionConfig(
         micEnabled: mic,
         speakerEnabled: speaker,
-        mode: settings.defaultMode,
+        mode: mode,
         modelPath: quickPath,
         refineModelPath: refinePath,
         vadEnabled: settings.vadEnabled,

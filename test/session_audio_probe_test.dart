@@ -41,6 +41,32 @@ class _ProbeBridge extends NoopBridge {
   }
 }
 
+/// Saves different settings (a new default mode) while the probe runs, as
+/// a settings write finishing mid-start would.
+class _SyncDuringProbeBridge extends NoopBridge {
+  _SyncDuringProbeBridge(this.notifier);
+
+  final SessionNotifier Function() notifier;
+  SessionConfig? startedWith;
+
+  @override
+  Future<AudioMeasurement?> probeAudioInput(
+    String? deviceName,
+    int millis,
+  ) async {
+    notifier().syncDefaultSettings(
+      AppSettings.defaults().copyWith(defaultMode: SessionMode.webinar),
+    );
+    return null;
+  }
+
+  @override
+  Future<String> startSession(SessionConfig config) async {
+    startedWith = config;
+    return super.startSession(config);
+  }
+}
+
 SessionNotifier _notifier(_ProbeBridge bridge, {bool auto = true}) {
   final notifier = SessionNotifier(
     bridge,
@@ -100,5 +126,56 @@ void main() {
     await _notifier(bridge, auto: false).start();
     expect(bridge.probes, isEmpty);
     expect(bridge.tunings, isEmpty);
+  });
+
+  group('settings saves do not undo the next session\'s choices', () {
+    test('picking a model quality keeps the chosen mode', () {
+      final notifier = _notifier(_ProbeBridge(null));
+      notifier.setMode(SessionMode.online);
+
+      notifier.syncDefaultSettings(
+        AppSettings.defaults().copyWith(
+          defaultMode: SessionMode.offline,
+          defaultModel: 'small',
+        ),
+      );
+
+      expect(notifier.state.config.mode, SessionMode.online);
+      expect(notifier.state.config.micEnabled, isTrue);
+      expect(notifier.state.config.speakerEnabled, isTrue);
+    });
+
+    test('changing the default mode does reset it', () {
+      final notifier = _notifier(_ProbeBridge(null));
+      notifier.setMode(SessionMode.online);
+
+      notifier.syncDefaultSettings(
+        AppSettings.defaults().copyWith(defaultMode: SessionMode.webinar),
+      );
+
+      expect(notifier.state.config.mode, SessionMode.webinar);
+    });
+
+    test(
+      'a save that lands during the room probe does not reach the start',
+      () async {
+        late SessionNotifier notifier;
+        final bridge = _SyncDuringProbeBridge(() => notifier);
+        notifier = SessionNotifier(
+          bridge,
+          SessionMode.offline,
+          modelPathForId('tiny'),
+        );
+        notifier.syncDefaultSettings(
+          AppSettings.defaults().copyWith(defaultMode: SessionMode.offline),
+        );
+
+        await notifier.start();
+
+        expect(bridge.startedWith?.mode, SessionMode.offline);
+        expect(bridge.startedWith?.micEnabled, isTrue);
+        expect(notifier.state.lifecycle, SessionLifecycle.recording);
+      },
+    );
   });
 }
