@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 import 'dart:io';
 
 import '../services/bridge_service.dart';
@@ -43,79 +44,318 @@ final settingsSaveFailureProvider = StateProvider<SettingsSaveFailure?>(
   (ref) => null,
 );
 
+/// Every field of [AppSettings], for the two things the load path has to do
+/// per field rather than per object: work out what a setter changed, and
+/// re-assemble the state so that a late load cannot undo it.
+///
+/// `read` returns the field boxed as `Object?` so the setter diff is one
+/// expression instead of twenty-nine comparisons.
+enum _SettingField {
+  theme,
+  defaultModel,
+  defaultMode,
+  libraryPath,
+  vadEnabled,
+  language,
+  autoStopMinutes,
+  defaultExportFormat,
+  micDeviceId,
+  speakerDeviceId,
+  progressiveEnabled,
+  rtfScore,
+  hptMode,
+  gpuEnabled,
+  gpuDevice,
+  audioToDisk,
+  summary,
+  glossary,
+  summaryTemplates,
+  notulen,
+  autoRetranscribe,
+  pdp,
+  noiseReduction,
+  agcEnabled,
+  neuralDiarization,
+  defaultModelUpgradeDismissed,
+  consentBannerDismissed,
+  meetingAutoDetectEnabled,
+  silenceAutoStopMinutes;
+
+  Object? read(AppSettings s) => switch (this) {
+    theme => s.theme,
+    defaultModel => s.defaultModel,
+    defaultMode => s.defaultMode,
+    libraryPath => s.libraryPath,
+    vadEnabled => s.vadEnabled,
+    language => s.language,
+    autoStopMinutes => s.autoStopMinutes,
+    defaultExportFormat => s.defaultExportFormat,
+    micDeviceId => s.micDeviceId,
+    speakerDeviceId => s.speakerDeviceId,
+    progressiveEnabled => s.progressiveEnabled,
+    rtfScore => s.rtfScore,
+    hptMode => s.hptMode,
+    gpuEnabled => s.gpuEnabled,
+    gpuDevice => s.gpuDevice,
+    audioToDisk => s.audioToDisk,
+    summary => s.summary,
+    glossary => s.glossary,
+    summaryTemplates => s.summaryTemplates,
+    notulen => s.notulen,
+    autoRetranscribe => s.autoRetranscribe,
+    pdp => s.pdp,
+    noiseReduction => s.noiseReduction,
+    agcEnabled => s.agcEnabled,
+    neuralDiarization => s.neuralDiarization,
+    defaultModelUpgradeDismissed => s.defaultModelUpgradeDismissed,
+    consentBannerDismissed => s.consentBannerDismissed,
+    meetingAutoDetectEnabled => s.meetingAutoDetectEnabled,
+    silenceAutoStopMinutes => s.silenceAutoStopMinutes,
+  };
+}
+
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final RustBridge _bridge;
 
   /// Called whenever a write fails, and again with null once one succeeds.
   final void Function(SettingsSaveFailure?)? onSaveFailure;
-  bool _userActed = false;
+
+  /// Completes once the Rust-owned settings — the source of `libraryPath`,
+  /// the default model and the GPU flags — are in [state]. Phase 1 of the
+  /// two-phase load below; see [ready].
+  final Completer<void> _rustLoaded = Completer<void>();
+
+  /// Fields a caller has already changed since launch. A load that lands
+  /// afterwards keeps these and applies the rest, instead of the old
+  /// all-or-nothing `_userActed` flag that discarded the *entire* saved
+  /// configuration — `libraryPath` included — the moment the setup wizard
+  /// called `setDefaultModel` during a cold start (issue #62).
+  final Set<_SettingField> _touched = <_SettingField>{};
 
   SettingsNotifier(this._bridge, {this.onSaveFailure})
     : super(AppSettings.defaults()) {
     _load();
   }
 
+  /// Resolves once the Rust-owned settings are applied. Never throws, and
+  /// always completes: a bridge that cannot answer leaves the defaults in
+  /// place. Callers that must not decide from [AppSettings.defaults] — the
+  /// setup wizard's model suggestion and GPU calibration — await this.
+  Future<void> get ready => _rustLoaded.future;
+
   /// The last failure, also exposed directly so tests (and any non-Riverpod
   /// caller) do not have to go through a provider to see it.
   SettingsSaveFailure? lastSaveFailure;
 
+  /// Two phases, on purpose.
+  ///
+  /// Phase 1 is the Rust bridge: one call, no `path_provider`, and the only
+  /// half that carries `libraryPath`. Phase 2 is `DartPrefs`, whose five
+  /// fields are Dart-only. Splitting them is what makes [ready] awaitable in
+  /// a widget test: `DartPrefs.load()` never answers there, so a `ready`
+  /// that waited on it hung `pumpAndSettle`, and a `timeout()` around it
+  /// fixed that by leaving a pending `Timer` that failed 90 other tests.
   Future<void> _load() async {
-    await DartPrefs.instance.load();
-    // The notifier can be disposed while these two awaits are in flight (a
-    // test that tears down quickly, a hot restart): writing `state` after
-    // dispose throws "Bad state: Tried to use SettingsNotifier after
-    // `dispose` was called" and takes an unrelated test down with it.
-    if (!mounted) return;
-    final loaded = await _bridge.loadSettings();
-    if (!mounted) return;
-    if (_userActed) return;
-    _userActed = true;
-    final withDartPrefs = AppSettings(
-      theme: loaded.theme,
-      defaultModel: loaded.defaultModel,
-      defaultMode: loaded.defaultMode,
-      libraryPath: loaded.libraryPath,
-      vadEnabled: loaded.vadEnabled,
-      language: loaded.language,
-      autoStopMinutes: loaded.autoStopMinutes,
-      summary: loaded.summary,
-      // These four (and `audioToDisk`) are persisted by Rust. Leaving them
-      // out of this constructor silently reset them to the defaults on every
-      // launch, which is exactly the class of bug the audit caught in the
-      // theme setting.
-      audioToDisk: loaded.audioToDisk,
-      glossary: loaded.glossary,
-      summaryTemplates: loaded.summaryTemplates,
-      notulen: loaded.notulen,
-      autoRetranscribe: loaded.autoRetranscribe,
-      meetingAutoDetectEnabled: loaded.meetingAutoDetectEnabled,
-      silenceAutoStopMinutes: loaded.silenceAutoStopMinutes,
-      defaultExportFormat:
-          DartPrefs.instance.getString('defaultExportFormat') ?? 'markdown',
-      micDeviceId: DartPrefs.instance.getString('micDeviceId'),
-      speakerDeviceId: DartPrefs.instance.getString('speakerDeviceId'),
-      progressiveEnabled: loaded.progressiveEnabled,
-      rtfScore: DartPrefs.instance.getDouble('rtfScore') ?? 0.0,
-      gpuEnabled: loaded.gpuEnabled,
-      gpuDevice: loaded.gpuDevice,
-      hptMode: (() {
-        final raw = DartPrefs.instance.getInt('hptMode');
-        if (raw == null) return HptMode.auto;
-        return HptMode.values[raw.clamp(0, HptMode.values.length - 1)];
-      })(),
+    await _loadRustSettings();
+    await _loadDartPrefs();
+  }
+
+  /// Phase 1 — Rust-owned settings.
+  Future<void> _loadRustSettings() async {
+    try {
+      final loaded = await _bridge.loadSettings();
+      // The notifier can be disposed while the load is in flight (a test
+      // that tears down quickly, a hot restart): writing `state` after
+      // dispose throws "Bad state: Tried to use SettingsNotifier after
+      // `dispose` was called" and takes an unrelated test down with it.
+      if (!mounted) return;
+      var merged = _mergeLoaded(loaded);
+      var repaired = false;
+      // A default model that is not on disk is repaired to `base` — unless
+      // the user has already chosen one since launch, in which case theirs
+      // wins (it is the newer decision).
+      if (!_touched.contains(_SettingField.defaultModel)) {
+        final sanitized = _sanitizeDefaultModel(merged);
+        repaired = sanitized.defaultModel != merged.defaultModel;
+        merged = sanitized;
+      }
+      state = merged;
+      // Keep disk in step with what we now hold. A setter that ran during
+      // the load already wrote the *pre-load* state — default `libraryPath`
+      // and all — over the saved one, so merging in memory is not enough
+      // to stop the next launch from seeing the damage.
+      if (repaired || _touched.isNotEmpty) {
+        // Best effort: this is a repair, not a user action, and failing it
+        // must not put an error banner in front of someone who did nothing.
+        try {
+          await _bridge.saveSettings(merged);
+        } catch (_) {}
+      }
+    } catch (_) {
+      // A bridge that cannot answer leaves the defaults in place; the app
+      // stays usable and every later write still goes through.
+    } finally {
+      if (!_rustLoaded.isCompleted) _rustLoaded.complete();
+    }
+  }
+
+  /// Phase 2 — the Dart-only fields, from [DartPrefs].
+  ///
+  /// Additive by construction: it writes the five fields that file owns and
+  /// nothing else, and skips any of them a caller has already changed while
+  /// this load was in flight.
+  Future<void> _loadDartPrefs() async {
+    try {
+      await DartPrefs.instance.load();
+      if (!mounted) return;
+      final prefs = DartPrefs.instance;
+      final cur = state;
+      bool untouched(_SettingField field) => !_touched.contains(field);
+      state = cur.copyWith(
+        defaultExportFormat: untouched(_SettingField.defaultExportFormat)
+            ? prefs.getString('defaultExportFormat') ?? cur.defaultExportFormat
+            : cur.defaultExportFormat,
+        micDeviceId: untouched(_SettingField.micDeviceId)
+            ? prefs.getString('micDeviceId')
+            : cur.micDeviceId,
+        speakerDeviceId: untouched(_SettingField.speakerDeviceId)
+            ? prefs.getString('speakerDeviceId')
+            : cur.speakerDeviceId,
+        rtfScore: untouched(_SettingField.rtfScore)
+            ? prefs.getDouble('rtfScore') ?? cur.rtfScore
+            : cur.rtfScore,
+        hptMode: untouched(_SettingField.hptMode)
+            ? _hptModeFromPrefs(prefs, cur.hptMode)
+            : cur.hptMode,
+      );
+      final settled = state;
+      if (settled.progressiveEnabled && settled.rtfScore == 0.0) {
+        await _backgroundBenchmark(settled);
+      }
+    } catch (_) {
+      // Prefs are a convenience layer — a corrupt or unreachable file must
+      // not take the rest of the settings down with it.
+    }
+  }
+
+  static HptMode _hptModeFromPrefs(DartPrefs prefs, HptMode fallback) {
+    final raw = prefs.getInt('hptMode');
+    if (raw == null) return fallback;
+    return HptMode.values[raw.clamp(0, HptMode.values.length - 1)];
+  }
+
+  /// [loaded] with every field a caller has already changed kept from the
+  /// current state.
+  ///
+  /// Built through the full constructor on purpose: the previous version
+  /// listed the fields by hand and quietly left six out (`audioToDisk`,
+  /// `glossary`, `summaryTemplates`, `notulen`, `autoRetranscribe`,
+  /// `meetingAutoDetectEnabled`, ...), so they reset to their defaults on
+  /// every launch. Naming every field means a new one is a compile error
+  /// here rather than a silent reset.
+  AppSettings _mergeLoaded(AppSettings loaded) {
+    final cur = state;
+    T pick<T>(_SettingField field, T current, T stored) =>
+        _touched.contains(field) ? current : stored;
+    return AppSettings(
+      theme: pick(_SettingField.theme, cur.theme, loaded.theme),
+      defaultModel: pick(
+        _SettingField.defaultModel,
+        cur.defaultModel,
+        loaded.defaultModel,
+      ),
+      defaultMode: pick(
+        _SettingField.defaultMode,
+        cur.defaultMode,
+        loaded.defaultMode,
+      ),
+      libraryPath: pick(
+        _SettingField.libraryPath,
+        cur.libraryPath,
+        loaded.libraryPath,
+      ),
+      vadEnabled: pick(_SettingField.vadEnabled, cur.vadEnabled, loaded.vadEnabled),
+      language: pick(_SettingField.language, cur.language, loaded.language),
+      autoStopMinutes: pick(
+        _SettingField.autoStopMinutes,
+        cur.autoStopMinutes,
+        loaded.autoStopMinutes,
+      ),
+      defaultExportFormat: pick(
+        _SettingField.defaultExportFormat,
+        cur.defaultExportFormat,
+        loaded.defaultExportFormat,
+      ),
+      micDeviceId: pick(
+        _SettingField.micDeviceId,
+        cur.micDeviceId,
+        loaded.micDeviceId,
+      ),
+      speakerDeviceId: pick(
+        _SettingField.speakerDeviceId,
+        cur.speakerDeviceId,
+        loaded.speakerDeviceId,
+      ),
+      progressiveEnabled: pick(
+        _SettingField.progressiveEnabled,
+        cur.progressiveEnabled,
+        loaded.progressiveEnabled,
+      ),
+      rtfScore: pick(_SettingField.rtfScore, cur.rtfScore, loaded.rtfScore),
+      hptMode: pick(_SettingField.hptMode, cur.hptMode, loaded.hptMode),
+      gpuEnabled: pick(_SettingField.gpuEnabled, cur.gpuEnabled, loaded.gpuEnabled),
+      gpuDevice: pick(_SettingField.gpuDevice, cur.gpuDevice, loaded.gpuDevice),
+      audioToDisk: pick(
+        _SettingField.audioToDisk,
+        cur.audioToDisk,
+        loaded.audioToDisk,
+      ),
+      summary: pick(_SettingField.summary, cur.summary, loaded.summary),
+      glossary: pick(_SettingField.glossary, cur.glossary, loaded.glossary),
+      summaryTemplates: pick(
+        _SettingField.summaryTemplates,
+        cur.summaryTemplates,
+        loaded.summaryTemplates,
+      ),
+      notulen: pick(_SettingField.notulen, cur.notulen, loaded.notulen),
+      autoRetranscribe: pick(
+        _SettingField.autoRetranscribe,
+        cur.autoRetranscribe,
+        loaded.autoRetranscribe,
+      ),
+      pdp: pick(_SettingField.pdp, cur.pdp, loaded.pdp),
+      noiseReduction: pick(
+        _SettingField.noiseReduction,
+        cur.noiseReduction,
+        loaded.noiseReduction,
+      ),
+      agcEnabled: pick(_SettingField.agcEnabled, cur.agcEnabled, loaded.agcEnabled),
+      neuralDiarization: pick(
+        _SettingField.neuralDiarization,
+        cur.neuralDiarization,
+        loaded.neuralDiarization,
+      ),
+      defaultModelUpgradeDismissed: pick(
+        _SettingField.defaultModelUpgradeDismissed,
+        cur.defaultModelUpgradeDismissed,
+        loaded.defaultModelUpgradeDismissed,
+      ),
+      consentBannerDismissed: pick(
+        _SettingField.consentBannerDismissed,
+        cur.consentBannerDismissed,
+        loaded.consentBannerDismissed,
+      ),
+      meetingAutoDetectEnabled: pick(
+        _SettingField.meetingAutoDetectEnabled,
+        cur.meetingAutoDetectEnabled,
+        loaded.meetingAutoDetectEnabled,
+      ),
+      silenceAutoStopMinutes: pick(
+        _SettingField.silenceAutoStopMinutes,
+        cur.silenceAutoStopMinutes,
+        loaded.silenceAutoStopMinutes,
+      ),
     );
-    final sanitized = _sanitizeDefaultModel(withDartPrefs);
-    state = sanitized;
-    if (sanitized.defaultModel != loaded.defaultModel) {
-      // Best effort: this is a repair, not a user action, and failing it
-      // must not put an error banner in front of someone who did nothing.
-      try {
-        await _bridge.saveSettings(sanitized);
-      } catch (_) {}
-    }
-    if (sanitized.progressiveEnabled && sanitized.rtfScore == 0.0) {
-      _backgroundBenchmark(sanitized);
-    }
   }
 
   Future<void> _backgroundBenchmark(AppSettings settings) async {
@@ -163,8 +403,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     bool saveToBridge = true,
     Future<void> Function()? savePrefs,
   }) async {
-    _userActed = true;
     final previous = state;
+    // Record *which* fields this write changes, so a settings load that is
+    // still in flight applies its saved values to everything else instead of
+    // throwing the lot away.
+    _touched.addAll(
+      _SettingField.values.where(
+        (field) => field.read(previous) != field.read(next),
+      ),
+    );
     state = next;
     try {
       if (savePrefs != null) await savePrefs();

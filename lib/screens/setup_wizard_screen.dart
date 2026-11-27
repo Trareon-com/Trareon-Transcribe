@@ -117,6 +117,17 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     final cores = specs.cpuCores;
     final ramMb = specs.ramMb;
 
+    // Wait for the *Rust* half of the settings load before choosing a model.
+    // `_availableModel` decides from `libraryPath`, and on a cold start the
+    // notifier is still on `AppSettings.defaults()` for the first frames —
+    // reading it there suggested a model that is not on disk and, worse,
+    // wrote it back through `setDefaultModel` over the settings that had
+    // just been loaded (issue #62). Phase 1 is a single bridge call, so this
+    // costs a microtask, not a disk read.
+    final notifier = ref.read(settingsProvider.notifier);
+    await notifier.ready;
+    if (!mounted) return;
+
     // Suggest model based on RAM
     final suggested = _availableModel(specs.suggestedModel);
 
@@ -133,7 +144,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _specDetected = true;
       });
       if (shouldAutoApply) {
-        ref.read(settingsProvider.notifier).setDefaultModel(suggested);
+        notifier.setDefaultModel(suggested);
       }
       unawaited(_calibrateGpuInBackground(_selectedModel));
     }
@@ -181,16 +192,25 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   /// in Settings, same as before this existed.
   Future<void> _calibrateGpuInBackground(String modelId) async {
     if (_gpuCalibrationInFlight || _gpuCalibratedForModel == modelId) return;
-    final libraryPath = ref.read(settingsProvider).libraryPath;
-    if (!isModelAvailable(modelId, libraryPath: libraryPath)) return;
-    final modelPath = modelPathForId(modelId, libraryPath: libraryPath);
+    // Claimed before the first await: two flips of the model choice within
+    // one frame must not both get past the guard and load the engine twice.
     _gpuCalibrationInFlight = true;
     try {
+      // Same reason as `_detectSpecs`: `isModelAvailable` below is only
+      // truthful once the Rust settings (and with them `libraryPath`) have
+      // landed. Deciding earlier made this return before it ever asked the
+      // engine, which is the skipped GPU auto-detect in issue #62.
+      final notifier = ref.read(settingsProvider.notifier);
+      await notifier.ready;
+      if (!mounted) return;
+      final libraryPath = ref.read(settingsProvider).libraryPath;
+      if (!isModelAvailable(modelId, libraryPath: libraryPath)) return;
+      final modelPath = modelPathForId(modelId, libraryPath: libraryPath);
       final bridge = ref.read(rustBridgeProvider);
       final useGpu = await bridge.recommendGpu(modelPath);
       if (!mounted) return;
       _gpuCalibratedForModel = modelId;
-      await ref.read(settingsProvider.notifier).setGpuEnabled(useGpu);
+      await notifier.setGpuEnabled(useGpu);
     } catch (_) {
       // Calibration itself failing (e.g. model file disappeared between
       // the availability check and the load) is not worth surfacing here;

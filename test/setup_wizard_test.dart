@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,8 +45,19 @@ class _FakeBridge with SummaryBridgeStubs implements RustBridge {
   Future<double> benchmarkRtf(String modelPath) async => 0.8;
 
 
+  /// What the fake GPU calibration answers, and every model path it was
+  /// asked about. `gpuCalibrationFails` makes it throw like a model file that
+  /// vanished between the availability check and the load.
+  bool gpuRecommendation = false;
+  bool gpuCalibrationFails = false;
+  final List<String> recommendGpuCalls = [];
+
   @override
-  Future<bool> recommendGpu(String modelPath) async => false;
+  Future<bool> recommendGpu(String modelPath) async {
+    recommendGpuCalls.add(modelPath);
+    if (gpuCalibrationFails) throw StateError('model vanished');
+    return gpuRecommendation;
+  }
 
   @override
   Stream<TranscriptSegment> transcriptStream(String sessionId) =>
@@ -283,5 +296,81 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bridge.savedSettings.defaultModel, 'large-v3-turbo-q5');
+  });
+
+  // Issue #62: the wizard decided the model and the GPU from
+  // `AppSettings.defaults()` while the saved settings were still loading, so
+  // `libraryPath` was the default, `isModelAvailable` looked in the wrong
+  // directory, and the calibration was skipped — silently, and only on slow
+  // (cold-start) machines, which is what made it a CI-only failure.
+  group('GPU auto-detect', () {
+    late Directory modelsDir;
+
+    setUp(() {
+      modelsDir = Directory.systemTemp.createTempSync('wizard_gpu_');
+      // The calibration only runs for a model that is actually on disk.
+      File('${modelsDir.path}/ggml-large-v3-turbo-q5_0.bin').writeAsBytesSync(
+        const [0],
+      );
+    });
+
+    tearDown(() => modelsDir.deleteSync(recursive: true));
+
+    Future<_FakeBridge> pumpWizard(
+      WidgetTester tester, {
+      required bool recommend,
+      bool fails = false,
+    }) async {
+      final bridge = _FakeBridge()
+        ..gpuRecommendation = recommend
+        ..gpuCalibrationFails = fails
+        ..savedSettings = AppSettings.defaults().copyWith(
+          libraryPath: modelsDir.path,
+          defaultModel: 'large-v3-turbo-q5',
+        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+          child: MaterialApp(
+            home: SetupWizardScreen(
+              onFinished: () {},
+              detectSpecs: _detectSpecs,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return bridge;
+    }
+
+    testWidgets('a GPU recommendation is applied to the settings', (
+      tester,
+    ) async {
+      final bridge = await pumpWizard(tester, recommend: true);
+
+      expect(bridge.recommendGpuCalls, isNotEmpty);
+      expect(
+        bridge.recommendGpuCalls.first,
+        endsWith('ggml-large-v3-turbo-q5_0.bin'),
+      );
+      expect(bridge.savedSettings.gpuEnabled, isTrue);
+    });
+
+    testWidgets('a "CPU is faster" verdict leaves GPU off', (tester) async {
+      final bridge = await pumpWizard(tester, recommend: false);
+
+      expect(bridge.recommendGpuCalls, isNotEmpty);
+      expect(bridge.savedSettings.gpuEnabled, isFalse);
+    });
+
+    testWidgets('a failing calibration is swallowed and GPU stays as it was', (
+      tester,
+    ) async {
+      final bridge = await pumpWizard(tester, recommend: true, fails: true);
+
+      expect(bridge.recommendGpuCalls, isNotEmpty);
+      expect(bridge.savedSettings.gpuEnabled, isFalse);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
