@@ -53,10 +53,16 @@ impl HardwareProfile {
     #[flutter_rust_bridge::frb(ignore)]
     pub fn probe() -> Self {
         use sysinfo::System;
-        let mut sys = System::new();
-        sys.refresh_memory();
+        // sysinfo 0.40 returns `Err` on unsupported platforms; report 0 GB
+        // there, so the recommendation falls back to the CPU-safe minimum.
+        let ram_bytes = System::new()
+            .map(|mut sys| {
+                sys.refresh_memory();
+                sys.total_memory()
+            })
+            .unwrap_or(0);
         Self {
-            ram_gb: sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0,
+            ram_gb: ram_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
             vram_gb: 0.0,
             cpu_threads: std::thread::available_parallelism()
                 .map(|n| n.get() as u32)

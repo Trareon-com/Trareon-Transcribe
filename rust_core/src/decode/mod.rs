@@ -5,13 +5,12 @@
 use std::fs::File;
 use std::path::Path;
 
-use symphonia::core::audio::{AudioBufferRef, Signal};
-use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
-use symphonia::core::conv::FromSample;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::audio::GenericAudioBufferRef;
+use symphonia::core::codecs::audio::AudioDecoderOptions;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, FormatReader, Track, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 use crate::error::TranscribeError;
 
@@ -40,41 +39,35 @@ pub fn decode_audio_file(path: &Path) -> Result<AudioBuffer, TranscribeError> {
         hint.with_extension(ext);
     }
 
-    let probed = symphonia::default::get_probe()
-        .format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )
-        .map_err(|e| TranscribeError::AudioDecode(format!("unsupported or corrupt file: {e}")))?;
-
-    let mut format = probed.format;
-
-    let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+    let mut format = open_format(&hint, mss)?;
+    let track = audio_track(format.as_ref())?;
+    let params = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
         .ok_or_else(|| TranscribeError::AudioDecode("no decodable audio track found".into()))?
         .clone();
+    let track_id = track.id;
 
-    let original_sample_rate = track.codec_params.sample_rate.unwrap_or(TARGET_SAMPLE_RATE);
-    let original_channels = track
-        .codec_params
+    let original_sample_rate = params.sample_rate.unwrap_or(TARGET_SAMPLE_RATE);
+    let original_channels = params
         .channels
+        .as_ref()
         .map(|c| c.count() as u16)
         .unwrap_or(1);
 
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make_audio_decoder(&params, &AudioDecoderOptions::default())
         .map_err(|e| TranscribeError::AudioDecode(format!("unsupported codec: {e}")))?;
 
-    let track_id = track.id;
     let mut mono_samples: Vec<f32> = Vec::new();
+    let mut scratch: Vec<f32> = Vec::new();
 
     loop {
         let packet = match format.next_packet() {
-            Ok(p) => p,
+            // symphonia 0.6 signals end of stream with `Ok(None)`.
+            Ok(Some(p)) => p,
+            Ok(None) => break,
             Err(symphonia::core::errors::Error::IoError(e))
                 if e.kind() == std::io::ErrorKind::UnexpectedEof =>
             {
@@ -83,12 +76,12 @@ pub fn decode_audio_file(path: &Path) -> Result<AudioBuffer, TranscribeError> {
             Err(e) => return Err(TranscribeError::AudioDecode(format!("read error: {e}"))),
         };
 
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
         match decoder.decode(&packet) {
-            Ok(decoded) => append_as_mono(&decoded, &mut mono_samples),
+            Ok(decoded) => append_as_mono(&decoded, &mut scratch, &mut mono_samples),
             Err(symphonia::core::errors::Error::DecodeError(_)) => continue,
             Err(e) => return Err(TranscribeError::AudioDecode(format!("decode error: {e}"))),
         }
@@ -129,26 +122,14 @@ pub fn probe_duration_secs(path: &Path) -> Result<Option<f64>, TranscribeError> 
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         hint.with_extension(ext);
     }
-    let probed = symphonia::default::get_probe()
-        .format(
-            &hint,
-            mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
-        )
-        .map_err(|e| TranscribeError::AudioDecode(format!("unsupported or corrupt file: {e}")))?;
-    let Some(track) = probed
-        .format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
-    else {
-        return Err(TranscribeError::AudioDecode(
-            "no decodable audio track found".into(),
-        ));
-    };
-    let (Some(frames), Some(rate)) = (track.codec_params.n_frames, track.codec_params.sample_rate)
-    else {
+    let format = open_format(&hint, mss)?;
+    let track = audio_track(format.as_ref())?;
+    let rate = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .and_then(|a| a.sample_rate);
+    let (Some(frames), Some(rate)) = (track.num_frames, rate) else {
         return Ok(None);
     };
     if rate == 0 {
@@ -157,37 +138,40 @@ pub fn probe_duration_secs(path: &Path) -> Result<Option<f64>, TranscribeError> 
     Ok(Some(frames as f64 / rate as f64))
 }
 
-fn append_as_mono(decoded: &AudioBufferRef, out: &mut Vec<f32>) {
-    let spec = *decoded.spec();
-    let channels = spec.channels.count().max(1);
+fn open_format(
+    hint: &Hint,
+    mss: MediaSourceStream<'static>,
+) -> Result<Box<dyn FormatReader>, TranscribeError> {
+    symphonia::default::get_probe()
+        .probe(
+            hint,
+            mss,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
+        .map_err(|e| TranscribeError::AudioDecode(format!("unsupported or corrupt file: {e}")))
+}
 
-    macro_rules! mixdown {
-        ($buf:expr) => {{
-            let planes = $buf.planes();
-            let planes = planes.planes();
-            let frames = $buf.frames();
-            for i in 0..frames {
-                let mut sum = 0.0f32;
-                for ch in 0..channels.min(planes.len()) {
-                    sum += f32::from_sample(planes[ch][i]);
-                }
-                out.push(sum / channels as f32);
-            }
-        }};
-    }
+/// The track to decode: the container's default audio track, else the
+/// first audio track with a codec symphonia knows.
+fn audio_track(format: &dyn FormatReader) -> Result<&Track, TranscribeError> {
+    format
+        .default_track(TrackType::Audio)
+        .ok_or_else(|| TranscribeError::AudioDecode("no decodable audio track found".into()))
+}
 
-    match decoded {
-        AudioBufferRef::F32(buf) => mixdown!(buf),
-        AudioBufferRef::F64(buf) => mixdown!(buf),
-        AudioBufferRef::U8(buf) => mixdown!(buf),
-        AudioBufferRef::U16(buf) => mixdown!(buf),
-        AudioBufferRef::U24(buf) => mixdown!(buf),
-        AudioBufferRef::U32(buf) => mixdown!(buf),
-        AudioBufferRef::S8(buf) => mixdown!(buf),
-        AudioBufferRef::S16(buf) => mixdown!(buf),
-        AudioBufferRef::S24(buf) => mixdown!(buf),
-        AudioBufferRef::S32(buf) => mixdown!(buf),
-    }
+/// Average every channel of `decoded` into `out`. `scratch` holds the
+/// interleaved f32 copy between calls so a long file does not allocate
+/// once per packet.
+fn append_as_mono(decoded: &GenericAudioBufferRef, scratch: &mut Vec<f32>, out: &mut Vec<f32>) {
+    let channels = decoded.spec().channels().count().max(1);
+    scratch.resize(decoded.samples_interleaved(), 0.0);
+    decoded.copy_to_slice_interleaved(&mut scratch[..]);
+    out.extend(
+        scratch
+            .chunks_exact(channels)
+            .map(|frame| frame.iter().sum::<f32>() / channels as f32),
+    );
 }
 
 /// Resample mono PCM to [`TARGET_SAMPLE_RATE`] using rubato (SIMD-accelerated).

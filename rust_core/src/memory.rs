@@ -8,7 +8,11 @@ pub const MEMORY_PRESSURE_THRESHOLD: f32 = 0.8;
 /// Ratio in [0.0, 1.0] of used/total system RAM.
 pub fn system_memory_usage_ratio() -> f32 {
     use sysinfo::System;
-    let mut sys = System::new();
+    // sysinfo 0.40 returns `Err` on unsupported platforms: no reading
+    // means no pressure signal, same as the `total == 0` case below.
+    let Ok(mut sys) = System::new() else {
+        return 0.0;
+    };
     sys.refresh_memory();
     let total = sys.total_memory();
     if total == 0 {

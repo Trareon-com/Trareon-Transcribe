@@ -57,6 +57,10 @@ import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
 import 'transcript_player_screen.dart';
+import '../utils/model_labels.dart';
+import '../widgets/model_download_dialog.dart';
+import '../state/download_consent.dart';
+import '../widgets/ui/app_dialog.dart';
 import '../utils/file_dialogs.dart';
 
 /// Main window: a permanent session sidebar and one workspace.
@@ -788,6 +792,38 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         .setBookmarkNote(bookmark.timestamp, note);
   }
 
+  /// When the first-run download was postponed ("Nanti", issue #70) the
+  /// transcription model may not be on disk yet. Offer it here, where it is
+  /// needed, instead of failing inside the engine. The dialog reports the
+  /// download to the Privacy Report itself.
+  Future<bool> _modelAvailableForRecording(BuildContext context) async {
+    final settings = ref.read(settingsProvider);
+    final modelId = settings.defaultModel;
+    if (ref.read(modelOnDiskProvider)(modelId, settings.libraryPath)) {
+      return true;
+    }
+    final planned = kFirstRunDownloadPlan.where((i) => i.modelId == modelId);
+    final size = planned.isEmpty ? '' : ' (±${planned.first.megabytes} MB)';
+    final agreed = await showAppConfirm(
+      context: context,
+      icon: AppIcons.download,
+      title: 'Model belum diunduh',
+      message:
+          'Rekaman perlu ${modelDisplayLabel(modelId)} di perangkat ini. '
+          'Unduh sekarang$size? Unduhan tercatat di Laporan Privasi.',
+      confirmLabel: 'Unduh sekarang',
+      cancelLabel: 'Nanti',
+    );
+    if (!agreed || !context.mounted) return false;
+    return showModelDownloadDialog(
+      context: context,
+      bridge: ref.read(rustBridgeProvider),
+      modelId: modelId,
+      modelsDir: defaultModelsCacheDir(),
+      displayName: modelDisplayLabel(modelId),
+    );
+  }
+
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
     final lifecycle = ref.read(sessionProvider).lifecycle;
     final isActive =
@@ -811,6 +847,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // system-audio capture) — without this the record button just looks
     // unresponsive to a click that's actually still in flight.
     if (!await _diskSpaceAllowsRecording(context)) return;
+    if (!context.mounted) return;
+    if (!await _modelAvailableForRecording(context)) return;
     if (!context.mounted) return;
     setState(() => _isStartingSession = true);
     try {
