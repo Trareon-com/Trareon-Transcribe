@@ -76,7 +76,15 @@ void main() {
     await tester.pumpWidget(_app(bridge));
     await tester.pumpAndSettle();
 
-    expect(bridge.calls, 1);
+    // Settings arrive in two phases on a cold start — the Rust bridge first
+    // (libraryPath, model, …) and DartPrefs afterwards (export format, device
+    // ids, …) — and the capability table is derived from all of them, so one
+    // refetch is expected. What this guards against is a refetch *loop*: the
+    // count has to stay put once the screen has settled.
+    expect(bridge.calls, inInclusiveRange(1, 2));
+    final settledCalls = bridge.calls;
+    await tester.pumpAndSettle();
+    expect(bridge.calls, settledCalls);
     expect(find.text('Transkripsi (Whisper)'), findsOneWidget);
     expect(find.text('Ringkasan AI'), findsOneWidget);
     expect(find.text('Unduh model Whisper'), findsOneWidget);
