@@ -8,6 +8,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
@@ -255,7 +256,7 @@ class AppSearchField extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onChanged,
-    this.placeholder = 'Cari…',
+    this.placeholder,
     this.focusNode,
     this.shortcut,
     this.dense = true,
@@ -264,7 +265,9 @@ class AppSearchField extends StatefulWidget {
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  final String placeholder;
+
+  /// Defaults to [AppLocalizations.appFieldSearchPlaceholder].
+  final String? placeholder;
   final FocusNode? focusNode;
 
   /// Rendered as keycaps at the right edge, platform-aware.
@@ -309,10 +312,12 @@ class _AppSearchFieldState extends State<AppSearchField> {
     final colors = context.colors;
     final motion = context.motion;
     final hasText = widget.controller.text.isNotEmpty;
+    final placeholder =
+        widget.placeholder ?? context.l10n.appFieldSearchPlaceholder;
 
     return Semantics(
       textField: true,
-      label: widget.semanticLabel ?? widget.placeholder,
+      label: widget.semanticLabel ?? placeholder,
       child: AnimatedContainer(
         duration: motion.fast,
         curve: AppEasing.standard,
@@ -351,7 +356,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: widget.placeholder,
+                  hintText: placeholder,
                   hintStyle: AppText.body.c(colors.textTertiary),
                 ),
               ),
@@ -359,7 +364,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
             if (hasText)
               AppIconButton(
                 icon: AppIcons.clear,
-                tooltip: 'Bersihkan pencarian',
+                tooltip: context.l10n.appFieldClearSearch,
                 size: IconSizes.xs,
                 onPressed: () {
                   widget.controller.clear();

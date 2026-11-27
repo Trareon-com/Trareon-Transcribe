@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/global_hotkey_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
@@ -58,6 +59,10 @@ import 'archive_chat_screen.dart';
 import 'library_screen.dart';
 import 'settings_screen.dart';
 import 'transcript_player_screen.dart';
+import '../utils/model_labels.dart';
+import '../widgets/model_download_dialog.dart';
+import '../state/download_consent.dart';
+import '../widgets/ui/app_dialog.dart';
 
 /// Main window: a permanent session sidebar and one workspace.
 ///
@@ -169,19 +174,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   j.status == EnhanceJobStatus.running),
         )
         .length;
+    final l10n = context.l10n;
     final reasons = [
-      if (recording) 'Rekaman masih berjalan.',
-      if (outstanding > 0)
-        '$outstanding rekaman masih diselesaikan transkripnya, '
-            'pekerjaan ini dilanjutkan otomatis saat aplikasi dibuka lagi.',
+      if (recording) l10n.mainScreenQuitReasonRecording,
+      if (outstanding > 0) l10n.mainScreenQuitReasonOutstanding(outstanding),
       if (outstanding == 0 && queue.hasPendingWork)
-        'Masih ada transkrip yang sedang diperhalus.',
+        l10n.mainScreenQuitReasonRefining,
     ];
     if (!mounted) return true;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Keluar sekarang?'),
+        title: Text(l10n.mainScreenQuitTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,11 +194,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Tetap di aplikasi'),
+            child: Text(l10n.mainScreenQuitStay),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Keluar'),
+            child: Text(l10n.mainScreenQuit),
           ),
         ],
       ),
@@ -363,18 +367,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final start = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Rapat terdeteksi'),
+        title: Text(dialogContext.l10n.mainScreenMeetingDetectedTitle),
         content: Text(
-          'Terdeteksi rapat (${detected.app}). Mulai rekam?',
+          dialogContext.l10n.mainScreenMeetingDetectedBody(detected.app),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Abaikan'),
+            child: Text(dialogContext.l10n.mainScreenIgnore),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Mulai Rekam'),
+            child: Text(dialogContext.l10n.mainScreenStartRecording),
           ),
         ],
       ),
@@ -407,10 +411,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             }
             final shown = warning ?? initial;
             return AlertDialog(
-              title: const Text('Tidak ada suara'),
+              title: Text(consumerContext.l10n.mainScreenSilenceTitle),
               content: Text(
-                'Tidak ada suara selama ${shown.silentMinutes} menit. '
-                'Rekaman akan berhenti otomatis kecuali dilanjutkan.',
+                consumerContext.l10n.mainScreenSilenceBody(shown.silentMinutes),
               ),
               actions: [
                 FilledButton(
@@ -420,7 +423,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         .continueRecording();
                     Navigator.of(dialogContext).pop();
                   },
-                  child: const Text('Lanjutkan'),
+                  child: Text(consumerContext.l10n.mainScreenContinue),
                 ),
               ],
             );
@@ -470,9 +473,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (status.level == rust_disk.DiskSpaceLevel.critical) {
       AppToast.show(
         context,
-        'Ruang disk di $_libraryPath tidak cukup untuk merekam. '
-        '${status.message} Kosongkan ruang atau ubah lokasi perpustakaan '
-        'di Pengaturan.',
+        context.l10n.mainScreenDiskFull(_libraryPath, status.message),
         type: ToastType.error,
       );
       return false;
@@ -487,7 +488,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     String? outputDir;
     if (elsewhere) {
       outputDir = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Simpan transkrip ke folder lain',
+        dialogTitle: context.l10n.mainScreenSaveElsewhereDialogTitle,
         initialDirectory: _libraryPath,
       );
       if (outputDir == null) return;
@@ -499,12 +500,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (!mounted) return;
       setState(() => _saveError = null);
       if (context.mounted) {
-        AppToast.show(context, 'Transkrip tersimpan.', type: ToastType.success);
+        AppToast.show(
+          context,
+          context.l10n.mainScreenTranscriptSaved,
+          type: ToastType.success,
+        );
       }
     } on TranscribeSaveError catch (e) {
       if (mounted) setState(() => _saveError = '$e');
     } catch (e) {
-      if (mounted) setState(() => _saveError = 'Gagal menyimpan: $e');
+      if (mounted) {
+        setState(() => _saveError = context.l10n.mainScreenSaveFailed('$e'));
+      }
     } finally {
       if (mounted) setState(() => _retryingSave = false);
     }
@@ -542,7 +549,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (context.mounted) {
         AppToast.show(
           context,
-          'Gagal memulihkan sesi: $e',
+          context.l10n.mainScreenRecoverFailed('$e'),
           type: ToastType.error,
         );
       }
@@ -561,8 +568,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!context.mounted || recovered == null) return;
     AppToast.show(
       context,
-      '"${session.title}" dipulihkan: ${recovered.segments.length} segmen '
-      'dan ${formatDurationId(recovered.resumeOffsetSecs)} audio.',
+      context.l10n.mainScreenRecovered(
+        session.title,
+        recovered.segments.length,
+        formatDurationId(recovered.resumeOffsetSecs),
+      ),
       type: ToastType.success,
     );
   }
@@ -577,20 +587,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           .deleteRecoverableSession(session.snapshot.sessionId);
     } catch (e) {
       if (context.mounted) {
-        AppToast.show(context, 'Gagal menghapus: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          context.l10n.mainScreenDeleteFailed('$e'),
+          type: ToastType.error,
+        );
       }
       return;
     }
     if (!mounted) return;
     _forgetRecoverable(session);
     if (!context.mounted) return;
-    AppToast.show(context, '"${session.title}" dihapus.');
+    AppToast.show(context, context.l10n.mainScreenDeleted(session.title));
   }
 
   /// Banner line. Says what is recoverable, not just how many rows exist:
   /// "Ada 2 sesi yang bisa dipulihkan" told the user nothing about whether
   /// the transcript would actually come back, and for a while it wouldn't.
   static String _recoverySummary(
+    AppLocalizations l10n,
     List<rust_session.RecoverableSession> sessions,
   ) {
     final segments = sessions.fold<int>(0, (sum, s) => sum + s.segmentCount);
@@ -598,17 +613,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       0,
       (sum, s) => sum + s.micAudioSecs + s.speakerAudioSecs,
     );
-    final count = sessions.length == 1
-        ? '1 sesi terhenti'
-        : '${sessions.length} sesi terhenti';
+    final count = l10n.mainScreenRecoveryCount(sessions.length);
     final contents = <String>[
-      if (segments > 0) '$segments segmen transkrip',
-      if (audioSecs > 0) '${formatDurationId(audioSecs)} audio',
+      if (segments > 0) l10n.mainScreenRecoverySegments(segments),
+      if (audioSecs > 0)
+        l10n.mainScreenRecoveryAudio(formatDurationId(audioSecs)),
     ];
     if (contents.isEmpty) {
-      return '$count tanpa transkrip atau audio yang tersisa.';
+      return l10n.mainScreenRecoveryNothingLeft(count);
     }
-    return '$count: ${contents.join(' dan ')} bisa dipulihkan.';
+    return l10n.mainScreenRecoveryContents(
+      count,
+      contents.join(l10n.mainScreenRecoveryJoiner),
+    );
   }
 
   void _forgetRecoverable(rust_session.RecoverableSession session) {
@@ -652,15 +669,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
             },
             child: AlertDialog(
-              title: const Text('Berhenti merekam?'),
-              content: Text(
-                'Sesi ini punya ${segments.length} segmen transkrip. '
-                'Sesi akan disimpan otomatis saat berhenti.',
-              ),
+              title: Text(context.l10n.mainScreenStopTitle),
+              content: Text(context.l10n.mainScreenStopBody(segments.length)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Batal'),
+                  child: Text(context.l10n.actionCancel),
                 ),
                 FilledButton(
                   // Initial focus on the primary action, not the first
@@ -668,7 +682,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   // which is what the user almost always came here to do.
                   autofocus: true,
                   onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Berhenti'),
+                  child: Text(context.l10n.mainScreenStop),
                 ),
               ],
             ),
@@ -703,7 +717,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (context.mounted) {
         AppToast.show(
           context,
-          'Gagal menghentikan sesi: $e',
+          context.l10n.mainScreenStopFailed('$e'),
           type: ToastType.error,
         );
       }
@@ -721,7 +735,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     } else if (saved) {
       AppToast.show(
         context,
-        'Sesi tersimpan (${segments.length} segmen).',
+        context.l10n.mainScreenSessionSaved(segments.length),
         type: ToastType.success,
       );
     }
@@ -739,14 +753,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (bookmark == null) {
       AppToast.show(
         context,
-        'Belum ada rekaman untuk ditandai.',
+        context.l10n.mainScreenNothingToBookmark,
         type: ToastType.info,
       );
       return;
     }
     AppToast.show(
       context,
-      'Ditandai di ${formatTimestamp(bookmark.timestamp)}.',
+      context.l10n.mainScreenBookmarked(formatTimestamp(bookmark.timestamp)),
       type: ToastType.success,
     );
   }
@@ -760,7 +774,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (mounted) {
         AppToast.show(
           context,
-          'Belum ada rekaman untuk ditandai.',
+          context.l10n.mainScreenNothingToBookmark,
           type: ToastType.info,
         );
       }
@@ -788,6 +802,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         .setBookmarkNote(bookmark.timestamp, note);
   }
 
+  /// When the first-run download was postponed ("Nanti", issue #70) the
+  /// transcription model may not be on disk yet. Offer it here, where it is
+  /// needed, instead of failing inside the engine. The dialog reports the
+  /// download to the Privacy Report itself.
+  Future<bool> _modelAvailableForRecording(BuildContext context) async {
+    final settings = ref.read(settingsProvider);
+    final modelId = settings.defaultModel;
+    if (ref.read(modelOnDiskProvider)(modelId, settings.libraryPath)) {
+      return true;
+    }
+    final planned = kFirstRunDownloadPlan.where((i) => i.modelId == modelId);
+    final size = planned.isEmpty ? '' : ' (±${planned.first.megabytes} MB)';
+    final agreed = await showAppConfirm(
+      context: context,
+      icon: AppIcons.download,
+      title: context.l10n.mainScreenModelMissingTitle,
+      message: context.l10n.mainScreenModelMissingMessage(
+        modelDisplayLabel(modelId),
+        size,
+      ),
+      confirmLabel: context.l10n.mainScreenDownloadNow,
+      cancelLabel: context.l10n.mainScreenLater,
+    );
+    if (!agreed || !context.mounted) return false;
+    return showModelDownloadDialog(
+      context: context,
+      bridge: ref.read(rustBridgeProvider),
+      modelId: modelId,
+      modelsDir: defaultModelsCacheDir(),
+      displayName: modelDisplayLabel(modelId),
+    );
+  }
+
   Future<void> _toggleStartBerhenti(BuildContext context, WidgetRef ref) async {
     final lifecycle = ref.read(sessionProvider).lifecycle;
     final isActive =
@@ -811,6 +858,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // system-audio capture) — without this the record button just looks
     // unresponsive to a click that's actually still in flight.
     if (!await _diskSpaceAllowsRecording(context)) return;
+    if (!context.mounted) return;
+    if (!await _modelAvailableForRecording(context)) return;
     if (!context.mounted) return;
     setState(() => _isStartingSession = true);
     try {
@@ -851,13 +900,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _onEkspor(BuildContext context) async {
     final session = ref.read(sessionProvider);
     if (session.segments.isEmpty) {
-      AppToast.show(context, 'Tidak ada transkrip untuk diekspor.');
+      AppToast.show(context, context.l10n.mainScreenNothingToExport);
       return;
     }
     final settings = ref.read(settingsProvider);
     final defaultDir = resolveTilde(settings.libraryPath);
     final selectedDir = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Pilih folder ekspor',
+      dialogTitle: context.l10n.mainScreenChooseExportFolder,
       initialDirectory: defaultDir,
     );
     if (selectedDir == null) return;
@@ -875,12 +924,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       if (!context.mounted) return;
       AppToast.show(
         context,
-        'Ekspor berhasil ke: $selectedDir',
+        context.l10n.mainScreenExportSucceeded(selectedDir),
         type: ToastType.success,
       );
     } catch (e) {
       if (!context.mounted) return;
-      AppToast.show(context, 'Ekspor gagal: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        context.l10n.mainScreenExportFailed('$e'),
+        type: ToastType.error,
+      );
     }
   }
 
@@ -939,7 +992,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (record == null && context.mounted) {
       AppToast.show(
         context,
-        '"${entry.title}" tidak bisa dibuka.',
+        context.l10n.mainScreenCannotOpen(entry.title),
         type: ToastType.error,
       );
     }
@@ -1020,7 +1073,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         duration: kind == null
             ? const Duration(seconds: 8)
             : const Duration(seconds: 12),
-        actionLabel: kind == null ? null : 'Buka Pengaturan Sistem',
+        actionLabel: kind == null
+            ? null
+            : context.l10n.mainScreenOpenSystemSettings,
         onAction: kind == null
             ? null
             : () => openPrivacySettings(
@@ -1194,8 +1249,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               onEkspor: () => _onEkspor(context),
                               isBusy: _isStoppingSession || _isStartingSession,
                               busyLabel: _isStartingSession
-                                  ? 'Memulai…'
-                                  : 'Menyimpan…',
+                                  ? context.l10n.mainScreenStarting
+                                  : context.l10n.mainScreenSaving,
                               saveError: _saveError,
                               retryingSave: _retryingSave,
                               onRetrySave: () => _retrySave(),
@@ -1204,7 +1259,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               loadingRecoveries: _loadingRecoveries,
                               recoverySummary: _recoverableSessions.isEmpty
                                   ? null
-                                  : _recoverySummary(_recoverableSessions),
+                                  : _recoverySummary(
+                                      context.l10n,
+                                      _recoverableSessions,
+                                    ),
                               onOpenRecovery: () =>
                                   _openRecoveryDialog(context),
                               showShortcuts: _showShortcuts,
@@ -1561,17 +1619,17 @@ class _RightPanelState extends State<_RightPanel> {
     // icon button can, because its width does not depend on either
     // label's length — see `narrow_window_layout_test.dart`.
     final switcher = AppMenu<_RightTab>(
-      tooltip: 'Ganti panel',
+      tooltip: context.l10n.mainScreenSwitchPanel,
       entries: [
         AppMenuEntry(
           value: _RightTab.notes,
-          label: 'Catatan Pribadi',
+          label: context.l10n.mainScreenPersonalNotes,
           icon: AppIcons.edit,
           checked: _tab == _RightTab.notes,
         ),
         AppMenuEntry(
           value: _RightTab.liveQa,
-          label: 'Tanya Langsung',
+          label: context.l10n.mainScreenLiveQa,
           icon: AppIcons.chat,
           checked: _tab == _RightTab.liveQa,
         ),
@@ -1672,14 +1730,13 @@ class _IdleHero extends StatelessWidget {
                 children: [
                   if (showIntro) ...[
                     Text(
-                      'Siap merekam',
+                      context.l10n.mainScreenReady,
                       textAlign: TextAlign.center,
                       style: AppText.title.c(colors.text),
                     ),
                     Spacing.gapSm,
                     Text(
-                      'Semua transkripsi berjalan di komputer ini. '
-                      'Tidak ada audio yang keluar.',
+                      context.l10n.mainScreenLocalOnly,
                       textAlign: TextAlign.center,
                       style: AppText.body.c(colors.textSecondary),
                     ),
@@ -1691,7 +1748,7 @@ class _IdleHero extends StatelessWidget {
                       alignment: Alignment.center,
                       child: AppTextField(
                         controller: titleController,
-                        placeholder: 'Judul sesi…',
+                        placeholder: context.l10n.mainScreenTitlePlaceholder,
                         prefixIcon: AppIcons.edit,
                         reserveHelperSpace: false,
                       ),
@@ -1715,7 +1772,9 @@ class _IdleHero extends StatelessWidget {
                               AppIcons.event,
                               size: IconSizes.sm,
                             ),
-                            label: const Text('Mulai dari template'),
+                            label: Text(
+                              context.l10n.mainScreenStartFromTemplate,
+                            ),
                           ),
                           TextButton.icon(
                             onPressed: () async {
@@ -1731,7 +1790,7 @@ class _IdleHero extends StatelessWidget {
                               AppIcons.fileUpload,
                               size: IconSizes.sm,
                             ),
-                            label: const Text('Impor undangan (.ics)'),
+                            label: Text(context.l10n.mainScreenImportInvite),
                           ),
                         ],
                       ),
@@ -1780,7 +1839,7 @@ class _IdleHero extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'atau tekan',
+                          context.l10n.mainScreenOrPress,
                           style: AppText.caption.c(colors.textTertiary),
                         ),
                         Spacing.hSm,
@@ -1874,7 +1933,7 @@ class _ModeCard extends StatelessWidget {
       onPressed: onPressed,
       borderRadius: Radii.lgAll,
       selected: selected,
-      semanticLabel: modeSemantics(mode),
+      semanticLabel: modeSemantics(context, mode),
       builder: (context, state) => AnimatedContainer(
         duration: motion.fast,
         curve: AppEasing.standard,
@@ -1920,7 +1979,7 @@ class _ModeCard extends StatelessWidget {
             if (showExplanation) ...[
               Spacing.gapXs,
               Text(
-                modeExplanation(mode),
+                modeExplanation(context, mode),
                 style: AppText.caption.c(colors.textTertiary),
               ),
             ],
@@ -2030,7 +2089,7 @@ class _RecordingStrip extends StatelessWidget {
                   if (showMenuButton) ...[
                     AppIconButton(
                       icon: AppIcons.menu,
-                      tooltip: 'Riwayat sesi',
+                      tooltip: context.l10n.mainScreenSessionHistory,
                       onPressed: onOpenMenu,
                     ),
                     Spacing.hSm,
@@ -2038,7 +2097,7 @@ class _RecordingStrip extends StatelessWidget {
                   RecordingDot(live: !isPaused),
                   Spacing.hMd,
                   Semantics(
-                    label: 'Durasi rekaman',
+                    label: context.l10n.mainScreenRecordingDuration,
                     child: Text(
                       formatElapsed(elapsedSeconds),
                       style: AppText.monoTimer.c(colors.text),
@@ -2047,7 +2106,9 @@ class _RecordingStrip extends StatelessWidget {
                   if (roomy) ...[
                     Spacing.hMd,
                     AppStatusBadge(
-                      label: isPaused ? 'Dijeda' : mode.label,
+                      label: isPaused
+                          ? context.l10n.mainScreenPaused
+                          : mode.label,
                       status: isPaused
                           ? AppStatus.warning
                           : AppStatus.recording,
@@ -2058,9 +2119,9 @@ class _RecordingStrip extends StatelessWidget {
                   const Spacer(),
                   AppIconButton(
                     icon: AppIcons.bookmarkAdd,
-                    tooltip:
-                        'Tandai poin penting '
-                        '(${AppShortcuts.bookmark.shortcut.label})',
+                    tooltip: context.l10n.mainScreenBookmarkTooltip(
+                      AppShortcuts.bookmark.shortcut.label,
+                    ),
                     onPressed: onAddBookmark,
                   ),
                   Spacing.hSm,
@@ -2155,7 +2216,7 @@ class _SessionStrip extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: Spacing.xs / 2),
               child: AppIconButton(
                 icon: AppIcons.menu,
-                tooltip: 'Riwayat sesi',
+                tooltip: context.l10n.mainScreenSessionHistory,
                 onPressed: onOpenMenu,
               ),
             ),
@@ -2173,7 +2234,7 @@ class _SessionStrip extends StatelessWidget {
           ),
           Spacing.hMd,
           AppButton(
-            label: 'Ekspor',
+            label: context.l10n.mainScreenExport,
             icon: AppIcons.download,
             onPressed: onEkspor,
           ),
@@ -2210,7 +2271,7 @@ class _CompactMenuBar extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: AppIconButton(
           icon: AppIcons.menu,
-          tooltip: 'Riwayat sesi',
+          tooltip: context.l10n.mainScreenSessionHistory,
           onPressed: onOpenMenu,
         ),
       ),
@@ -2253,20 +2314,21 @@ class _SaveFailedBanner extends StatelessWidget {
             child: Semantics(
               liveRegion: true,
               child: Text(
-                '$message Transkrip masih ada di memori, jangan tutup '
-                'aplikasi sebelum tersimpan.',
+                context.l10n.mainScreenSaveFailedBanner(message),
                 style: AppText.body.c(colors.text),
               ),
             ),
           ),
           Spacing.hSm,
           AppButton.ghost(
-            label: 'Simpan ke folder lain',
+            label: context.l10n.mainScreenSaveElsewhere,
             onPressed: busy ? null : onSaveElsewhere,
           ),
           Spacing.hSm,
           AppButton.primary(
-            label: busy ? 'Menyimpan…' : 'Coba Lagi',
+            label: busy
+                ? context.l10n.mainScreenSaving
+                : context.l10n.mainScreenRetry,
             loading: busy,
             onPressed: busy ? null : onRetry,
           ),
@@ -2301,7 +2363,10 @@ class _RecoveryBanner extends StatelessWidget {
           Spacing.hSm,
           // No "Abaikan": it hid the banner without deleting anything, so the
           // same sessions reappeared on every launch forever.
-          AppButton(label: 'Lihat & Pulihkan', onPressed: onOpen),
+          AppButton(
+            label: context.l10n.mainScreenViewAndRecover,
+            onPressed: onOpen,
+          ),
         ],
       ),
     );
@@ -2358,7 +2423,7 @@ class _FooterBar extends StatelessWidget {
             ),
             Spacing.hXs,
             Text(
-              '$segmentsCount segmen',
+              context.l10n.mainScreenSegmentCount(segmentsCount),
               style: AppText.monoMicro.c(colors.textTertiary),
             ),
           ],
@@ -2366,7 +2431,7 @@ class _FooterBar extends StatelessWidget {
           Interactive(
             onPressed: onShowShortcuts,
             borderRadius: Radii.smAll,
-            semanticLabel: 'Tampilkan pintasan keyboard',
+            semanticLabel: context.l10n.mainScreenShowShortcuts,
             builder: (context, state) => Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: Spacing.sm,
@@ -2379,7 +2444,10 @@ class _FooterBar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Pintasan', style: AppText.micro.c(colors.textTertiary)),
+                  Text(
+                    context.l10n.mainScreenShortcuts,
+                    style: AppText.micro.c(colors.textTertiary),
+                  ),
                   Spacing.hSm,
                   KeyHint(AppShortcuts.shortcutsPanel.shortcut),
                 ],
@@ -2435,13 +2503,13 @@ class _ShortcutsPanel extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Pintasan keyboard',
+                      context.l10n.mainScreenKeyboardShortcuts,
                       style: AppText.heading.c(colors.text),
                     ),
                   ),
                   AppIconButton(
                     icon: AppIcons.close,
-                    tooltip: 'Tutup',
+                    tooltip: context.l10n.mainScreenClose,
                     size: IconSizes.md,
                     onPressed: onClose,
                   ),

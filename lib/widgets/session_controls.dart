@@ -10,6 +10,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/audio/device.dart' as rust_device;
 import '../state/models.dart';
@@ -92,8 +93,9 @@ class SessionControlGroup extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     return ControlGroup(
-      title: 'Sesi',
+      title: l10n.sessionControlsSessionGroup,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -107,7 +109,7 @@ class SessionControlGroup extends ConsumerWidget {
                 width: Measure.sidebar,
                 child: AppTextField(
                   controller: titleController,
-                  placeholder: 'Judul sesi…',
+                  placeholder: l10n.sessionControlsTitlePlaceholder,
                   prefixIcon: AppIcons.edit,
                   onChanged: onTitleChanged,
                   onSubmitted: onTitleChanged,
@@ -116,7 +118,7 @@ class SessionControlGroup extends ConsumerWidget {
               ),
               if (showMode)
                 AppSegmented<SessionMode>(
-                  semanticLabel: 'Mode sesi',
+                  semanticLabel: l10n.sessionControlsModeSemantics,
                   enabled: !modeLocked,
                   selected: mode,
                   onChanged: onModeChanged,
@@ -126,7 +128,7 @@ class SessionControlGroup extends ConsumerWidget {
                         value: m,
                         label: m.label,
                         icon: modeIcon(m),
-                        semanticLabel: modeSemantics(m),
+                        semanticLabel: modeSemantics(context, m),
                       ),
                   ],
                 ),
@@ -162,7 +164,10 @@ class AttendeesChips extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Icon(AppIcons.people, size: IconSizes.xs, color: colors.textTertiary),
-          Text('Peserta:', style: AppText.caption.c(colors.textSecondary)),
+          Text(
+            context.l10n.sessionControlsAttendees,
+            style: AppText.caption.c(colors.textSecondary),
+          ),
           for (final name in attendees)
             Chip(
               label: Text(name, style: AppText.caption.c(colors.text)),
@@ -197,18 +202,19 @@ IconData modeIcon(SessionMode mode) => switch (mode) {
 };
 
 /// A full sentence for a screen reader, where the visible label is two words.
-String modeSemantics(SessionMode mode) => switch (mode) {
-  SessionMode.offline => 'Mode rapat offline: hanya mikrofon',
-  SessionMode.online => 'Mode rapat online: mikrofon dan suara sistem',
-  SessionMode.webinar => 'Mode webinar: hanya suara sistem',
+String modeSemantics(BuildContext context, SessionMode mode) => switch (mode) {
+  SessionMode.offline => context.l10n.sessionControlsModeOfflineSemantics,
+  SessionMode.online => context.l10n.sessionControlsModeOnlineSemantics,
+  SessionMode.webinar => context.l10n.sessionControlsModeWebinarSemantics,
 };
 
 /// One line explaining what a mode captures, shown on the idle hero cards.
-String modeExplanation(SessionMode mode) => switch (mode) {
-  SessionMode.offline => 'Rapat di satu ruangan. Hanya mikrofon yang direkam.',
-  SessionMode.online => 'Zoom, Meet atau Teams. Mikrofon dan suara sistem.',
-  SessionMode.webinar => 'Anda hanya menyimak. Hanya suara sistem.',
-};
+String modeExplanation(BuildContext context, SessionMode mode) =>
+    switch (mode) {
+      SessionMode.offline => context.l10n.sessionControlsModeOfflineExplanation,
+      SessionMode.online => context.l10n.sessionControlsModeOnlineExplanation,
+      SessionMode.webinar => context.l10n.sessionControlsModeWebinarExplanation,
+    };
 
 /// Per-session kamus istilah (F3): terms that matter for *this* meeting only.
 ///
@@ -223,15 +229,15 @@ class SessionGlossaryPill extends ConsumerWidget {
     final colors = context.colors;
     final terms = ref.watch(sessionProvider).sessionGlossaryTerms;
     final globalCount = ref.watch(settingsProvider).glossary.terms.length;
+    final l10n = context.l10n;
 
     return Interactive(
       onPressed: () => _edit(context, ref, terms),
       borderRadius: Radii.mdAll,
-      tooltip:
-          'Istilah khusus rapat ini, di atas $globalCount istilah di Pengaturan',
+      tooltip: l10n.sessionControlsGlossaryTooltip(globalCount),
       semanticLabel: terms.isEmpty
-          ? 'Istilah rapat, belum ada'
-          : 'Istilah rapat, ${terms.length} istilah',
+          ? l10n.sessionControlsGlossarySemanticsEmpty
+          : l10n.sessionControlsGlossarySemanticsCount(terms.length),
       builder: (context, state) => Container(
         height: ControlSizes.lg,
         padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
@@ -251,8 +257,8 @@ class SessionGlossaryPill extends ConsumerWidget {
             Spacing.hSm,
             Text(
               terms.isEmpty
-                  ? 'Istilah rapat'
-                  : 'Istilah rapat (${terms.length})',
+                  ? l10n.sessionControlsGlossaryPill
+                  : l10n.sessionControlsGlossaryPillCount(terms.length),
               style: AppText.label.c(colors.textSecondary),
             ),
           ],
@@ -267,21 +273,20 @@ class SessionGlossaryPill extends ConsumerWidget {
     List<String> terms,
   ) async {
     final controller = TextEditingController(text: terms.join('\n'));
+    final l10n = context.l10n;
     final saved = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) => AppDialog(
-        title: 'Istilah khusus rapat ini',
+        title: l10n.sessionControlsGlossaryDialogTitle,
         icon: AppIcons.glossary,
-        description:
-            'Satu istilah per baris: nama peserta, singkatan, nama program. '
-            'Diutamakan di atas kamus di Pengaturan.',
+        description: l10n.sessionControlsGlossaryDialogDescription,
         actions: [
           AppButton(
-            label: 'Batal',
+            label: l10n.actionCancel,
             onPressed: () => Navigator.of(dialogContext).pop(),
           ),
           AppButton.primary(
-            label: 'Simpan',
+            label: l10n.actionSave,
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
           ),
         ],
@@ -332,6 +337,7 @@ class SessionOptionsMenu extends ConsumerWidget {
       sessionProvider.select((s) => s.config.language),
     );
     final colors = context.colors;
+    final l10n = context.l10n;
 
     Future<void> chooseModel(String modelId) async {
       if (!isModelAvailable(modelId, libraryPath: settings.libraryPath)) {
@@ -348,7 +354,7 @@ class SessionOptionsMenu extends ConsumerWidget {
     }
 
     return AppMenu<String>(
-      tooltip: 'Opsi sesi',
+      tooltip: l10n.sessionControlsOptionsTooltip,
       onSelected: (value) {
         if (value.startsWith(_modelValuePrefix)) {
           chooseModel(value.substring(_modelValuePrefix.length));
@@ -366,7 +372,7 @@ class SessionOptionsMenu extends ConsumerWidget {
         }
       },
       entries: [
-        const AppMenuEntry.header('Kualitas transkripsi'),
+        AppMenuEntry.header(l10n.sessionControlsQualityHeader),
         // 2026-10-13: was a hardcoded Cepat/Akurat binary (base vs
         // large-v3-turbo-q5) — widened to every tier in kKnownModelIds so
         // the CrispASR (Qwen3-ASR) "Eksperimental" options Master asked
@@ -380,23 +386,23 @@ class SessionOptionsMenu extends ConsumerWidget {
           ),
         AppMenuEntry(
           value: 'vad',
-          label: 'Lewati jeda sunyi',
+          label: l10n.sessionControlsSkipSilence,
           checked: settings.vadEnabled,
         ),
-        const AppMenuEntry.header('Bahasa rapat ini'),
+        AppMenuEntry.header(l10n.sessionControlsLanguageHeader),
         AppMenuEntry(
           value: 'lang_auto',
-          label: 'Otomatis (deteksi per kalimat)',
+          label: l10n.sessionControlsLanguageAuto,
           checked: sessionLanguage == null,
         ),
         AppMenuEntry(
           value: 'lang_id',
-          label: 'Indonesia',
+          label: l10n.sessionControlsLanguageIndonesian,
           checked: sessionLanguage == 'id',
         ),
         AppMenuEntry(
           value: 'lang_en',
-          label: 'Inggris',
+          label: l10n.sessionControlsLanguageEnglish,
           checked: sessionLanguage == 'en',
         ),
       ],
@@ -463,15 +469,17 @@ class LanguageMismatchBanner extends ConsumerWidget {
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
-                'Banyak kalimat terakhir terdeteksi bukan bahasa yang '
-                'dipilih untuk sesi ini.',
-                style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+                context.l10n.sessionControlsLanguageMismatch,
+                style: TextStyle(
+                  color: colors.text,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ),
             TextButton(
               onPressed: () =>
                   ref.read(sessionProvider.notifier).setSessionLanguage(null),
-              child: const Text('Ganti ke Otomatis'),
+              child: Text(context.l10n.sessionControlsSwitchToAuto),
             ),
           ],
         ),
@@ -566,14 +574,17 @@ class ConsentReminderBanner extends ConsumerWidget {
             const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
-                'Pastikan semua peserta tahu rapat ini direkam.',
-                style: TextStyle(color: colors.text, fontSize: FontSizes.caption),
+                context.l10n.sessionControlsConsentReminder,
+                style: TextStyle(
+                  color: colors.text,
+                  fontSize: FontSizes.caption,
+                ),
               ),
             ),
             TextButton(
               onPressed: () =>
                   ref.read(settingsProvider.notifier).dismissConsentBanner(),
-              child: const Text('Jangan tampilkan lagi'),
+              child: Text(context.l10n.sessionControlsDontShowAgain),
             ),
           ],
         ),
@@ -645,13 +656,14 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final colors = context.colors;
+    final l10n = context.l10n;
     final chips = Wrap(
       spacing: Spacing.sm,
       runSpacing: Spacing.sm,
       children: [
         DeviceStatusChip(
           icon: AppIcons.mic,
-          label: 'Mikrofon',
+          label: l10n.sessionControlsMicrophone,
           enabled: widget.micEnabled,
           onToggled: widget.onMicToggled,
           devices: _inputs.map((d) => d.name).toList(),
@@ -664,7 +676,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
         ),
         DeviceStatusChip(
           icon: AppIcons.systemAudio,
-          label: 'Suara sistem',
+          label: l10n.sessionControlsSystemAudio,
           enabled: widget.speakerEnabled,
           onToggled: widget.onSpeakerToggled,
           devices: _outputs.map((d) => d.name).toList(),
@@ -690,7 +702,7 @@ class _DeviceGroupState extends ConsumerState<DeviceGroup> {
     // gives non-flex children unbounded width; IntrinsicWidth gives the
     // stretched Column a finite width to stretch to instead of infinity.
     if (widget.compact) return IntrinsicWidth(child: body);
-    return ControlGroup(title: 'Perangkat', child: body);
+    return ControlGroup(title: l10n.sessionControlsDevicesGroup, child: body);
   }
 
   /// The input device the mic chip actually records from: the one matching
@@ -753,7 +765,8 @@ class DeviceStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final deviceLabel = selected ?? 'Bawaan sistem';
+    final l10n = context.l10n;
+    final deviceLabel = selected ?? l10n.sessionControlsSystemDefault;
     return Container(
       width: width,
       padding: const EdgeInsets.fromLTRB(
@@ -792,7 +805,9 @@ class DeviceStatusChip extends StatelessWidget {
               AppSwitch(
                 value: enabled,
                 onChanged: onToggled,
-                semanticLabel: '$label ${enabled ? 'aktif' : 'nonaktif'}',
+                semanticLabel: enabled
+                    ? l10n.sessionControlsDeviceOn(label)
+                    : l10n.sessionControlsDeviceOff(label),
               ),
             ],
           ),
@@ -802,7 +817,7 @@ class DeviceStatusChip extends StatelessWidget {
               Expanded(
                 child: AppMenu<String>(
                   enabled: devices.isNotEmpty,
-                  tooltip: 'Pilih perangkat $label',
+                  tooltip: l10n.sessionControlsChooseDevice(label),
                   // '' is a sentinel for "no explicit device" — it is never a
                   // real cpal/CoreAudio device name. Picking it clears the
                   // selection back to null, which on macOS is also what lets
@@ -817,9 +832,9 @@ class DeviceStatusChip extends StatelessWidget {
                   onSelected: (value) =>
                       onDeviceSelected(value.isEmpty ? null : value),
                   entries: [
-                    const AppMenuEntry(
+                    AppMenuEntry(
                       value: '',
-                      label: 'Otomatis (bawaan sistem)',
+                      label: l10n.sessionControlsDeviceAuto,
                     ),
                     for (final device in devices)
                       AppMenuEntry(value: device, label: device),
@@ -845,7 +860,7 @@ class DeviceStatusChip extends StatelessWidget {
               ),
               AppIconButton(
                 icon: AppIcons.refresh,
-                tooltip: 'Muat ulang daftar perangkat $label',
+                tooltip: l10n.sessionControlsReloadDevices(label),
                 size: IconSizes.xs,
                 onPressed: onRefresh,
               ),
@@ -856,7 +871,7 @@ class DeviceStatusChip extends StatelessWidget {
             LevelMeter(
               level: level,
               color: accent,
-              semanticLabel: 'Level $label',
+              semanticLabel: l10n.sessionControlsLevel(label),
             ),
           ],
         ],

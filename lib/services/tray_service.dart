@@ -14,6 +14,8 @@ import 'package:screen_retriever/legacy.dart';
 import 'package:tray_manager/legacy.dart';
 import 'package:window_manager/legacy.dart';
 
+import '../l10n/l10n.dart';
+
 /// Minimize-to-tray (PRD: "Minimize-to-tray menjaga transkrip berjalan
 /// background"). Closing the window hides it instead of quitting the
 /// process, so a live transcription session keeps running; the tray
@@ -52,13 +54,14 @@ class TrayService with TrayListener, WindowListener {
           ? 'assets/tray_icon.ico'
           : 'assets/tray_icon.png';
       await TrayManager.instance.setIcon(iconPath);
-      await TrayManager.instance.setToolTip('Trareon Transcribe');
+      final l10n = currentL10n;
+      await TrayManager.instance.setToolTip(l10n.appTitle);
       await TrayManager.instance.setContextMenu(
         Menu(
           items: [
-            MenuItem(key: 'show', label: 'Buka Trareon Transcribe'),
+            MenuItem(key: 'show', label: l10n.trayServiceOpen),
             MenuItem.separator(),
-            MenuItem(key: 'quit', label: 'Keluar'),
+            MenuItem(key: 'quit', label: l10n.trayServiceQuit),
           ],
         ),
       );

@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
@@ -230,7 +231,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               Spacing.hXs,
               AppIconButton(
                 icon: AppIcons.close,
-                tooltip: 'Tutup pemberitahuan',
+                tooltip: context.l10n.appToastDismissTooltip,
                 size: IconSizes.xs,
                 onPressed: widget.onDismiss,
               ),

@@ -79,9 +79,8 @@ void main() {
   });
 
   test('the onboarding greeting spells the product correctly', () {
-    final source = File(
-      'lib/screens/onboarding_screen.dart',
-    ).readAsStringSync();
+    // The greeting moved into the Indonesian ARB template (issue #47).
+    final source = File('lib/l10n/app_id.arb').readAsStringSync();
     expect(source, contains('Selamat datang di Trareon Transcribe'));
   });
 }

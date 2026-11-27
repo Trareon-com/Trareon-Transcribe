@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/settings_model.dart';
 import '../src/rust/calendar_import.dart' as rust_calendar;
 import 'app_toast.dart';
@@ -33,7 +34,7 @@ Future<rust_calendar.CalendarEvent?> importCalendarInvite(
   BuildContext context,
 ) async {
   final picked = await FilePicker.pickFiles(
-    dialogTitle: 'Impor undangan rapat (.ics)',
+    dialogTitle: context.l10n.calendarInviteImportPickTitle,
     type: FileType.custom,
     allowedExtensions: const ['ics'],
   );
@@ -48,7 +49,11 @@ Future<rust_calendar.CalendarEvent?> importCalendarInvite(
     events = await bridge.parseIcsInvite(content);
   } catch (e) {
     if (context.mounted) {
-      AppToast.show(context, 'Gagal membaca undangan: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        context.l10n.calendarInviteImportReadFailed('$e'),
+        type: ToastType.error,
+      );
     }
     return null;
   }
@@ -57,7 +62,7 @@ Future<rust_calendar.CalendarEvent?> importCalendarInvite(
     if (context.mounted) {
       AppToast.show(
         context,
-        'Tidak ada acara yang terbaca dari berkas itu.',
+        context.l10n.calendarInviteImportNoEvents,
         type: ToastType.error,
       );
     }
@@ -92,19 +97,19 @@ class InviteConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     return AppDialog(
-      title: 'Isi dari undangan ini?',
+      title: context.l10n.calendarInviteImportConfirmTitle,
       icon: AppIcons.event,
       description: event.summary.isEmpty
-          ? 'Undangan ini tidak punya judul.'
-          : '"${event.summary}" akan menjadi judul sesi.',
+          ? context.l10n.calendarInviteImportNoTitle
+          : context.l10n.calendarInviteImportWillBeTitle(event.summary),
       actions: [
         AppButton(
-          label: 'Tidak',
+          label: context.l10n.calendarInviteImportNo,
           variant: AppButtonVariant.ghost,
           onPressed: () => Navigator.of(context).pop(false),
         ),
         AppButton(
-          label: 'Isi judul',
+          label: context.l10n.calendarInviteImportFillTitle,
           variant: AppButtonVariant.primary,
           onPressed: event.summary.trim().isEmpty
               ? null
@@ -114,7 +119,9 @@ class InviteConfirmDialog extends StatelessWidget {
       child: event.attendees.isEmpty
           ? const SizedBox.shrink()
           : Text(
-              'Peserta pada undangan: ${event.attendees.join(', ')}',
+              context.l10n.calendarInviteImportAttendees(
+                event.attendees.join(', '),
+              ),
               style: AppText.caption.c(colors.textSecondary),
             ),
     );

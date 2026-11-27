@@ -15,6 +15,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/capabilities.dart' as rust_capabilities;
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -49,9 +50,9 @@ class CapabilitiesScreen extends ConsumerWidget {
         backgroundColor: colors.headerBackground,
         foregroundColor: colors.text,
         elevation: 0,
-        title: const Text(
-          'Apa Jalan di Mana',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.capabilitiesScreenTitle,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       body: rows.when(
@@ -60,7 +61,7 @@ class CapabilitiesScreen extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(Spacing.xl),
             child: Text(
-              'Daftar kemampuan tidak bisa dibaca: $error',
+              context.l10n.capabilitiesScreenLoadFailed('$error'),
               textAlign: TextAlign.center,
               style: TextStyle(color: colors.error),
             ),
@@ -84,12 +85,17 @@ class CapabilitiesScreen extends ConsumerWidget {
   }
 }
 
-/// Indonesian label for where a capability runs.
-String runsAtLabel(rust_capabilities.RunsAt runsAt) => switch (runsAt) {
-  rust_capabilities.RunsAt.local => 'Lokal',
-  rust_capabilities.RunsAt.summaryEndpoint => 'Endpoint Anda',
-  rust_capabilities.RunsAt.internet => 'Internet',
-};
+/// Label for where a capability runs, in [l10n] (default: the language the
+/// app is showing).
+String runsAtLabel(rust_capabilities.RunsAt runsAt, {AppLocalizations? l10n}) {
+  final strings = l10n ?? currentL10n;
+  return switch (runsAt) {
+    rust_capabilities.RunsAt.local => strings.capabilitiesScreenRunsLocal,
+    rust_capabilities.RunsAt.summaryEndpoint =>
+      strings.capabilitiesScreenRunsEndpoint,
+    rust_capabilities.RunsAt.internet => strings.capabilitiesScreenRunsInternet,
+  };
+}
 
 class _Intro extends StatelessWidget {
   const _Intro({required this.colors, required this.capabilities});
@@ -103,6 +109,7 @@ class _Intro extends StatelessWidget {
         .where((c) => c.runsAt != rust_capabilities.RunsAt.local)
         .toList();
     final activeNetworked = networked.where((c) => c.enabled).length;
+    final l10n = context.l10n;
 
     return Container(
       padding: const EdgeInsets.all(Spacing.md),
@@ -114,9 +121,10 @@ class _Intro extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${capabilities.length - networked.length} dari '
-            '${capabilities.length} kemampuan berjalan sepenuhnya di '
-            'komputer ini.',
+            l10n.capabilitiesScreenLocalCount(
+              capabilities.length - networked.length,
+              capabilities.length,
+            ),
             style: TextStyle(
               fontSize: FontSizes.bodyLarge,
               fontWeight: FontWeight.w600,
@@ -125,12 +133,7 @@ class _Intro extends StatelessWidget {
           ),
           Spacing.gapSm,
           Text(
-            networked.isEmpty
-                ? 'Tidak ada kemampuan yang memakai jaringan.'
-                : '${networked.length} kemampuan bisa memakai jaringan; '
-                      '$activeNetworked di antaranya aktif sekarang. '
-                      'Perekaman, transkripsi, dan ekspor tidak termasuk, '
-                      'itu tidak pernah memakai jaringan.',
+            l10n.capabilitiesScreenNetworked(networked.length, activeNetworked),
             style: TextStyle(
               fontSize: FontSizes.caption,
               color: colors.textSecondary,
@@ -139,9 +142,7 @@ class _Intro extends StatelessWidget {
           ),
           Spacing.gapSm,
           Text(
-            'Daftar ini dibuat dari sumber yang sama dengan uji privasi di '
-            'rust_core/src/privacy.rs: baris yang mengaku "Lokal" tetapi '
-            'modulnya menyentuh jaringan akan menggagalkan build.',
+            l10n.capabilitiesScreenSourceNote,
             style: TextStyle(
               fontSize: FontSizes.micro,
               color: colors.textTertiary,
@@ -171,11 +172,16 @@ class _CapabilityRow extends StatelessWidget {
     // never the on/off state: a networked feature being off is good news
     // and must not be painted as a warning.
     final placeColor = local ? colors.primary : colors.warning;
+    final l10n = context.l10n;
 
     return Semantics(
-      label:
-          '${capability.name}. ${runsAtLabel(capability.runsAt)}. '
-          '${capability.enabled ? "Aktif" : "Tidak aktif"}.',
+      label: l10n.capabilitiesScreenRowSemantics(
+        capability.name,
+        runsAtLabel(capability.runsAt, l10n: l10n),
+        capability.enabled
+            ? l10n.capabilitiesScreenActive
+            : l10n.capabilitiesScreenInactive,
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: Spacing.sm),
         padding: const EdgeInsets.all(Spacing.md),
@@ -229,7 +235,7 @@ class _CapabilityRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'Berjalan di: ',
+                        l10n.capabilitiesScreenRunsAt,
                         style: TextStyle(
                           fontSize: FontSizes.micro,
                           color: colors.textTertiary,
@@ -261,7 +267,7 @@ class _CapabilityRow extends StatelessWidget {
                   // The module is what makes the claim checkable; shown
                   // so a reader can go and look.
                   Text(
-                    'Kode: rust_core/src/${capability.module}',
+                    l10n.capabilitiesScreenCode(capability.module),
                     style: TextStyle(
                       fontSize: FontSizes.micro,
                       color: colors.textTertiary,
@@ -298,7 +304,9 @@ class _StatusChip extends StatelessWidget {
         borderRadius: Radii.smAll,
       ),
       child: Text(
-        enabled ? 'Aktif' : 'Tidak aktif',
+        enabled
+            ? context.l10n.capabilitiesScreenActive
+            : context.l10n.capabilitiesScreenInactive,
         style: TextStyle(
           fontSize: FontSizes.micro,
           fontWeight: FontWeight.w600,

@@ -3,39 +3,30 @@
 /// testable without pumping a dialog.
 library;
 
+import '../l10n/l10n.dart';
 import 'models.dart';
 
 /// One length preset the dropdown offers, mirroring `NotulenLength` on the
 /// Rust side (`rust_core/src/notulen/mod.rs`) by hand, the same pattern
 /// `notulen_templates.dart` uses for `NotulenTemplate`.
 class NotulenLengthOption {
-  const NotulenLengthOption({
-    required this.value,
-    required this.label,
-    required this.wordTarget,
-  });
+  const NotulenLengthOption({required this.value, required this.wordTarget});
 
   final NotulenLength value;
-  final String label;
   final int wordTarget;
+
+  /// Shown in the dropdown, in the language the app is showing.
+  String get label => switch (value) {
+    NotulenLength.ringkas => currentL10n.notulenGenerationLengthShort,
+    NotulenLength.sedang => currentL10n.notulenGenerationLengthMedium,
+    NotulenLength.lengkap => currentL10n.notulenGenerationLengthFull,
+  };
 }
 
 const List<NotulenLengthOption> kNotulenLengthOptions = [
-  NotulenLengthOption(
-    value: NotulenLength.ringkas,
-    label: 'Ringkas',
-    wordTarget: 250,
-  ),
-  NotulenLengthOption(
-    value: NotulenLength.sedang,
-    label: 'Sedang',
-    wordTarget: 1000,
-  ),
-  NotulenLengthOption(
-    value: NotulenLength.lengkap,
-    label: 'Lengkap',
-    wordTarget: 3000,
-  ),
+  NotulenLengthOption(value: NotulenLength.ringkas, wordTarget: 250),
+  NotulenLengthOption(value: NotulenLength.sedang, wordTarget: 1000),
+  NotulenLengthOption(value: NotulenLength.lengkap, wordTarget: 3000),
 ];
 
 /// Turns typed/pasted "Poin catatan" text into the same `TranscriptSegment`

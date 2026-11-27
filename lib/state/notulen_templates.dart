@@ -13,6 +13,7 @@
 /// table drifts from it.
 library;
 
+import '../l10n/l10n.dart';
 import '../src/rust/notulen.dart';
 
 /// One template, as the picker shows it.
@@ -20,8 +21,6 @@ class NotulenTemplateInfo {
   const NotulenTemplateInfo({
     required this.template,
     required this.id,
-    required this.label,
-    required this.description,
     required this.documentTitle,
     required this.jenisNaskah,
     required this.formal,
@@ -32,8 +31,22 @@ class NotulenTemplateInfo {
   /// Stable id, matching `NotulenTemplate::id` and the benchmark's
   /// `templat:` field.
   final String id;
-  final String label;
-  final String description;
+  /// Shown in the template picker, in the interface language.
+  String get label => switch (template) {
+    NotulenTemplate.dinas => currentL10n.notulenTemplatesDinasLabel,
+    NotulenTemplate.risalah => currentL10n.notulenTemplatesRisalahLabel,
+    NotulenTemplate.beritaAcara => currentL10n.notulenTemplatesBeritaAcaraLabel,
+    NotulenTemplate.ringkas => currentL10n.notulenTemplatesRingkasLabel,
+  };
+
+  /// One-line explanation under the picker, in the interface language.
+  String get description => switch (template) {
+    NotulenTemplate.dinas => currentL10n.notulenTemplatesDinasDescription,
+    NotulenTemplate.risalah => currentL10n.notulenTemplatesRisalahDescription,
+    NotulenTemplate.beritaAcara =>
+      currentL10n.notulenTemplatesBeritaAcaraDescription,
+    NotulenTemplate.ringkas => currentL10n.notulenTemplatesRingkasDescription,
+  };
 
   /// What the document calls itself, e.g. "NOTULA RAPAT".
   final String documentTitle;
@@ -51,11 +64,6 @@ const List<NotulenTemplateInfo> kNotulenTemplates = [
   NotulenTemplateInfo(
     template: NotulenTemplate.dinas,
     id: 'notulen_dinas',
-    label: 'Notulen Dinas',
-    description:
-        'Notula lengkap sesuai Tata Naskah Dinas: identitas rapat, peserta, '
-        'acara, jalannya rapat, kesimpulan, tindak lanjut, dan ruang tanda '
-        'tangan notulis serta pimpinan rapat.',
     documentTitle: 'NOTULA RAPAT',
     jenisNaskah: 'Notula Rapat',
     formal: true,
@@ -63,11 +71,6 @@ const List<NotulenTemplateInfo> kNotulenTemplates = [
   NotulenTemplateInfo(
     template: NotulenTemplate.risalah,
     id: 'risalah_rapat',
-    label: 'Risalah Rapat (verbatim-ringkas)',
-    description:
-        'Catatan berurutan per pembicara, mendekati verbatim tetapi '
-        'diringkas. Dipakai untuk sidang dan rapat yang perlu merekam siapa '
-        'menyampaikan apa.',
     documentTitle: 'RISALAH RAPAT',
     jenisNaskah: 'Risalah Rapat',
     formal: true,
@@ -75,11 +78,6 @@ const List<NotulenTemplateInfo> kNotulenTemplates = [
   NotulenTemplateInfo(
     template: NotulenTemplate.beritaAcara,
     id: 'berita_acara',
-    label: 'Berita Acara',
-    description:
-        'Naskah pembuktian: menyebut para pihak, apa yang telah '
-        'dilaksanakan, hasilnya, dan ditutup dengan formula baku "Demikian '
-        'Berita Acara ini dibuat dengan sesungguhnya".',
     documentTitle: 'BERITA ACARA',
     jenisNaskah: 'Berita Acara',
     formal: true,
@@ -87,10 +85,6 @@ const List<NotulenTemplateInfo> kNotulenTemplates = [
   NotulenTemplateInfo(
     template: NotulenTemplate.ringkas,
     id: 'notulen_ringkas',
-    label: 'Notulen Ringkas',
-    description:
-        'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk '
-        'diedarkan cepat setelah rapat.',
     documentTitle: 'NOTULEN RINGKAS',
     jenisNaskah: 'Notulen Ringkas',
     formal: false,

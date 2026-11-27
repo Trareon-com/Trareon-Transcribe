@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_shortcuts.dart';
@@ -254,7 +255,11 @@ class _TranscriptViewState extends State<TranscriptView> {
     // signal, not a substitute for reading it.
     final message = added == 1
         ? '${latest.speaker}: ${latest.text}'
-        : '$added baris baru. Terakhir, ${latest.speaker}: ${latest.text}';
+        : context.l10n.transcriptViewNewLinesAnnouncement(
+            added,
+            latest.speaker,
+            latest.text,
+          );
     // An announcement rather than a `liveRegion` node: a node only
     // re-announces when it is rebuilt *and* visible, and this has to speak
     // for rows that are already scrolled out of view.
@@ -641,7 +646,7 @@ class _TranscriptViewState extends State<TranscriptView> {
         );
         AppToast.show(
           context,
-          'Segmen disalin.',
+          context.l10n.transcriptViewSegmentCopied,
           type: ToastType.success,
           duration: const Duration(seconds: 2),
         );
@@ -661,21 +666,26 @@ class _TranscriptViewState extends State<TranscriptView> {
         )
         .join('\n');
     Clipboard.setData(ClipboardData(text: text));
-    AppToast.show(context, 'Transkrip disalin.', type: ToastType.success);
+    AppToast.show(
+      context,
+      context.l10n.transcriptViewTranscriptCopied,
+      type: ToastType.success,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     if (widget.segments.isEmpty) {
       return EmptyState(
         icon: AppIcons.mic,
-        title: 'Belum ada transkrip',
-        subtitle:
-            'Mulai sesi untuk memulai transkripsi\n'
-            'Tekan Mulai atau ${AppShortcuts.startStop.shortcut.label}',
+        title: l10n.transcriptViewEmptyTitle,
+        subtitle: l10n.transcriptViewEmptySubtitle(
+          AppShortcuts.startStop.shortcut.label,
+        ),
       );
     }
 
@@ -719,7 +729,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                           fontSize: FontSizes.body,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Cari…',
+                          hintText: l10n.transcriptViewSearchHint,
                           hintStyle: TextStyle(
                             color: colors.textTertiary,
                             fontSize: FontSizes.body,
@@ -737,7 +747,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                                     color: colors.textTertiary,
                                   ),
                                   onPressed: _clearSearch,
-                                  tooltip: 'Bersihkan pencarian',
+                                  tooltip: l10n.transcriptViewClearSearch,
                                 )
                               : null,
                           filled: true,
@@ -761,10 +771,15 @@ class _TranscriptViewState extends State<TranscriptView> {
                     child: Text(
                       [
                         _searchQuery.isEmpty
-                            ? '${widget.segments.length} segmen'
-                            : '$itemCount dari ${widget.segments.length} segmen',
+                            ? l10n.transcriptViewSegmentCount(
+                                widget.segments.length,
+                              )
+                            : l10n.transcriptViewFilteredSegmentCount(
+                                itemCount,
+                                widget.segments.length,
+                              ),
                         if (_partialCount > 0)
-                          '$_partialCount sedang diperbaiki',
+                          l10n.transcriptViewRefiningCount(_partialCount),
                       ].join(' · '),
                       style: TextStyle(
                         color: colors.textSecondary,
@@ -776,8 +791,8 @@ class _TranscriptViewState extends State<TranscriptView> {
                   if (_isPlayerMode)
                     IconButton(
                       tooltip: _followActive
-                          ? 'Ikuti pemutaran: aktif'
-                          : 'Ikuti pemutaran: mati',
+                          ? l10n.transcriptViewFollowPlaybackOn
+                          : l10n.transcriptViewFollowPlaybackOff,
                       icon: Icon(
                         _followActive ? AppIcons.locate : AppIcons.offline,
                         size: IconSizes.md,
@@ -794,8 +809,8 @@ class _TranscriptViewState extends State<TranscriptView> {
                   else
                     IconButton(
                       tooltip: _autoScroll
-                          ? 'Auto-scroll aktif'
-                          : 'Auto-scroll mati',
+                          ? l10n.transcriptViewAutoScrollOn
+                          : l10n.transcriptViewAutoScrollOff,
                       icon: Icon(
                         _autoScroll ? AppIcons.scrollToBottom : AppIcons.pause,
                         size: IconSizes.md,
@@ -809,8 +824,8 @@ class _TranscriptViewState extends State<TranscriptView> {
                   if (_lowConfidenceCount > 0 || _reviewOnly)
                     IconButton(
                       tooltip: _reviewOnly
-                          ? 'Tinjau: hanya segmen yang perlu diperiksa'
-                          : 'Tinjau ($_lowConfidenceCount segmen perlu diperiksa)',
+                          ? l10n.transcriptViewReviewOnly
+                          : l10n.transcriptViewReviewCount(_lowConfidenceCount),
                       icon: Icon(
                         _reviewOnly ? AppIcons.flagFilled : AppIcons.flag,
                         size: IconSizes.md,
@@ -830,7 +845,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                       }),
                     ),
                   IconButton(
-                    tooltip: 'Salin semua',
+                    tooltip: l10n.transcriptViewCopyAll,
                     icon: Icon(
                       AppIcons.copy,
                       size: IconSizes.md,
@@ -846,9 +861,9 @@ class _TranscriptViewState extends State<TranscriptView> {
             Expanded(
               child: itemCount == 0
                   ? (widget.tentativeText.isEmpty
-                        ? const EmptyState(
+                        ? EmptyState(
                             icon: AppIcons.searchOff,
-                            title: 'Tidak ada segmen cocok',
+                            title: l10n.transcriptViewNoMatches,
                           )
                         // Nothing final yet, but the engine has heard
                         // something. An empty state here would read as
@@ -987,12 +1002,13 @@ class _ShortcutHint extends StatelessWidget {
       ),
       child: Text(
         editing
-            ? 'Enter simpan · Esc batal · '
-                  '${const AppShortcut('S', primary: true, shift: true).label} '
-                  'pisah di kursor'
-            : '↑↓ pilih · Enter sunting · '
-                  '${const AppShortcut('↑↓', primary: true).label} pindahkan · '
-                  '${const AppShortcut('M', primary: true).label} gabung ke atas',
+            ? context.l10n.transcriptViewEditingHint(
+                const AppShortcut('S', primary: true, shift: true).label,
+              )
+            : context.l10n.transcriptViewBrowsingHint(
+                const AppShortcut('↑↓', primary: true).label,
+                const AppShortcut('M', primary: true).label,
+              ),
         style: TextStyle(fontSize: FontSizes.micro, color: colors.textTertiary),
       ),
     );
@@ -1116,8 +1132,13 @@ class TranscriptSegmentTile extends StatelessWidget {
     // (audit A.1-13), and at 5 000 rows it kept a frame permanently
     // scheduled while the user dragged the scrollbar.
     return Semantics(
-      label:
-          '${segment.speaker} pada ${formatDuration(Duration(milliseconds: (segment.timestamp * 1000).round()))}: ${segment.text}',
+      label: context.l10n.transcriptViewSegmentSemantics(
+        segment.speaker,
+        formatDuration(
+          Duration(milliseconds: (segment.timestamp * 1000).round()),
+        ),
+        segment.text,
+      ),
       selected: isActive,
       child: Padding(
         padding: const EdgeInsets.only(bottom: Spacing.sm),
@@ -1279,7 +1300,9 @@ class TranscriptSegmentTile extends StatelessWidget {
                                 ),
                               Spacing.hXs,
                               Text(
-                                isProcessingNow ? 'Diproses…' : 'Antre',
+                                isProcessingNow
+                                    ? context.l10n.transcriptViewProcessing
+                                    : context.l10n.transcriptViewQueued,
                                 style: TextStyle(
                                   fontSize: FontSizes.overline,
                                   color: colors.textTertiary,
@@ -1301,7 +1324,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                               ),
                               Spacing.hXs,
                               Text(
-                                'Kepercayaan rendah',
+                                context.l10n.transcriptViewLowConfidence,
                                 style: TextStyle(
                                   fontSize: FontSizes.overline,
                                   color: colors.warning,
@@ -1336,7 +1359,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                             ),
                             onPressed: onCopy,
                             padding: EdgeInsets.zero,
-                            tooltip: 'Salin segmen',
+                            tooltip: context.l10n.transcriptViewCopySegment,
                           ),
                         ),
                       if (onEdit != null)
@@ -1352,7 +1375,7 @@ class TranscriptSegmentTile extends StatelessWidget {
                                 onStartInlineEdit ??
                                 () => _openEditDialog(context),
                             padding: EdgeInsets.zero,
-                            tooltip: 'Edit',
+                            tooltip: context.l10n.transcriptViewEdit,
                           ),
                         ),
                     ],
@@ -1386,7 +1409,7 @@ class TranscriptSegmentTile extends StatelessWidget {
             ),
             Spacing.hSm,
             Text(
-              'Edit Transkrip',
+              context.l10n.transcriptViewEditDialogTitle,
               style: TextStyle(color: colors.text, fontSize: FontSizes.title),
             ),
           ],
@@ -1407,7 +1430,7 @@ class TranscriptSegmentTile extends StatelessWidget {
             ),
             filled: true,
             fillColor: colors.chipBackground,
-            hintText: 'Ketik koreksi transkrip…',
+            hintText: context.l10n.transcriptViewEditHint,
             hintStyle: TextStyle(
               color: colors.textTertiary,
               fontSize: FontSizes.body,
@@ -1417,11 +1440,14 @@ class TranscriptSegmentTile extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
+            child: Text(
+              context.l10n.actionCancel,
+              style: TextStyle(color: colors.textSecondary),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Simpan'),
+            child: Text(context.l10n.actionSave),
           ),
         ],
       ),
@@ -1454,7 +1480,7 @@ class TranscriptSegmentTile extends StatelessWidget {
             ),
             Spacing.hSm,
             Text(
-              'Ganti Nama Pembicara',
+              context.l10n.transcriptViewRenameSpeakerTitle,
               style: TextStyle(color: colors.text, fontSize: FontSizes.title),
             ),
           ],
@@ -1469,7 +1495,7 @@ class TranscriptSegmentTile extends StatelessWidget {
             ),
             filled: true,
             fillColor: colors.chipBackground,
-            hintText: 'Nama baru…',
+            hintText: context.l10n.transcriptViewNewNameHint,
             hintStyle: TextStyle(
               color: colors.textTertiary,
               fontSize: FontSizes.body,
@@ -1479,11 +1505,14 @@ class TranscriptSegmentTile extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
+            child: Text(
+              context.l10n.actionCancel,
+              style: TextStyle(color: colors.textSecondary),
+            ),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Simpan'),
+            child: Text(context.l10n.actionSave),
           ),
         ],
       ),
@@ -1513,7 +1542,7 @@ class _TentativeLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: false,
-      label: 'Sementara, belum final: $text',
+      label: context.l10n.transcriptViewTentativeSemantics(text),
       excludeSemantics: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1525,7 +1554,7 @@ class _TentativeLine extends StatelessWidget {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: 'sementara · ',
+                    text: context.l10n.transcriptViewTentativePrefix,
                     style: AppText.overline.c(colors.textTertiary),
                   ),
                   TextSpan(

@@ -23,6 +23,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/window_service.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_motion.dart';
@@ -166,22 +167,22 @@ class WindowsCaptionButtons extends StatelessWidget {
     if (!isDesktop || _platform != TargetPlatform.windows) {
       return const SizedBox.shrink();
     }
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _CaptionButton(
           icon: AppIcons.minimize,
-          tooltip: 'Perkecil',
+          tooltip: context.l10n.platformChromeMinimize,
           action: _CaptionAction.minimize,
         ),
         _CaptionButton(
           icon: AppIcons.maximize,
-          tooltip: 'Perbesar',
+          tooltip: context.l10n.platformChromeMaximize,
           action: _CaptionAction.maximize,
         ),
         _CaptionButton(
           icon: AppIcons.close,
-          tooltip: 'Tutup',
+          tooltip: context.l10n.platformChromeClose,
           action: _CaptionAction.close,
           danger: true,
         ),
@@ -317,7 +318,7 @@ class AppPlatformMenuBar extends StatelessWidget {
           menus: [
             ..._provided([PlatformProvidedMenuItemType.about]),
             PlatformMenuItem(
-              label: 'Pengaturan…',
+              label: context.l10n.platformChromeMenuSettings,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.comma,
                 meta: true,
@@ -334,11 +335,14 @@ class AppPlatformMenuBar extends StatelessWidget {
           ],
         ),
         PlatformMenu(
-          label: 'Berkas',
+          label: context.l10n.platformChromeMenuFile,
           menus: [
-            PlatformMenuItem(label: 'Sesi Baru', onSelected: onNewSession),
             PlatformMenuItem(
-              label: 'Mulai atau Berhenti Merekam',
+              label: context.l10n.platformChromeMenuNewSession,
+              onSelected: onNewSession,
+            ),
+            PlatformMenuItem(
+              label: context.l10n.platformChromeMenuToggleRecording,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyR,
                 meta: true,
@@ -348,10 +352,10 @@ class AppPlatformMenuBar extends StatelessWidget {
           ],
         ),
         PlatformMenu(
-          label: 'Tampilan',
+          label: context.l10n.platformChromeMenuView,
           menus: [
             PlatformMenuItem(
-              label: 'Cari di Riwayat Sesi',
+              label: context.l10n.platformChromeMenuSearch,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyL,
                 meta: true,
@@ -359,7 +363,7 @@ class AppPlatformMenuBar extends StatelessWidget {
               onSelected: onFocusSearch,
             ),
             PlatformMenuItem(
-              label: 'Sembunyikan Sidebar',
+              label: context.l10n.platformChromeMenuHideSidebar,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyS,
                 meta: true,
@@ -372,9 +376,9 @@ class AppPlatformMenuBar extends StatelessWidget {
             ),
           ],
         ),
-        const PlatformMenu(
-          label: 'Jendela',
-          menus: [
+        PlatformMenu(
+          label: context.l10n.platformChromeMenuWindow,
+          menus: const [
             PlatformProvidedMenuItem(
               type: PlatformProvidedMenuItemType.minimizeWindow,
             ),
@@ -384,10 +388,10 @@ class AppPlatformMenuBar extends StatelessWidget {
           ],
         ),
         PlatformMenu(
-          label: 'Bantuan',
+          label: context.l10n.platformChromeMenuHelp,
           menus: [
             PlatformMenuItem(
-              label: 'Pintasan Keyboard',
+              label: context.l10n.platformChromeMenuShortcuts,
               onSelected: onShowShortcuts,
             ),
           ],

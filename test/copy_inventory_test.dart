@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -169,6 +170,21 @@ List<({String file, int line, String text})> _collectUiStrings(RegExp literal) {
         ));
       }
     }
+  }
+  // Since issue #47 most Indonesian copy is authored in the ARB template
+  // rather than in Dart literals. Scanning it keeps the blocklist covering
+  // the whole UI; the English ARB is a translation and is skipped like the
+  // generated Dart above.
+  final arbLines = File('lib/l10n/app_id.arb').readAsLinesSync();
+  final arb = jsonDecode(arbLines.join('\n')) as Map<String, dynamic>;
+  for (final entry in arb.entries) {
+    if (entry.key.startsWith('@') || entry.value is! String) continue;
+    final text = _stripInterpolations(
+      (entry.value as String).replaceAll(RegExp(r'\{[^{}]*\}'), '<x>'),
+    );
+    if (!_looksLikeCopy(text)) continue;
+    final line = arbLines.indexWhere((l) => l.contains('"${entry.key}"'));
+    out.add((file: 'lib/l10n/app_id.arb', line: line + 1, text: text));
   }
   return out;
 }

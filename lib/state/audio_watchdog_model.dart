@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/system_privacy_settings.dart';
 import 'models.dart';
 import 'session_model.dart';
@@ -147,28 +148,24 @@ class AudioWatchdogNotifier extends StateNotifier<AudioWatchdogWarning?> {
     if (micDead && !speakerDead) {
       _emit(
         'mic',
-        const AudioWatchdogWarning(
-          'Mikrofon belum diberi izin, atau tidak mengirim suara sama '
-          'sekali. Periksa izin Mikrofon di Pengaturan Sistem.',
+        AudioWatchdogWarning(
+          currentL10n.audioWatchdogModelMicSilent,
           permissionKind: PrivacyPermissionKind.microphone,
         ),
       );
     } else if (speakerDead && !micDead) {
       _emit(
         'speaker',
-        const AudioWatchdogWarning(
-          'Audio sistem tidak terdeteksi sama sekali. Periksa izin '
-          '"Rekam Layar & Audio Sistem" di Pengaturan Sistem.',
+        AudioWatchdogWarning(
+          currentL10n.audioWatchdogModelSystemAudioSilent,
           permissionKind: PrivacyPermissionKind.screenCapture,
         ),
       );
     } else if (micDead && speakerDead) {
       _emit(
         'both',
-        const AudioWatchdogWarning(
-          'Mikrofon maupun audio sistem belum diberi izin. Periksa '
-          'Pengaturan Sistem untuk Mikrofon dan "Rekam Layar & Audio '
-          'Sistem".',
+        AudioWatchdogWarning(
+          currentL10n.audioWatchdogModelBothSilent,
           permissionKind: PrivacyPermissionKind.microphone,
         ),
       );
@@ -196,11 +193,7 @@ class AudioWatchdogNotifier extends StateNotifier<AudioWatchdogWarning?> {
     if (micDead || speakerDead) return;
     _emit(
       'generic',
-      const AudioWatchdogWarning(
-        'Belum ada suara terdeteksi. Periksa izin Mikrofon dan "Rekam Layar '
-        '& Audio Sistem" di Pengaturan Sistem, atau pastikan sumber audio '
-        'yang dipilih sudah benar.',
-      ),
+      AudioWatchdogWarning(currentL10n.audioWatchdogModelNoSound),
     );
   }
 

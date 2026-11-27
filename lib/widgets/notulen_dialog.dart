@@ -23,6 +23,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../services/session_store.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
@@ -338,9 +339,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     final settings = ref.read(settingsProvider);
     if (!settings.summary.isUsable) {
       setState(
-        () => _generateError =
-            'Endpoint atau model ringkasan belum diisi. Lengkapi di '
-            'Pengaturan → Ringkasan AI.',
+        () => _generateError = context.l10n.notulenDialogSummaryNotConfigured,
       );
       return;
     }
@@ -520,7 +519,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
 
   Future<void> _pickKonteksDokumen() async {
     final result = await FilePicker.pickFiles(
-      dialogTitle: 'Pilih dokumen rujukan',
+      dialogTitle: context.l10n.notulenDialogPickReferenceDocTitle,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf'],
     );
@@ -540,7 +539,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Gagal membaca dokumen: $e');
+      setState(() => _error = context.l10n.notulenDialogReadDocFailed('$e'));
     }
   }
 
@@ -556,13 +555,14 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       _exporting = true;
       _error = null;
     });
+    final folderTitle = context.l10n.notulenDialogPickFolderTitle;
     try {
       final bridge = ref.read(rustBridgeProvider);
       final poinPenting = widget.bookmarks.isEmpty
           ? const <String>[]
           : await bridge.formatBookmarks(widget.bookmarks);
       final outputDir = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Pilih folder untuk notulen',
+        dialogTitle: folderTitle,
       );
       if (outputDir == null) {
         if (mounted) setState(() => _exporting = false);
@@ -578,14 +578,14 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
       Navigator.of(context).pop(_form);
       AppToast.show(
         context,
-        'Notulen tersimpan: ${exported.path}',
+        context.l10n.notulenDialogSaved(exported.path),
         type: ToastType.success,
       );
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _exporting = false;
-        _error = 'Gagal membuat notulen: $e';
+        _error = context.l10n.notulenDialogExportFailed('$e');
       });
     }
   }
@@ -611,21 +611,24 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     return AppDialog(
-      title: 'Notulen Rapat',
+      title: l10n.notulenDialogTitle,
       icon: AppIcons.document,
       width: Measure.dialogForm,
       actions: [
         AppButton.ghost(
           onPressed: _exporting ? null : () => Navigator.of(context).pop(),
-          label: 'Batal',
+          label: l10n.actionCancel,
         ),
         AppButton.primary(
           onPressed: _loading || _exporting ? null : _export,
           loading: _exporting,
           icon: AppIcons.document,
-          label: _exporting ? 'Menyusun…' : 'Buat Notulen (DOCX)',
+          label: _exporting
+              ? l10n.notulenDialogComposing
+              : l10n.notulenDialogCreateDocx,
         ),
       ],
       child: SizedBox(
@@ -646,11 +649,11 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   Spacing.gapLg,
                   _generationSection(colors),
                   Spacing.gapLg,
-                  AppGroupLabel('Identitas rapat'),
+                  AppGroupLabel(l10n.notulenDialogMeetingIdentity),
                   Spacing.gapSm,
                   _field(
                     'judul',
-                    'Judul Rapat',
+                    l10n.notulenDialogFieldTitle,
                     _form.judul,
                     (v) => _form = _form.copyWith(judul: v),
                   ),
@@ -658,22 +661,22 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                     Spacing.gapMd,
                     _field(
                       'nomor',
-                      'Nomor Notulen',
+                      l10n.notulenDialogFieldNumber,
                       _form.nomor,
                       (v) => _form = _form.copyWith(nomor: v),
-                      hint: 'mis. ND-12/AG.3/2026',
+                      hint: l10n.notulenDialogFieldNumberHint,
                     ),
                     Spacing.gapMd,
                     _field(
                       'instansi',
-                      'Instansi (kop surat)',
+                      l10n.notulenDialogFieldAgency,
                       _form.instansi,
                       (v) => _form = _form.copyWith(instansi: v),
                     ),
                     Spacing.gapMd,
                     _field(
                       'unitKerja',
-                      'Unit kerja (baris kedua kop)',
+                      l10n.notulenDialogFieldUnit,
                       _form.unitKerja,
                       (v) => _form = _form.copyWith(unitKerja: v),
                     ),
@@ -684,7 +687,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Expanded(
                         child: _field(
                           'hari',
-                          'Hari',
+                          l10n.notulenDialogFieldDay,
                           _form.hari,
                           (v) => _form = _form.copyWith(hari: v),
                         ),
@@ -694,7 +697,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                         flex: 2,
                         child: _field(
                           'tanggal',
-                          'Tanggal',
+                          l10n.notulenDialogFieldDate,
                           _form.tanggal,
                           (v) => _form = _form.copyWith(tanggal: v),
                         ),
@@ -707,7 +710,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Expanded(
                         child: _field(
                           'waktu',
-                          'Waktu',
+                          l10n.notulenDialogFieldTime,
                           _form.waktu,
                           (v) => _form = _form.copyWith(waktu: v),
                         ),
@@ -716,7 +719,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Expanded(
                         child: _field(
                           'tempat',
-                          'Tempat/Media',
+                          l10n.notulenDialogFieldPlace,
                           _form.tempat,
                           (v) => _form = _form.copyWith(tempat: v),
                         ),
@@ -729,7 +732,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Expanded(
                         child: _field(
                           'pimpinan',
-                          'Pimpinan Rapat',
+                          l10n.notulenDialogFieldChair,
                           _form.pimpinan,
                           (v) => _form = _form.copyWith(pimpinan: v),
                         ),
@@ -738,7 +741,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                       Expanded(
                         child: _field(
                           'notulis',
-                          'Notulis',
+                          l10n.notulenDialogFieldMinuteTaker,
                           _form.notulis,
                           (v) => _form = _form.copyWith(notulis: v),
                         ),
@@ -751,71 +754,67 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   // lists would put a name in the document twice.
                   if (_form.template == NotulenTemplate.beritaAcara) ...[
                     Spacing.gapLg,
-                    AppGroupLabel('Para Pihak'),
+                    AppGroupLabel(l10n.notulenDialogParties),
                     Spacing.gapSm,
                     Text(
-                      'Urutan menentukan kolom tanda tangan: pihak pertama '
-                      'di kanan, pihak kedua di kiri. Sebutkan nama beserta '
-                      'jabatannya.',
+                      l10n.notulenDialogPartiesHelp,
                       style: AppText.caption.c(colors.textTertiary),
                     ),
                     Spacing.gapSm,
                     _ListEditor(
                       items: _form.pihak,
-                      hint: 'Nama, jabatan',
-                      addLabel: 'Tambah pihak',
+                      hint: l10n.notulenDialogPartyHint,
+                      addLabel: l10n.notulenDialogAddParty,
                       onChanged: (items) =>
                           setState(() => _form = _form.copyWith(pihak: items)),
                     ),
                   ] else ...[
                     Spacing.gapLg,
-                    AppGroupLabel('Peserta'),
+                    AppGroupLabel(l10n.notulenDialogAttendees),
                     Spacing.gapSm,
                     _ListEditor(
                       items: _form.peserta,
-                      hint: 'Nama peserta',
-                      addLabel: 'Tambah peserta',
+                      hint: l10n.notulenDialogAttendeeHint,
+                      addLabel: l10n.notulenDialogAddAttendee,
                       onChanged: (items) => setState(
                         () => _form = _form.copyWith(peserta: items),
                       ),
                     ),
                   ],
                   Spacing.gapLg,
-                  AppGroupLabel('Agenda'),
+                  AppGroupLabel(l10n.notulenDialogAgenda),
                   Spacing.gapSm,
                   _ListEditor(
                     items: _form.agenda,
-                    hint: 'Butir agenda',
-                    addLabel: 'Tambah agenda',
+                    hint: l10n.notulenDialogAgendaHint,
+                    addLabel: l10n.notulenDialogAddAgenda,
                     onChanged: (items) =>
                         setState(() => _form = _form.copyWith(agenda: items)),
                   ),
                   Spacing.gapLg,
-                  AppGroupLabel('Pembahasan'),
+                  AppGroupLabel(l10n.notulenDialogDiscussion),
                   Spacing.gapSm,
                   AppTextField(
                     controller: _controller('pembahasan', _form.pembahasan),
                     maxLines: 6,
                     minLines: 3,
                     reserveHelperSpace: false,
-                    placeholder:
-                        'Isi pembahasan. Terisi otomatis dari '
-                        'ringkasan AI kalau ada.',
+                    placeholder: l10n.notulenDialogDiscussionHint,
                     onChanged: (v) => _form = _form.copyWith(pembahasan: v),
                   ),
                   Spacing.gapLg,
-                  AppGroupLabel('Keputusan'),
+                  AppGroupLabel(l10n.notulenDialogDecisions),
                   Spacing.gapSm,
                   _ListEditor(
                     items: _form.keputusan,
-                    hint: 'Keputusan rapat',
-                    addLabel: 'Tambah keputusan',
+                    hint: l10n.notulenDialogDecisionHint,
+                    addLabel: l10n.notulenDialogAddDecision,
                     onChanged: (items) => setState(
                       () => _form = _form.copyWith(keputusan: items),
                     ),
                   ),
                   Spacing.gapLg,
-                  AppGroupLabel('Tindak Lanjut'),
+                  AppGroupLabel(l10n.notulenDialogFollowUp),
                   Spacing.gapSm,
                   _TaskEditor(
                     tasks: _form.tindakLanjut,
@@ -826,12 +825,12 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   Spacing.gapLg,
                   _periksaFaktaSection(colors),
                   Spacing.gapLg,
-                  AppGroupLabel('Ekspor kearsipan'),
+                  AppGroupLabel(l10n.notulenDialogArchivalExport),
                   Spacing.gapSm,
                   AppButton(
                     onPressed: _loading || _exporting ? null : _exportSrikandi,
                     icon: AppIcons.uploadFile,
-                    label: 'Ekspor siap-SRIKANDI…',
+                    label: l10n.notulenDialogExportSrikandi,
                   ),
                   if (widget.bookmarks.isNotEmpty) ...[
                     Spacing.gapLg,
@@ -845,8 +844,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                         const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
-                            '${widget.bookmarks.length} poin penting yang '
-                            'Anda tandai saat rapat akan disertakan.',
+                            l10n.notulenDialogBookmarksIncluded(
+                              widget.bookmarks.length,
+                            ),
                             style: AppText.caption.c(colors.textSecondary),
                           ),
                         ),
@@ -856,7 +856,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   Spacing.gapMd,
                   AppCheckbox(
                     value: _form.lampirkanTranskrip,
-                    label: 'Lampirkan transkrip lengkap',
+                    label: l10n.notulenDialogAttachTranscript,
                     onChanged: (v) => setState(
                       () => _form = _form.copyWith(lampirkanTranskrip: v),
                     ),
@@ -864,8 +864,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   Padding(
                     padding: const EdgeInsets.only(left: Spacing.xxl),
                     child: Text(
-                      '${widget.session.segmentsCount} baris transkrip '
-                      'ditambahkan di halaman terpisah.',
+                      l10n.notulenDialogTranscriptLines(
+                        widget.session.segmentsCount,
+                      ),
                       style: AppText.caption.c(colors.textTertiary),
                     ),
                   ),
@@ -894,6 +895,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   /// distinction the picker exists to make.
   Widget _templatePicker(AppColorSet colors) {
     final templates = kNotulenTemplates;
+    final l10n = context.l10n;
     final selected = templates.firstWhere(
       (info) => info.template == _form.template,
       orElse: () => templates.first,
@@ -901,7 +903,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppGroupLabel('Bentuk naskah'),
+        AppGroupLabel(l10n.notulenDialogFormType),
         Spacing.gapSm,
         CompactDropdown<NotulenTemplate>(
           value: selected.template,
@@ -924,15 +926,16 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   /// Source toggle, length preset, document context, and the "Buat
   /// Otomatis" action that fills the form below from the engine.
   Widget _generationSection(AppColorSet colors) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppGroupLabel('Isi otomatis dengan AI'),
+        AppGroupLabel(l10n.notulenDialogAutoFill),
         Spacing.gapSm,
         AppSegmented<bool>(
-          segments: const [
-            AppSegment(value: false, label: 'Transkrip sesi'),
-            AppSegment(value: true, label: 'Poin catatan'),
+          segments: [
+            AppSegment(value: false, label: l10n.notulenDialogSourceTranscript),
+            AppSegment(value: true, label: l10n.notulenDialogSourceNotes),
           ],
           selected: _sumberCatatan,
           enabled: !_generating,
@@ -946,15 +949,13 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
             minLines: 3,
             enabled: !_generating,
             reserveHelperSpace: false,
-            placeholder:
-                'Tempel atau ketik butir-butir catatan rapat, satu poin '
-                'per baris.',
+            placeholder: l10n.notulenDialogNotesHint,
             onChanged: (v) =>
                 setState(() => _form = _form.copyWith(sumberCatatan: v)),
           ),
         ],
         Spacing.gapMd,
-        AppGroupLabel('Panjang notulen'),
+        AppGroupLabel(l10n.notulenDialogLength),
         Spacing.gapSm,
         CompactDropdown<NotulenLength>(
           value: _form.panjang,
@@ -970,12 +971,12 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
           AppButton(
             onPressed: _generating ? null : _pickKonteksDokumen,
             icon: AppIcons.uploadFile,
-            label: 'Tambahkan dokumen rujukan (opsional)',
+            label: l10n.notulenDialogAddReferenceDoc,
           )
         else
           AppChip(
             label: _form.konteksDokumenNama,
-            deleteTooltip: 'Hapus dokumen rujukan',
+            deleteTooltip: l10n.notulenDialogRemoveReferenceDoc,
             onDeleted: _generating ? null : _clearKonteksDokumen,
           ),
         Spacing.gapMd,
@@ -985,14 +986,16 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
               onPressed: _generating ? null : _generate,
               loading: _generating,
               icon: AppIcons.enhance,
-              label: _generating ? 'Menyusun…' : 'Buat Otomatis',
+              label: _generating
+                  ? l10n.notulenDialogComposing
+                  : l10n.notulenDialogGenerate,
             ),
             if (_generateError != null && !_generating) ...[
               Spacing.hSm,
               AppButton(
                 onPressed: _generate,
                 icon: AppIcons.refresh,
-                label: 'Coba lagi',
+                label: l10n.notulenDialogRetry,
               ),
             ],
           ],
@@ -1016,7 +1019,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
           Semantics(
             liveRegion: true,
             child: Text(
-              'Gagal membuat notulen otomatis: $_generateError',
+              l10n.notulenDialogGenerateFailed('$_generateError'),
               style: AppText.caption.c(colors.error),
             ),
           ),
@@ -1031,10 +1034,11 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
   Widget _periksaFaktaSection(AppColorSet colors) {
     final fakta = _fakta;
     final sudahDiperiksa = fakta != null;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppGroupLabel('Periksa Fakta & Ragam'),
+        AppGroupLabel(l10n.notulenDialogFactCheckSection),
         Spacing.gapSm,
         Row(
           children: [
@@ -1042,7 +1046,9 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
               onPressed: _checking ? null : _periksaUlang,
               loading: _checking,
               icon: AppIcons.factCheck,
-              label: sudahDiperiksa ? 'Periksa Ulang' : 'Periksa Fakta',
+              label: sudahDiperiksa
+                  ? l10n.notulenDialogRecheck
+                  : l10n.notulenDialogFactCheck,
             ),
             Spacing.hSm,
             AppButton(
@@ -1051,7 +1057,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
                   : _rapikanPembahasan,
               loading: _rapikanBusy,
               icon: AppIcons.refresh,
-              label: 'Rapikan Ragam',
+              label: l10n.notulenDialogTidyRegister,
             ),
           ],
         ),
@@ -1060,7 +1066,7 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
           Semantics(
             liveRegion: true,
             child: Text(
-              'Gagal memeriksa: $_checkError',
+              l10n.notulenDialogCheckFailed('$_checkError'),
               style: AppText.caption.c(colors.error),
             ),
           ),
@@ -1068,8 +1074,11 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
         if (sudahDiperiksa) ...[
           Spacing.gapSm,
           Text(
-            '${fakta.diperiksa} pernyataan diperiksa, ${fakta.bersih} bersih, '
-            '${fakta.temuan.length} butir perlu ditinjau.',
+            l10n.notulenDialogFactSummary(
+              fakta.diperiksa,
+              fakta.bersih,
+              fakta.temuan.length,
+            ),
             style: AppText.caption.c(colors.textSecondary),
           ),
           for (final temuan in fakta.temuan)
@@ -1084,18 +1093,21 @@ class _NotulenDialogState extends ConsumerState<_NotulenDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Pratinjau Rapikan Ragam', style: AppText.label),
+                Text(l10n.notulenDialogTidyPreview, style: AppText.label),
                 Spacing.gapSm,
                 Text(_ragamPreview!, style: AppText.body.c(colors.text)),
                 Spacing.gapMd,
                 Row(
                   children: [
                     AppButton.primary(
-                      label: 'Terapkan',
+                      label: l10n.notulenDialogApply,
                       onPressed: _terapkanRagam,
                     ),
                     Spacing.hSm,
-                    AppButton.ghost(label: 'Batal', onPressed: _tolakRagam),
+                    AppButton.ghost(
+                      label: l10n.actionCancel,
+                      onPressed: _tolakRagam,
+                    ),
                   ],
                 ),
               ],
@@ -1168,7 +1180,9 @@ class _ListEditorState extends State<_ListEditor> {
               for (var i = 0; i < widget.items.length; i++)
                 AppChip(
                   label: '${i + 1}. ${widget.items[i]}',
-                  deleteTooltip: 'Hapus ${widget.items[i]}',
+                  deleteTooltip: context.l10n.notulenDialogRemoveItem(
+                    widget.items[i],
+                  ),
                   onDeleted: () =>
                       widget.onChanged([...widget.items]..removeAt(i)),
                 ),
@@ -1209,6 +1223,7 @@ class _TaskEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1220,7 +1235,7 @@ class _TaskEditor extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: _TaskField(
-                    label: 'Tugas',
+                    label: l10n.notulenDialogTaskField,
                     value: tasks[i].tugas,
                     onChanged: (v) => onChanged(
                       [...tasks]..[i] = tasks[i].copyWith(tugas: v),
@@ -1231,7 +1246,7 @@ class _TaskEditor extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _TaskField(
-                    label: 'Penanggung Jawab',
+                    label: l10n.notulenDialogOwnerField,
                     value: tasks[i].penanggungJawab,
                     onChanged: (v) => onChanged(
                       [...tasks]..[i] = tasks[i].copyWith(penanggungJawab: v),
@@ -1242,7 +1257,7 @@ class _TaskEditor extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _TaskField(
-                    label: 'Tenggat',
+                    label: l10n.notulenDialogDueField,
                     value: tasks[i].tenggat,
                     onChanged: (v) => onChanged(
                       [...tasks]..[i] = tasks[i].copyWith(tenggat: v),
@@ -1250,7 +1265,7 @@ class _TaskEditor extends StatelessWidget {
                   ),
                 ),
                 AppIconButton(
-                  tooltip: 'Hapus baris tindak lanjut',
+                  tooltip: l10n.notulenDialogRemoveTaskRow,
                   icon: AppIcons.delete,
                   color: colors.textSecondary,
                   onPressed: () => onChanged([...tasks]..removeAt(i)),
@@ -1263,7 +1278,7 @@ class _TaskEditor extends StatelessWidget {
           child: AppButton(
             onPressed: () => onChanged([...tasks, const NotulenTask()]),
             icon: AppIcons.add,
-            label: 'Tambah tindak lanjut',
+            label: l10n.notulenDialogAddTask,
           ),
         ),
       ],
@@ -1311,15 +1326,16 @@ class _TaskFieldState extends State<_TaskField> {
   );
 }
 
-/// Indonesian label for why one statement was flagged.
-String _faktaMasalahLabel(FaktaMasalah masalah) => switch (masalah) {
-  FaktaMasalah.tanpaRujukan => 'Tanpa rujukan segmen',
-  FaktaMasalah.rujukanTidakSah => 'Rujukan segmen tidak sah',
-  FaktaMasalah.dukunganLemah => 'Dukungan dari transkrip lemah',
-  FaktaMasalah.rujukanMeleset => 'Rujukan segmen meleset',
-  FaktaMasalah.angkaTidakAda => 'Angka tidak ditemukan di transkrip',
-  FaktaMasalah.namaTidakAda => 'Nama tidak ditemukan di transkrip',
-};
+/// Label for why one statement was flagged.
+String _faktaMasalahLabel(AppLocalizations l10n, FaktaMasalah masalah) =>
+    switch (masalah) {
+      FaktaMasalah.tanpaRujukan => l10n.notulenDialogIssueNoCitation,
+      FaktaMasalah.rujukanTidakSah => l10n.notulenDialogIssueInvalidCitation,
+      FaktaMasalah.dukunganLemah => l10n.notulenDialogIssueWeakSupport,
+      FaktaMasalah.rujukanMeleset => l10n.notulenDialogIssueCitationOff,
+      FaktaMasalah.angkaTidakAda => l10n.notulenDialogIssueNumberMissing,
+      FaktaMasalah.namaTidakAda => l10n.notulenDialogIssueNameMissing,
+    };
 
 /// One Periksa Fakta finding, as a per-butir marker in the preview.
 class _TemuanFaktaTile extends StatelessWidget {
@@ -1344,7 +1360,8 @@ class _TemuanFaktaTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${temuan.bagian} · ${_faktaMasalahLabel(temuan.masalah)}',
+                    '${temuan.bagian} · '
+                    '${_faktaMasalahLabel(context.l10n, temuan.masalah)}',
                     style: AppText.captionStrong.c(colors.text),
                   ),
                   Spacing.gapXs,
@@ -1396,13 +1413,18 @@ class _RegisterFindingTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Baris ${finding.baris}: "${finding.ditemukan}"',
+                    context.l10n.notulenDialogRegisterLine(
+                      finding.baris,
+                      finding.ditemukan,
+                    ),
                     style: AppText.captionStrong.c(colors.text),
                   ),
                   Spacing.gapXs,
                   Text(
                     finding.otomatis
-                        ? 'Saran: "${finding.saran}" (diterapkan oleh Rapikan Ragam)'
+                        ? context.l10n.notulenDialogRegisterSuggestion(
+                            finding.saran,
+                          )
                         : finding.saran,
                     style: AppText.caption.c(colors.textSecondary),
                   ),

@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../screens/onboarding_screen.dart';
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../src/rust/model.dart' as rust_model;
 import '../widgets/model_download_card.dart';
+import 'download_consent.dart';
 import 'models.dart';
 import 'privacy_report_model.dart';
 import 'settings_model.dart';
@@ -15,6 +17,9 @@ final onboardingProvider =
         onNetworkRequest: ref
             .read(privacyReportProvider.notifier)
             .recordModelDownload,
+        consentStore: const DartPrefsDownloadConsentStore(),
+        deferOnMetered: () => ref.read(settingsProvider).deferDownloads,
+        onDeferChoice: ref.read(settingsProvider.notifier).setDeferDownloads,
       );
     });
 
@@ -30,10 +35,30 @@ const _accurateModelId = 'large-v3-turbo-q5';
 /// Rust download tracker (`DOWNLOAD_PROGRESS`) is a single global slot, so
 /// concurrent downloads would scramble each other's progress.
 class OnboardingNotifier extends StateNotifier<OnboardingState> {
-  OnboardingNotifier(this._bridge, {required this.onNetworkRequest})
-    : super(OnboardingState.empty);
+  OnboardingNotifier(
+    this._bridge, {
+    required this.onNetworkRequest,
+    required DownloadConsentStore consentStore,
+    bool Function()? deferOnMetered,
+    this.onDeferChoice,
+    bool? Function()? networkIsMetered,
+  }) : _consent = consentStore,
+       _deferOnMetered = deferOnMetered ?? (() => true),
+       _networkIsMetered = networkIsMetered ?? (() => null),
+       super(OnboardingState.empty);
 
   final RustBridge _bridge;
+  final DownloadConsentStore _consent;
+
+  /// The saved "Tunda kalau koneksi metered" choice (`deferDownloads`).
+  final bool Function() _deferOnMetered;
+
+  /// Persists a new "Tunda kalau koneksi metered" choice from the dialog.
+  final Future<void> Function(bool)? onDeferChoice;
+
+  /// `null` until the app can detect a metered connection (blueprint §6.2,
+  /// phase 2); [shouldStartDownload] only holds back on a definite `true`.
+  final bool? Function() _networkIsMetered;
 
   /// Invoked with the model id immediately before each download starts, so
   /// the Privacy Report counts it. Required, not optional: this is one of
@@ -42,20 +67,46 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
 
   bool _running = false;
 
+  /// Checks what is already on disk, then downloads what is missing, but
+  /// only once the user has agreed to it ([grantConsent], now or on an
+  /// earlier run). Without that it stops at
+  /// [OnboardingPhase.awaitingConsent] or [OnboardingPhase.postponed] and
+  /// nothing leaves the machine.
   Future<void> start() async {
     if (_running) return;
     _running = true;
     try {
       final modelsDir = defaultModelsCacheDir();
       _applyCatalogSizes(await _bridge.listAvailableModels(modelsDir));
+      await _markInstalled(modelsDir);
+      if (state.allReady) {
+        state = state.copyWith(phase: OnboardingPhase.downloading);
+        return;
+      }
+
+      final consent = await _consent.read();
+      final mayStart = shouldStartDownload(
+        now: DateTime.now(),
+        networkIsMetered: _networkIsMetered(),
+        consent: consent,
+        deferOnMetered: _deferOnMetered(),
+      );
+      if (!mayStart) {
+        state = state.copyWith(
+          phase: consent == DownloadConsent.notAsked
+              ? OnboardingPhase.awaitingConsent
+              : OnboardingPhase.postponed,
+        );
+        return;
+      }
+      state = state.copyWith(phase: OnboardingPhase.downloading);
 
       if (state.quick.status != DownloadStatus.ready) {
         await _ensureDownloaded(
           modelId: _quickModelId,
           modelsDir: modelsDir,
           slot: () => state.quick,
-          apply: (p) =>
-              state = OnboardingState(quick: p, accurate: state.accurate),
+          apply: (p) => state = state.copyWith(quick: p),
         );
       }
       if (state.quick.status == DownloadStatus.ready &&
@@ -64,8 +115,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
           modelId: _accurateModelId,
           modelsDir: modelsDir,
           slot: () => state.accurate,
-          apply: (p) =>
-              state = OnboardingState(quick: state.quick, accurate: p),
+          apply: (p) => state = state.copyWith(accurate: p),
         );
       }
     } finally {
@@ -73,12 +123,59 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     }
   }
 
+  /// "Unduh sekarang" in the consent dialog: remembers the answer so the
+  /// dialog does not come back, saves the metered choice, and downloads.
+  Future<void> grantConsent({required bool deferOnMetered}) async {
+    await _consent.write(DownloadConsent.granted);
+    await onDeferChoice?.call(deferOnMetered);
+    await start();
+  }
+
+  /// "Nanti": remembers the answer and downloads nothing. The download is
+  /// offered again where a model is needed (recording), or from
+  /// [OnboardingPhase.postponed] via [grantConsent].
+  Future<void> postpone({required bool deferOnMetered}) async {
+    await _consent.write(DownloadConsent.postponed);
+    await onDeferChoice?.call(deferOnMetered);
+    state = state.copyWith(phase: OnboardingPhase.postponed);
+  }
+
+  /// Marks models that are already on disk as ready, so neither the dialog
+  /// nor its total counts something that will not be downloaded.
+  Future<void> _markInstalled(String modelsDir) async {
+    if (await _bridge.isModelDownloaded(modelsDir, _quickModelId)) {
+      state = state.copyWith(
+        quick: state.quick.copyWith(status: DownloadStatus.ready, progress: 1),
+      );
+    }
+    if (await _bridge.isModelDownloaded(modelsDir, _accurateModelId)) {
+      state = state.copyWith(
+        accurate: state.accurate.copyWith(
+          status: DownloadStatus.ready,
+          progress: 1,
+        ),
+      );
+    }
+  }
+
+  /// What "Unduh sekarang" would fetch: the plan minus what is installed.
+  List<DownloadPlanItem> get pendingDownloads => [
+    for (final item in kFirstRunDownloadPlan)
+      if (!_isReady(item.modelId)) item,
+  ];
+
+  bool _isReady(String modelId) => switch (modelId) {
+    _quickModelId => state.quick.status == DownloadStatus.ready,
+    _accurateModelId => state.accurate.status == DownloadStatus.ready,
+    _ => false,
+  };
+
   /// Fills in each card's size label from the catalog's on-disk sizes, once
   /// known (a not-yet-downloaded model reports 0 bytes and is left as-is).
   void _applyCatalogSizes(List<rust_model.ModelInfo> catalog) {
     final quickSize = _sizeLabelFor(catalog, _quickModelId);
     final accurateSize = _sizeLabelFor(catalog, _accurateModelId);
-    state = OnboardingState(
+    state = state.copyWith(
       quick: quickSize == null
           ? state.quick
           : state.quick.copyWith(size: quickSize),
@@ -113,20 +210,18 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
   }
 
   Future<void> retryQuick() async {
-    state = OnboardingState(
+    state = state.copyWith(
       quick: state.quick.copyWith(
         status: DownloadStatus.idle,
         progress: 0,
         error: null,
       ),
-      accurate: state.accurate,
     );
     await start();
   }
 
   Future<void> retryAccurate() async {
-    state = OnboardingState(
-      quick: state.quick,
+    state = state.copyWith(
       accurate: state.accurate.copyWith(
         status: DownloadStatus.idle,
         progress: 0,
@@ -161,7 +256,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       apply(
         slot().copyWith(
           status: DownloadStatus.error,
-          error: 'Gagal mengunduh: $e',
+          error: currentL10n.onboardingModelDownloadFailed('$e'),
         ),
       );
     } finally {

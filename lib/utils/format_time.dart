@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 String formatDuration(Duration d) {
   final h = d.inHours;
   final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -14,17 +16,20 @@ String formatTimestamp(double seconds) {
   return '[${formatDuration(d)}]';
 }
 
-/// Coarse Indonesian duration for list rows and summaries: "1 jam 32 menit",
+/// Coarse duration for list rows and summaries: "1 jam 32 menit",
 /// "4 menit", "12 detik". Reads better than `1:32:07` where the exact
-/// second carries no information.
+/// second carries no information. In the interface language.
 String formatDurationId(double seconds) {
-  if (seconds < 1) return '0 detik';
+  final l10n = currentL10n;
+  if (seconds < 1) return l10n.formatTimeSeconds(0);
   final d = Duration(milliseconds: (seconds * 1000).round());
   final hours = d.inHours;
   final minutes = d.inMinutes.remainder(60);
   if (hours > 0) {
-    return minutes > 0 ? '$hours jam $minutes menit' : '$hours jam';
+    return minutes > 0
+        ? l10n.formatTimeHoursMinutes(hours, minutes)
+        : l10n.formatTimeHours(hours);
   }
-  if (minutes > 0) return '$minutes menit';
-  return '${d.inSeconds} detik';
+  if (minutes > 0) return l10n.formatTimeMinutes(minutes);
+  return l10n.formatTimeSeconds(d.inSeconds);
 }

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../services/session_store.dart';
 import 'models.dart';
@@ -227,7 +228,9 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
       );
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(error: 'Gagal menyimpan tindak lanjut: $e');
+      state = state.copyWith(
+        error: currentL10n.summaryModelSaveActionItemsFailed('$e'),
+      );
     }
   }
 
@@ -296,23 +299,21 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     if (!settings.summary.enabled) {
       state = state.copyWith(
         status: SummaryStatus.failed,
-        error:
-            'Ringkasan AI belum diaktifkan. Nyalakan di Pengaturan → Ringkasan AI.',
+        error: currentL10n.summaryModelDisabled,
       );
       return;
     }
     if (!settings.summary.isUsable) {
       state = state.copyWith(
         status: SummaryStatus.failed,
-        error:
-            'Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan → Ringkasan AI.',
+        error: currentL10n.summaryModelNotConfigured,
       );
       return;
     }
     if (segments.isEmpty) {
       state = state.copyWith(
         status: SummaryStatus.failed,
-        error: 'Transkrip kosong, tidak ada yang bisa diringkas.',
+        error: currentL10n.summaryModelEmptyTranscriptSummarize,
       );
       return;
     }
@@ -349,7 +350,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
         if (!mounted) return;
         state = state.copyWith(
           status: SummaryStatus.failed,
-          error: 'Template "${custom.name}" tidak bisa dipakai: $e',
+          error: currentL10n.summaryModelTemplateUnusable(custom.name, '$e'),
         );
         return;
       }
@@ -395,7 +396,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
       // red error next to the transcript otherwise reads as data loss.
       state = state.copyWith(
         status: SummaryStatus.failed,
-        error: 'Gagal membuat ringkasan (transkrip tetap aman): $e',
+        error: currentL10n.summaryModelGenerateFailed('$e'),
       );
     } finally {
       _stopProgressPoll();
@@ -418,15 +419,12 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     List<Bookmark> bookmarks = const [],
   }) async {
     if (!settings.summary.isUsable) {
-      state = state.copyWith(
-        error:
-            'Endpoint atau model ringkasan belum diisi. Lengkapi di Pengaturan → Ringkasan AI.',
-      );
+      state = state.copyWith(error: currentL10n.summaryModelNotConfigured);
       return;
     }
     if (segments.isEmpty) {
       state = state.copyWith(
-        error: 'Transkrip kosong, tidak ada yang bisa digabung.',
+        error: currentL10n.summaryModelEmptyTranscriptMerge,
       );
       return;
     }
@@ -450,7 +448,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(
-        error: 'Gagal menggabungkan catatan dengan transkrip: $e',
+        error: currentL10n.summaryModelEnhanceFailed('$e'),
       );
     } finally {
       _stopProgressPoll();
@@ -507,7 +505,7 @@ class SummaryNotifier extends StateNotifier<SummaryUiState> {
       state = state.copyWith(dirty: false, clearError: true);
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(error: 'Gagal menyimpan ringkasan: $e');
+      state = state.copyWith(error: currentL10n.summaryModelSaveFailed('$e'));
     }
   }
 }

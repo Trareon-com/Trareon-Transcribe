@@ -12,6 +12,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/live_qa.dart' as rust_live_qa;
 import '../state/live_qa_model.dart';
 import '../state/models.dart';
@@ -71,6 +72,7 @@ class _LiveQaPanelState extends ConsumerState<LiveQaPanel> {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final state = ref.watch(liveQaProvider);
+    final l10n = context.l10n;
     return Container(
       color: colors.surface,
       child: Column(
@@ -89,7 +91,7 @@ class _LiveQaPanelState extends ConsumerState<LiveQaPanel> {
                 Spacing.hSm,
                 Expanded(
                   child: Text(
-                    'Tanya Langsung',
+                    l10n.liveQaPanelTitle,
                     style: AppText.bodyStrong.c(colors.text),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -121,7 +123,7 @@ class _LiveQaPanelState extends ConsumerState<LiveQaPanel> {
                     enabled: !state.busy,
                     onSubmitted: (_) => _submit(),
                     reserveHelperSpace: false,
-                    placeholder: 'Tanyakan sesuatu tentang rapat ini…',
+                    placeholder: l10n.liveQaPanelHint,
                   ),
                 ),
                 Spacing.hSm,
@@ -134,7 +136,7 @@ class _LiveQaPanelState extends ConsumerState<LiveQaPanel> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(AppIcons.enhance, size: IconSizes.md),
-                  label: const Text('Tanya'),
+                  label: Text(l10n.liveQaPanelAsk),
                 ),
               ],
             ),
@@ -161,14 +163,13 @@ class _EmptyHint extends StatelessWidget {
             Icon(AppIcons.chat, size: IconSizes.hero, color: colors.textTertiary),
             Spacing.gapMd,
             Text(
-              'Tanyakan apa saja yang sudah dibahas di rapat ini sejauh ini.',
+              context.l10n.liveQaPanelEmpty,
               textAlign: TextAlign.center,
               style: AppText.body.c(colors.text),
             ),
             Spacing.gapSm,
             Text(
-              'Jawaban dikirim ke endpoint ringkasan yang Anda atur di '
-              'Pengaturan → Ringkasan AI, dan dicatat di Laporan Privasi.',
+              context.l10n.liveQaPanelPrivacy,
               textAlign: TextAlign.center,
               style: AppText.caption.c(colors.textTertiary),
             ),
@@ -216,7 +217,7 @@ class _TurnView extends StatelessWidget {
         if (turn.sources.isNotEmpty) ...[
           Spacing.gapSm,
           Text(
-            'Kutipan transkrip',
+            context.l10n.liveQaPanelSources,
             style: AppText.caption.c(colors.textTertiary).copyWith(
               fontWeight: FontWeight.w600,
             ),

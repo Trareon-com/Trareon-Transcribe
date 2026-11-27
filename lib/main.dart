@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import 'l10n/generated/app_localizations.dart';
+import 'l10n/l10n.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/flight_recorder_service.dart';
@@ -21,6 +21,7 @@ import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 import 'utils/debug_screenshot.dart';
+import 'widgets/download_consent_dialog.dart';
 import 'widgets/platform_chrome.dart';
 import 'widgets/setup_overlay.dart';
 
@@ -149,10 +150,13 @@ class TranscribeApp extends ConsumerWidget {
     final modelsReady = ref.watch(modelsReadyProvider);
 
     return MaterialApp(
-      title: 'Trareon Transcribe',
+      onGenerateTitle: (context) => context.l10n.appTitle,
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      // Null for `UiLanguage.system`, which hands the decision back to
+      // `localeListResolutionCallback`; an explicit choice in Settings wins.
+      locale: settings.uiLanguage.locale,
       localeListResolutionCallback: resolveLocale,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -165,9 +169,14 @@ class TranscribeApp extends ConsumerWidget {
       themeAnimationCurve: AppEasing.standard,
       // Every route, not just the main screen: hiding the native title bar
       // hides it everywhere, so the chrome has to be above the navigator.
-      builder: (context, child) => wrapForDebugScreenshot(
-        WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
-      ),
+      builder: (context, child) {
+        // Lets state notifiers and services, which have no context, speak
+        // the same language as the screen.
+        updateCurrentL10n(context.l10n);
+        return wrapForDebugScreenshot(
+          WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
+        );
+      },
       // First-launch routing: when models aren't downloaded yet, show the
       // dedicated onboarding/download screen. SetupWizardScreen is reached
       // from Settings → "Jalankan Ulang Penyiapan".
@@ -192,6 +201,27 @@ class _OnboardingRoute extends ConsumerStatefulWidget {
 }
 
 class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
+  bool _askingConsent = false;
+
+  /// Shows the download consent dialog once, when onboarding finds models
+  /// missing and no earlier answer (issue #70).
+  Future<void> _askConsent() async {
+    if (_askingConsent) return;
+    _askingConsent = true;
+    final notifier = ref.read(onboardingProvider.notifier);
+    final answer = await showDownloadConsentDialog(
+      context: context,
+      items: notifier.pendingDownloads,
+      initialDeferOnMetered: ref.read(settingsProvider).deferDownloads,
+    );
+    _askingConsent = false;
+    if (answer.downloadNow) {
+      await notifier.grantConsent(deferOnMetered: answer.deferOnMetered);
+    } else {
+      await notifier.postpone(deferOnMetered: answer.deferOnMetered);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -205,6 +235,9 @@ class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(onboardingProvider.select((s) => s.phase), (_, phase) {
+      if (phase == OnboardingPhase.awaitingConsent) _askConsent();
+    });
     final state = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
     return OnboardingScreen(
@@ -212,6 +245,9 @@ class _OnboardingRouteState extends ConsumerState<_OnboardingRoute> {
       onContinue: () => ref.read(modelsReadyProvider.notifier).state = true,
       onRetryQuick: notifier.retryQuick,
       onRetryAccurate: notifier.retryAccurate,
+      onDownloadNow: () => notifier.grantConsent(
+        deferOnMetered: ref.read(settingsProvider).deferDownloads,
+      ),
     );
   }
 }

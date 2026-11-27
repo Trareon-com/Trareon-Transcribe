@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
@@ -44,29 +45,29 @@ class SessionCard extends StatelessWidget {
     this.matchSnippet,
   });
 
-  String _formatDuration(double seconds) {
+  String _formatDuration(AppLocalizations l10n, double seconds) {
     final h = (seconds / 3600).floor();
     final m = ((seconds % 3600) / 60).floor();
-    if (h > 0) return '${h}j ${m}m';
-    return '$m menit';
+    if (h > 0) return l10n.sessionCardDurationHours(h, m);
+    return l10n.sessionCardDurationMinutes(m);
   }
 
-  static const _indonesianMonths = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
+  static List<String> _monthNames(AppLocalizations l10n) => [
+    l10n.sessionCardMonthJan,
+    l10n.sessionCardMonthFeb,
+    l10n.sessionCardMonthMar,
+    l10n.sessionCardMonthApr,
+    l10n.sessionCardMonthMay,
+    l10n.sessionCardMonthJun,
+    l10n.sessionCardMonthJul,
+    l10n.sessionCardMonthAug,
+    l10n.sessionCardMonthSep,
+    l10n.sessionCardMonthOct,
+    l10n.sessionCardMonthNov,
+    l10n.sessionCardMonthDec,
   ];
 
-  String _formatDate(String isoDate) {
+  String _formatDate(AppLocalizations l10n, String isoDate) {
     try {
       final parts = isoDate.split('-');
       if (parts.length != 3) return isoDate;
@@ -74,7 +75,7 @@ class SessionCard extends StatelessWidget {
       final monthIndex = int.parse(parts[1]) - 1;
       final day = parts[2];
       if (monthIndex < 0 || monthIndex > 11) return isoDate;
-      return '$day ${_indonesianMonths[monthIndex]} $year';
+      return l10n.sessionCardDate(day, _monthNames(l10n)[monthIndex], year);
     } catch (_) {
       return isoDate;
     }
@@ -84,7 +85,8 @@ class SessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final durStr = _formatDuration(durationSeconds);
+    final l10n = context.l10n;
+    final durStr = _formatDuration(l10n, durationSeconds);
 
     return Card(
       color: colors.surface,
@@ -138,7 +140,7 @@ class SessionCard extends StatelessWidget {
                         if (hasSummary) ...[
                           Spacing.hSm,
                           Tooltip(
-                            message: 'Punya ringkasan AI',
+                            message: l10n.sessionCardHasSummary,
                             child: Icon(
                               AppIcons.enhance,
                               size: IconSizes.xs,
@@ -158,7 +160,7 @@ class SessionCard extends StatelessWidget {
                         ),
                         Spacing.hXs,
                         Text(
-                          _formatDate(date),
+                          _formatDate(l10n, date),
                           style: TextStyle(
                             color: colors.textTertiary,
                             fontSize: FontSizes.caption,
@@ -186,7 +188,7 @@ class SessionCard extends StatelessWidget {
                         ),
                         Spacing.hXs,
                         Text(
-                          '$segmentsCount segmen',
+                          l10n.sessionCardSegments(segmentsCount),
                           style: TextStyle(
                             color: colors.textTertiary,
                             fontSize: FontSizes.caption,
@@ -219,7 +221,7 @@ class SessionCard extends StatelessWidget {
                     size: IconSizes.md,
                     color: colors.textTertiary,
                   ),
-                  tooltip: 'Ganti nama',
+                  tooltip: l10n.sessionCardRename,
                   onPressed: onRename,
                 ),
               IconButton(
@@ -228,7 +230,7 @@ class SessionCard extends StatelessWidget {
                   size: IconSizes.md,
                   color: colors.textTertiary,
                 ),
-                tooltip: 'Ekspor',
+                tooltip: l10n.sessionCardExport,
                 onPressed: onExport,
               ),
               if (onExportArchive != null)
@@ -238,7 +240,7 @@ class SessionCard extends StatelessWidget {
                     size: IconSizes.md,
                     color: colors.textTertiary,
                   ),
-                  tooltip: 'Ekspor sebagai arsip (.zip)',
+                  tooltip: l10n.sessionCardExportArchive,
                   onPressed: onExportArchive,
                 ),
               IconButton(
@@ -247,7 +249,7 @@ class SessionCard extends StatelessWidget {
                   size: IconSizes.md,
                   color: colors.textTertiary,
                 ),
-                tooltip: 'Hapus',
+                tooltip: l10n.sessionCardDelete,
                 onPressed: onDelete,
               ),
             ],
