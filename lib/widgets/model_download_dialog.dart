@@ -15,6 +15,7 @@ Future<bool> showModelDownloadDialog({
   required String modelId,
   required String modelsDir,
   required String displayName,
+  bool startImmediately = false,
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -24,6 +25,7 @@ Future<bool> showModelDownloadDialog({
       displayName: displayName,
       bridge: bridge,
       modelsDir: modelsDir,
+      startImmediately: startImmediately,
     ),
   );
   return result ?? false;
@@ -40,7 +42,12 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
     required this.displayName,
     required this.bridge,
     required this.modelsDir,
+    this.startImmediately = false,
   });
+
+  /// Start without waiting for "Unduh": only for a caller that has already
+  /// asked the user (the record button's own confirmation, issue #70).
+  final bool startImmediately;
 
   @override
   ConsumerState<_ModelDownloadDialog> createState() =>
@@ -57,12 +64,19 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   @override
   void initState() {
     super.initState();
-    // After the first frame: the download records itself in the Privacy
-    // Report, and Riverpod refuses provider writes while the dialog is
-    // still being built.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startDownload();
-    });
+    // The dialog asks first ("…ingin mengunduh sekarang?") and only the
+    // "Unduh" button starts the download. It used to start on open, so
+    // choosing a not-yet-installed model in a dropdown fetched hundreds of
+    // MB with no way to stop it (there is no cancel while downloading),
+    // which is exactly what issue #70 says must not happen. Started after
+    // the first frame when it does start here: the download records itself
+    // in the Privacy Report, and Riverpod refuses provider writes while the
+    // dialog is still being built.
+    if (widget.startImmediately) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startDownload();
+      });
+    }
   }
 
   @override

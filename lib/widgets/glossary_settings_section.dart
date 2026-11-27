@@ -32,6 +32,7 @@ import '../utils/atomic_file.dart';
 import 'app_toast.dart';
 import 'settings_controls.dart';
 import '../theme/app_icons.dart';
+import '../utils/file_dialogs.dart';
 
 /// Terms a brand-new install is offered, as chips to tap rather than a
 /// prefilled list — a glossary the user did not choose is a glossary they
@@ -110,12 +111,12 @@ class _GlossarySettingsSectionState
   }
 
   Future<void> _import() async {
-    final picked = await FilePicker.pickFiles(
+    final picked = await FilePicker.pickFile(
       dialogTitle: context.l10n.glossarySettingsSectionImportDialogTitle,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'csv', 'tsv'],
     );
-    final path = picked?.files.singleOrNull?.path;
+    final path = picked?.path;
     if (path == null) return;
     try {
       final content = await File(path).readAsString();
@@ -162,11 +163,9 @@ class _GlossarySettingsSectionState
     final terms = ref.read(settingsProvider).glossary.terms;
     if (terms.isEmpty) return;
     final extension = csv ? 'csv' : 'txt';
-    final path = await FilePicker.saveFile(
+    final path = await pickSaveLocation(
       dialogTitle: context.l10n.glossarySettingsSectionExportDialogTitle,
       fileName: 'kamus-istilah.$extension',
-      type: FileType.custom,
-      allowedExtensions: [extension],
     );
     if (path == null) return;
     try {
@@ -184,6 +183,7 @@ class _GlossarySettingsSectionState
         );
       }
     } catch (e) {
+      await discardEmptyPlaceholder(path);
       if (mounted) {
         AppToast.show(
           context,

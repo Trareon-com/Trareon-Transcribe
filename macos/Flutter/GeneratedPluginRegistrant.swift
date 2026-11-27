@@ -7,7 +7,7 @@ import Foundation
 
 import audioplayers_darwin
 import desktop_drop
-import file_picker
+import file_picker_darwin
 import share_plus
 import url_launcher_macos
 

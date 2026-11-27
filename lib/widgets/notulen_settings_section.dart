@@ -69,12 +69,12 @@ class _NotulenDefaultsSectionState
   }
 
   Future<void> _pickKopSurat() async {
-    final picked = await FilePicker.pickFiles(
+    final picked = await FilePicker.pickFile(
       dialogTitle: context.l10n.notulenSettingsSectionPickKopTitle,
       type: FileType.custom,
       allowedExtensions: const ['png'],
     );
-    final path = picked?.files.singleOrNull?.path;
+    final path = picked?.path;
     if (path == null) return;
     // The DOCX media part is written as a .png, so a JPEG picked through a
     // "All files" dialog would produce a document Word refuses to render.

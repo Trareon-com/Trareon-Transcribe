@@ -33,12 +33,12 @@ import '../theme/app_typography.dart';
 Future<rust_calendar.CalendarEvent?> importCalendarInvite(
   BuildContext context,
 ) async {
-  final picked = await FilePicker.pickFiles(
+  final picked = await FilePicker.pickFile(
     dialogTitle: context.l10n.calendarInviteImportPickTitle,
     type: FileType.custom,
     allowedExtensions: const ['ics'],
   );
-  final path = picked?.files.singleOrNull?.path;
+  final path = picked?.path;
   if (path == null) return null;
 
   List<rust_calendar.CalendarEvent> events;

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +62,7 @@ import '../utils/model_labels.dart';
 import '../widgets/model_download_dialog.dart';
 import '../state/download_consent.dart';
 import '../widgets/ui/app_dialog.dart';
+import '../utils/file_dialogs.dart';
 
 /// Main window: a permanent session sidebar and one workspace.
 ///
@@ -487,7 +487,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _retrySave({bool elsewhere = false}) async {
     String? outputDir;
     if (elsewhere) {
-      outputDir = await FilePicker.getDirectoryPath(
+      outputDir = await pickDirectoryPath(
         dialogTitle: context.l10n.mainScreenSaveElsewhereDialogTitle,
         initialDirectory: _libraryPath,
       );
@@ -832,6 +832,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       modelId: modelId,
       modelsDir: defaultModelsCacheDir(),
       displayName: modelDisplayLabel(modelId),
+      // Already confirmed in the dialog just above.
+      startImmediately: true,
     );
   }
 
@@ -905,7 +907,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     final settings = ref.read(settingsProvider);
     final defaultDir = resolveTilde(settings.libraryPath);
-    final selectedDir = await FilePicker.getDirectoryPath(
+    final selectedDir = await pickDirectoryPath(
       dialogTitle: context.l10n.mainScreenChooseExportFolder,
       initialDirectory: defaultDir,
     );
