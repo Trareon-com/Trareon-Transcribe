@@ -114,8 +114,16 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 50));
         }
       });
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      // The toast comes after the clipboard step, which can finish after
+      // the file appears: keep pumping (and letting real I/O run) until it
+      // shows instead of checking once, the flake seen under a full suite.
+      for (var i = 0; i < 50; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (find.textContaining('disalin').evaluate().isNotEmpty) break;
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+      }
 
       expect(
         shared.existsSync(),
