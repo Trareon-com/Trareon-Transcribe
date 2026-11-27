@@ -77,6 +77,9 @@ enum _SettingField {
   pdp,
   noiseReduction,
   agcEnabled,
+  autoAudioTuning,
+  deferDownloads,
+  simpleMode,
   neuralDiarization,
   defaultModelUpgradeDismissed,
   consentBannerDismissed,
@@ -108,6 +111,9 @@ enum _SettingField {
     pdp => s.pdp,
     noiseReduction => s.noiseReduction,
     agcEnabled => s.agcEnabled,
+    autoAudioTuning => s.autoAudioTuning,
+    deferDownloads => s.deferDownloads,
+    simpleMode => s.simpleMode,
     neuralDiarization => s.neuralDiarization,
     defaultModelUpgradeDismissed => s.defaultModelUpgradeDismissed,
     consentBannerDismissed => s.consentBannerDismissed,
@@ -229,6 +235,15 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         hptMode: untouched(_SettingField.hptMode)
             ? _hptModeFromPrefs(prefs, cur.hptMode)
             : cur.hptMode,
+        autoAudioTuning: untouched(_SettingField.autoAudioTuning)
+            ? prefs.getBool('autoAudioTuning') ?? cur.autoAudioTuning
+            : cur.autoAudioTuning,
+        deferDownloads: untouched(_SettingField.deferDownloads)
+            ? prefs.getBool('deferDownloads') ?? cur.deferDownloads
+            : cur.deferDownloads,
+        simpleMode: untouched(_SettingField.simpleMode)
+            ? prefs.getBool('simpleMode') ?? cur.simpleMode
+            : cur.simpleMode,
       );
       final settled = state;
       if (settled.progressiveEnabled && settled.rtfScore == 0.0) {
@@ -332,6 +347,21 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
         loaded.noiseReduction,
       ),
       agcEnabled: pick(_SettingField.agcEnabled, cur.agcEnabled, loaded.agcEnabled),
+      autoAudioTuning: pick(
+        _SettingField.autoAudioTuning,
+        cur.autoAudioTuning,
+        loaded.autoAudioTuning,
+      ),
+      deferDownloads: pick(
+        _SettingField.deferDownloads,
+        cur.deferDownloads,
+        loaded.deferDownloads,
+      ),
+      simpleMode: pick(
+        _SettingField.simpleMode,
+        cur.simpleMode,
+        loaded.simpleMode,
+      ),
       neuralDiarization: pick(
         _SettingField.neuralDiarization,
         cur.neuralDiarization,
@@ -601,15 +631,57 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   Future<void> setVadEnabled(bool enabled) =>
       _apply(state.copyWith(vadEnabled: enabled), label: 'Abaikan jeda sunyi');
 
-  Future<void> setNoiseReduction(bool enabled) => _apply(
-    state.copyWith(noiseReduction: enabled),
+  /// Moving either audio switch by hand is an opinion the resolver must not
+  /// overwrite later, so both setters also drop `autoAudioTuning`.
+  Future<void> setNoiseReduction(bool enabled) => _setAudioTuning(
+    state.copyWith(noiseReduction: enabled, autoAudioTuning: false),
     label: 'Pengurangan derau',
   );
 
-  Future<void> setAgcEnabled(bool enabled) => _apply(
-    state.copyWith(agcEnabled: enabled),
+  Future<void> setAgcEnabled(bool enabled) => _setAudioTuning(
+    state.copyWith(agcEnabled: enabled, autoAudioTuning: false),
     label: 'Penguatan suara otomatis',
   );
+
+  /// Hands the two audio switches back to the measured resolver.
+  Future<void> setAutoAudioTuning(bool enabled) => _setAudioTuning(
+    state.copyWith(autoAudioTuning: enabled),
+    label: 'Penyetelan audio otomatis',
+  );
+
+  Future<void> _setAudioTuning(
+    AppSettings next, {
+    required String label,
+  }) async {
+    // State first, prefs after: the preference file is a convenience layer and
+    // must never sit between the switch and the value it changes.
+    await _apply(next, label: label);
+    if (state.autoAudioTuning != next.autoAudioTuning) return;
+    _persistBool('autoAudioTuning', next.autoAudioTuning);
+  }
+
+  Future<void> setSimpleMode(bool enabled) async {
+    await _apply(state.copyWith(simpleMode: enabled), label: 'Mode Sederhana');
+    if (!state.simpleMode == enabled) return;
+    _persistBool('simpleMode', enabled);
+  }
+
+  Future<void> setDeferDownloads(bool enabled) async {
+    await _apply(
+      state.copyWith(deferDownloads: enabled),
+      label: 'Tunda unduhan',
+    );
+    if (state.deferDownloads != enabled) return;
+    _persistBool('deferDownloads', enabled);
+  }
+
+  /// Writes one Dart-only preference and kicks off the file write without
+  /// holding the UI on it. A save is already non-throwing (`DartPrefs.save`
+  /// returns false), so there is nothing to await here.
+  void _persistBool(String key, bool value) {
+    DartPrefs.instance.setBool(key, value);
+    unawaited(DartPrefs.instance.save());
+  }
 
   /// Dismisses the "Tingkatkan akurasi" offer without changing
   /// [AppSettings.defaultModel]. Persisted so the offer does not reappear

@@ -177,8 +177,16 @@ class _FailingSaveBridge extends _TestBridge {
   }
 }
 
-Widget _host(RustBridge bridge) => ProviderScope(
-  overrides: [rustBridgeProvider.overrideWithValue(bridge)],
+/// Settings now opens in Mode Sederhana, which deliberately folds the
+/// advanced rows away — see docs/QUALITY-PROFILE-BLUEPRINT.md §8. Tests that
+/// exercise an advanced switch ask for it unfolded instead of pretending the
+/// fold is not there.
+Widget _host(RustBridge bridge, {bool advanced = false}) => ProviderScope(
+  overrides: [
+    rustBridgeProvider.overrideWithValue(bridge),
+    if (advanced)
+      settingsAdvancedOpenProvider.overrideWith((ref) => true),
+  ],
   child: const MaterialApp(home: SettingsScreen()),
 );
 
@@ -218,7 +226,7 @@ void main() {
     'two panes: a category list on the left, its content on the right',
     (WidgetTester tester) async {
       _sizeViewport(tester, const Size(1440, 900));
-      await tester.pumpWidget(_host(_TestBridge()));
+      await tester.pumpWidget(_host(_TestBridge(), advanced: true));
       await tester.pumpAndSettle();
 
       // Every category is reachable from the rail without scrolling a
@@ -252,11 +260,56 @@ void main() {
     },
   );
 
+  testWidgets('Mode Sederhana folds the advanced rows until asked', (
+    WidgetTester tester,
+  ) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    // `advanced: false` — the real default, which is the thing under test.
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Model & Mode'));
+    await tester.pumpAndSettle();
+
+    // The controls that change the result are all here …
+    expect(find.text('Model default'), findsOneWidget);
+    expect(find.text('Bahasa'), findsOneWidget);
+    expect(find.text('Penyetelan audio otomatis'), findsOneWidget);
+
+    // … and the ones that only tune speed sit behind the fold.
+    expect(find.text('Akselerasi GPU'), findsNothing);
+    expect(find.text('Cepat dulu, lalu diperhalus'), findsNothing);
+
+    await tester.ensureVisible(find.text('Pengaturan lanjutan'));
+    await tester.tap(find.text('Pengaturan lanjutan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Akselerasi GPU'), findsOneWidget);
+    expect(find.text('Sembunyikan pengaturan lanjutan'), findsOneWidget);
+  });
+
+  testWidgets('the audio pane shows the resolver decision while folded', (
+    WidgetTester tester,
+  ) async {
+    _sizeViewport(tester, const Size(1440, 900));
+    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Audio & Suara'));
+    await tester.pumpAndSettle();
+
+    // The two switches that can make a transcript worse are not offered as
+    // a first-run decision; the reason is, and one tap unfolds them.
+    expect(find.text('Diputuskan otomatis'), findsOneWidget);
+    expect(find.text('Pengurangan derau (RNNoise)'), findsNothing);
+    expect(find.text('Penguatan suara otomatis (AGC)'), findsNothing);
+  });
+
   testWidgets('both panes still fit at the 800x600 minimum window', (
     WidgetTester tester,
   ) async {
     _sizeViewport(tester, const Size(800, 600));
-    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpWidget(_host(_TestBridge(), advanced: true));
     await tester.pumpAndSettle();
 
     // The rail is a ListView; the last categories may sit below the fold
@@ -273,7 +326,7 @@ void main() {
     WidgetTester tester,
   ) async {
     _sizeViewport(tester, const Size(560, 600));
-    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpWidget(_host(_TestBridge(), advanced: true));
     await tester.pumpAndSettle();
 
     expect(find.byType(ChoiceChip), findsWidgets);
@@ -287,7 +340,7 @@ void main() {
     WidgetTester tester,
   ) async {
     _sizeViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpWidget(_host(_TestBridge(), advanced: true));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Penyiapan & Diagnostik'));
@@ -317,7 +370,7 @@ void main() {
   ) async {
     _sizeViewport(tester, const Size(1440, 900));
     final bridge = _FailingSaveBridge();
-    await tester.pumpWidget(_host(bridge));
+    await tester.pumpWidget(_host(bridge, advanced: true));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Audio & Suara'));
@@ -347,7 +400,7 @@ void main() {
     WidgetTester tester,
   ) async {
     _sizeViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpWidget(_host(_TestBridge(), advanced: true));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Model & Mode'));
@@ -364,7 +417,7 @@ void main() {
 
   testWidgets('theme dropdown is present', (WidgetTester tester) async {
     _sizeViewport(tester, const Size(1440, 900));
-    await tester.pumpWidget(_host(_TestBridge()));
+    await tester.pumpWidget(_host(_TestBridge(), advanced: true));
     await tester.pumpAndSettle();
 
     expect(find.byType(DropdownButton<AppThemeMode>), findsWidgets);
@@ -378,7 +431,7 @@ void main() {
     (WidgetTester tester) async {
       _sizeViewport(tester, const Size(1440, 900));
       final bridge = _TestBridge();
-      await tester.pumpWidget(_host(bridge));
+      await tester.pumpWidget(_host(bridge, advanced: true));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Audio & Suara'));
@@ -415,15 +468,17 @@ void main() {
     (WidgetTester tester) async {
       _sizeViewport(tester, const Size(1440, 900));
       final bridge = _TestBridge();
-      await tester.pumpWidget(_host(bridge));
+      await tester.pumpWidget(_host(bridge, advanced: true));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Audio & Suara'));
       await tester.pumpAndSettle();
 
-      // On by default (see settings.rs's doc comment: this was always on,
-      // process-wide, before the toggle existed).
-      expect(bridge.savedSettings.agcEnabled, isTrue);
+      // Off by default since the quality resolver landed: AGC on
+      // already-normalised speech only lifts the noise floor, and Whisper
+      // turns noise into invented words (blueprint §4.3). The switch still
+      // has to reach the bridge, which is what this test guards.
+      expect(bridge.savedSettings.agcEnabled, isFalse);
       await tester.tap(
         find.descendant(
           of: find.widgetWithText(
@@ -435,11 +490,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(bridge.savedSettings.agcEnabled, isFalse);
+      expect(bridge.savedSettings.agcEnabled, isTrue);
       expect(
         find.textContaining('Audio ditranskrip pada volume aslinya'),
-        findsOneWidget,
-        reason: 'subtitle should flip to describe the now-inactive switch',
+        findsNothing,
+        reason: 'subtitle should follow the switch it belongs to',
       );
     },
   );
@@ -452,7 +507,7 @@ void main() {
     ) async {
       _sizeViewport(tester, const Size(1440, 900));
       final bridge = _TestBridge();
-      await tester.pumpWidget(_host(bridge));
+      await tester.pumpWidget(_host(bridge, advanced: true));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Model & Mode'));
