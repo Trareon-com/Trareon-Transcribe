@@ -584,6 +584,9 @@ Widget buildTestApp({Widget? child, ThemeMode themeMode = ThemeMode.light}) {
       libraryListProvider.overrideWith(
         (ref) => LibraryListNotifier.seeded(const []),
       ),
+      // No model files exist under `flutter test`; recording tests are about
+      // the session, not the missing-model download offer.
+      modelOnDiskProvider.overrideWithValue((_, _) => true),
     ],
     child: MaterialApp(
       title: 'Trareon Transcribe',
@@ -627,6 +630,8 @@ Widget buildTestAppWithOverrides({
       libraryListProvider.overrideWith(
         (ref) => LibraryListNotifier.seeded(const []),
       ),
+    if (!overridden.contains(modelOnDiskProvider))
+      modelOnDiskProvider.overrideWithValue((_, _) => true),
   ];
 
   return ProviderScope(
