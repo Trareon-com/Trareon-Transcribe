@@ -15,6 +15,7 @@ import '../src/rust/export.dart' as rust_export;
 import '../src/rust/session.dart' as rust_session;
 import 'models.dart';
 import 'settings_model.dart';
+import 'quality_profile.dart';
 
 enum SessionLifecycle { idle, recording, paused, stopped }
 
@@ -83,6 +84,10 @@ class SessionUiState {
   /// stop, into the session sidecar.
   final String personalNotes;
 
+  /// True while the pre-session input probe listens to the room (#69), so
+  /// the record button can say why the start takes three seconds.
+  final bool probingAudio;
+
   const SessionUiState({
     required this.lifecycle,
     required this.config,
@@ -95,6 +100,7 @@ class SessionUiState {
     this.sessionGlossaryTerms = const [],
     this.tentativeText = '',
     this.personalNotes = '',
+    this.probingAudio = false,
   });
 
   /// Average confidence across current segments, or null if there are none
@@ -117,6 +123,7 @@ class SessionUiState {
     List<String>? sessionGlossaryTerms,
     String? tentativeText,
     String? personalNotes,
+    bool? probingAudio,
   }) {
     return SessionUiState(
       lifecycle: lifecycle ?? this.lifecycle,
@@ -130,6 +137,7 @@ class SessionUiState {
       sessionGlossaryTerms: sessionGlossaryTerms ?? this.sessionGlossaryTerms,
       tentativeText: tentativeText ?? this.tentativeText,
       personalNotes: personalNotes ?? this.personalNotes,
+      probingAudio: probingAudio ?? this.probingAudio,
     );
   }
 }
@@ -392,6 +400,53 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     }
   }
 
+  /// Whether the quality resolver, not the user, decides noise reduction
+  /// and AGC (`AppSettings.autoAudioTuning`).
+  bool _autoAudioTuning = true;
+  bool _vadEnabled = true;
+
+  /// How long the pre-session probe listens (blueprint §5: "3 detik
+  /// pertama").
+  static const probeMillis = 3000;
+
+  /// Measures the microphone for [probeMillis] and applies the resolver's
+  /// noise-reduction and AGC decision to this session (issue #69).
+  ///
+  /// Skipped when the user has set the switches themselves, or when the
+  /// microphone is off. A probe that fails gives `null`, which the resolver
+  /// answers with the conservative defaults: a probe must never be the
+  /// reason a recording does not start.
+  Future<void> _tuneAudioForThisRoom() async {
+    if (!_autoAudioTuning || !state.config.micEnabled) return;
+    state = state.copyWith(probingAudio: true);
+    AudioMeasurement? measurement;
+    try {
+      measurement = await _bridge.probeAudioInput(
+        state.config.micDeviceId,
+        probeMillis,
+      );
+    } catch (_) {
+      measurement = null;
+    } finally {
+      state = state.copyWith(probingAudio: false);
+    }
+    final profile = resolveQualityProfile(
+      measurement: measurement,
+      gpuAvailable: state.config.gpuEnabled,
+      refineModelInstalled: state.config.refineModelPath != null,
+      tuningSource: TuningSource.auto,
+      userVad: _vadEnabled,
+    );
+    try {
+      await _bridge.setSessionAudioTuning(
+        noiseReduction: profile.noiseReduction,
+        agc: profile.agc,
+      );
+    } catch (_) {
+      // The engine keeps the saved settings' values.
+    }
+  }
+
   Future<void> start() async {
     // Guard against double-start. The lifecycle check alone is not enough:
     // lifecycle only flips to `recording` after the awaits below, so a
@@ -422,6 +477,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       // not — see _resolveDevices.
       final configWithDevices = await _resolveDevices(state.config);
       state = state.copyWith(config: configWithDevices);
+      await _tuneAudioForThisRoom();
       final id = await _bridge.startSession(state.config);
       _loadSegments(const []);
       state = state.copyWith(
@@ -839,25 +895,45 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
     );
   }
 
+  /// The default mode the session config was last built from; `null`
+  /// before the first sync.
+  SessionMode? _syncedDefaultMode;
+
   void syncDefaultSettings(AppSettings settings) {
     _libraryPath = settings.libraryPath;
-    if (state.lifecycle == SessionLifecycle.recording ||
+    _autoAudioTuning = settings.autoAudioTuning;
+    _vadEnabled = settings.vadEnabled;
+    // `_launching` too: a settings save that lands during start (the 3 s
+    // room probe makes that window real) rebuilt the config the start was
+    // using, and the recording failed or started with the wrong sources.
+    if (_launching ||
+        state.lifecycle == SessionLifecycle.recording ||
         state.lifecycle == SessionLifecycle.paused) {
       return;
     }
+    // The mode and its mic/speaker toggles are the user's choice for the
+    // next session. Only a change of the *default* mode resets them; any
+    // other save (picking a model quality, say) used to put them back to
+    // the default and silently switch "Rapat Offline" back to Webinar.
+    final keepSessionChoice =
+        _syncedDefaultMode != null && _syncedDefaultMode == settings.defaultMode;
+    _syncedDefaultMode = settings.defaultMode;
+    final mode = keepSessionChoice ? state.config.mode : settings.defaultMode;
     _autoStopMinutes = settings.autoStopMinutes;
     _globalLanguage = settings.language;
     _language = _languageOverride == _noLanguageOverride
         ? effectiveSessionLanguage(
             globalLanguage: settings.language,
-            mode: settings.defaultMode,
+            mode: mode,
           )
         : _languageOverride as String?;
     _modelId = settings.defaultModel;
     _glossarySettings = settings.glossary;
     _progressiveEnabled = settings.progressiveEnabled;
     _autoRetranscribe = settings.autoRetranscribe;
-    final (mic, speaker) = settings.defaultMode.defaultToggles;
+    final (mic, speaker) = keepSessionChoice
+        ? (state.config.micEnabled, state.config.speakerEnabled)
+        : settings.defaultMode.defaultToggles;
     // HPT: quick pass uses the default model; refine pass always targets
     // large-v3-turbo-q5 when progressive is enabled (and the quick model
     // is not itself the q5 — HPT only makes sense quick≠refine).
@@ -878,7 +954,7 @@ class SessionNotifier extends StateNotifier<SessionUiState> {
       config: SessionConfig(
         micEnabled: mic,
         speakerEnabled: speaker,
-        mode: settings.defaultMode,
+        mode: mode,
         modelPath: quickPath,
         refineModelPath: refinePath,
         vadEnabled: settings.vadEnabled,

@@ -32,6 +32,7 @@ import 'package:transcribe/src/rust/srikandi.dart' as rust_srikandi;
 import 'package:transcribe/src/rust/glossary.dart' as rust_glossary;
 import 'package:transcribe/src/rust/stt/file.dart' as rust_stt_file;
 import 'package:transcribe/src/rust/model.dart' as rust_model;
+import 'package:transcribe/state/quality_profile.dart';
 
 /// Inert implementations of the bridge methods added for Meetily parity
 /// (summary, HPT file import, batch progress).
@@ -64,6 +65,17 @@ class InMemoryTemplateStore extends MeetingTemplateStore {
 }
 
 mixin SummaryBridgeStubs {
+  /// No microphone under `flutter test`: the probe never measures.
+  Future<AudioMeasurement?> probeAudioInput(
+    String? deviceName,
+    int millis,
+  ) async => null;
+
+  Future<void> setSessionAudioTuning({
+    required bool noiseReduction,
+    required bool agc,
+  }) async {}
+
   Future<List<rust_export.ExportedFile>> exportSessionWithSummary({
     required List<TranscriptSegment> segments,
     required String outputDir,

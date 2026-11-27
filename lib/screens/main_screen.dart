@@ -1251,7 +1251,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               onEkspor: () => _onEkspor(context),
                               isBusy: _isStoppingSession || _isStartingSession,
                               busyLabel: _isStartingSession
-                                  ? context.l10n.mainScreenStarting
+                                  ? (ref.watch(
+                                          sessionProvider.select(
+                                            (s) => s.probingAudio,
+                                          ),
+                                        )
+                                        ? context.l10n.mainScreenMeasuringRoom
+                                        : context.l10n.mainScreenStarting)
                                   : context.l10n.mainScreenSaving,
                               saveError: _saveError,
                               retryingSave: _retryingSave,

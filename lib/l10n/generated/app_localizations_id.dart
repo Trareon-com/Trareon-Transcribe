@@ -4949,6 +4949,9 @@ class AppLocalizationsId extends AppLocalizations {
       'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.';
 
   @override
+  String get mainScreenMeasuringRoom => 'Mengukur suara ruangan…';
+
+  @override
   String get sessionModeWebinar => 'Webinar';
 
   @override

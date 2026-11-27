@@ -8082,6 +8082,12 @@ abstract class AppLocalizations {
   /// **'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.'**
   String get notulenTemplatesRingkasDescription;
 
+  /// Record button label during the 3-second pre-session microphone probe (issue #69)
+  ///
+  /// In id, this message translates to:
+  /// **'Mengukur suara ruangan…'**
+  String get mainScreenMeasuringRoom;
+
   /// No description provided for @sessionModeWebinar.
   ///
   /// In id, this message translates to:
