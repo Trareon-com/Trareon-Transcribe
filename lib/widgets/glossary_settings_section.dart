@@ -22,6 +22,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -111,7 +112,7 @@ class _GlossarySettingsSectionState
 
   Future<void> _import() async {
     final picked = await FilePicker.pickFile(
-      dialogTitle: 'Impor kamus istilah',
+      dialogTitle: context.l10n.glossarySettingsSectionImportDialogTitle,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'csv', 'tsv'],
     );
@@ -126,7 +127,7 @@ class _GlossarySettingsSectionState
         if (mounted) {
           AppToast.show(
             context,
-            'Tidak ada istilah di berkas itu.',
+            context.l10n.glossarySettingsSectionImportEmpty,
             type: ToastType.error,
           );
         }
@@ -143,13 +144,17 @@ class _GlossarySettingsSectionState
       if (mounted) {
         AppToast.show(
           context,
-          '$added istilah baru ditambahkan dari ${parsed.length} baris.',
+          context.l10n.glossarySettingsSectionImported(added, parsed.length),
           type: ToastType.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Gagal mengimpor: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          context.l10n.glossarySettingsSectionImportFailed('$e'),
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -159,7 +164,7 @@ class _GlossarySettingsSectionState
     if (terms.isEmpty) return;
     final extension = csv ? 'csv' : 'txt';
     final path = await pickSaveLocation(
-      dialogTitle: 'Simpan kamus istilah',
+      dialogTitle: context.l10n.glossarySettingsSectionExportDialogTitle,
       fileName: 'kamus-istilah.$extension',
     );
     if (path == null) return;
@@ -173,14 +178,18 @@ class _GlossarySettingsSectionState
       if (mounted) {
         AppToast.show(
           context,
-          '${terms.length} istilah diekspor ke $path',
+          context.l10n.glossarySettingsSectionExported(terms.length, path),
           type: ToastType.success,
         );
       }
     } catch (e) {
       await discardEmptyPlaceholder(path);
       if (mounted) {
-        AppToast.show(context, 'Gagal mengekspor: $e', type: ToastType.error);
+        AppToast.show(
+          context,
+          context.l10n.glossarySettingsSectionExportFailed('$e'),
+          type: ToastType.error,
+        );
       }
     }
   }
@@ -192,6 +201,7 @@ class _GlossarySettingsSectionState
     final glossary = settings.glossary;
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     final suggestions = kGlossarySuggestions
         .where(
@@ -203,15 +213,14 @@ class _GlossarySettingsSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingsSection(
-          title: 'Kamus Istilah',
+          title: l10n.glossarySettingsSectionTitle,
           children: [
             SettingsSwitch(
               icon: AppIcons.glossary,
-              label: 'Pakai kamus istilah',
+              label: l10n.glossarySettingsSectionEnable,
               subtitle: glossary.enabled
-                  ? 'Istilah di bawah dibisikkan ke mesin transkripsi supaya '
-                        'singkatan dan nama lembaga tidak salah tulis.'
-                  : 'Mesin transkripsi menebak sendiri semua istilah.',
+                  ? l10n.glossarySettingsSectionEnabledSubtitle
+                  : l10n.glossarySettingsSectionDisabledSubtitle,
               value: glossary.enabled,
               onChanged: (value) async {
                 await notifier.setGlossaryEnabled(value);
@@ -221,12 +230,10 @@ class _GlossarySettingsSectionState
             const SettingsDivider(),
             SettingsSwitch(
               icon: AppIcons.autoFix,
-              label: 'Perbaiki ejaan yang mirip',
+              label: l10n.glossarySettingsSectionPostCorrection,
               subtitle: glossary.postCorrection
-                  ? 'Kata yang hampir sama dengan istilah di kamus '
-                        'diperbaiki setelah transkripsi. Kata lain tidak '
-                        'disentuh.'
-                  : 'Hasil transkripsi dibiarkan apa adanya.',
+                  ? l10n.glossarySettingsSectionPostCorrectionOnSubtitle
+                  : l10n.glossarySettingsSectionPostCorrectionOffSubtitle,
               value: glossary.postCorrection,
               onChanged: notifier.setGlossaryPostCorrection,
             ),
@@ -234,7 +241,7 @@ class _GlossarySettingsSectionState
         ),
         Spacing.gapMd,
         SettingsSection(
-          title: 'Daftar Istilah (${glossary.terms.length})',
+          title: l10n.glossarySettingsSectionListTitle(glossary.terms.length),
           children: [
             Padding(
               padding: Spacing.card,
@@ -246,10 +253,10 @@ class _GlossarySettingsSectionState
                       Expanded(
                         child: TextField(
                           controller: _termController,
-                          decoration: const InputDecoration(
-                            labelText: 'Tambah istilah',
-                            hintText: 'mis. PPBJ, Kemenkeu, Pak Budi Santoso',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l10n.glossarySettingsSectionAddLabel,
+                            hintText: l10n.glossarySettingsSectionAddHint,
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                           onSubmitted: (_) => _addTyped(),
@@ -261,7 +268,7 @@ class _GlossarySettingsSectionState
                         child: FilledButton.icon(
                           onPressed: _addTyped,
                           icon: const Icon(AppIcons.add, size: IconSizes.md),
-                          label: const Text('Tambah'),
+                          label: Text(l10n.glossarySettingsSectionAdd),
                         ),
                       ),
                     ],
@@ -279,7 +286,9 @@ class _GlossarySettingsSectionState
                       children: [
                         for (final term in glossary.terms)
                           Semantics(
-                            label: 'Istilah $term',
+                            label: l10n.glossarySettingsSectionTermSemantics(
+                              term,
+                            ),
                             button: true,
                             child: InputChip(
                               label: Text(term),
@@ -287,7 +296,8 @@ class _GlossarySettingsSectionState
                                 await notifier.removeGlossaryTerm(term);
                                 await _refreshPrompt();
                               },
-                              deleteButtonTooltipMessage: 'Hapus $term',
+                              deleteButtonTooltipMessage: l10n
+                                  .glossarySettingsSectionRemoveTerm(term),
                             ),
                           ),
                       ],
@@ -296,7 +306,7 @@ class _GlossarySettingsSectionState
                   if (suggestions.isNotEmpty) ...[
                     Spacing.gapLg,
                     Text(
-                      'Saran istilah umum',
+                      l10n.glossarySettingsSectionSuggestions,
                       style: TextStyle(
                         fontSize: FontSizes.caption,
                         fontWeight: FontWeight.w600,
@@ -315,7 +325,9 @@ class _GlossarySettingsSectionState
                               size: IconSizes.sm,
                             ),
                             label: Text(suggestion),
-                            tooltip: 'Tambahkan $suggestion ke kamus',
+                            tooltip: l10n.glossarySettingsSectionAddSuggestion(
+                              suggestion,
+                            ),
                             onPressed: () async {
                               await notifier.addGlossaryTerm(suggestion);
                               await _refreshPrompt();
@@ -337,21 +349,21 @@ class _GlossarySettingsSectionState
                   OutlinedButton.icon(
                     onPressed: _import,
                     icon: const Icon(AppIcons.fileUpload, size: IconSizes.md),
-                    label: const Text('Impor .txt / .csv'),
+                    label: Text(l10n.glossarySettingsSectionImportButton),
                   ),
                   OutlinedButton.icon(
                     onPressed: glossary.terms.isEmpty
                         ? null
                         : () => _export(csv: false),
                     icon: const Icon(AppIcons.fileDownload, size: IconSizes.md),
-                    label: const Text('Ekspor .txt'),
+                    label: Text(l10n.glossarySettingsSectionExportTxt),
                   ),
                   OutlinedButton.icon(
                     onPressed: glossary.terms.isEmpty
                         ? null
                         : () => _export(csv: true),
                     icon: const Icon(AppIcons.table, size: IconSizes.md),
-                    label: const Text('Ekspor .csv'),
+                    label: Text(l10n.glossarySettingsSectionExportCsv),
                   ),
                 ],
               ),
@@ -376,7 +388,7 @@ class _PromptBudget extends StatelessWidget {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     if (termCount == 0) {
       return Text(
-        'Belum ada istilah. Tanpa kamus, mesin transkripsi menebak sendiri.',
+        context.l10n.glossarySettingsSectionNoTerms,
         style: TextStyle(
           fontSize: FontSizes.caption,
           color: colors.textTertiary,
@@ -400,11 +412,11 @@ class _PromptBudget extends StatelessWidget {
           Expanded(
             child: Text(
               overflowing
-                  ? '$used dari $total istilah dipakai, daftar terlalu '
-                        'panjang untuk dibisikkan sekaligus. Istilah paling '
-                        'atas yang dibuang; pindahkan yang penting ke atas atau '
-                        'kurangi daftarnya.'
-                  : 'Semua $total istilah dipakai.',
+                  ? context.l10n.glossarySettingsSectionBudgetOverflow(
+                      used,
+                      total,
+                    )
+                  : context.l10n.glossarySettingsSectionBudgetAll(total),
               style: TextStyle(
                 fontSize: FontSizes.caption,
                 color: overflowing ? colors.warning : colors.textTertiary,

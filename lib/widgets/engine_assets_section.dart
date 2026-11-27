@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../state/privacy_report_model.dart';
 import '../state/settings_model.dart';
@@ -25,45 +26,30 @@ import 'ui/app_button.dart';
 /// account for every byte that crosses the network.
 class _Asset {
   final String id;
-  final String title;
 
   /// What the user gets. Not what the file is.
-  final String subtitle;
   final IconData icon;
 
-  const _Asset({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
+  const _Asset({required this.id, required this.icon});
+
+  String title(AppLocalizations l10n) => switch (id) {
+    'silero-vad' => l10n.engineAssetsSectionVadTitle,
+    'diarization-segmentation' => l10n.engineAssetsSectionSegmentationTitle,
+    _ => l10n.engineAssetsSectionEmbeddingTitle,
+  };
+
+  String subtitle(AppLocalizations l10n) => switch (id) {
+    'silero-vad' => l10n.engineAssetsSectionVadSubtitle,
+    'diarization-segmentation' => l10n.engineAssetsSectionSegmentationSubtitle,
+    _ => l10n.engineAssetsSectionEmbeddingSubtitle,
+  };
 }
 
-const _vadAsset = _Asset(
-  id: 'silero-vad',
-  title: 'Gerbang suara neural (Silero)',
-  subtitle:
-      'Memutuskan bagian mana dari rekaman yang berisi suara manusia. '
-      'Tanpa ini Trareon memakai detektor energi sederhana, yang kadang '
-      'meloloskan derau ruangan, dan Whisper menjawab derau dengan '
-      'kalimat karangan. 0,9 MB.',
-  icon: AppIcons.waveform,
-);
+const _vadAsset = _Asset(id: 'silero-vad', icon: AppIcons.waveform);
 
 const _diarizationAssets = [
-  _Asset(
-    id: 'diarization-segmentation',
-    title: 'Segmentasi pembicara (pyannote 3.0)',
-    subtitle: 'Menentukan siapa berbicara kapan. 6 MB.',
-    icon: AppIcons.people,
-  ),
-  _Asset(
-    id: 'diarization-embedding',
-    title: 'Sidik suara pembicara (CAM++)',
-    subtitle:
-        'Mengenali suara yang sama di bagian rekaman yang berbeda. 28 MB.',
-    icon: AppIcons.people,
-  ),
+  _Asset(id: 'diarization-segmentation', icon: AppIcons.people),
+  _Asset(id: 'diarization-embedding', icon: AppIcons.people),
 ];
 
 /// Settings rows for the engine assets: the VAD gate and the optional
@@ -143,7 +129,9 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
       if (!mounted) return;
       AppToast.show(
         context,
-        '${asset.title} terpasang.',
+        context.l10n.engineAssetsSectionInstalledToast(
+          asset.title(context.l10n),
+        ),
         type: ToastType.success,
       );
     } catch (e) {
@@ -170,13 +158,13 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
     );
 
     return SettingsSection(
-      title: 'Mesin pengenal suara',
+      title: context.l10n.engineAssetsSectionTitle,
       children: [
         _row(_vadAsset),
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.people,
-          label: 'Pemisahan pembicara akurat',
+          label: context.l10n.engineAssetsSectionDiarizationLabel,
           subtitle: _diarizationSubtitle(
             settings.neuralDiarization,
             diarizationReady,
@@ -191,7 +179,7 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
         if (_error != null) ...[
           Spacing.gapSm,
           Text(
-            'Unduhan gagal: $_error',
+            context.l10n.engineAssetsSectionDownloadFailed(_error!),
             style: AppText.caption.c(context.colors.error),
           ),
         ],
@@ -201,32 +189,31 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
 
   String _diarizationSubtitle(bool enabled, bool ready) {
     if (!enabled) {
-      return 'Mati. Memakai pengelompokan akustik sederhana, yang cukup '
-          'untuk rapat dua sumber (mikrofon = Anda, sistem = peserta) '
-          'tetapi sering memecah satu suara menjadi beberapa pembicara '
-          'pada berkas impor.';
+      return context.l10n.engineAssetsSectionDiarizationOff;
     }
     if (!ready) {
-      return 'Aktif, tetapi modelnya belum lengkap diunduh. Sementara ini '
-          'masih memakai pengelompokan akustik sederhana.';
+      return context.l10n.engineAssetsSectionDiarizationIncomplete;
     }
-    return 'Segmentasi pyannote + sidik suara CAM++, seluruhnya di komputer '
-        'ini. Dipakai pada impor berkas, transkrip ulang, dan penyelesaian '
-        'setelah Stop (bukan pada pratinjau langsung).';
+    return context.l10n.engineAssetsSectionDiarizationReady;
   }
 
   Widget _row(_Asset asset) {
     final installed = _installed?[asset.id];
     final busy = _downloading == asset.id;
+    final l10n = context.l10n;
     return SettingsTile(
       icon: asset.icon,
-      label: asset.title,
+      label: asset.title(l10n),
       subtitle: busy
-          ? 'Mengunduh… ${(_progress * 100).clamp(0, 100).toStringAsFixed(0)}%'
+          ? l10n.engineAssetsSectionDownloadingPercent(
+              (_progress * 100).clamp(0, 100).toStringAsFixed(0),
+            )
           : switch (installed) {
-              null => 'Memeriksa…',
-              true => 'Terpasang. ${asset.subtitle}',
-              false => 'Belum diunduh. ${asset.subtitle}',
+              null => l10n.engineAssetsSectionChecking,
+              true => l10n.engineAssetsSectionInstalled(asset.subtitle(l10n)),
+              false => l10n.engineAssetsSectionNotDownloaded(
+                asset.subtitle(l10n),
+              ),
             },
       trailing: switch (installed) {
         true => Icon(
@@ -235,7 +222,9 @@ class _EngineAssetsSectionState extends ConsumerState<EngineAssetsSection> {
           color: context.colors.success,
         ),
         _ => AppButton(
-          label: busy ? 'Mengunduh…' : 'Unduh',
+          label: busy
+              ? l10n.engineAssetsSectionDownloading
+              : l10n.engineAssetsSectionDownload,
           variant: AppButtonVariant.secondary,
           onPressed: busy || _downloading != null || installed == null
               ? null

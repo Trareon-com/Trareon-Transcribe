@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
@@ -92,7 +93,7 @@ class ModelDownloadCard extends StatelessWidget {
           ),
           Spacing.gapSm,
           Text(
-            errorText ?? _statusText(),
+            errorText ?? _statusText(context),
             style: TextStyle(
               fontSize: FontSizes.micro,
               color: errorText != null ? colors.error : colors.textTertiary,
@@ -116,12 +117,12 @@ class ModelDownloadCard extends StatelessWidget {
     _ => c.primary,
   };
 
-  String _statusText() => switch (status) {
-    DownloadStatus.idle => 'Belum diunduh',
+  String _statusText(BuildContext context) => switch (status) {
+    DownloadStatus.idle => context.l10n.modelDownloadCardNotDownloaded,
     DownloadStatus.downloading =>
       '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
-    DownloadStatus.ready => 'Siap',
-    DownloadStatus.error => 'Gagal, coba lagi',
+    DownloadStatus.ready => context.l10n.modelDownloadCardReady,
+    DownloadStatus.error => context.l10n.modelDownloadCardFailed,
   };
 }
 

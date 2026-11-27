@@ -14,6 +14,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/export/notulen.dart' as rust_notulen;
 import '../src/rust/srikandi.dart' as rust_srikandi;
 import '../state/models.dart';
@@ -48,24 +49,40 @@ Future<bool> showSrikandiExportDialog(
   return result ?? false;
 }
 
-String _sifatLabel(rust_srikandi.Sifat sifat) => switch (sifat) {
-  rust_srikandi.Sifat.sangatSegera => 'Sangat Segera (24 jam)',
-  rust_srikandi.Sifat.segera => 'Segera (2x24 jam)',
-  rust_srikandi.Sifat.biasa => 'Biasa',
+String _sifatLabel(AppLocalizations l10n, rust_srikandi.Sifat sifat) =>
+    switch (sifat) {
+      rust_srikandi.Sifat.sangatSegera =>
+        l10n.srikandiExportDialogSifatSangatSegera,
+      rust_srikandi.Sifat.segera => l10n.srikandiExportDialogSifatSegera,
+      rust_srikandi.Sifat.biasa => l10n.srikandiExportDialogSifatBiasa,
+    };
+
+String _klasifikasiLabel(
+  AppLocalizations l10n,
+  rust_srikandi.KlasifikasiKeamanan k,
+) => switch (k) {
+  rust_srikandi.KlasifikasiKeamanan.sangatRahasia =>
+    l10n.srikandiExportDialogKlasifikasiSangatRahasia,
+  rust_srikandi.KlasifikasiKeamanan.rahasia =>
+    l10n.srikandiExportDialogKlasifikasiRahasia,
+  rust_srikandi.KlasifikasiKeamanan.terbatas =>
+    l10n.srikandiExportDialogKlasifikasiTerbatas,
+  rust_srikandi.KlasifikasiKeamanan.biasa =>
+    l10n.srikandiExportDialogKlasifikasiBiasa,
 };
 
-String _klasifikasiLabel(rust_srikandi.KlasifikasiKeamanan k) => switch (k) {
-  rust_srikandi.KlasifikasiKeamanan.sangatRahasia => 'Sangat Rahasia',
-  rust_srikandi.KlasifikasiKeamanan.rahasia => 'Rahasia',
-  rust_srikandi.KlasifikasiKeamanan.terbatas => 'Terbatas',
-  rust_srikandi.KlasifikasiKeamanan.biasa => 'Biasa',
-};
-
-String _tingkatLabel(rust_srikandi.TingkatPerkembangan t) => switch (t) {
-  rust_srikandi.TingkatPerkembangan.asli => 'Asli',
-  rust_srikandi.TingkatPerkembangan.salinan => 'Salinan',
-  rust_srikandi.TingkatPerkembangan.tembusan => 'Tembusan',
-  rust_srikandi.TingkatPerkembangan.pertinggal => 'Pertinggal',
+String _tingkatLabel(
+  AppLocalizations l10n,
+  rust_srikandi.TingkatPerkembangan t,
+) => switch (t) {
+  rust_srikandi.TingkatPerkembangan.asli =>
+    l10n.srikandiExportDialogTingkatAsli,
+  rust_srikandi.TingkatPerkembangan.salinan =>
+    l10n.srikandiExportDialogTingkatSalinan,
+  rust_srikandi.TingkatPerkembangan.tembusan =>
+    l10n.srikandiExportDialogTingkatTembusan,
+  rust_srikandi.TingkatPerkembangan.pertinggal =>
+    l10n.srikandiExportDialogTingkatPertinggal,
 };
 
 class _SrikandiExportDialog extends ConsumerStatefulWidget {
@@ -125,7 +142,7 @@ class _SrikandiExportDialogState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Gagal menyiapkan metadata: $e';
+        _error = context.l10n.srikandiExportDialogPrefillFailed('$e');
         _loading = false;
       });
     }
@@ -189,6 +206,7 @@ class _SrikandiExportDialogState
   Future<void> _export() async {
     final metadata = _metadata;
     if (metadata == null) return;
+    final l10n = context.l10n;
     setState(() {
       _exporting = true;
       _error = null;
@@ -200,12 +218,12 @@ class _SrikandiExportDialogState
         if (!mounted) return;
         setState(() {
           _exporting = false;
-          _error = 'Metadata belum lengkap. Periksa temuan "Wajib" di atas.';
+          _error = context.l10n.srikandiExportDialogMetadataIncomplete;
         });
         return;
       }
       final outputDir = await pickDirectoryPath(
-        dialogTitle: 'Pilih folder untuk ekspor SRIKANDI',
+        dialogTitle: l10n.srikandiExportDialogPickFolder,
       );
       if (outputDir == null) {
         if (mounted) setState(() => _exporting = false);
@@ -222,14 +240,14 @@ class _SrikandiExportDialogState
       Navigator.of(context).pop(true);
       AppToast.show(
         context,
-        '${exported.length} berkas siap-SRIKANDI tersimpan di $outputDir',
+        context.l10n.srikandiExportDialogExported(exported.length, outputDir),
         type: ToastType.success,
       );
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _exporting = false;
-        _error = 'Gagal mengekspor: $e';
+        _error = context.l10n.srikandiExportDialogExportFailed('$e');
       });
     }
   }
@@ -247,13 +265,13 @@ class _SrikandiExportDialogState
         .toList();
 
     return AppDialog(
-      title: 'Ekspor siap-SRIKANDI',
+      title: context.l10n.srikandiExportDialogTitle,
       icon: AppIcons.document,
       width: Measure.dialogForm,
       actions: [
         AppButton.ghost(
           onPressed: _exporting ? null : () => Navigator.of(context).pop(false),
-          label: 'Batal',
+          label: context.l10n.actionCancel,
         ),
         AppButton.primary(
           onPressed: (_loading || _exporting || metadata == null)
@@ -261,7 +279,9 @@ class _SrikandiExportDialogState
               : _export,
           loading: _exporting,
           icon: AppIcons.download,
-          label: _exporting ? 'Mengekspor…' : 'Ekspor (4 berkas)',
+          label: _exporting
+              ? context.l10n.srikandiExportDialogExporting
+              : context.l10n.srikandiExportDialogExportButton,
         ),
       ],
       child: SizedBox(
@@ -277,70 +297,70 @@ class _SrikandiExportDialogState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Berkas yang dihasilkan hanya disiapkan di perangkat ini. '
-                    'Unggahan ke SRIKANDI tetap dilakukan manual lewat '
-                    'antarmuka instansi (lihat docs/SRIKANDI-EXPORT.md).',
+                    context.l10n.srikandiExportDialogIntro,
                     style: AppText.caption.c(colors.textSecondary),
                   ),
                   Spacing.gapLg,
                   _field(
                     'nomor',
-                    'Nomor naskah',
+                    context.l10n.srikandiExportDialogFieldNomor,
                     metadata.nomor,
                     (v) => _update(nomor: v),
-                    hint: 'Minta ke Tata Usaha unit, mis. B-125/TU.01/KP.03/10/2026',
+                    hint: context.l10n.srikandiExportDialogNomorHint,
                   ),
                   Spacing.gapMd,
                   _field(
                     'tanggal',
-                    'Tanggal',
+                    context.l10n.srikandiExportDialogFieldTanggal,
                     metadata.tanggal,
                     (v) => _update(tanggal: v),
                   ),
                   Spacing.gapMd,
                   _field(
                     'jenisNaskah',
-                    'Jenis naskah',
+                    context.l10n.srikandiExportDialogFieldJenisNaskah,
                     metadata.jenisNaskah,
                     (v) => _update(jenisNaskah: v),
                   ),
                   Spacing.gapMd,
                   _field(
                     'perihal',
-                    'Perihal',
+                    context.l10n.srikandiExportDialogFieldPerihal,
                     metadata.perihal,
                     (v) => _update(perihal: v),
                   ),
                   Spacing.gapMd,
-                  AppGroupLabel('Sifat'),
+                  AppGroupLabel(context.l10n.srikandiExportDialogGroupSifat),
                   Spacing.gapSm,
                   CompactDropdown<rust_srikandi.Sifat>(
                     value: metadata.sifat,
                     items: rust_srikandi.Sifat.values,
-                    labelBuilder: _sifatLabel,
+                    labelBuilder: (s) => _sifatLabel(context.l10n, s),
                     onChanged: (v) => _update(sifat: v),
                   ),
                   Spacing.gapMd,
-                  AppGroupLabel('Klasifikasi keamanan'),
+                  AppGroupLabel(
+                    context.l10n.srikandiExportDialogGroupKlasifikasi,
+                  ),
                   Spacing.gapSm,
                   CompactDropdown<rust_srikandi.KlasifikasiKeamanan>(
                     value: metadata.klasifikasiKeamanan,
                     items: rust_srikandi.KlasifikasiKeamanan.values,
-                    labelBuilder: _klasifikasiLabel,
+                    labelBuilder: (k) => _klasifikasiLabel(context.l10n, k),
                     onChanged: (v) => _update(klasifikasiKeamanan: v),
                   ),
                   Spacing.gapMd,
                   _field(
                     'kodeKlasifikasiArsip',
-                    'Kode klasifikasi arsip',
+                    context.l10n.srikandiExportDialogFieldKodeKlasifikasiArsip,
                     metadata.kodeKlasifikasiArsip,
                     (v) => _update(kodeKlasifikasiArsip: v),
-                    hint: 'Minta ke arsiparis unit, mis. UM.03.01',
+                    hint: context.l10n.srikandiExportDialogKodeHint,
                   ),
                   Spacing.gapMd,
                   _field(
                     'unitPengolah',
-                    'Unit pengolah',
+                    context.l10n.srikandiExportDialogFieldUnitPengolah,
                     metadata.unitPengolah,
                     (v) => _update(unitPengolah: v),
                   ),
@@ -350,7 +370,9 @@ class _SrikandiExportDialogState
                       Expanded(
                         child: _field(
                           'penandatanganNama',
-                          'Nama penandatangan',
+                          context
+                              .l10n
+                              .srikandiExportDialogFieldPenandatanganNama,
                           metadata.penandatanganNama,
                           (v) => _update(penandatanganNama: v),
                         ),
@@ -359,7 +381,9 @@ class _SrikandiExportDialogState
                       Expanded(
                         child: _field(
                           'penandatanganJabatan',
-                          'Jabatan penandatangan',
+                          context
+                              .l10n
+                              .srikandiExportDialogFieldPenandatanganJabatan,
                           metadata.penandatanganJabatan,
                           (v) => _update(penandatanganJabatan: v),
                         ),
@@ -369,29 +393,29 @@ class _SrikandiExportDialogState
                   Spacing.gapMd,
                   _field(
                     'jumlahLampiran',
-                    'Jumlah lampiran',
+                    context.l10n.srikandiExportDialogFieldJumlahLampiran,
                     '${metadata.jumlahLampiran}',
                     (v) => _update(jumlahLampiran: int.tryParse(v) ?? 0),
                   ),
                   Spacing.gapMd,
-                  AppGroupLabel('Tingkat perkembangan'),
+                  AppGroupLabel(context.l10n.srikandiExportDialogGroupTingkat),
                   Spacing.gapSm,
                   CompactDropdown<rust_srikandi.TingkatPerkembangan>(
                     value: metadata.tingkatPerkembangan,
                     items: rust_srikandi.TingkatPerkembangan.values,
-                    labelBuilder: _tingkatLabel,
+                    labelBuilder: (t) => _tingkatLabel(context.l10n, t),
                     onChanged: (v) => _update(tingkatPerkembangan: v),
                   ),
                   Spacing.gapMd,
                   _field(
                     'catatan',
-                    'Catatan',
+                    context.l10n.srikandiExportDialogFieldCatatan,
                     metadata.catatan,
                     (v) => _update(catatan: v),
                   ),
                   if (wajib.isNotEmpty || saran.isNotEmpty) ...[
                     Spacing.gapLg,
-                    AppGroupLabel('Pemeriksaan metadata'),
+                    AppGroupLabel(context.l10n.srikandiExportDialogGroupChecks),
                     Spacing.gapSm,
                     for (final t in wajib)
                       _TemuanTile(temuan: t, colors: colors, wajib: true),
@@ -442,6 +466,9 @@ class _TemuanTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final severity = wajib
+        ? context.l10n.srikandiExportDialogWajib
+        : context.l10n.srikandiExportDialogSaran;
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.xs),
       child: Row(
@@ -455,7 +482,7 @@ class _TemuanTile extends StatelessWidget {
           Spacing.hSm,
           Expanded(
             child: Text(
-              '${wajib ? "Wajib" : "Saran"} · ${temuan.bidang}: ${temuan.pesan}',
+              '$severity · ${temuan.bidang}: ${temuan.pesan}',
               style: AppText.caption.c(
                 wajib ? colors.error : colors.textSecondary,
               ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../src/rust/export.dart' as rust_ekspor;
@@ -68,6 +69,7 @@ Future<bool> showEksporDialog(
 }) async {
   final defaultId = _toDialogFormatId(defaultFormat);
   final selected = <String>{defaultId};
+  final l10n = context.l10n;
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -83,7 +85,7 @@ Future<bool> showEksporDialog(
               Spacing.hSm,
               Expanded(
                 child: Text(
-                  'Ekspor "${session.title}"',
+                  l10n.exportDialogTitle(session.title),
                   style: TextStyle(
                     color: colors.text,
                     fontSize: FontSizes.title,
@@ -118,9 +120,7 @@ Future<bool> showEksporDialog(
                           Spacing.hSm,
                           Expanded(
                             child: Text(
-                              'Transkrip sesi ini belum lengkap, masih ada '
-                              'audio yang sedang ditranskripsi. Hasil ekspor '
-                              'sekarang akan kehilangan bagian itu.',
+                              l10n.exportDialogIncomplete,
                               style: TextStyle(
                                 color: colors.warning,
                                 fontSize: FontSizes.micro,
@@ -132,63 +132,53 @@ Future<bool> showEksporDialog(
                       ),
                     ),
                   Text(
-                    'Pilih format ekspor:',
+                    l10n.exportDialogChooseFormat,
                     style: TextStyle(
                       color: colors.textSecondary,
                       fontSize: FontSizes.body,
                     ),
                   ),
                   Spacing.gapSm,
-                  for (final format in const [
+                  for (final format in [
                     (
                       'md',
                       'Markdown',
-                      'Dengan waktu & nama pembicara',
+                      l10n.exportDialogFormatMd,
                       AppIcons.document,
                     ),
                     (
                       'txt',
                       'TXT',
-                      'Teks biasa tanpa waktu',
+                      l10n.exportDialogFormatTxt,
                       AppIcons.textSnippet,
                     ),
                     (
                       'json',
                       'JSON',
-                      'Data lengkap untuk program lain',
+                      l10n.exportDialogFormatJson,
                       AppIcons.json,
                     ),
                     (
                       'srt',
                       'SRT',
-                      'Takarir untuk pemutar video',
+                      l10n.exportDialogFormatSrt,
                       AppIcons.captions,
                     ),
-                    ('vtt', 'VTT', 'Takarir untuk web', AppIcons.language),
                     (
-                      'html',
-                      'HTML',
-                      'Halaman web yang sudah ditata',
-                      AppIcons.web,
+                      'vtt',
+                      'VTT',
+                      l10n.exportDialogFormatVtt,
+                      AppIcons.language,
                     ),
+                    ('html', 'HTML', l10n.exportDialogFormatHtml, AppIcons.web),
                     (
                       'docx',
                       'DOCX',
-                      'Dokumen Microsoft Word',
+                      l10n.exportDialogFormatDocx,
                       AppIcons.article,
                     ),
-                    (
-                      'pdf',
-                      'PDF',
-                      'Dokumen siap cetak, font ikut disertakan',
-                      AppIcons.pdf,
-                    ),
-                    (
-                      'csv',
-                      'CSV',
-                      'Tabel per segmen untuk spreadsheet',
-                      AppIcons.table,
-                    ),
+                    ('pdf', 'PDF', l10n.exportDialogFormatPdf, AppIcons.pdf),
+                    ('csv', 'CSV', l10n.exportDialogFormatCsv, AppIcons.table),
                   ])
                     CheckboxListTile(
                       dense: true,
@@ -241,8 +231,9 @@ Future<bool> showEksporDialog(
                           Spacing.hSm,
                           Expanded(
                             child: Text(
-                              '${bookmarks.length} poin penting disertakan '
-                              'sebagai bagian "Poin Penting"',
+                              l10n.exportDialogBookmarksIncluded(
+                                bookmarks.length,
+                              ),
                               style: TextStyle(
                                 color: colors.primary,
                                 fontSize: FontSizes.micro,
@@ -265,7 +256,7 @@ Future<bool> showEksporDialog(
                           Spacing.hSm,
                           Expanded(
                             child: Text(
-                              'Ringkasan AI disertakan di Markdown, TXT, HTML & DOCX',
+                              l10n.exportDialogSummaryIncluded,
                               style: TextStyle(
                                 color: colors.primary,
                                 fontSize: FontSizes.micro,
@@ -289,9 +280,7 @@ Future<bool> showEksporDialog(
                           Spacing.hSm,
                           Expanded(
                             child: Text(
-                              'Mode Kepatuhan PDP aktif: data pribadi akan '
-                              'disamarkan di file hasil ekspor. Transkrip '
-                              'tersimpan tidak berubah.',
+                              l10n.exportDialogPdpRedaction,
                               style: TextStyle(
                                 color: colors.primary,
                                 fontSize: FontSizes.micro,
@@ -304,13 +293,13 @@ Future<bool> showEksporDialog(
                               segments: session.segments,
                               config: pdp.activeRedaction,
                             ),
-                            child: const Text('Pratinjau'),
+                            child: Text(l10n.exportDialogPreview),
                           ),
                         ],
                       ),
                     ),
                   Text(
-                    'Semua file dalam 1 folder',
+                    l10n.exportDialogSingleFolder,
                     style: TextStyle(
                       color: colors.textTertiary,
                       fontSize: FontSizes.micro,
@@ -324,7 +313,7 @@ Future<bool> showEksporDialog(
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(false),
               child: Text(
-                'Batal',
+                l10n.actionCancel,
                 style: TextStyle(color: colors.textSecondary),
               ),
             ),
@@ -333,7 +322,7 @@ Future<bool> showEksporDialog(
                   ? null
                   : () => Navigator.of(dialogCtx).pop(true),
               icon: const Icon(AppIcons.folderOpen, size: IconSizes.md),
-              label: const Text('Pilih Folder'),
+              label: Text(l10n.exportDialogChooseFolder),
             ),
           ],
         );
@@ -344,7 +333,7 @@ Future<bool> showEksporDialog(
   if (confirmed != true || !context.mounted) return false;
 
   final outputDir = await pickDirectoryPath(
-    dialogTitle: 'Pilih folder ekspor untuk "${session.title}"',
+    dialogTitle: l10n.exportDialogFolderPickerTitle(session.title),
     initialDirectory: defaultOutputDir.isNotEmpty ? defaultOutputDir : null,
   );
   if (outputDir == null || !context.mounted) return false;
@@ -366,7 +355,7 @@ Future<bool> showEksporDialog(
               child: CircularProgressIndicator(strokeWidth: 2.5),
             ),
             Spacing.hLg,
-            Text('Mengekspor ${selected.length} format…'),
+            Text(l10n.exportDialogExporting(selected.length)),
           ],
         ),
       ),
@@ -414,9 +403,9 @@ Future<bool> showEksporDialog(
     final firstFile = exported.isEmpty ? null : exported.first.path;
     AppToast.show(
       context,
-      'Ekspor berhasil ke: $outputDir',
+      l10n.exportDialogSuccess(outputDir),
       type: ToastType.success,
-      actionLabel: firstFile == null ? null : 'Bagikan',
+      actionLabel: firstFile == null ? null : l10n.exportDialogShare,
       onAction: firstFile == null
           ? null
           : () => shareExportedFile(
@@ -430,7 +419,11 @@ Future<bool> showEksporDialog(
     if (!context.mounted) return false;
     // Tutup loading dialog
     Navigator.of(context, rootNavigator: true).pop();
-    AppToast.show(context, 'Ekspor gagal: $e', type: ToastType.error);
+    AppToast.show(
+      context,
+      l10n.exportDialogFailed('$e'),
+      type: ToastType.error,
+    );
     return false;
   }
 }

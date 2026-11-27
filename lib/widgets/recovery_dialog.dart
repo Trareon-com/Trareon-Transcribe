@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/session.dart' as rust_session;
 import '../theme/app_colors.dart';
 import '../utils/format_time.dart';
@@ -60,7 +61,7 @@ class _RecoveryDialog extends StatelessWidget {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return AlertDialog(
-      title: const Text('Pulihkan sesi yang terhenti'),
+      title: Text(context.l10n.recoveryDialogTitle),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -68,9 +69,7 @@ class _RecoveryDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              sessions.length == 1
-                  ? 'Satu sesi berhenti tanpa disimpan. Berikut isinya:'
-                  : '${sessions.length} sesi berhenti tanpa disimpan. Berikut isinya:',
+              context.l10n.recoveryDialogIntro(sessions.length),
               style: TextStyle(
                 color: colors.textSecondary,
                 fontSize: FontSizes.body,
@@ -95,7 +94,7 @@ class _RecoveryDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Nanti saja'),
+          child: Text(context.l10n.recoveryDialogLater),
         ),
       ],
     );
@@ -110,22 +109,28 @@ class _RecoverableTile extends StatelessWidget {
 
   /// What recovery will actually hand back, stated per session rather than
   /// promised in general.
-  String get _contents {
+  String _contents(AppLocalizations l10n) {
     final parts = <String>[];
     parts.add(
       session.segmentCount > 0
-          ? '${session.segmentCount} segmen transkrip'
-          : 'transkrip kosong',
+          ? l10n.recoveryDialogSegments(session.segmentCount)
+          : l10n.recoveryDialogEmptyTranscript,
     );
     final audio = <String>[];
     if (session.micAudioSecs > 0) {
-      audio.add('mikrofon ${formatDurationId(session.micAudioSecs)}');
+      audio.add(l10n.recoveryDialogMic(formatDurationId(session.micAudioSecs)));
     }
     if (session.speakerAudioSecs > 0) {
-      audio.add('audio sistem ${formatDurationId(session.speakerAudioSecs)}');
+      audio.add(
+        l10n.recoveryDialogSystemAudio(
+          formatDurationId(session.speakerAudioSecs),
+        ),
+      );
     }
     parts.add(
-      audio.isEmpty ? 'tanpa rekaman audio' : 'audio: ${audio.join(', ')}',
+      audio.isEmpty
+          ? l10n.recoveryDialogNoAudio
+          : l10n.recoveryDialogAudio(audio.join(', ')),
     );
     return parts.join(' · ');
   }
@@ -169,7 +174,7 @@ class _RecoverableTile extends StatelessWidget {
         ),
         Spacing.gapXs,
         Text(
-          _contents,
+          _contents(context.l10n),
           style: TextStyle(
             color: hasAnything ? colors.textSecondary : colors.error,
             fontSize: FontSizes.caption,
@@ -183,20 +188,20 @@ class _RecoverableTile extends StatelessWidget {
               onPressed: () =>
                   Navigator.of(context).pop(DiscardSession(session)),
               icon: const Icon(AppIcons.delete, size: IconSizes.sm),
-              label: const Text('Hapus'),
+              label: Text(context.l10n.recoveryDialogDiscard),
               style: TextButton.styleFrom(foregroundColor: colors.error),
             ),
             Spacing.hSm,
             Tooltip(
               message: canRecover
-                  ? 'Lanjutkan sesi ini dan rekam ke berkas yang sama'
-                  : 'Hentikan sesi yang sedang berjalan dulu',
+                  ? context.l10n.recoveryDialogRecoverTooltip
+                  : context.l10n.recoveryDialogBusyTooltip,
               child: FilledButton.icon(
                 onPressed: canRecover
                     ? () => Navigator.of(context).pop(RecoverSession(session))
                     : null,
                 icon: const Icon(AppIcons.restore, size: IconSizes.sm),
-                label: const Text('Pulihkan'),
+                label: Text(context.l10n.recoveryDialogRecover),
               ),
             ),
           ],

@@ -15,6 +15,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/l10n.dart';
 import '../widgets/app_toast.dart';
 
 /// Platforms `share_plus`'s own backend refuses to hand a file to — see
@@ -60,8 +61,7 @@ Future<void> shareExportedFile(
   if (!context.mounted) return;
   AppToast.show(
     context,
-    'Berbagi file tidak didukung di platform ini. '
-    'Path disalin: ${File(path).uri.pathSegments.last}',
+    context.l10n.shareFileUnsupported(File(path).uri.pathSegments.last),
   );
 }
 

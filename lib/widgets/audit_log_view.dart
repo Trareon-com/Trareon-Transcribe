@@ -11,6 +11,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/api.dart' as rust_api;
 import '../state/models.dart';
 import '../theme/app_colors.dart';
@@ -64,6 +65,7 @@ class _AuditLogViewState extends State<AuditLogView> {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     final entries = _entries;
+    final l10n = context.l10n;
     return SizedBox(
       width: 700,
       height: 520,
@@ -80,7 +82,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                   child: Semantics(
                     header: true,
                     child: Text(
-                      'Log audit',
+                      l10n.auditLogViewTitle,
                       style: TextStyle(
                         fontSize: FontSizes.title,
                         fontWeight: FontWeight.w600,
@@ -90,7 +92,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Tutup',
+                  tooltip: l10n.auditLogViewClose,
                   icon: const Icon(AppIcons.close),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -104,7 +106,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                 child: Padding(
                   padding: const EdgeInsets.all(Spacing.lg),
                   child: Text(
-                    'Log audit tidak bisa dibaca: $error',
+                    l10n.auditLogViewReadError(error),
                     style: TextStyle(color: colors.error),
                   ),
                 ),
@@ -114,8 +116,7 @@ class _AuditLogViewState extends State<AuditLogView> {
                 child: Padding(
                   padding: const EdgeInsets.all(Spacing.lg),
                   child: Text(
-                    'Belum ada catatan. Log terisi saat sesi dibuat, '
-                    'transkrip diekspor, atau data dihapus.',
+                    l10n.auditLogViewEmpty,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: colors.textTertiary),
                   ),
@@ -151,7 +152,7 @@ class _AuditRow extends StatelessWidget {
         color: colors.primary,
       ),
       title: Text(
-        '${auditActionLabel(entry.action)}: ${entry.subject}',
+        '${auditActionLabel(entry.action, context.l10n)}: ${entry.subject}',
         style: TextStyle(fontSize: FontSizes.body, color: colors.text),
       ),
       subtitle: Text(
@@ -183,27 +184,30 @@ class _AuditRow extends StatelessWidget {
   };
 }
 
-/// Indonesian label for an action.
+/// Label for an action, in [l10n] or else the language the app is showing.
 ///
 /// Dart-side rather than a bridge call per row: the viewer renders
 /// hundreds of rows and a round trip each would make scrolling stutter.
 /// Kept in sync with `AuditAction::label` by
 /// `test/audit_log_view_test.dart`, which walks every variant.
-String auditActionLabel(AuditAction action) => switch (action) {
-  AuditAction.sessionCreated => 'Sesi dibuat',
-  AuditAction.sessionExported => 'Transkrip diekspor',
-  AuditAction.summarySent => 'Ringkasan dikirim ke endpoint',
-  AuditAction.sessionDeleted => 'Sesi dihapus',
-  AuditAction.audioDeleted => 'Audio dihapus',
-  AuditAction.transcriptDeleted => 'Transkrip dihapus',
-  AuditAction.consentAcknowledged => 'Pemberitahuan perekaman disampaikan',
-  AuditAction.redactionApplied => 'Penyamaran data pribadi diterapkan',
-  AuditAction.retentionApplied => 'Kebijakan retensi dijalankan',
-  AuditAction.auditExported => 'Log audit diekspor',
-  AuditAction.modelPulled => 'Model notulen diunduh',
-  AuditAction.documentContextUsed => 'Konteks dokumen digunakan',
-  AuditAction.transcriptEnhanced => 'Transkrip diperhalus otomatis',
-};
+String auditActionLabel(AuditAction action, [AppLocalizations? l10n]) {
+  final s = l10n ?? currentL10n;
+  return switch (action) {
+    AuditAction.sessionCreated => s.auditLogViewActionSessionCreated,
+    AuditAction.sessionExported => s.auditLogViewActionSessionExported,
+    AuditAction.summarySent => s.auditLogViewActionSummarySent,
+    AuditAction.sessionDeleted => s.auditLogViewActionSessionDeleted,
+    AuditAction.audioDeleted => s.auditLogViewActionAudioDeleted,
+    AuditAction.transcriptDeleted => s.auditLogViewActionTranscriptDeleted,
+    AuditAction.consentAcknowledged => s.auditLogViewActionConsentAcknowledged,
+    AuditAction.redactionApplied => s.auditLogViewActionRedactionApplied,
+    AuditAction.retentionApplied => s.auditLogViewActionRetentionApplied,
+    AuditAction.auditExported => s.auditLogViewActionAuditExported,
+    AuditAction.modelPulled => s.auditLogViewActionModelPulled,
+    AuditAction.documentContextUsed => s.auditLogViewActionDocumentContextUsed,
+    AuditAction.transcriptEnhanced => s.auditLogViewActionTranscriptEnhanced,
+  };
+}
 
 /// `DD/MM/YYYY HH:MM` in local time, without a bridge round trip.
 String formatAuditTime(BigInt atUnixMs) {

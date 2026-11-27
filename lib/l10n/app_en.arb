@@ -1,31 +1,25 @@
 {
   "@@locale": "en",
-
   "appTitle": "Trareon Transcribe",
-
   "languageSectionTitle": "Language",
   "languageLabel": "Interface language",
   "languageSubtitle": "The language of buttons and menus. Does not change the transcription language.",
   "languageSystem": "Follow system",
   "languageIndonesian": "Bahasa Indonesia",
   "languageEnglish": "English",
-
   "alreadyRunningTitle": "Trareon Transcribe is already running",
   "alreadyRunningBody": "Only one instance of Trareon Transcribe can run at a time. Close this window and use the one that is already open.",
-
   "actionSave": "Save",
   "actionCancel": "Cancel",
   "actionSkip": "Skip",
   "actionHide": "Hide",
   "actionCancelThis": "Cancel",
   "actionCancelAll": "Cancel all",
-
   "enhanceQueueTitle": "Refining transcript",
   "enhanceQueuePaused": "Paused while a recording is in progress.",
   "enhanceJobRunning": "Using the accurate model… your current transcript stays safe until it finishes.",
   "enhanceJobFailed": "Failed. The previous transcript is still in use.",
   "enhanceJobQueued": "Waiting in the queue.",
-
   "storageSessionCount": "{count, plural, =0{No sessions yet} =1{1 session} other{{count} sessions}}",
   "@storageSessionCount": {
     "placeholders": {
@@ -86,7 +80,6 @@
       }
     }
   },
-
   "bookmarkAdd": "Mark",
   "bookmarkAddTooltip": "Mark an important point at the current position (Ctrl+B)",
   "bookmarkAddWithNoteTooltip": "Mark and write a note",
@@ -144,5 +137,2852 @@
         "type": "String"
       }
     }
-  }
+  },
+  "settingsScreenTitle": "Settings",
+  "settingsScreenCategoryAppearance": "Appearance",
+  "settingsScreenCategoryModelMode": "Model & mode",
+  "settingsScreenCategoryAudio": "Audio & sound",
+  "settingsScreenCategoryGlossary": "Glossary",
+  "settingsScreenCategoryStorage": "Storage",
+  "settingsScreenCategorySummary": "AI summary",
+  "settingsScreenCategoryMinutes": "Official minutes",
+  "settingsScreenCategoryCompliance": "PDP compliance",
+  "settingsScreenCategorySetup": "Setup & diagnostics",
+  "settingsScreenCategoryAbout": "About",
+  "settingsScreenDismiss": "Dismiss",
+  "settingsScreenRetry": "Try again",
+  "settingsScreenTheme": "Theme",
+  "settingsScreenThemeSystemSubtitle": "Follows your operating system's current theme.",
+  "settingsScreenThemeLightSubtitle": "Always light, whatever the system theme.",
+  "settingsScreenThemeDarkSubtitle": "Always dark, whatever the system theme.",
+  "settingsScreenThemeLight": "Light",
+  "settingsScreenThemeDark": "Dark",
+  "settingsScreenThemeSystem": "System",
+  "settingsScreenSimpleMode": "Simple mode",
+  "settingsScreenSimpleModeOnSubtitle": "Only controls that change the transcript are shown. The rest are under \"Advanced settings\".",
+  "settingsScreenSimpleModeOffSubtitle": "All controls are shown.",
+  "settingsScreenAutoAudioTuning": "Automatic audio tuning",
+  "settingsScreenAutoAudioTuningOffSubtitle": "Turned off because you changed noise reduction/AGC yourself. Your values are used.",
+  "settingsScreenChangeManually": "Adjust manually",
+  "settingsScreenUseAutomatic": "Use automatic",
+  "settingsScreenDefaultModel": "Default model",
+  "settingsScreenModelAvailable": "Available on this computer.",
+  "settingsScreenModelNotDownloaded": "Not downloaded yet. Select it to download.",
+  "settingsScreenProgressive": "Fast first, then refined",
+  "settingsScreenProgressiveOnSubtitle": "Text appears quickly, then is corrected automatically by a more careful model.",
+  "settingsScreenProgressiveOffSubtitle": "Uses a single model. Text appears once, already final.",
+  "settingsScreenAutoRetranscribe": "Automatically refine with a more accurate model in the background",
+  "settingsScreenAutoRetranscribeMissingSubtitle": "The accurate model is not installed on this computer. Download it from \"Default model\" above before turning this on.",
+  "settingsScreenAutoRetranscribeOnSubtitle": "After a recording or upload finishes, the transcript is refined in the background without interrupting your work. The old transcript is replaced only if this succeeds.",
+  "settingsScreenAutoRetranscribeOffSubtitle": "Off. Transcripts are not refined automatically after recording.",
+  "settingsScreenGpu": "GPU acceleration",
+  "settingsScreenDefaultMode": "Default mode",
+  "settingsScreenModeWebinarSubtitle": "Microphone off, system audio recorded.",
+  "settingsScreenModeOnlineSubtitle": "Microphone and system audio recorded.",
+  "settingsScreenModeOfflineSubtitle": "Only the microphone is recorded.",
+  "settingsScreenTranscriptionLanguage": "Transcription language",
+  "settingsScreenLanguageAutoSubtitle": "Language is detected automatically for each segment.",
+  "settingsScreenLanguageForcedSubtitle": "Locked to one language. More accurate when the meeting is in a single language.",
+  "settingsScreenLanguageAuto": "Detect automatically",
+  "settingsScreenLanguageIndonesian": "Indonesian",
+  "settingsScreenHideAdvanced": "Hide advanced settings",
+  "settingsScreenShowAdvanced": "Advanced settings",
+  "settingsScreenAdvancedSubtitle": "GPU acceleration · fast-then-refined · background refinement · recording mode.",
+  "settingsScreenTranscription": "Transcription",
+  "settingsScreenSpeedComparison": "Speed comparison",
+  "settingsScreenSpeedComparisonSubtitle": "Indonesian: light 3 s · fast 10 s · accurate 56 s per minute of audio.\nThe accurate model is recommended for meetings and interviews.",
+  "settingsScreenAudioDecision": "{reason}. Noise reduction {noise}, AGC {agc}.",
+  "@settingsScreenAudioDecision": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "noise": {
+        "type": "String"
+      },
+      "agc": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenStateOn": "on",
+  "settingsScreenStateOff": "off",
+  "settingsScreenGpuUnknownOnSubtitle": "Will use the GPU if this build supports it.",
+  "settingsScreenGpuCpuSubtitle": "Transcription uses the CPU.",
+  "settingsScreenGpuNotCompiledSubtitle": "This build was compiled without GPU support, so transcription uses the CPU even with this switch on.",
+  "settingsScreenGpuOnSubtitle": "Transcription uses the GPU ({backend}).",
+  "@settingsScreenGpuOnSubtitle": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenGpuAvailableOffSubtitle": "GPU ({backend}) is available, but transcription uses the CPU.",
+  "@settingsScreenGpuAvailableOffSubtitle": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenDecidedAutomatically": "Decided automatically",
+  "settingsScreenVad": "Skip silent pauses",
+  "settingsScreenVadOnSubtitle": "Silent parts are skipped, so transcription is faster. Takes effect from the next session.",
+  "settingsScreenVadOffSubtitle": "All audio is transcribed, including silent parts.",
+  "settingsScreenNoiseReduction": "Noise reduction (RNNoise)",
+  "settingsScreenNoiseReductionOnSubtitle": "Room noise (fans, air conditioning, traffic) is suppressed before transcription. Takes effect from the next audio chunk.",
+  "settingsScreenNoiseReductionOffSubtitle": "Off. Turn it on if your room is noisy. On recordings that are already clean it can drop a consonant or two.",
+  "settingsScreenAgc": "Automatic gain control (AGC)",
+  "settingsScreenAgcOnSubtitle": "Quiet but real speech is boosted before transcription so it is not read as silence.",
+  "settingsScreenAgcOffSubtitle": "Off. Audio is transcribed at its original volume.",
+  "settingsScreenDedup": "Remove duplicate audio",
+  "settingsScreenDedupOnlineSubtitle": "Active in Online meeting mode: MIC/SPK duplicates are removed.",
+  "settingsScreenDedupOtherSubtitle": "Only applies in Online meeting mode.",
+  "settingsScreenDedupInfo": "Compares microphone and speaker audio, then removes anything heard twice.",
+  "settingsScreenAutoStop": "Stop automatically when silent",
+  "settingsScreenAutoStopOnSubtitle": "Stops after {minutes} min without sound.",
+  "@settingsScreenAutoStopOnSubtitle": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenAutoStopOffSubtitle": "Recording continues until you stop it.",
+  "settingsScreenAutoStopDelay": "Silence before stopping",
+  "settingsScreenMinutes": "{minutes} min",
+  "@settingsScreenMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenOutputStorage": "Output & storage",
+  "settingsScreenOutputFolder": "Output folder",
+  "settingsScreenPickOutputFolder": "Choose output folder",
+  "settingsScreenDefaultExportFormat": "Default export format",
+  "settingsScreenDefaultExportFormatSubtitle": "The format already selected when the Export dialog opens.",
+  "settingsScreenDiagnostics": "Diagnostics",
+  "settingsScreenDiagnosticsSubtitle": "Check folders, models, microphone and disk space. Everything stays local.",
+  "settingsScreenRerunSetup": "Run setup again",
+  "settingsScreenRerunSetupSubtitle": "Choose the microphone, speakers and model again, then test the sound.",
+  "settingsScreenPrivacyReport": "Privacy Report",
+  "settingsScreenPrivacyReportSubtitle": "Everything that has ever left this computer.",
+  "settingsScreenCapabilities": "What runs where",
+  "settingsScreenCapabilitiesSubtitle": "Every capability, where it runs, and its current status.",
+  "settingsScreenUsageDashboard": "Usage dashboard",
+  "settingsScreenUsageDashboardSubtitle": "How long you record, per week.",
+  "settingsScreenCheckUpdate": "Check for updates",
+  "settingsScreenCheckUpdateSubtitle": "Current version {version}. Checking for updates contacts GitHub and is logged in the Privacy Report.",
+  "@settingsScreenCheckUpdateSubtitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenAboutTrareon": "About Trareon",
+  "settingsScreenTagline": "Offline transcription, guaranteed privacy.",
+  "settingsScreenUpdateAvailableTitle": "Update available",
+  "settingsScreenUpdateAvailableBody": "Version {latest} is available (current: {current}).",
+  "@settingsScreenUpdateAvailableBody": {
+    "placeholders": {
+      "latest": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenLater": "Later",
+  "settingsScreenViewRelease": "View release",
+  "settingsScreenUpToDate": "You're on the latest version.",
+  "settingsScreenUpdateCheckFailed": "Couldn't check for updates: {error}",
+  "@settingsScreenUpdateCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBrowserFailed": "Couldn't open the browser. Open {url} manually.",
+  "@settingsScreenBrowserFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBuiltWith": "Built with Flutter + Rust",
+  "settingsScreenUpgradeOffer": "This computer can run {model} for better accuracy.",
+  "@settingsScreenUpgradeOffer": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenUpgradeAccuracy": "Improve accuracy",
+  "settingsScreenNotNow": "Not now",
+  "summaryPanelSaved": "Summary saved.",
+  "summaryPanelShareFailed": "Couldn't prepare the summary for sharing: {error}",
+  "@summaryPanelShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryPanelTitle": "AI summary",
+  "summaryPanelUnsaved": "unsaved",
+  "summaryPanelDisabledNotice": "AI summary is off. It is the only feature that uses the network. Turn it on in Settings, AI summary, if you want to use it.",
+  "summaryPanelTemplateLabel": "Template",
+  "summaryPanelCustomTemplateHelper": "Your own template",
+  "summaryPanelManageTemplates": "Manage summary templates",
+  "summaryPanelRegenerate": "Regenerate",
+  "summaryPanelGenerate": "Generate summary",
+  "summaryPanelPlaceholder": "The summary will appear here. You can edit it before saving.",
+  "summaryPanelDroppedCitations": "Citations discarded for not matching the transcript: {count}. Review this summary more carefully.",
+  "@summaryPanelDroppedCitations": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryPanelViewCitations": "View citations",
+  "summaryPanelEdit": "Edit",
+  "summaryPanelCopied": "Summary copied.",
+  "summaryPanelCopy": "Copy",
+  "summaryPanelShare": "Share",
+  "summaryPanelPersonalNotes": "Personal notes",
+  "summaryPanelEnhance": "Enhance",
+  "summaryPanelNoNotes": "No notes were written during the meeting. Enhance still works, but the result will be a summary of the transcript only.",
+  "summaryPanelMergedResult": "Combined result (AI)",
+  "summaryPanelPlayCitation": "Play segment {segment} at {time}",
+  "@summaryPanelPlayCitation": {
+    "placeholders": {
+      "segment": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorManagerTitle": "Summary templates",
+  "summaryTemplateEditorManagerIntro": "Create your own templates with your own section headings and instructions. Stored on this computer.",
+  "summaryTemplateEditorEmpty": "No templates of your own yet.",
+  "summaryTemplateEditorNoHeadings": "No section headings",
+  "summaryTemplateEditorEditTooltip": "Edit {name}",
+  "@summaryTemplateEditorEditTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDuplicateTooltip": "Duplicate {name}",
+  "@summaryTemplateEditorDuplicateTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDeleteTooltip": "Delete {name}",
+  "@summaryTemplateEditorDeleteTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorCopyName": "{name} (copy)",
+  "@summaryTemplateEditorCopyName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorStartFromBuiltin": "Start from a built-in template",
+  "summaryTemplateEditorDuplicateBuiltinTooltip": "Duplicate \"{name}\" as your own template",
+  "@summaryTemplateEditorDuplicateBuiltinTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorMineName": "{name} (mine)",
+  "@summaryTemplateEditorMineName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorBlank": "Blank",
+  "summaryTemplateEditorBlankTooltip": "Create a template from scratch",
+  "summaryTemplateEditorDefaultName": "My template",
+  "summaryTemplateEditorClose": "Close",
+  "summaryTemplateEditorEditTitle": "Edit template",
+  "summaryTemplateEditorNameLabel": "Template name",
+  "summaryTemplateEditorHeadingsLabel": "Section headings (one per line)",
+  "summaryTemplateEditorHeadingsHint": "Summary\nDecisions\nRisks",
+  "summaryTemplateEditorInstructionsLabel": "Additional instructions",
+  "summaryTemplateEditorInstructionsHint": "e.g. Focus on budget risks and quote figures exactly as they appear in the transcript.",
+  "summaryTemplateEditorHeadingsNote": "Section headings are sent as an ordered list, so the output stays consistent and can fill in the minutes form.",
+  "captureHealthViewSourceSystem": "System audio",
+  "captureHealthViewSourceMic": "Microphone",
+  "captureHealthViewWentSilent": "{sources} went silent",
+  "@captureHealthViewWentSilent": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmed": "Recording confirmed",
+  "captureHealthViewWaiting": "Waiting for sound from {sources}",
+  "@captureHealthViewWaiting": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmedTooltip": "Every requested source has produced sound above the noise floor.",
+  "captureHealthViewUnconfirmedTooltip": "Not every requested source has produced real sound yet.",
+  "captureHealthViewAudioIssue": "Unresolved audio problem",
+  "captureHealthViewAudioIssueTooltip": "{label}. The microphone or system audio is not sending sound. See the latest notification or check System Settings.",
+  "@captureHealthViewAudioIssueTooltip": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSummary": "Duration {duration} · {segments} transcript segments",
+  "@captureHealthViewSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "segments": {
+        "type": "int"
+      }
+    }
+  },
+  "captureHealthViewNoSources": "No audio sources were requested for this session.",
+  "captureHealthViewChannelOk": "{source}: {duration} recorded, {percent}% silent",
+  "@captureHealthViewChannelOk": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewChannelSilent": "{source}: no sound at all ({duration} recorded)",
+  "@captureHealthViewChannelSilent": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSessionDone": "Session finished",
+  "captureHealthViewSessionDoneIssues": "Session finished with problems",
+  "captureHealthViewNotSaved": "The transcript has not been saved.",
+  "captureHealthViewClose": "Close",
+  "notulenSettingsSectionPickKopTitle": "Choose a letterhead image (PNG)",
+  "notulenSettingsSectionKopMustBePng": "The letterhead must be a PNG file.",
+  "notulenSettingsSectionReadFailed": "Couldn't read the file: {error}",
+  "@notulenSettingsSectionReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenSettingsSectionTitle": "Official minutes",
+  "notulenSettingsSectionIntro": "Details that stay the same for every meeting. Filled in automatically when you create meeting minutes.",
+  "notulenSettingsSectionUnitLabel": "Agency / work unit",
+  "notulenSettingsSectionUnitHint": "e.g. Directorate General of Budget",
+  "notulenSettingsSectionPlaceLabel": "Usual venue/medium",
+  "notulenSettingsSectionPlaceHint": "e.g. 5th-floor meeting room / Zoom",
+  "notulenSettingsSectionNotulisLabel": "Minute-taker name",
+  "notulenSettingsSectionNotulisHint": "Your name, for the signature block",
+  "notulenSettingsSectionKop": "Letterhead",
+  "notulenSettingsSectionKopEmpty": "None chosen. Without an image, the letterhead is written as text from the agency name above.",
+  "notulenSettingsSectionRemoveKop": "Remove letterhead",
+  "notulenSettingsSectionPickKop": "Choose letterhead image",
+  "platformChromeMinimize": "Minimize",
+  "platformChromeMaximize": "Maximize",
+  "platformChromeClose": "Close",
+  "platformChromeMenuSettings": "Settings…",
+  "platformChromeMenuFile": "File",
+  "platformChromeMenuNewSession": "New Session",
+  "platformChromeMenuToggleRecording": "Start or Stop Recording",
+  "platformChromeMenuView": "View",
+  "platformChromeMenuSearch": "Search Session History",
+  "platformChromeMenuHideSidebar": "Hide Sidebar",
+  "platformChromeMenuWindow": "Window",
+  "platformChromeMenuHelp": "Help",
+  "platformChromeMenuShortcuts": "Keyboard Shortcuts",
+  "modelLabelsLight": "Light",
+  "modelLabelsFast": "Fast",
+  "modelLabelsFastExperimental": "Fast-Experimental",
+  "modelLabelsMedium": "Medium",
+  "modelLabelsHigh": "High",
+  "modelLabelsAccurate": "Accurate",
+  "modelLabelsAccurateRecommended": "Accurate (recommended)",
+  "modelLabelsAccurateExperimental": "Accurate-Experimental",
+  "modelLabelsInstalled": "Installed model",
+  "setupOverlayNeedsAttention": "Needs attention: {names}.",
+  "@setupOverlayNeedsAttention": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "setupOverlayViewDiagnostics": "View diagnostics",
+  "setupOverlayClose": "Close",
+  "setupOverlayNotReady": "Trareon isn't ready to record",
+  "setupOverlayChecking": "Checking…",
+  "setupOverlayCheckAgain": "Check again",
+  "setupOverlayContinueAnyway": "Continue anyway",
+  "sessionArchiveServiceOpenFailed": "Couldn't open the archive: it is unreadable or damaged ({error}).",
+  "@sessionArchiveServiceOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionArchiveServiceEmpty": "This archive is empty or is not a Trareon session archive.",
+  "sessionArchiveServiceNoTranscript": "This file is not a valid Trareon session archive: it contains no transcript.",
+  "completionBannerExportIncomplete": "The transcript is still filling in. An export now will be incomplete.",
+  "completionBannerIncomplete": "Incomplete",
+  "completionBannerIncompletePercent": "Incomplete · {percent}%",
+  "@completionBannerIncompletePercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "completionBannerIncompleteTooltip": "Some audio has not been transcribed yet. The transcript will be completed automatically in the background.",
+  "streamToggleMic": "Microphone",
+  "streamToggleSpeaker": "System audio",
+  "streamToggleStateOn": "on",
+  "streamToggleStateOff": "off",
+  "streamToggleMicAnnouncement": "Microphone {state}",
+  "@streamToggleMicAnnouncement": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleSpeakerAnnouncement": "Speaker {state}",
+  "@streamToggleSpeakerAnnouncement": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleOn": "ON",
+  "streamToggleOff": "OFF",
+  "appFieldSearchPlaceholder": "Search…",
+  "appFieldClearSearch": "Clear search",
+  "notulenDialogSummaryNotConfigured": "The summary endpoint or model is not set. Fill it in under Settings → AI summary.",
+  "notulenDialogPickReferenceDocTitle": "Choose a reference document",
+  "notulenDialogReadDocFailed": "Couldn't read the document: {error}",
+  "@notulenDialogReadDocFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogPickFolderTitle": "Choose a folder for the minutes",
+  "notulenDialogSaved": "Minutes saved: {path}",
+  "@notulenDialogSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogExportFailed": "Couldn't create the minutes: {error}",
+  "@notulenDialogExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogTitle": "Meeting minutes",
+  "notulenDialogComposing": "Composing…",
+  "notulenDialogCreateDocx": "Create minutes (DOCX)",
+  "notulenDialogMeetingIdentity": "Meeting details",
+  "notulenDialogFieldTitle": "Meeting title",
+  "notulenDialogFieldNumber": "Minutes number",
+  "notulenDialogFieldNumberHint": "e.g. ND-12/AG.3/2026",
+  "notulenDialogFieldAgency": "Agency (letterhead)",
+  "notulenDialogFieldUnit": "Work unit (second letterhead line)",
+  "notulenDialogFieldDay": "Day",
+  "notulenDialogFieldDate": "Date",
+  "notulenDialogFieldTime": "Time",
+  "notulenDialogFieldPlace": "Venue/Medium",
+  "notulenDialogFieldChair": "Chair",
+  "notulenDialogFieldMinuteTaker": "Minute-taker",
+  "notulenDialogParties": "Parties",
+  "notulenDialogPartiesHelp": "The order sets the signature columns: the first party on the right, the second on the left. Give each name with its position.",
+  "notulenDialogPartyHint": "Name, position",
+  "notulenDialogAddParty": "Add party",
+  "notulenDialogAttendees": "Attendees",
+  "notulenDialogAttendeeHint": "Attendee name",
+  "notulenDialogAddAttendee": "Add attendee",
+  "notulenDialogAgenda": "Agenda",
+  "notulenDialogAgendaHint": "Agenda item",
+  "notulenDialogAddAgenda": "Add agenda item",
+  "notulenDialogDiscussion": "Discussion",
+  "notulenDialogDiscussionHint": "What was discussed. Filled in from the AI summary when there is one.",
+  "notulenDialogDecisions": "Decisions",
+  "notulenDialogDecisionHint": "Meeting decision",
+  "notulenDialogAddDecision": "Add decision",
+  "notulenDialogFollowUp": "Action items",
+  "notulenDialogArchivalExport": "Archival export",
+  "notulenDialogExportSrikandi": "Export for SRIKANDI…",
+  "notulenDialogBookmarksIncluded": "{count, plural, =1{The key point you marked during the meeting will be included.} other{The {count} key points you marked during the meeting will be included.}}",
+  "@notulenDialogBookmarksIncluded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogAttachTranscript": "Attach the full transcript",
+  "notulenDialogTranscriptLines": "The transcript is added on a separate page ({count} lines).",
+  "@notulenDialogTranscriptLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogFormType": "Document type",
+  "notulenDialogAutoFill": "Fill in with AI",
+  "notulenDialogSourceTranscript": "Session transcript",
+  "notulenDialogSourceNotes": "Note points",
+  "notulenDialogNotesHint": "Paste or type your meeting notes, one point per line.",
+  "notulenDialogLength": "Minutes length",
+  "notulenDialogAddReferenceDoc": "Add a reference document (optional)",
+  "notulenDialogRemoveReferenceDoc": "Remove reference document",
+  "notulenDialogGenerate": "Generate",
+  "notulenDialogRetry": "Try again",
+  "notulenDialogGenerateFailed": "Couldn't generate the minutes: {error}",
+  "@notulenDialogGenerateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogFactCheckSection": "Fact & style check",
+  "notulenDialogRecheck": "Check again",
+  "notulenDialogFactCheck": "Check facts",
+  "notulenDialogTidyRegister": "Tidy up style",
+  "notulenDialogCheckFailed": "Check failed: {error}",
+  "@notulenDialogCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogFactSummary": "Statements checked: {checked}. Clean: {clean}. To review: {flagged}.",
+  "@notulenDialogFactSummary": {
+    "placeholders": {
+      "checked": {
+        "type": "int"
+      },
+      "clean": {
+        "type": "int"
+      },
+      "flagged": {
+        "type": "int"
+      }
+    }
+  },
+  "notulenDialogTidyPreview": "Style tidy-up preview",
+  "notulenDialogApply": "Apply",
+  "notulenDialogRemoveItem": "Remove {item}",
+  "@notulenDialogRemoveItem": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogTaskField": "Task",
+  "notulenDialogOwnerField": "Owner",
+  "notulenDialogDueField": "Due",
+  "notulenDialogRemoveTaskRow": "Remove action item",
+  "notulenDialogAddTask": "Add action item",
+  "notulenDialogIssueNoCitation": "No segment citation",
+  "notulenDialogIssueInvalidCitation": "Invalid segment citation",
+  "notulenDialogIssueWeakSupport": "Weak support in the transcript",
+  "notulenDialogIssueCitationOff": "Citation points to the wrong segment",
+  "notulenDialogIssueNumberMissing": "Number not found in the transcript",
+  "notulenDialogIssueNameMissing": "Name not found in the transcript",
+  "notulenDialogRegisterLine": "Line {line}: \"{found}\"",
+  "@notulenDialogRegisterLine": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "found": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenDialogRegisterSuggestion": "Suggestion: \"{suggestion}\" (applied by Tidy up style)",
+  "@notulenDialogRegisterSuggestion": {
+    "placeholders": {
+      "suggestion": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelStatusNotStarted": "Not started",
+  "actionItemsPanelStatusInProgress": "In progress",
+  "actionItemsPanelStatusDone": "Done",
+  "actionItemsPanelStatusCancelled": "Cancelled",
+  "actionItemsPanelSaved": "Saved {what}: {filename}",
+  "@actionItemsPanelSaved": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelSaveFailed": "Couldn't save {what}: {error}",
+  "@actionItemsPanelSaveFailed": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelIcsWhat": "action item calendar",
+  "actionItemsPanelCsvWhat": "action item table",
+  "actionItemsPanelIcsFailed": "Couldn't create the .ics file: {error}",
+  "@actionItemsPanelIcsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelCsvFailed": "Couldn't create the .csv file: {error}",
+  "@actionItemsPanelCsvFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelCopied": "Action items copied.",
+  "actionItemsPanelTitle": "Action items",
+  "actionItemsPanelProgress": "{done}/{total} done",
+  "@actionItemsPanelProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "actionItemsPanelEmpty": "No action items yet. Turn on \"Structured action items\" in Settings → AI summary so the next summary fills them in, or add your own below.",
+  "actionItemsPanelAddTask": "Add task",
+  "actionItemsPanelCopy": "Copy",
+  "actionItemsPanelExportCsv": "Export CSV",
+  "actionItemsPanelShareCsv": "Share CSV",
+  "actionItemsPanelExportIcs": "Export .ics",
+  "actionItemsPanelShareIcs": "Share .ics",
+  "actionItemsPanelMarkDone": "Mark \"{task}\" as done",
+  "@actionItemsPanelMarkDone": {
+    "placeholders": {
+      "task": {
+        "type": "String"
+      }
+    }
+  },
+  "actionItemsPanelTaskLabel": "Task",
+  "actionItemsPanelRemoveTask": "Remove task",
+  "actionItemsPanelOwnerLabel": "Owner",
+  "actionItemsPanelDueLabel": "Due",
+  "actionItemsPanelStatusLabel": "Status",
+  "diagnosticsScreenSaveDialogTitle": "Save diagnostic log",
+  "diagnosticsScreenSaved": "Diagnostic log saved: {path}",
+  "@diagnosticsScreenSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "diagnosticsScreenSaveFailed": "Couldn't save the diagnostic log: {error}",
+  "@diagnosticsScreenSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "diagnosticsScreenTitle": "Diagnostics",
+  "diagnosticsScreenRecheck": "Check again",
+  "diagnosticsScreenIntro": "These checks run entirely on your computer and send nothing to the internet.",
+  "diagnosticsScreenRunFailedTitle": "The checks could not run",
+  "diagnosticsScreenRunFailedRemediation": "The transcription engine may not have loaded. Quit and reopen the app; if it still fails, reinstall Trareon.",
+  "diagnosticsScreenNoChecksTitle": "No checks ran",
+  "diagnosticsScreenNoChecksMessage": "The engine returned no results.",
+  "diagnosticsScreenHasFailures": "There are problems to fix before recording.",
+  "diagnosticsScreenHasWarnings": "The app is usable, but some things are worth checking.",
+  "diagnosticsScreenAllGood": "All set. The app is ready to record.",
+  "diagnosticsScreenSeverityOk": "OK",
+  "diagnosticsScreenSeverityWarn": "Needs attention",
+  "diagnosticsScreenSeverityFail": "Failed",
+  "diagnosticsScreenExportTitle": "Diagnostic log",
+  "diagnosticsScreenExportBody": "One .zip file with the log files and the check results above. It does not contain your transcripts, audio, or meeting file names.",
+  "diagnosticsScreenExportBodyCount": "One .zip file with the log files ({count}) and the check results above. It does not contain your transcripts, audio, or meeting file names.",
+  "@diagnosticsScreenExportBodyCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diagnosticsScreenExport": "Export",
+  "llmSetupWizardScreenTitle": "Set up AI model",
+  "llmSetupWizardScreenNotDetected": "Ollama was not detected on this device.",
+  "llmSetupWizardScreenInstallOn": "Install Ollama on {system}",
+  "@llmSetupWizardScreenInstallOn": {
+    "placeholders": {
+      "system": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenOpenLink": "Open {url}",
+  "@llmSetupWizardScreenOpenLink": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenInstalledRecheck": "Installed, check again",
+  "llmSetupWizardScreenHardware": "This device: {ram} GB RAM, {threads} CPU threads.",
+  "@llmSetupWizardScreenHardware": {
+    "placeholders": {
+      "ram": {
+        "type": "String"
+      },
+      "threads": {
+        "type": "int"
+      }
+    }
+  },
+  "llmSetupWizardScreenHardwareWithVram": "This device: {ram} GB RAM, {threads} CPU threads, {vram} GB VRAM.",
+  "@llmSetupWizardScreenHardwareWithVram": {
+    "placeholders": {
+      "ram": {
+        "type": "String"
+      },
+      "threads": {
+        "type": "int"
+      },
+      "vram": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenBelowMinimum": "This device is below the recommended minimum; the lightest model is still offered as a best effort.",
+  "llmSetupWizardScreenChooseModel": "Choose a model",
+  "llmSetupWizardScreenDownload": "Download {model}",
+  "@llmSetupWizardScreenDownload": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDownloading": "Downloading {model}…",
+  "@llmSetupWizardScreenDownloading": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDownloadingShort": "Downloading",
+  "llmSetupWizardScreenPreparing": "Preparing download…",
+  "llmSetupWizardScreenReady": "Model ready",
+  "llmSetupWizardScreenReadyBody": "{model} is downloaded and set as the AI summary model.",
+  "@llmSetupWizardScreenReadyBody": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenDone": "Done",
+  "llmSetupWizardScreenReadyToast": "AI model ready: {model}",
+  "@llmSetupWizardScreenReadyToast": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenModelMeta": "{tag} · {size} GB download · {context} context",
+  "@llmSetupWizardScreenModelMeta": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      },
+      "context": {
+        "type": "int"
+      }
+    }
+  },
+  "llmSetupWizardScreenError": "Something went wrong: {error}",
+  "@llmSetupWizardScreenError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "llmSetupWizardScreenRetry": "Try again",
+  "capabilitiesScreenTitle": "What runs where",
+  "capabilitiesScreenLoadFailed": "Couldn't read the capability list: {error}",
+  "@capabilitiesScreenLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilitiesScreenRunsLocal": "Local",
+  "capabilitiesScreenRunsEndpoint": "Your endpoint",
+  "capabilitiesScreenRunsInternet": "Internet",
+  "capabilitiesScreenLocalCount": "{local} of {total} capabilities run entirely on this computer.",
+  "@capabilitiesScreenLocalCount": {
+    "placeholders": {
+      "local": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "capabilitiesScreenNetworked": "{count, plural, =0{No capability uses the network.} =1{1 capability can use the network ({active} on right now). Recording, transcription, and export are not among them; they never use the network.} other{{count} capabilities can use the network; {active} of them are on right now. Recording, transcription, and export are not among them; they never use the network.}}",
+  "@capabilitiesScreenNetworked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
+    }
+  },
+  "capabilitiesScreenSourceNote": "This list comes from the same source as the privacy test in rust_core/src/privacy.rs: a row that claims \"Local\" while its module touches the network fails the build.",
+  "capabilitiesScreenRowSemantics": "{name}. {runsAt}. {status}.",
+  "@capabilitiesScreenRowSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "runsAt": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilitiesScreenActive": "On",
+  "capabilitiesScreenInactive": "Off",
+  "capabilitiesScreenRunsAt": "Runs at: ",
+  "capabilitiesScreenCode": "Code: rust_core/src/{module}",
+  "@capabilitiesScreenCode": {
+    "placeholders": {
+      "module": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatScreenTitle": "Ask the meeting archive",
+  "archiveChatScreenClear": "Clear",
+  "archiveChatScreenEmpty": "{count, plural, =0{No meetings in the library yet.} =1{Ask anything about your 1 saved meeting.} other{Ask anything about your {count} saved meetings.}}",
+  "@archiveChatScreenEmpty": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveChatScreenExplain": "\"Search\" runs entirely on this computer. \"Answer\" also sends the passages it finds to the summary endpoint you configured, and is logged in the Privacy Report.",
+  "archiveChatScreenExample1": "What was decided about the budget?",
+  "archiveChatScreenExample2": "Who is responsible for the financial report?",
+  "archiveChatScreenExample3": "When is the launch deadline?",
+  "archiveChatScreenSources": "Sources",
+  "archiveChatScreenSourceSummary": "{title} ({date}) · summary",
+  "@archiveChatScreenSourceSummary": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatScreenHint": "Ask something about your meetings…",
+  "archiveChatScreenSearch": "Search",
+  "archiveChatScreenAnswer": "Answer",
+  "redactionPreviewTitle": "Redaction preview",
+  "redactionPreviewClose": "Close",
+  "redactionPreviewFailed": "Preview failed: {error}",
+  "@redactionPreviewFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewNoneFound": "No personal data detected. The exported file will match the transcript exactly.",
+  "redactionPreviewNothing": "Nothing will be redacted.",
+  "redactionPreviewSummaryPart": "{kind} ({count})",
+  "@redactionPreviewSummaryPart": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewSummary": "Will be redacted: {parts}.",
+  "@redactionPreviewSummary": {
+    "placeholders": {
+      "parts": {
+        "type": "String"
+      }
+    }
+  },
+  "redactionPreviewKindPhone": "Phone number",
+  "redactionPreviewKindEmail": "Email address",
+  "redactionPreviewKindBankAccount": "Bank account number",
+  "redactionPreviewKindName": "Name",
+  "liveQaPanelTitle": "Live Q&A",
+  "liveQaPanelHint": "Ask something about this meeting…",
+  "liveQaPanelAsk": "Ask",
+  "liveQaPanelEmpty": "Ask about anything discussed in this meeting so far.",
+  "liveQaPanelPrivacy": "Answers go through the summary endpoint you set in Settings → AI summary, and are logged in the Privacy Report.",
+  "liveQaPanelSources": "Transcript sources",
+  "recordButtonSaving": "Saving…",
+  "recordButtonResume": "Resume",
+  "recordButtonStop": "Stop",
+  "recordButtonStart": "Record",
+  "recordButtonResumeSemantics": "Resume recording",
+  "recordButtonStopSemantics": "Stop recording",
+  "recordButtonStartSemantics": "Start recording",
+  "appDialogClose": "Close",
+  "appDialogBarrierLabel": "Close dialog",
+  "appDialogContinue": "Continue",
+  "trayServiceOpen": "Open Trareon Transcribe",
+  "trayServiceQuit": "Quit",
+  "personalNotesPanelTitle": "Personal notes",
+  "personalNotesPanelSubtitle": "Saved automatically. Enhance merges it with the transcript later.",
+  "personalNotesPanelHint": "e.g. IMPORTANT: deadline Friday…",
+  "qualityProfileReasonManual": "Set manually",
+  "qualityProfileReasonUnmeasured": "Not measured yet, so conservative settings are used",
+  "qualityProfileReasonClean": "Quiet room, so noise reduction and AGC are off to avoid losing words",
+  "qualityProfileReasonLightNoiseGain": "Light noise, so only the level is raised",
+  "qualityProfileReasonLightNoiseNoGain": "Light noise and the level is fine, so no gain is applied",
+  "qualityProfileReasonNoisy": "Heavy noise, so noise reduction is on",
+  "notulenGenerationLengthShort": "Brief",
+  "notulenGenerationLengthMedium": "Standard",
+  "notulenGenerationLengthFull": "Detailed",
+  "liveQaModelNeedsEndpoint": "Live Q&A needs a summary endpoint set up in Settings → AI summary.",
+  "privacyReportModelEventModelDownload": "Downloaded model \"{modelId}\" from huggingface.co",
+  "@privacyReportModelEventModelDownload": {
+    "placeholders": {
+      "modelId": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventSummary": "AI summary sent to {endpoint}",
+  "@privacyReportModelEventSummary": {
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventArchiveQuestion": "Archive question sent to {endpoint} ({passageCount, plural, =1{1 meeting excerpt} other{{passageCount} meeting excerpts}})",
+  "@privacyReportModelEventArchiveQuestion": {
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      },
+      "passageCount": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportModelEventLiveQaQuestion": "Live Q&A question sent to {endpoint} ({passageCount, plural, =1{1 transcript excerpt} other{{passageCount} transcript excerpts}})",
+  "@privacyReportModelEventLiveQaQuestion": {
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      },
+      "passageCount": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportModelEventUpdateCheck": "Checked for updates at {endpoint}",
+  "@privacyReportModelEventUpdateCheck": {
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventExternalLink": "Opened {url} in the browser",
+  "@privacyReportModelEventExternalLink": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "speechTimelineSemanticLabel": "Recording timeline",
+  "speechTimelinePercent": "{percent} percent",
+  "@speechTimelinePercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "audioWatchdogModelMicSilent": "The microphone has no permission or is sending no sound at all. Check the Microphone permission in System Settings.",
+  "audioWatchdogModelSystemAudioSilent": "No system audio detected at all. Check the \"Screen & System Audio Recording\" permission in System Settings.",
+  "audioWatchdogModelBothSilent": "Neither the microphone nor system audio has permission. Check Microphone and \"Screen & System Audio Recording\" in System Settings.",
+  "audioWatchdogModelNoSound": "No sound detected yet. Check the Microphone and \"Screen & System Audio Recording\" permissions in System Settings, or make sure the right audio source is selected.",
+  "modelDownloadDialogDownloading": "Downloading…",
+  "modelDownloadDialogDownloadingName": "Downloading {name}…",
+  "@modelDownloadDialogDownloadingName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogDownloadingProgress": "Downloading {name}… {percent}%",
+  "@modelDownloadDialogDownloadingProgress": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "modelDownloadDialogFailed": "Download failed: {error}",
+  "@modelDownloadDialogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogTitle": "Download {name}",
+  "@modelDownloadDialogTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogPrompt": "{name} hasn't been downloaded yet. Download it now?",
+  "@modelDownloadDialogPrompt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogDownload": "Download",
+  "retranscribeDialogEngineFailed": "Re-transcription failed: {error}. The previous transcript is kept.",
+  "@retranscribeDialogEngineFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "retranscribeDialogNoSpeech": "No speech detected. The previous transcript is kept.",
+  "retranscribeDialogFailed": "Re-transcription failed (the previous transcript is safe): {error}",
+  "@retranscribeDialogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "retranscribeDialogTitle": "Re-transcribe",
+  "retranscribeDialogDescription": "The original audio will be transcribed again. The old transcript is replaced only if this succeeds.",
+  "retranscribeDialogModelLabel": "Model quality",
+  "retranscribeDialogLanguageLabel": "Language",
+  "retranscribeDialogAutoDetect": "Auto-detect",
+  "retranscribeDialogIndonesian": "Indonesian",
+  "retranscribeDialogNoModels": "No models installed.",
+  "retranscribeDialogProcessing": "Processing… this can take a while for long recordings.",
+  "retranscribeDialogStart": "Start",
+  "auditLogViewTitle": "Audit log",
+  "auditLogViewClose": "Close",
+  "auditLogViewReadError": "The audit log can't be read: {error}",
+  "@auditLogViewReadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "auditLogViewEmpty": "No entries yet. The log fills in when a session is created, a transcript is exported, or data is deleted.",
+  "auditLogViewActionSessionCreated": "Session created",
+  "auditLogViewActionSessionExported": "Transcript exported",
+  "auditLogViewActionSummarySent": "Summary sent to endpoint",
+  "auditLogViewActionSessionDeleted": "Session deleted",
+  "auditLogViewActionAudioDeleted": "Audio deleted",
+  "auditLogViewActionTranscriptDeleted": "Transcript deleted",
+  "auditLogViewActionConsentAcknowledged": "Recording notice given",
+  "auditLogViewActionRedactionApplied": "Personal data redacted",
+  "auditLogViewActionRetentionApplied": "Retention policy applied",
+  "auditLogViewActionAuditExported": "Audit log exported",
+  "auditLogViewActionModelPulled": "Minutes model downloaded",
+  "auditLogViewActionDocumentContextUsed": "Document context used",
+  "auditLogViewActionTranscriptEnhanced": "Transcript refined automatically",
+  "onboardingScreenWelcome": "Welcome to Trareon Transcribe",
+  "onboardingScreenReady": "Ready to record",
+  "onboardingScreenPostponed": "Download postponed",
+  "onboardingScreenNeedsDownload": "Models need to be downloaded",
+  "onboardingScreenDownloading": "Downloading models",
+  "onboardingScreenReadyBody": "Both models are on this device. Transcription runs fully offline.",
+  "onboardingScreenOfflineBody": "Trareon works 100% offline, so the models need to be on your device. This happens only once.",
+  "onboardingScreenRetry": "Try again",
+  "onboardingScreenDownloadNow": "Download now",
+  "onboardingScreenContinueWithoutModels": "Continue without models",
+  "onboardingScreenStartRecording": "Start recording",
+  "onboardingScreenAwaitingConsent": "Waiting for download permission",
+  "onboardingScreenDownloadingButton": "Downloading…",
+  "onboardingScreenFooterReady": "The models are never sent anywhere.",
+  "onboardingScreenFooterPostponed": "Nothing was downloaded. Without models, recordings can't be transcribed yet. You'll be asked again when you start recording.",
+  "onboardingScreenFooterWaiting": "Nothing is downloaded until you agree.",
+  "onboardingScreenFooterDownloading": "You can close the app. The download continues in the background.",
+  "onboardingScreenStepPermissions": "Microphone & system audio permission",
+  "onboardingScreenStepModel": "Choose models",
+  "onboardingScreenStepReady": "Ready to record",
+  "onboardingScreenStepSemantics": "Step {step} of {total}: {label}",
+  "@onboardingScreenStepSemantics": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingScreenQuickModelTitle": "Fast model",
+  "onboardingScreenQuickModelSubtitle": "Fast transcription, best accuracy for Indonesian",
+  "onboardingScreenAccurateModelTitle": "Accurate model",
+  "onboardingScreenAccurateModelSubtitle": "Refines the transcript in the background, best accuracy across languages",
+  "sessionModelSaveFailed": "The session stopped, but the transcript couldn't be saved to {outputDir}: {error}",
+  "@sessionModelSaveFailed": {
+    "placeholders": {
+      "outputDir": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModelSaveFailed": "The \"{label}\" setting couldn't be saved: {message}. The change was reverted.",
+  "@settingsModelSaveFailed": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModelLabelTheme": "Theme",
+  "settingsModelLabelProgressive": "Fast first, then refined",
+  "settingsModelLabelGpu": "GPU acceleration",
+  "settingsModelLabelGpuDevice": "GPU device",
+  "settingsModelLabelBenchmark": "Benchmark score",
+  "settingsModelLabelHptMode": "Progressive transcription method",
+  "settingsModelLabelSummary": "AI summary",
+  "settingsModelLabelGlossary": "Glossary",
+  "settingsModelLabelNeuralDiarization": "Accurate speaker separation",
+  "settingsModelLabelEngineModels": "Engine models",
+  "settingsModelLabelPdp": "PDP compliance mode",
+  "settingsModelLabelSummaryTemplates": "Summary templates",
+  "settingsModelLabelNotulenLetterhead": "Minutes letterhead",
+  "settingsModelLabelAutoRetranscribe": "Refine transcripts automatically",
+  "settingsModelLabelDefaultModel": "Default model",
+  "settingsModelLabelLanguage": "Transcription language",
+  "settingsModelLabelDefaultMode": "Default mode",
+  "settingsModelLabelVad": "Skip silent pauses",
+  "settingsModelLabelNoiseReduction": "Noise reduction",
+  "settingsModelLabelAgc": "Automatic gain",
+  "settingsModelLabelAutoAudioTuning": "Automatic audio tuning",
+  "settingsModelLabelSimpleMode": "Simple mode",
+  "settingsModelLabelDeferDownloads": "Postpone downloads",
+  "settingsModelLabelUpgradeOffer": "Accuracy upgrade offer",
+  "settingsModelLabelConsentReminder": "Recording consent reminder",
+  "settingsModelLabelAutoStop": "Auto-stop on silence",
+  "settingsModelLabelExportFormat": "Default export format",
+  "settingsModelLabelOutputFolder": "Output folder",
+  "settingsModelLabelMicrophone": "Microphone",
+  "settingsModelLabelSpeaker": "Speaker",
+  "sessionControlsSessionGroup": "Session",
+  "sessionControlsTitlePlaceholder": "Session title…",
+  "sessionControlsModeSemantics": "Session mode",
+  "sessionControlsAttendees": "Attendees:",
+  "sessionControlsModeOfflineSemantics": "In-person meeting mode: microphone only",
+  "sessionControlsModeOnlineSemantics": "Online meeting mode: microphone and system audio",
+  "sessionControlsModeWebinarSemantics": "Webinar mode: system audio only",
+  "sessionControlsModeOfflineExplanation": "A meeting in one room. Only the microphone is recorded.",
+  "sessionControlsModeOnlineExplanation": "Zoom, Meet or Teams. Microphone and system audio.",
+  "sessionControlsModeWebinarExplanation": "You're only listening. System audio only.",
+  "sessionControlsGlossaryTooltip": "Terms for this meeting only, on top of the {globalCount} glossary terms in Settings",
+  "@sessionControlsGlossaryTooltip": {
+    "placeholders": {
+      "globalCount": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossarySemanticsEmpty": "Meeting terms, none yet",
+  "sessionControlsGlossarySemanticsCount": "Meeting terms, {count, plural, =1{1 term} other{{count} terms}}",
+  "@sessionControlsGlossarySemanticsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossaryPill": "Meeting terms",
+  "sessionControlsGlossaryPillCount": "Meeting terms ({count})",
+  "@sessionControlsGlossaryPillCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossaryDialogTitle": "Terms for this meeting",
+  "sessionControlsGlossaryDialogDescription": "One term per line: attendee names, abbreviations, program names. These take priority over the glossary in Settings.",
+  "sessionControlsOptionsTooltip": "Session options",
+  "sessionControlsQualityHeader": "Transcription quality",
+  "sessionControlsSkipSilence": "Skip silent pauses",
+  "sessionControlsLanguageHeader": "Language for this meeting",
+  "sessionControlsLanguageAuto": "Automatic (detect per sentence)",
+  "sessionControlsLanguageIndonesian": "Indonesian",
+  "sessionControlsLanguageEnglish": "English",
+  "sessionControlsLanguageMismatch": "Many recent sentences were detected in a language other than the one chosen for this session.",
+  "sessionControlsSwitchToAuto": "Switch to automatic",
+  "sessionControlsConsentReminder": "Make sure everyone in the meeting knows it is being recorded.",
+  "sessionControlsDontShowAgain": "Don't show again",
+  "sessionControlsMicrophone": "Microphone",
+  "sessionControlsSystemAudio": "System audio",
+  "sessionControlsDevicesGroup": "Devices",
+  "sessionControlsSystemDefault": "System default",
+  "sessionControlsDeviceOn": "{label} on",
+  "@sessionControlsDeviceOn": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsDeviceOff": "{label} off",
+  "@sessionControlsDeviceOff": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsChooseDevice": "Choose {label} device",
+  "@sessionControlsChooseDevice": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsDeviceAuto": "Automatic (system default)",
+  "sessionControlsReloadDevices": "Reload {label} device list",
+  "@sessionControlsReloadDevices": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsLevel": "{label} level",
+  "@sessionControlsLevel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenQuitReasonRecording": "A recording is still running.",
+  "mainScreenQuitReasonOutstanding": "{count, plural, =1{1 recording is still being transcribed. This resumes automatically when the app opens again.} other{{count} recordings are still being transcribed. This resumes automatically when the app opens again.}}",
+  "@mainScreenQuitReasonOutstanding": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenQuitReasonRefining": "A transcript is still being refined.",
+  "mainScreenQuitTitle": "Quit now?",
+  "mainScreenQuitStay": "Stay in the app",
+  "mainScreenQuit": "Quit",
+  "mainScreenMeetingDetectedTitle": "Meeting detected",
+  "mainScreenMeetingDetectedBody": "A meeting was detected ({app}). Start recording?",
+  "@mainScreenMeetingDetectedBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenIgnore": "Ignore",
+  "mainScreenStartRecording": "Start recording",
+  "mainScreenSilenceTitle": "No sound",
+  "mainScreenSilenceBody": "No sound for {minutes, plural, =1{1 minute} other{{minutes} minutes}}. Recording will stop automatically unless you continue.",
+  "@mainScreenSilenceBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenContinue": "Continue",
+  "mainScreenDiskFull": "There isn't enough disk space at {path} to record. {detail} Free up space or change the library location in Settings.",
+  "@mainScreenDiskFull": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSaveElsewhereDialogTitle": "Save transcript to another folder",
+  "mainScreenTranscriptSaved": "Transcript saved.",
+  "mainScreenSaveFailed": "Save failed: {error}",
+  "@mainScreenSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoverFailed": "Couldn't recover the session: {error}",
+  "@mainScreenRecoverFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecovered": "\"{title}\" recovered: {segments, plural, =1{1 segment} other{{segments} segments}} and {duration} of audio.",
+  "@mainScreenRecovered": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "segments": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDeleteFailed": "Couldn't delete: {error}",
+  "@mainScreenDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDeleted": "\"{title}\" deleted.",
+  "@mainScreenDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryCount": "{count, plural, =1{1 interrupted session} other{{count} interrupted sessions}}",
+  "@mainScreenRecoveryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenRecoverySegments": "{count, plural, =1{1 transcript segment} other{{count} transcript segments}}",
+  "@mainScreenRecoverySegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenRecoveryAudio": "{duration} of audio",
+  "@mainScreenRecoveryAudio": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryJoiner": " and ",
+  "mainScreenRecoveryNothingLeft": "{count}, with no transcript or audio left.",
+  "@mainScreenRecoveryNothingLeft": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryContents": "{count}: {contents} can be recovered.",
+  "@mainScreenRecoveryContents": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "contents": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenStopTitle": "Stop recording?",
+  "mainScreenStopBody": "This session has {count, plural, =1{1 transcript segment} other{{count} transcript segments}}. It will be saved automatically when you stop.",
+  "@mainScreenStopBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenStop": "Stop",
+  "mainScreenStopFailed": "Couldn't stop the session: {error}",
+  "@mainScreenStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSessionSaved": "Session saved ({count, plural, =1{1 segment} other{{count} segments}}).",
+  "@mainScreenSessionSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenNothingToBookmark": "Nothing has been recorded to mark yet.",
+  "mainScreenBookmarked": "Marked at {time}.",
+  "@mainScreenBookmarked": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenModelMissingTitle": "Model not downloaded",
+  "mainScreenModelMissingMessage": "Recording needs {model} on this device. Download it now{size}? The download is logged in the Privacy Report.",
+  "@mainScreenModelMissingMessage": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDownloadNow": "Download now",
+  "mainScreenLater": "Later",
+  "mainScreenNothingToExport": "There is no transcript to export.",
+  "mainScreenChooseExportFolder": "Choose export folder",
+  "mainScreenExportSucceeded": "Exported to: {dir}",
+  "@mainScreenExportSucceeded": {
+    "placeholders": {
+      "dir": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenExportFailed": "Export failed: {error}",
+  "@mainScreenExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenCannotOpen": "\"{title}\" can't be opened.",
+  "@mainScreenCannotOpen": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenOpenSystemSettings": "Open System Settings",
+  "mainScreenStarting": "Starting…",
+  "mainScreenSaving": "Saving…",
+  "mainScreenSwitchPanel": "Switch panel",
+  "mainScreenPersonalNotes": "Personal notes",
+  "mainScreenLiveQa": "Live Q&A",
+  "mainScreenReady": "Ready to record",
+  "mainScreenLocalOnly": "All transcription runs on this computer. No audio leaves it.",
+  "mainScreenTitlePlaceholder": "Session title…",
+  "mainScreenStartFromTemplate": "Start from a template",
+  "mainScreenImportInvite": "Import invite (.ics)",
+  "mainScreenOrPress": "or press",
+  "mainScreenSessionHistory": "Session history",
+  "mainScreenRecordingDuration": "Recording duration",
+  "mainScreenPaused": "Paused",
+  "mainScreenBookmarkTooltip": "Mark an important point ({shortcut})",
+  "@mainScreenBookmarkTooltip": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenExport": "Export",
+  "mainScreenSaveFailedBanner": "{message} The transcript is still in memory. Don't close the app until it's saved.",
+  "@mainScreenSaveFailedBanner": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSaveElsewhere": "Save to another folder",
+  "mainScreenRetry": "Try again",
+  "mainScreenViewAndRecover": "View & recover",
+  "mainScreenSegmentCount": "{count, plural, =1{1 segment} other{{count} segments}}",
+  "@mainScreenSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenShowShortcuts": "Show keyboard shortcuts",
+  "mainScreenShortcuts": "Shortcuts",
+  "mainScreenKeyboardShortcuts": "Keyboard shortcuts",
+  "mainScreenClose": "Close",
+  "setupWizardScreenStepOf": "Step {step} of {total}",
+  "@setupWizardScreenStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "setupWizardScreenBack": "Back",
+  "setupWizardScreenClose": "Close",
+  "setupWizardScreenFinish": "Finish",
+  "setupWizardScreenNext": "Next",
+  "setupWizardScreenSpecTitle": "1. Detect specs",
+  "setupWizardScreenSpecReady": "Your system is ready! A model is recommended based on its specs.",
+  "setupWizardScreenSpecChecking": "Checking your system…",
+  "setupWizardScreenSpecCpu": "CPU cores",
+  "setupWizardScreenSpecCores": "{cores} cores",
+  "@setupWizardScreenSpecCores": {
+    "placeholders": {
+      "cores": {
+        "type": "String"
+      }
+    }
+  },
+  "setupWizardScreenSpecRamEstimate": "RAM (estimated)",
+  "setupWizardScreenSpecRam": "RAM",
+  "setupWizardScreenSpecUnknown": "unknown",
+  "setupWizardScreenSpecSuggestedModel": "Suggested model",
+  "setupWizardScreenModelFastLabel": "⚡ Fast",
+  "setupWizardScreenModelFastDescription": "142 MB · included with the app\nTranscripts appear quickly. Good for lighter computers and everyday notes.",
+  "setupWizardScreenModelFastExperimentalLabel": "🧪 Fast (experimental)",
+  "setupWizardScreenModelFastExperimentalDescription": "631 MB · one-time download\nAs accurate as the \"Accurate\" model but as quick as \"Fast\" (Qwen3-ASR). New, and not yet tested as thoroughly as the others.",
+  "setupWizardScreenModelBalancedLabel": "⚖️ Balanced",
+  "setupWizardScreenModelBalancedDescription": "488 MB · one-time download\nMore precise than the fast model without the weight of the accurate one. A middle option for computers with moderate RAM.",
+  "setupWizardScreenModelAccurateLabel": "🎯 Accurate",
+  "setupWizardScreenModelAccurateDescription": "548 MB · one-time download\nMore precise for meetings and interviews, but much slower on computers without a GPU.",
+  "setupWizardScreenModelAccurateExperimentalLabel": "🧪 Accurate (experimental)",
+  "setupWizardScreenModelAccurateExperimentalDescription": "1.5 GB · one-time download\nThe most precise model available (Qwen3-ASR). New, and not yet tested as thoroughly as the others.",
+  "setupWizardScreenModelTitle": "2. Choose a model",
+  "setupWizardScreenModelDescription": "Choose the speech-to-text model that suits you.",
+  "setupWizardScreenModelAutoLabel": "🤖 Automatic (recommended)",
+  "setupWizardScreenModelAutoDescription": "Picked automatically to suit this computer's specs.",
+  "setupWizardScreenLoopbackVirtualDriverFound": "Virtual audio driver detected",
+  "setupWizardScreenLoopbackSystemAudioReady": "System audio is ready to record",
+  "setupWizardScreenLoopbackVirtualDriverMissing": "No virtual audio driver installed",
+  "setupWizardScreenLoopbackNoOutputDevice": "No output device available to record",
+  "setupWizardScreenLoopbackReadyMacos": "Audio from Zoom/Meet can be recorded through the virtual device above.",
+  "setupWizardScreenLoopbackReadyLinux": "Trareon records system audio through a PipeWire/PulseAudio monitor sink. Nothing to install.",
+  "setupWizardScreenLoopbackReadyWindows": "Trareon records system audio through WASAPI loopback. Nothing to install.",
+  "setupWizardScreenLoopbackMissingMacos": "To record audio from Zoom/Meet on macOS, install BlackHole 2ch.",
+  "setupWizardScreenLoopbackMissingLinux": "Choose an output device above. If the list is empty, make sure PipeWire or PulseAudio is running.",
+  "setupWizardScreenLoopbackMissingWindows": "Choose an output device above. If the list is empty, make sure a playback device is enabled in Windows.",
+  "setupWizardScreenLoopbackGuideMacos": "1. brew install blackhole-2ch\n2. Open Audio MIDI Setup\n3. Create a Multi-Output Device\n4. Tick your Mac speakers + BlackHole 2ch",
+  "setupWizardScreenLoopbackGuideLinux": "1. Make sure PipeWire or PulseAudio is running\n2. Run: pactl list short sources\n3. Choose the source ending in .monitor in the list above",
+  "setupWizardScreenLoopbackGuideWindows": "1. Open Windows Sound settings\n2. Make sure an output device is enabled\n3. Choose that device in the list above",
+  "setupWizardScreenAudioTitle": "3. Set up audio",
+  "setupWizardScreenAudioDescription": "Choose your microphone and speakers.",
+  "setupWizardScreenMicLabel": "Microphone (input)",
+  "setupWizardScreenSpeakerLabel": "Speakers / system audio (output)",
+  "setupWizardScreenGuide": "Guide",
+  "setupWizardScreenSystemDefault": "System default",
+  "setupWizardScreenRemediationMacos": "Open System Settings → Sound, turn the volume up, and make sure the right output device is selected.",
+  "setupWizardScreenRemediationLinux": "Check the volume in pavucontrol or your desktop's sound settings, then make sure the right output device is selected.",
+  "setupWizardScreenRemediationWindows": "Open Windows Sound settings, turn the volume up, and make sure the right output device is selected.",
+  "setupWizardScreenToneTitle": "4. Test sound",
+  "setupWizardScreenToneDescription": "Play a 440 Hz tone to check that your speakers work.",
+  "setupWizardScreenToneQuestion": "Did you hear the tone?",
+  "setupWizardScreenToneHeard": "Yes, I heard it",
+  "setupWizardScreenToneNotHeard": "No, I didn't",
+  "setupWizardScreenToneWorksTitle": "Speakers are working",
+  "setupWizardScreenToneWorksBody": "The microphone test runs when a session starts.",
+  "setupWizardScreenToneNotHeardTitle": "Tone not heard",
+  "setupWizardScreenTonePlaybackFailed": "The tone couldn't play",
+  "setupWizardScreenTonePlaying": "Playing…",
+  "setupWizardScreenTonePlay": "Play test tone",
+  "setupWizardScreenTonePlayAgain": "Play again",
+  "srikandiExportDialogSifatSangatSegera": "Top urgent (24 hours)",
+  "srikandiExportDialogSifatSegera": "Urgent (2x24 hours)",
+  "srikandiExportDialogSifatBiasa": "Routine",
+  "srikandiExportDialogKlasifikasiSangatRahasia": "Top secret",
+  "srikandiExportDialogKlasifikasiRahasia": "Secret",
+  "srikandiExportDialogKlasifikasiTerbatas": "Restricted",
+  "srikandiExportDialogKlasifikasiBiasa": "Unclassified",
+  "srikandiExportDialogTingkatAsli": "Original",
+  "srikandiExportDialogTingkatSalinan": "Copy",
+  "srikandiExportDialogTingkatTembusan": "Carbon copy",
+  "srikandiExportDialogTingkatPertinggal": "File copy",
+  "srikandiExportDialogPrefillFailed": "Could not prepare the metadata: {error}",
+  "@srikandiExportDialogPrefillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogMetadataIncomplete": "The metadata is incomplete. Check the \"Required\" findings above.",
+  "srikandiExportDialogPickFolder": "Choose a folder for the SRIKANDI export",
+  "srikandiExportDialogExported": "{count} SRIKANDI-ready files saved to {folder}",
+  "@srikandiExportDialogExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "folder": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogExportFailed": "Export failed: {error}",
+  "@srikandiExportDialogExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogTitle": "SRIKANDI-ready export",
+  "srikandiExportDialogExporting": "Exporting…",
+  "srikandiExportDialogExportButton": "Export (4 files)",
+  "srikandiExportDialogIntro": "The files are only prepared on this device. Uploading to SRIKANDI is still done by hand through your agency's interface (see docs/SRIKANDI-EXPORT.md).",
+  "srikandiExportDialogFieldNomor": "Document number",
+  "srikandiExportDialogFieldTanggal": "Date",
+  "srikandiExportDialogFieldJenisNaskah": "Document type",
+  "srikandiExportDialogFieldPerihal": "Subject",
+  "srikandiExportDialogFieldKodeKlasifikasiArsip": "Archive classification code",
+  "srikandiExportDialogFieldUnitPengolah": "Processing unit",
+  "srikandiExportDialogFieldPenandatanganNama": "Signatory name",
+  "srikandiExportDialogFieldPenandatanganJabatan": "Signatory position",
+  "srikandiExportDialogFieldJumlahLampiran": "Number of attachments",
+  "srikandiExportDialogFieldCatatan": "Notes",
+  "srikandiExportDialogNomorHint": "Ask your unit's administration office, e.g. B-125/TU.01/KP.03/10/2026",
+  "srikandiExportDialogKodeHint": "Ask your unit's archivist, e.g. UM.03.01",
+  "srikandiExportDialogGroupSifat": "Urgency",
+  "srikandiExportDialogGroupKlasifikasi": "Security classification",
+  "srikandiExportDialogGroupTingkat": "Document stage",
+  "srikandiExportDialogGroupChecks": "Metadata check",
+  "srikandiExportDialogWajib": "Required",
+  "srikandiExportDialogSaran": "Suggestion",
+  "sessionSidebarGroupToday": "Today",
+  "sessionSidebarGroupYesterday": "Yesterday",
+  "sessionSidebarGroupLast7Days": "Last 7 days",
+  "sessionSidebarGroupOlder": "Older",
+  "sessionSidebarNewSession": "New session",
+  "sessionSidebarSearchPlaceholder": "Search sessions…",
+  "sessionSidebarSearchSemanticLabel": "Search session history",
+  "sessionSidebarAllTags": "All",
+  "sessionSidebarImportFile": "Import file",
+  "sessionSidebarAskArchive": "Ask the meeting archive",
+  "sessionSidebarManageLibrary": "Manage library",
+  "sessionSidebarSettings": "Settings",
+  "sessionSidebarHideSidebar": "Hide sidebar ({shortcut})",
+  "@sessionSidebarHideSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarShowSidebar": "Show sidebar ({shortcut})",
+  "@sessionSidebarShowSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarNewSessionTooltip": "New session",
+  "sessionSidebarHistoryTooltip": "Session history",
+  "sessionSidebarRecording": "Recording",
+  "sessionSidebarSegments": "{count} segments",
+  "@sessionSidebarSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSidebarFinishing": "Finishing {source}",
+  "@sessionSidebarFinishing": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribeQueued": "Waiting in the queue to be re-transcribed.",
+  "sessionSidebarRetranscribingStage": "Re-transcribing: {stage}",
+  "@sessionSidebarRetranscribingStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribing": "Re-transcribing",
+  "sessionSidebarHasSummary": "Has summary",
+  "sessionSidebarFolderUnreadable": "Can't read the sessions folder",
+  "sessionSidebarNoMatchTitle": "No matches",
+  "sessionSidebarNoMatchMessage": "Try another keyword or clear the tag filter.",
+  "sessionSidebarEmptyTitle": "No sessions yet",
+  "sessionSidebarEmptyMessage": "Recorded meetings appear here.",
+  "engineAssetsSectionVadTitle": "Neural voice gate (Silero)",
+  "engineAssetsSectionVadSubtitle": "Decides which parts of a recording contain human speech. Without it Trareon uses a simple energy detector, which sometimes lets room noise through, and Whisper answers noise with made-up sentences. 0.9 MB.",
+  "engineAssetsSectionSegmentationTitle": "Speaker segmentation (pyannote 3.0)",
+  "engineAssetsSectionSegmentationSubtitle": "Works out who spoke when. 6 MB.",
+  "engineAssetsSectionEmbeddingTitle": "Speaker voiceprint (CAM++)",
+  "engineAssetsSectionEmbeddingSubtitle": "Recognises the same voice across different parts of a recording. 28 MB.",
+  "engineAssetsSectionInstalledToast": "{name} installed.",
+  "@engineAssetsSectionInstalledToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionTitle": "Speech engine",
+  "engineAssetsSectionDiarizationLabel": "Accurate speaker separation",
+  "engineAssetsSectionDownloadFailed": "Download failed: {error}",
+  "@engineAssetsSectionDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDiarizationOff": "Off. Uses simple acoustic clustering, which is enough for two-source meetings (microphone = you, system = participants) but often splits one voice into several speakers in imported files.",
+  "engineAssetsSectionDiarizationIncomplete": "On, but its models haven't finished downloading. Simple acoustic clustering is used in the meantime.",
+  "engineAssetsSectionDiarizationReady": "pyannote segmentation + CAM++ voiceprints, entirely on this computer. Used for file imports, re-transcription and the finishing pass after Stop (not the live preview).",
+  "engineAssetsSectionDownloadingPercent": "Downloading… {percent}%",
+  "@engineAssetsSectionDownloadingPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionChecking": "Checking…",
+  "engineAssetsSectionInstalled": "Installed. {description}",
+  "@engineAssetsSectionInstalled": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionNotDownloaded": "Not downloaded. {description}",
+  "@engineAssetsSectionNotDownloaded": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDownloading": "Downloading…",
+  "engineAssetsSectionDownload": "Download",
+  "privacyReportScreenTitle": "Privacy Report",
+  "privacyReportScreenNetworkCalls": "{count} network calls since the app opened",
+  "@privacyReportScreenNetworkCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenSessionRunning": "Session running for {duration}",
+  "@privacyReportScreenSessionRunning": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportScreenNoActivity": "No network activity recorded yet.",
+  "privacyReportScreenHistory": "Activity log:",
+  "privacyReportScreenExplanation": "Trareon Transcribe makes no network calls at all while transcribing, whether recording live or importing a file. Audio never leaves this device.\n\nThere are four legitimate kinds of network activity, and you start all of them yourself:\n1. Whisper model download: from huggingface.co, only when you choose a model that isn't on this device yet.\n2. AI summary: sends the transcript text (not the audio) to an endpoint you set yourself. This feature is off by default and points to Ollama on this computer (localhost) by default, so even the default never leaves the device.\n3. Update check: fetches a single version file from raw.githubusercontent.com when you press \"Check for updates\". Nothing is downloaded or run automatically.\n4. \"View release\": opens the releases page in your browser.\n\nAll four are recorded in the log above, along with where they went. Every place in the code that can start one of them must record itself first, and this is tested automatically (test/privacy_proof_test.dart).",
+  "privacyReportScreenDurationHours": "{hours}h {minutes}m",
+  "@privacyReportScreenDurationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationMinutes": "{minutes}m {seconds}s",
+  "@privacyReportScreenDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationSeconds": "{seconds}s",
+  "@privacyReportScreenDurationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkBarAddTooltip": "Mark an important point at the current position ({shortcut})",
+  "@bookmarkBarAddTooltip": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogTitle": "Recover an interrupted session",
+  "recoveryDialogIntro": "{count, plural, =1{One session stopped without being saved. Here is what it contains:} other{{count} sessions stopped without being saved. Here is what they contain:}}",
+  "@recoveryDialogIntro": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogLater": "Not now",
+  "recoveryDialogSegments": "{count} transcript segments",
+  "@recoveryDialogSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogEmptyTranscript": "empty transcript",
+  "recoveryDialogMic": "microphone {duration}",
+  "@recoveryDialogMic": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogSystemAudio": "system audio {duration}",
+  "@recoveryDialogSystemAudio": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogNoAudio": "no audio recorded",
+  "recoveryDialogAudio": "audio: {sources}",
+  "@recoveryDialogAudio": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogDiscard": "Delete",
+  "recoveryDialogRecoverTooltip": "Continue this session and record into the same file",
+  "recoveryDialogBusyTooltip": "Stop the session in progress first",
+  "recoveryDialogRecover": "Recover",
+  "calendarInviteImportPickTitle": "Import meeting invite (.ics)",
+  "calendarInviteImportReadFailed": "Couldn't read the invite: {error}",
+  "@calendarInviteImportReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNoEvents": "No events could be read from that file.",
+  "calendarInviteImportConfirmTitle": "Fill in from this invite?",
+  "calendarInviteImportNoTitle": "This invite has no title.",
+  "calendarInviteImportWillBeTitle": "\"{summary}\" will become the session title.",
+  "@calendarInviteImportWillBeTitle": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNo": "No",
+  "calendarInviteImportFillTitle": "Fill in title",
+  "calendarInviteImportAttendees": "Attendees on the invite: {attendees}",
+  "@calendarInviteImportAttendees": {
+    "placeholders": {
+      "attendees": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatModelNotFound": "Not found in the meeting archive.",
+  "archiveChatModelNeedsEndpoint": "Automatic answers need a summary endpoint set up in Settings → AI summary. Archive search still works without it.",
+  "updateCheckerBadStatus": "The server responded with code {code}. Try again later.",
+  "@updateCheckerBadStatus": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckerEmptyVersion": "The version file is empty. Try again later.",
+  "updateCheckerNoConnection": "Can't connect to the server. Check your internet connection.",
+  "updateCheckerBadResponse": "The server didn't respond correctly. Try again later.",
+  "updateCheckerTimeout": "The request timed out. Check your internet connection and try again.",
+  "updateCheckerInvalidData": "The data received was invalid. Try again later.",
+  "onboardingModelDownloadFailed": "Download failed: {error}",
+  "@onboardingModelDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFileUnsupported": "File sharing isn't supported on this platform. Path copied: {name}",
+  "@shareFileUnsupported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "preflightServiceTitleLibraryPath": "Storage folder",
+  "preflightServicePurposeLibraryPath": "Where recordings and transcripts are saved.",
+  "preflightServiceTitleModel": "Transcription model",
+  "preflightServicePurposeModel": "The model file used to turn speech into text.",
+  "preflightServiceTitleConfigDir": "Settings folder",
+  "preflightServicePurposeConfigDir": "Where the app's settings are saved.",
+  "preflightServiceTitleAudioInput": "Microphone device",
+  "preflightServicePurposeAudioInput": "The sound source for recording.",
+  "preflightServiceTitleDiskSpace": "Disk space",
+  "preflightServicePurposeDiskSpace": "A three-hour recording needs about 1.4 GB.",
+  "downloadConsentQuickModel": "Fast model",
+  "downloadConsentAccurateModel": "Accurate model",
+  "downloadConsentDialogTitle": "Download the transcription models?",
+  "downloadConsentDialogDescription": "Trareon works offline, so the models need to be on this device. You download them once, and the download is recorded in the Privacy Report.",
+  "downloadConsentDialogLater": "Later",
+  "downloadConsentDialogDownloadNow": "Download now",
+  "downloadConsentDialogSize": "±{megabytes} MB",
+  "@downloadConsentDialogSize": {
+    "placeholders": {
+      "megabytes": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadConsentDialogTotal": "Total",
+  "downloadConsentDialogDeferOnMetered": "Wait when on a metered connection",
+  "appToastDismissTooltip": "Dismiss notification",
+  "settingsControlsInfoBadge": "Explanation",
+  "settingsControlsInfoDialogTitle": "Information",
+  "settingsControlsClose": "Close",
+  "taskProgressTileFailed": "Failed.",
+  "taskProgressTileCancelled": "Cancelled.",
+  "taskProgressTileDone": "Done.",
+  "taskProgressTileQueued": "Waiting in queue.",
+  "taskProgressTileProcessing": "Processing",
+  "enhanceQueueViewCompletingTitle": "Completing transcript",
+  "enhanceQueueViewCompletingSource": "Completing {source}",
+  "@enhanceQueueViewCompletingSource": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewEtaRemaining": "{eta} left",
+  "@enhanceQueueViewEtaRemaining": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueViewQueuedCompletion": "Waiting in queue. Some audio hasn't been transcribed yet.",
+  "enhanceQueueModelSourceMic": "microphone",
+  "enhanceQueueModelSourceSystem": "system audio",
+  "enhanceQueueModelSourceRecording": "recording",
+  "enhanceQueueModelQueuedForCompletion": "{count, plural, =1{Waiting in queue to complete the transcript.} other{Waiting in queue to complete {count} recordings.}}",
+  "@enhanceQueueModelQueuedForCompletion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelCompletingLine": "Completing transcript…{source} {percent}%{eta}",
+  "@enhanceQueueModelCompletingLine": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      },
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSuffix": ", {eta} left",
+  "@enhanceQueueModelEtaSuffix": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "enhanceQueueModelEtaSeconds": "{seconds, plural, =1{1 second} other{{seconds} seconds}}",
+  "@enhanceQueueModelEtaSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaMinutes": "{minutes, plural, =1{1 minute} other{{minutes} minutes}}",
+  "@enhanceQueueModelEtaMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHours": "{hours, plural, =1{1 hour} other{{hours} hours}}",
+  "@enhanceQueueModelEtaHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelEtaHoursMinutes": "{hours, plural, =1{1 hour} other{{hours} hours}} {minutes, plural, =1{1 minute} other{{minutes} minutes}}",
+  "@enhanceQueueModelEtaHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "enhanceQueueModelStagePreparing": "Preparing model",
+  "enhanceQueueModelStageTranscribing": "Transcribing",
+  "enhanceQueueModelStageMerging": "Merging",
+  "enhanceQueueModelNoSpeech": "No speech detected.",
+  "batchUploadModelUnsupportedFormat": "unsupported format",
+  "batchUploadModelTooLarge": "larger than the 2 GB limit",
+  "batchUploadModelNoSpeech": "No speech detected",
+  "batchUploadModelStoppedEarly": "Processing stopped before this file finished",
+  "modelsSummaryTemplateNotulenRapat": "Meeting minutes",
+  "modelsSummaryTemplateRingkasanEksekutif": "Executive summary",
+  "modelsSummaryTemplateActionItems": "Decisions & follow-ups",
+  "modelsSummaryTemplateStandup": "Daily report",
+  "modelsSummaryTemplateKustom": "Custom",
+  "modelsSummaryTemplateHintNotulenRapat": "Summary, attendees, discussion, decisions, follow-ups",
+  "modelsSummaryTemplateHintRingkasanEksekutif": "A short paragraph for those who weren't there",
+  "modelsSummaryTemplateHintActionItems": "Only decisions and tasks, with who owns each",
+  "modelsSummaryTemplateHintStandup": "Per person: done, next, blockers",
+  "modelsSummaryTemplateHintKustom": "Your own instructions",
+  "modelsSummaryProviderOllama": "Ollama (local)",
+  "modelsSummaryProviderOpenAiCompatible": "OpenAI-compatible service",
+  "modelsSessionModeWebinar": "Webinar",
+  "modelsSessionModeOnline": "Online meeting",
+  "modelsSessionModeOffline": "In-person meeting",
+  "usageDashboardScreenTitle": "Usage dashboard",
+  "usageDashboardScreenTotalSessions": "Total sessions",
+  "usageDashboardScreenHoursTranscribed": "Hours transcribed",
+  "usageDashboardScreenTotalSegments": "Total transcript segments",
+  "usageDashboardScreenEmpty": "No saved session data yet.",
+  "usageDashboardScreenSessionsByMode": "Sessions by mode",
+  "usageDashboardScreenSessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@usageDashboardScreenSessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerModeWebinar": "Webinar",
+  "meetingTemplatePickerModeOnline": "Online meeting",
+  "meetingTemplatePickerModeOffline": "In-person meeting",
+  "meetingTemplatePickerLanguageAuto": "Automatic",
+  "meetingTemplatePickerLanguageIndonesian": "Indonesian",
+  "meetingTemplatePickerLanguageEnglish": "English",
+  "meetingTemplatePickerTitle": "Start from a template",
+  "meetingTemplatePickerEmptyDescription": "No saved templates yet. Create one so the title, participants, agenda, language and meeting mode you use often don't have to be filled in every time.",
+  "meetingTemplatePickerDescription": "Pick a template to fill in the session's title, mode and language automatically.",
+  "meetingTemplatePickerCreate": "Create new template",
+  "meetingTemplatePickerOptionalNote": "Templates are optional. \"New meeting\" still starts a blank session as usual.",
+  "meetingTemplatePickerParticipantCount": "{count, plural, =1{1 participant} other{{count} participants}}",
+  "@meetingTemplatePickerParticipantCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerAgendaCount": "{count, plural, =1{1 agenda item} other{{count} agenda items}}",
+  "@meetingTemplatePickerAgendaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingTemplatePickerDelete": "Delete template",
+  "meetingTemplatePickerUse": "Use",
+  "meetingTemplatePickerNewTitle": "New template",
+  "meetingTemplatePickerNamePlaceholder": "Template name, e.g. \"Weekly team meeting\"",
+  "meetingTemplatePickerParticipantsPlaceholder": "Default participants (one name per line)",
+  "meetingTemplatePickerAgendaPlaceholder": "Default agenda (one item per line)",
+  "meetingTemplatePickerModeLabel": "Mode",
+  "meetingTemplatePickerLanguageLabel": "Language",
+  "glossarySettingsSectionImportDialogTitle": "Import glossary",
+  "glossarySettingsSectionImportEmpty": "No terms found in that file.",
+  "glossarySettingsSectionImported": "{added, plural, =1{1 new term} other{{added} new terms}} added from {lines, plural, =1{1 line} other{{lines} lines}}.",
+  "@glossarySettingsSectionImported": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "lines": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionImportFailed": "Import failed: {error}",
+  "@glossarySettingsSectionImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportDialogTitle": "Save glossary",
+  "glossarySettingsSectionExported": "{count, plural, =1{1 term} other{{count} terms}} exported to {path}",
+  "@glossarySettingsSectionExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionExportFailed": "Export failed: {error}",
+  "@glossarySettingsSectionExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionTitle": "Glossary",
+  "glossarySettingsSectionEnable": "Use glossary",
+  "glossarySettingsSectionEnabledSubtitle": "The terms below are hinted to the transcription engine so abbreviations and agency names are spelled correctly.",
+  "glossarySettingsSectionDisabledSubtitle": "The transcription engine guesses every term on its own.",
+  "glossarySettingsSectionPostCorrection": "Fix near-miss spellings",
+  "glossarySettingsSectionPostCorrectionOnSubtitle": "Words that nearly match a glossary term are corrected after transcription. Other words are left alone.",
+  "glossarySettingsSectionPostCorrectionOffSubtitle": "The transcription is left as is.",
+  "glossarySettingsSectionListTitle": "Terms ({count})",
+  "@glossarySettingsSectionListTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionAddLabel": "Add term",
+  "glossarySettingsSectionAddHint": "e.g. PPBJ, Kemenkeu, Pak Budi Santoso",
+  "glossarySettingsSectionAdd": "Add",
+  "glossarySettingsSectionTermSemantics": "Term {term}",
+  "@glossarySettingsSectionTermSemantics": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionRemoveTerm": "Remove {term}",
+  "@glossarySettingsSectionRemoveTerm": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionSuggestions": "Common term suggestions",
+  "glossarySettingsSectionAddSuggestion": "Add {term} to the glossary",
+  "@glossarySettingsSectionAddSuggestion": {
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "glossarySettingsSectionImportButton": "Import .txt / .csv",
+  "glossarySettingsSectionExportTxt": "Export .txt",
+  "glossarySettingsSectionExportCsv": "Export .csv",
+  "glossarySettingsSectionNoTerms": "No terms yet. Without a glossary, the transcription engine guesses on its own.",
+  "glossarySettingsSectionBudgetOverflow": "{used} of {total} terms in use; the list is too long to hint all at once. Terms further down the list are dropped first, so move the important ones up or shorten the list.",
+  "@glossarySettingsSectionBudgetOverflow": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "glossarySettingsSectionBudgetAll": "{total, plural, =1{The term is in use.} other{All {total} terms in use.}}",
+  "@glossarySettingsSectionBudgetAll": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "summarySettingsSectionOllamaModelHint": "Ollama model name",
+  "summarySettingsSectionNoModels": "Connected to the endpoint, but no models are installed.",
+  "summarySettingsSectionEnable": "Turn on AI summary",
+  "summarySettingsSectionEnabledSubtitle": "The transcript is sent to the endpoint below only when you press \"Create summary\". No audio is ever sent.",
+  "summarySettingsSectionDisabledSubtitle": "Off. The app stays 100% offline.",
+  "summarySettingsSectionProvider": "Provider",
+  "summarySettingsSectionEndpointUrl": "Endpoint URL",
+  "summarySettingsSectionApiKey": "API key",
+  "summarySettingsSectionApiKeyHelper": "Stored as is in the app's settings file (no keychain).",
+  "summarySettingsSectionApiKeyHint": "Paste the key here",
+  "summarySettingsSectionModel": "Model",
+  "summarySettingsSectionLoadModels": "Load the model list from the endpoint",
+  "summarySettingsSectionSetupWizard": "Set up AI model (detect, install, download)…",
+  "summarySettingsSectionDefaultTemplate": "Default template",
+  "summarySettingsSectionCitations": "Transcript references",
+  "summarySettingsSectionCitationsSubtitle": "Ask the model to cite a segment number for every point, so each summary line can be clicked through to the minute it came from. References that do not match are dropped.",
+  "summarySettingsSectionActionItems": "Structured follow-ups",
+  "summarySettingsSectionActionItemsSubtitle": "Ask for tasks, owners and deadlines in a format you can edit and export to a calendar (.ics) or a spreadsheet (.csv).",
+  "summarySettingsSectionCustomInstructions": "Custom instructions",
+  "summarySettingsSectionCustomInstructionsHint": "Example: List the risks and how to mitigate them.",
+  "pdpSettingsSectionRetentionForever": "Keep forever",
+  "pdpSettingsSectionRetentionDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionRetentionDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionDaysMonths": "{days} days ({months, plural, =1{1 month} other{{months} months}})",
+  "@pdpSettingsSectionRetentionDaysMonths": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionYears": "{years, plural, =1{1 year} other{{years} years}}",
+  "@pdpSettingsSectionRetentionYears": {
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionTitle": "PDP Law compliance",
+  "pdpSettingsSectionEnable": "Turn on PDP compliance mode",
+  "pdpSettingsSectionEnableSubtitle": "Personal data masking on export, retention limits, an audit log and recording notices. Off by default.",
+  "pdpSettingsSectionRedactionTitle": "Masking on export",
+  "pdpSettingsSectionRedactionIntro": "Saved transcripts are never changed. Masking applies only to the exported copy, and you can always preview it before the file is written.",
+  "pdpSettingsSectionNik": "NIK (national ID number)",
+  "pdpSettingsSectionNikHint": "16 digits with a valid province code",
+  "pdpSettingsSectionNpwp": "NPWP (tax ID)",
+  "pdpSettingsSectionNpwpHint": "15 digits, with or without dots",
+  "pdpSettingsSectionPhone": "Phone number",
+  "pdpSettingsSectionPhoneHint": "08…, +62…, and office numbers with an area code",
+  "pdpSettingsSectionEmail": "Email address",
+  "pdpSettingsSectionEmailHint": "name@agency.go.id",
+  "pdpSettingsSectionBankAccount": "Bank account number",
+  "pdpSettingsSectionBankAccountHint": "Only when the word \"rekening\" or a bank name is nearby, so budget figures are not masked too",
+  "pdpSettingsSectionNamesTitle": "Masked names",
+  "pdpSettingsSectionNamesIntro": "Only you know which names are sensitive in this meeting. Entries shorter than 3 letters are ignored.",
+  "pdpSettingsSectionNameHint": "E.g. Budi Santoso",
+  "pdpSettingsSectionAdd": "Add",
+  "pdpSettingsSectionRetentionTitle": "Data retention",
+  "pdpSettingsSectionRetentionIntro": "Audio and transcripts have separate limits: recordings usually have to be deleted much sooner than the minutes. Nothing is deleted automatically. You see the list first.",
+  "pdpSettingsSectionDeleteAudioAfter": "Delete audio after",
+  "pdpSettingsSectionDeleteTranscriptAfter": "Delete transcript (whole session) after",
+  "pdpSettingsSectionPreviewRetention": "Review & run now",
+  "pdpSettingsSectionRetentionDialogTitle": "Run the retention policy?",
+  "pdpSettingsSectionWholeSessionAge": "Whole session · {days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionWholeSessionAge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionAudioOnlyAge": "Audio only · {days, plural, =1{1 day} other{{days} days}}",
+  "@pdpSettingsSectionAudioOnlyAge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionCannotUndo": "This can't be undone.",
+  "pdpSettingsSectionDeleteNow": "Delete now",
+  "pdpSettingsSectionRetentionApplied": "{count, plural, =1{1 item deleted} other{{count} items deleted}} under the retention policy.",
+  "@pdpSettingsSectionRetentionApplied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPartial": "{deleted} deleted, {failed} failed.",
+  "@pdpSettingsSectionRetentionPartial": {
+    "placeholders": {
+      "deleted": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "pdpSettingsSectionRetentionPreviewFailed": "Retention preview failed: {error}",
+  "@pdpSettingsSectionRetentionPreviewFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionConsentTitle": "Recording notice",
+  "pdpSettingsSectionConsentReminder": "Remind me before recording starts",
+  "pdpSettingsSectionConsentReminderSubtitle": "Show a notice you can copy into the meeting chat, and note in the audit log that it was given.",
+  "pdpSettingsSectionConsentTextLabel": "Notice text",
+  "pdpSettingsSectionConsentTextHelper": "{titleToken} and {dateToken} are filled in automatically. Leave empty to use the default text.",
+  "@pdpSettingsSectionConsentTextHelper": {
+    "placeholders": {
+      "titleToken": {
+        "type": "String"
+      },
+      "dateToken": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionCopyNotice": "Copy notice text",
+  "pdpSettingsSectionNoticeCopied": "Notice text copied.",
+  "pdpSettingsSectionCopyFailed": "Copy failed: {error}",
+  "@pdpSettingsSectionCopyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditTitle": "Audit log",
+  "pdpSettingsSectionAuditIntro": "A local record of what happened to the data: sessions created, transcripts exported, summaries sent, data deleted. It holds metadata only, never transcript excerpts.",
+  "pdpSettingsSectionViewLog": "View log",
+  "pdpSettingsSectionExportCsv": "Export CSV",
+  "pdpSettingsSectionSaveAuditDialogTitle": "Save audit log",
+  "pdpSettingsSectionAuditSaved": "Audit log saved to {path}",
+  "@pdpSettingsSectionAuditSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "pdpSettingsSectionAuditExportFailed": "Log export failed: {error}",
+  "@pdpSettingsSectionAuditExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewNewLinesAnnouncement": "{count} new lines. Latest from {speaker}: {text}",
+  "@transcriptViewNewLinesAnnouncement": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "speaker": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentCopied": "Segment copied.",
+  "transcriptViewTranscriptCopied": "Transcript copied.",
+  "transcriptViewEmptyTitle": "No transcript yet",
+  "transcriptViewEmptySubtitle": "Start a session to begin transcribing\nPress Start or {shortcut}",
+  "@transcriptViewEmptySubtitle": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSearchHint": "Search…",
+  "transcriptViewClearSearch": "Clear search",
+  "transcriptViewSegmentCount": "{count, plural, =1{1 segment} other{{count} segments}}",
+  "@transcriptViewSegmentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFilteredSegmentCount": "{shown} of {total, plural, =1{1 segment} other{{total} segments}}",
+  "@transcriptViewFilteredSegmentCount": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewRefiningCount": "{count} being refined",
+  "@transcriptViewRefiningCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewFollowPlaybackOn": "Follow playback: on",
+  "transcriptViewFollowPlaybackOff": "Follow playback: off",
+  "transcriptViewAutoScrollOn": "Auto-scroll on",
+  "transcriptViewAutoScrollOff": "Auto-scroll off",
+  "transcriptViewReviewOnly": "Review: only segments that need checking",
+  "transcriptViewReviewCount": "{count, plural, =1{Review (1 segment needs checking)} other{Review ({count} segments need checking)}}",
+  "@transcriptViewReviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transcriptViewCopyAll": "Copy all",
+  "transcriptViewNoMatches": "No matching segments",
+  "transcriptViewEditingHint": "Enter save · Esc cancel · {split} split at cursor",
+  "@transcriptViewEditingHint": {
+    "placeholders": {
+      "split": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewBrowsingHint": "↑↓ select · Enter edit · {move} move · {merge} merge up",
+  "@transcriptViewBrowsingHint": {
+    "placeholders": {
+      "move": {
+        "type": "String"
+      },
+      "merge": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewSegmentSemantics": "{speaker} at {time}: {text}",
+  "@transcriptViewSegmentSemantics": {
+    "placeholders": {
+      "speaker": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewProcessing": "Processing…",
+  "transcriptViewQueued": "Queued",
+  "transcriptViewLowConfidence": "Low confidence",
+  "transcriptViewCopySegment": "Copy segment",
+  "transcriptViewEdit": "Edit",
+  "transcriptViewEditDialogTitle": "Edit transcript",
+  "transcriptViewEditHint": "Type your correction…",
+  "transcriptViewRenameSpeakerTitle": "Rename speaker",
+  "transcriptViewNewNameHint": "New name…",
+  "transcriptViewTentativeSemantics": "Tentative, not final: {text}",
+  "@transcriptViewTentativeSemantics": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptViewTentativePrefix": "tentative · ",
+  "transcriptPlayerScreenBookmarkSaveFailed": "Couldn't save the bookmark: {error}",
+  "transcriptPlayerScreenAudioUnavailable": "The source audio file isn't available for playback.",
+  "transcriptPlayerScreenSpeakerChangesApplied": "{count, plural, =1{1 speaker change applied.} other{{count} speaker changes applied.}}",
+  "transcriptPlayerScreenSaveFailed": "Couldn't save transcript changes to {path}: {error}",
+  "transcriptPlayerScreenSaveElsewhereDialogTitle": "Save transcript to another folder",
+  "transcriptPlayerScreenSaved": "Transcript saved.",
+  "transcriptPlayerScreenBackupFailed": "Couldn't back up the current transcript ({error}), so re-transcription was cancelled. Your transcript is unchanged.",
+  "transcriptPlayerScreenRetranscribed": "Transcript updated: {count, plural, =1{1 segment} other{{count} segments}} ({model}). The previous version was backed up.",
+  "transcriptPlayerScreenRestore": "Restore",
+  "transcriptPlayerScreenBackupUnreadable": "The transcript backup couldn't be read.",
+  "transcriptPlayerScreenBackupRestored": "Restored the transcript from before re-transcription ({count, plural, =1{1 segment} other{{count} segments}}).",
+  "transcriptPlayerScreenGlossaryReplaceSaved": "Saved. \"{before}\" will be written as \"{after}\" from now on.",
+  "transcriptPlayerScreenGlossaryAdded": "\"{term}\" added to the glossary.",
+  "transcriptPlayerScreenCloseSession": "Close session",
+  "transcriptPlayerScreenBack": "Back",
+  "transcriptPlayerScreenSaveAsTemplate": "Save as meeting template",
+  "transcriptPlayerScreenShortcutsTooltip": "Shortcuts: Space play/pause · ←/→ 5 sec · J/K/L 10 sec",
+  "transcriptPlayerScreenSaveElsewhere": "Save to another folder",
+  "transcriptPlayerScreenSaving": "Saving…",
+  "transcriptPlayerScreenRetry": "Try again",
+  "transcriptPlayerScreenRewind": "Back 10 seconds (J)",
+  "transcriptPlayerScreenPause": "Pause (Space)",
+  "transcriptPlayerScreenPlay": "Play (Space)",
+  "transcriptPlayerScreenForward": "Forward 10 seconds (L)",
+  "transcriptPlayerScreenPlaybackSpeed": "Playback speed",
+  "transcriptPlayerScreenSpeedHeader": "Speed",
+  "transcriptPlayerScreenBookmarkHere": "Mark here",
+  "transcriptPlayerScreenMinutes": "Meeting minutes",
+  "transcriptPlayerScreenRestoreBackup": "Restore backup",
+  "transcriptPlayerScreenRetranscribe": "Re-transcribe",
+  "transcriptPlayerScreenTags": "Tags",
+  "transcriptPlayerScreenTagsCount": "Tags ({count})",
+  "transcriptPlayerScreenSpeakers": "Speakers",
+  "transcriptPlayerScreenExport": "Export",
+  "transcriptPlayerScreenTemplateSaved": "Template \"{title}\" saved.",
+  "transcriptPlayerScreenShortcutHelpTitle": "Player shortcuts",
+  "transcriptPlayerScreenShortcutHelpPlay": "Space or K: play or pause",
+  "transcriptPlayerScreenShortcutHelpSeek5": "Left or right arrow: back or forward 5 seconds",
+  "transcriptPlayerScreenShortcutHelpSeek10": "J or L: back or forward 10 seconds",
+  "transcriptPlayerScreenShortcutHelpClickRow": "Click a transcript line: jump to that time",
+  "transcriptPlayerScreenShortcutHelpClickMark": "Click a marker on the timeline: jump to that bookmark",
+  "transcriptPlayerScreenClose": "Close",
+  "fileUploadZoneQueueEmpty": "No files in the queue yet.",
+  "fileUploadZoneQueueSummary": "{count, plural, =1{1 file} other{{count} files}} · {pending} waiting",
+  "fileUploadZoneRemoveDone": "Remove finished",
+  "fileUploadZoneClear": "Clear",
+  "fileUploadZoneProcessing": "Processing…",
+  "fileUploadZoneStart": "Start transcription",
+  "fileUploadZoneRejectedMore": " and {count} more",
+  "fileUploadZoneRejected": "Skipped: {detail}{more}.",
+  "fileUploadZoneDropAreaSemantics": "File import area, drag and drop audio or video files here",
+  "fileUploadZoneDropRelease": "Release to add to the queue",
+  "fileUploadZoneDropHint": "Drag & drop audio/video files here",
+  "fileUploadZoneFormats": "Formats: {formats}",
+  "fileUploadZoneMaxSize": "Up to {size} per file",
+  "fileUploadZonePickSemantics": "Choose files to upload",
+  "fileUploadZonePick": "Choose files",
+  "fileUploadZoneLanguage": "Language",
+  "fileUploadZoneAutoDetect": "Auto-detect",
+  "fileUploadZoneIndonesian": "Indonesian",
+  "fileUploadZoneModel": "Model",
+  "fileUploadZoneSpeakerCount": "Number of speakers",
+  "fileUploadZoneSpeakerCountOption": "{count, plural, =1{1 person} other{{count} people}}",
+  "fileUploadZonePreviewFailed": "Can't play this file.",
+  "fileUploadZoneEntrySemantics": "{filename}: {status}",
+  "fileUploadZoneEntrySemanticsError": "{filename}: {status}, error: {error}",
+  "fileUploadZoneStopPreview": "Stop preview",
+  "fileUploadZonePreview": "Preview audio",
+  "fileUploadZoneRetry": "Try again",
+  "fileUploadZoneCancelFile": "Cancel this file",
+  "fileUploadZoneStatusQueued": "Queued",
+  "fileUploadZoneStatusDecoding": "Reading file",
+  "fileUploadZoneStatusTranscribing": "Transcribing",
+  "fileUploadZoneStatusDone": "Done",
+  "fileUploadZoneStatusError": "Failed",
+  "fileUploadZoneStatusCancelled": "Cancelled",
+  "libraryScreenDeleted": "\"{title}\" deleted.",
+  "libraryScreenUndo": "Undo",
+  "libraryScreenRenameTitle": "Rename session",
+  "libraryScreenRenameLabel": "Session name",
+  "libraryScreenRenameFailed": "Couldn't rename: {error}",
+  "libraryScreenSaveArchiveDialogTitle": "Save session archive",
+  "libraryScreenArchiveSaved": "Session archive saved: {path}",
+  "libraryScreenArchiveExportFailed": "Couldn't export the session archive: {error}",
+  "libraryScreenPickArchiveDialogTitle": "Choose a session archive (.zip)",
+  "libraryScreenImportSkipped": "Session archive import skipped.",
+  "libraryScreenImported": "Session \"{name}\" imported.",
+  "libraryScreenConflictTitle": "Session already exists",
+  "libraryScreenConflictBody": "A session named \"{name}\" is already in this library. What would you like to do?",
+  "libraryScreenImportDuplicate": "Import as duplicate",
+  "libraryScreenOverwrite": "Overwrite",
+  "libraryScreenOpenFailed": "\"{title}\" couldn't be opened.",
+  "libraryScreenTitle": "Library",
+  "libraryScreenBack": "Back",
+  "libraryScreenTabSessions": "Sessions",
+  "libraryScreenTabImport": "Import files",
+  "libraryScreenSearchHint": "Search titles, transcripts, or summaries…",
+  "libraryScreenClearSearch": "Clear search",
+  "libraryScreenDeepSearching": "Searching inside transcripts…",
+  "libraryScreenEmptyTitle": "No saved sessions yet",
+  "libraryScreenEmptySubtitle": "Transcription sessions will appear here",
+  "libraryScreenNoMatch": "No matching sessions",
+  "libraryScreenImportArchive": "Import session archive (.zip)",
+  "exportDialogTitle": "Export \"{title}\"",
+  "exportDialogIncomplete": "This session's transcript isn't complete yet. Some audio is still being transcribed, and an export now will leave that part out.",
+  "exportDialogChooseFormat": "Choose export formats:",
+  "exportDialogFormatMd": "With timestamps & speaker names",
+  "exportDialogFormatTxt": "Plain text without timestamps",
+  "exportDialogFormatJson": "Full data for other programs",
+  "exportDialogFormatSrt": "Subtitles for video players",
+  "exportDialogFormatVtt": "Subtitles for the web",
+  "exportDialogFormatHtml": "Formatted web page",
+  "exportDialogFormatDocx": "Microsoft Word document",
+  "exportDialogFormatPdf": "Print-ready document with embedded fonts",
+  "exportDialogFormatCsv": "One row per segment, for spreadsheets",
+  "exportDialogBookmarksIncluded": "{count, plural, =1{1 bookmark included} other{{count} bookmarks included}} as the \"Poin Penting\" section",
+  "exportDialogSummaryIncluded": "AI summary included in Markdown, TXT, HTML & DOCX",
+  "exportDialogPdpRedaction": "PDP compliance mode is on. Personal data will be masked in the exported files. The saved transcript stays unchanged.",
+  "exportDialogPreview": "Preview",
+  "exportDialogSingleFolder": "All files go in one folder",
+  "exportDialogChooseFolder": "Choose folder",
+  "exportDialogFolderPickerTitle": "Choose an export folder for \"{title}\"",
+  "exportDialogExporting": "Exporting {count, plural, =1{1 format} other{{count} formats}}…",
+  "exportDialogSuccess": "Exported to: {path}",
+  "exportDialogShare": "Share",
+  "exportDialogFailed": "Export failed: {error}",
+  "speakerManagerDialogRenameTitle": "Rename \"{name}\"",
+  "speakerManagerDialogNameLabel": "Name",
+  "speakerManagerDialogNameHelper": "Applies to this whole session.",
+  "speakerManagerDialogRenameConfirm": "Rename",
+  "speakerManagerDialogMergeTitle": "Merge \"{name}\" into which speaker?",
+  "speakerManagerDialogMergeOption": "{name} ({count, plural, =1{1 segment} other{{count} segments}})",
+  "speakerManagerDialogTitle": "Manage speakers",
+  "speakerManagerDialogNoSpeakers": "This transcript has no speakers yet.",
+  "speakerManagerDialogPending": "{count, plural, =1{1 pending change} other{{count} pending changes}}. Press Apply to write them to the transcript.",
+  "speakerManagerDialogNothingRemembered": "No remembered names yet.",
+  "speakerManagerDialogForgotten": "Remembered speaker names cleared.",
+  "speakerManagerDialogForgetAll": "Forget saved names",
+  "speakerManagerDialogApply": "Apply",
+  "speakerManagerDialogStatsSeconds": "{segments, plural, =1{1 segment} other{{segments} segments}} · {seconds} sec",
+  "speakerManagerDialogStatsMinutes": "{segments, plural, =1{1 segment} other{{segments} segments}} · {minutes} min",
+  "speakerManagerDialogRename": "Rename",
+  "speakerManagerDialogMerge": "Merge with another speaker",
+  "speakerManagerDialogNoMerge": "No other speakers to merge with",
+  "speakerManagerDialogSuggestion": "Remembered from a previous meeting: {name}",
+  "speakerManagerDialogUseSuggestion": "Use",
+  "speakerManagerDialogRememberUnrenamed": "Remember this name for label \"{label}\" in future meetings (rename it first)",
+  "speakerManagerDialogRemember": "Remember \"{name}\" for label \"{label}\" in future meetings",
+  "sessionCardDurationHours": "{hours}h {minutes}m",
+  "sessionCardDurationMinutes": "{minutes} min",
+  "sessionCardDate": "{day} {month} {year}",
+  "sessionCardMonthJan": "Jan",
+  "sessionCardMonthFeb": "Feb",
+  "sessionCardMonthMar": "Mar",
+  "sessionCardMonthApr": "Apr",
+  "sessionCardMonthMay": "May",
+  "sessionCardMonthJun": "Jun",
+  "sessionCardMonthJul": "Jul",
+  "sessionCardMonthAug": "Aug",
+  "sessionCardMonthSep": "Sep",
+  "sessionCardMonthOct": "Oct",
+  "sessionCardMonthNov": "Nov",
+  "sessionCardMonthDec": "Dec",
+  "sessionCardHasSummary": "Has an AI summary",
+  "sessionCardSegments": "{count, plural, =1{1 segment} other{{count} segments}}",
+  "sessionCardRename": "Rename",
+  "sessionCardExport": "Export",
+  "sessionCardExportArchive": "Export as archive (.zip)",
+  "sessionCardDelete": "Delete",
+  "dictionaryLearningDialogTitle": "Remember this correction?",
+  "dictionaryLearningDialogDescription": "You changed one word. Trareon can remember it so you don't have to correct it again in future meetings.",
+  "dictionaryLearningDialogDontRemember": "Don't remember",
+  "dictionaryLearningDialogAddToGlossary": "Add \"{term}\" to the glossary",
+  "dictionaryLearningDialogAddToGlossaryHelper": "The speech recognizer is told about this term before it transcribes, so it is more likely to get it right from the start.",
+  "dictionaryLearningDialogAutoReplace": "Automatically replace \"{before}\" → \"{after}\" from now on",
+  "dictionaryLearningDialogAutoReplaceHelper": "Every standalone \"{before}\" will be written as \"{after}\" in future transcripts. You can remove this in Settings → Glossary.",
+  "dictionaryLearningDialogPickOne": "Choose at least one so there is something to save.",
+  "tagEditorDialogTitle": "Session tags",
+  "tagEditorDialogDescription": "Tags filter the session list in the left sidebar. No files are moved.",
+  "tagEditorDialogAddLabel": "Add tag",
+  "tagEditorDialogAdd": "Add",
+  "tagEditorDialogEmpty": "This session has no tags yet.",
+  "tagEditorDialogSuggestions": "Other tags in the library",
+  "appShortcutsStartStop": "Start or stop recording",
+  "appShortcutsPauseResume": "Pause or resume",
+  "appShortcutsSearchSessions": "Search session history",
+  "appShortcutsBookmark": "Bookmark a key moment",
+  "appShortcutsSettings": "Open Settings",
+  "appShortcutsShortcutsPanel": "Show keyboard shortcuts",
+  "appShortcutsToggleSidebar": "Hide or show the sidebar",
+  "formatTimeSeconds": "{seconds} sec",
+  "formatTimeMinutes": "{minutes} min",
+  "formatTimeHours": "{hours} hr",
+  "formatTimeHoursMinutes": "{hours} hr {minutes} min",
+  "modelDownloadCardNotDownloaded": "Not downloaded",
+  "modelDownloadCardReady": "Ready",
+  "modelDownloadCardFailed": "Failed, try again",
+  "appFeedbackPercent": "{percent} percent",
+  "appChipDelete": "Remove {label}",
+  "resourceIndicatorSemantics": "Memory usage is high, consider closing other apps",
+  "resourceIndicatorHigh": "High, consider closing other apps",
+  "summaryModelSaveActionItemsFailed": "Couldn't save the action items: {error}",
+  "summaryModelDisabled": "AI summary is turned off. Turn it on in Settings → AI summary.",
+  "summaryModelNotConfigured": "The summary endpoint or model is not set. Fill them in under Settings → AI summary.",
+  "summaryModelEmptyTranscriptSummarize": "The transcript is empty, so there is nothing to summarize.",
+  "summaryModelTemplateUnusable": "Template \"{name}\" can't be used: {error}",
+  "summaryModelGenerateFailed": "Couldn't create the summary (your transcript is safe): {error}",
+  "summaryModelEmptyTranscriptMerge": "The transcript is empty, so there is nothing to merge.",
+  "summaryModelEnhanceFailed": "Couldn't merge your notes with the transcript: {error}",
+  "summaryModelSaveFailed": "Couldn't save the summary: {error}",
+  "notulenTemplatesDinasLabel": "Official minutes (Notulen Dinas)",
+  "notulenTemplatesDinasDescription": "Full minutes following the official correspondence rules (Tata Naskah Dinas): meeting details, attendees, agenda, proceedings, conclusions, action items, and signature space for the minute-taker and the chair.",
+  "notulenTemplatesRisalahLabel": "Proceedings record (verbatim-summary)",
+  "notulenTemplatesRisalahDescription": "A speaker-by-speaker record, close to verbatim but condensed. Used for hearings and meetings that need to record who said what.",
+  "notulenTemplatesBeritaAcaraLabel": "Official report (Berita Acara)",
+  "notulenTemplatesBeritaAcaraDescription": "An evidentiary document: names the parties, what was carried out and its outcome, and closes with the standard formula \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".",
+  "notulenTemplatesRingkasLabel": "Short minutes",
+  "notulenTemplatesRingkasDescription": "One page without letterhead or signatures, to circulate quickly after the meeting.",
+  "sessionModeWebinar": "Webinar",
+  "sessionModeOnline": "Online meeting",
+  "sessionModeOffline": "In-person meeting"
 }

@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/settings_model.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
@@ -69,7 +70,7 @@ class ResourceIndicator extends ConsumerWidget {
 
     final colors = context.colors;
     return Semantics(
-      label: 'Penggunaan memori tinggi, pertimbangkan tutup aplikasi lain',
+      label: context.l10n.resourceIndicatorSemantics,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: Spacing.sm,
@@ -86,7 +87,7 @@ class ResourceIndicator extends ConsumerWidget {
             Icon(AppIcons.warning, size: IconSizes.sm, color: colors.warning),
             const SizedBox(width: Spacing.xs),
             Text(
-              'Tinggi, pertimbangkan tutup aplikasi lain',
+              context.l10n.resourceIndicatorHigh,
               style: AppText.caption.c(colors.warning),
             ),
           ],

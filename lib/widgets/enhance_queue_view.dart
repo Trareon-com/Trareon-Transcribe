@@ -9,6 +9,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/enhance_queue_model.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
@@ -27,6 +28,7 @@ class EnhanceQueueView extends ConsumerWidget {
 
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
     return Container(
       margin: const EdgeInsets.symmetric(
         horizontal: Spacing.md,
@@ -55,8 +57,8 @@ class EnhanceQueueView extends ConsumerWidget {
                   // heading has to say which, because only one of them
                   // means the transcript is currently incomplete.
                   jobs.any((j) => j.kind == EnhanceJobKind.complete)
-                      ? 'Menyelesaikan transkrip'
-                      : 'Memperhalus transkrip',
+                      ? l10n.enhanceQueueViewCompletingTitle
+                      : l10n.enhanceQueueTitle,
                   style: TextStyle(
                     fontSize: FontSizes.caption,
                     fontWeight: FontWeight.w600,
@@ -66,7 +68,7 @@ class EnhanceQueueView extends ConsumerWidget {
               ),
               if (jobs.length > 1)
                 Tooltip(
-                  message: 'Batalkan semua',
+                  message: l10n.actionCancelAll,
                   child: IconButton(
                     visualDensity: VisualDensity.compact,
                     constraints: TouchTarget.constraints,
@@ -84,7 +86,7 @@ class EnhanceQueueView extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(top: Spacing.xs),
               child: Text(
-                'Ditunda selama ada rekaman berjalan.',
+                l10n.enhanceQueuePaused,
                 style: TextStyle(
                   fontSize: FontSizes.micro,
                   color: colors.textTertiary,
@@ -108,23 +110,24 @@ class EnhanceQueueView extends ConsumerWidget {
               },
               stage: switch (job.kind) {
                 EnhanceJobKind.complete =>
-                  'Menyelesaikan ${sourceLabel(job.source)}',
-                EnhanceJobKind.enhance => job.stage ?? 'Memproses',
+                  l10n.enhanceQueueViewCompletingSource(
+                    sourceLabel(job.source),
+                  ),
+                EnhanceJobKind.enhance =>
+                  job.stage ?? l10n.taskProgressTileProcessing,
               },
               progress: job.status == EnhanceJobStatus.running
                   ? job.progress
                   : null,
               etaLabel: job.etaSecs >= 5
-                  ? 'sisa ${formatEta(job.etaSecs)}'
+                  ? l10n.enhanceQueueViewEtaRemaining(formatEta(job.etaSecs))
                   : null,
               statusOverride: switch (job.status) {
-                EnhanceJobStatus.failed =>
-                  job.error ?? 'Gagal. Transkrip lama dipakai.',
+                EnhanceJobStatus.failed => job.error ?? l10n.enhanceJobFailed,
                 EnhanceJobStatus.queued =>
                   job.kind == EnhanceJobKind.complete
-                      ? 'Menunggu antrean, ada audio yang belum '
-                            'ditranskripsi.'
-                      : 'Menunggu antrean.',
+                      ? l10n.enhanceQueueViewQueuedCompletion
+                      : l10n.enhanceJobQueued,
                 _ => null,
               },
               onCancel:

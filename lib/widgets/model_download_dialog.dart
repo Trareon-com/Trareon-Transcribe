@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../state/privacy_report_model.dart';
 import '../theme/app_colors.dart';
@@ -13,6 +15,7 @@ Future<bool> showModelDownloadDialog({
   required String modelId,
   required String modelsDir,
   required String displayName,
+  bool startImmediately = false,
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -22,6 +25,7 @@ Future<bool> showModelDownloadDialog({
       displayName: displayName,
       bridge: bridge,
       modelsDir: modelsDir,
+      startImmediately: startImmediately,
     ),
   );
   return result ?? false;
@@ -38,7 +42,12 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
     required this.displayName,
     required this.bridge,
     required this.modelsDir,
+    this.startImmediately = false,
   });
+
+  /// Start without waiting for "Unduh": only for a caller that has already
+  /// asked the user (the record button's own confirmation, issue #70).
+  final bool startImmediately;
 
   @override
   ConsumerState<_ModelDownloadDialog> createState() =>
@@ -47,7 +56,7 @@ class _ModelDownloadDialog extends ConsumerStatefulWidget {
 
 class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   bool _downloading = false;
-  String _status = 'Mengunduh…';
+  String _status = currentL10n.modelDownloadDialogDownloading;
   double _progress = 0.0;
   Stream<double>? _progressStream;
   StreamSubscription<double>? _progressSubscription;
@@ -55,12 +64,19 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   @override
   void initState() {
     super.initState();
-    // After the first frame: the download records itself in the Privacy
-    // Report, and Riverpod refuses provider writes while the dialog is
-    // still being built.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startDownload();
-    });
+    // The dialog asks first ("…ingin mengunduh sekarang?") and only the
+    // "Unduh" button starts the download. It used to start on open, so
+    // choosing a not-yet-installed model in a dropdown fetched hundreds of
+    // MB with no way to stop it (there is no cancel while downloading),
+    // which is exactly what issue #70 says must not happen. Started after
+    // the first frame when it does start here: the download records itself
+    // in the Privacy Report, and Riverpod refuses provider writes while the
+    // dialog is still being built.
+    if (widget.startImmediately) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startDownload();
+      });
+    }
   }
 
   @override
@@ -72,7 +88,9 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
-      _status = 'Mengunduh ${widget.displayName}…';
+      _status = context.l10n.modelDownloadDialogDownloadingName(
+        widget.displayName,
+      );
     });
 
     try {
@@ -94,8 +112,10 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _progress = progress;
-              _status =
-                  'Mengunduh ${widget.displayName}… ${(progress * 100).toInt()}%';
+              _status = context.l10n.modelDownloadDialogDownloadingProgress(
+                widget.displayName,
+                (progress * 100).toInt(),
+              );
             });
           }
         },
@@ -103,7 +123,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           if (mounted) {
             setState(() {
               _downloading = false;
-              _status = 'Gagal mengunduh: $error';
+              _status = context.l10n.modelDownloadDialogFailed('$error');
             });
           }
         },
@@ -120,7 +140,7 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
       if (mounted) {
         setState(() {
           _downloading = false;
-          _status = 'Gagal mengunduh: $e';
+          _status = context.l10n.modelDownloadDialogFailed('$e');
         });
       }
     }
@@ -130,18 +150,19 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
   Widget build(BuildContext context) {
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: colors.surface,
       title: Text(
-        'Unduh ${widget.displayName}',
+        l10n.modelDownloadDialogTitle(widget.displayName),
         style: TextStyle(color: colors.text),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${widget.displayName} belum diunduh. Apakah Anda ingin mengunduh sekarang?',
+            l10n.modelDownloadDialogPrompt(widget.displayName),
             style: TextStyle(color: colors.textSecondary),
           ),
           if (_downloading) ...[
@@ -167,10 +188,16 @@ class _ModelDownloadDialogState extends ConsumerState<_ModelDownloadDialog> {
           onPressed: _downloading
               ? null
               : () => Navigator.of(context).pop(false),
-          child: Text('Batal', style: TextStyle(color: colors.textSecondary)),
+          child: Text(
+            l10n.actionCancel,
+            style: TextStyle(color: colors.textSecondary),
+          ),
         ),
         if (!_downloading)
-          FilledButton(onPressed: _startDownload, child: const Text('Unduh')),
+          FilledButton(
+            onPressed: _startDownload,
+            child: Text(l10n.modelDownloadDialogDownload),
+          ),
       ],
     );
   }

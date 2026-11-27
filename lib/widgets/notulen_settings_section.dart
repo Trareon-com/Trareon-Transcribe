@@ -12,6 +12,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -69,7 +70,7 @@ class _NotulenDefaultsSectionState
 
   Future<void> _pickKopSurat() async {
     final picked = await FilePicker.pickFile(
-      dialogTitle: 'Pilih gambar kop surat (PNG)',
+      dialogTitle: context.l10n.notulenSettingsSectionPickKopTitle,
       type: FileType.custom,
       allowedExtensions: const ['png'],
     );
@@ -89,7 +90,7 @@ class _NotulenDefaultsSectionState
         if (mounted) {
           AppToast.show(
             context,
-            'Kop surat harus berupa berkas PNG.',
+            context.l10n.notulenSettingsSectionKopMustBePng,
             type: ToastType.error,
           );
         }
@@ -99,7 +100,7 @@ class _NotulenDefaultsSectionState
       if (mounted) {
         AppToast.show(
           context,
-          'Tidak bisa membaca berkas: $e',
+          context.l10n.notulenSettingsSectionReadFailed('$e'),
           type: ToastType.error,
         );
       }
@@ -122,7 +123,7 @@ class _NotulenDefaultsSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SettingsSection(
-          title: 'Notulen Resmi',
+          title: context.l10n.notulenSettingsSectionTitle,
           children: [
             Padding(
               padding: Spacing.card,
@@ -130,8 +131,7 @@ class _NotulenDefaultsSectionState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Isian yang sama di setiap rapat. Dipakai otomatis saat '
-                    'Anda membuat Notulen Rapat.',
+                    context.l10n.notulenSettingsSectionIntro,
                     style: TextStyle(
                       fontSize: FontSizes.caption,
                       color: colors.textTertiary,
@@ -147,30 +147,36 @@ class _NotulenDefaultsSectionState
                       children: [
                         TextField(
                           controller: _unitKerja,
-                          decoration: const InputDecoration(
-                            labelText: 'Instansi / Unit Kerja',
-                            hintText: 'mis. Direktorat Jenderal Anggaran',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText:
+                                context.l10n.notulenSettingsSectionUnitLabel,
+                            hintText:
+                                context.l10n.notulenSettingsSectionUnitHint,
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         Spacing.gapMd,
                         TextField(
                           controller: _tempat,
-                          decoration: const InputDecoration(
-                            labelText: 'Tempat/Media yang biasa dipakai',
-                            hintText: 'mis. Ruang Rapat Lt. 5 / Zoom',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText:
+                                context.l10n.notulenSettingsSectionPlaceLabel,
+                            hintText:
+                                context.l10n.notulenSettingsSectionPlaceHint,
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         Spacing.gapMd,
                         TextField(
                           controller: _notulis,
-                          decoration: const InputDecoration(
-                            labelText: 'Nama notulis',
-                            hintText: 'Nama Anda, untuk blok tanda tangan',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText:
+                                context.l10n.notulenSettingsSectionNotulisLabel,
+                            hintText:
+                                context.l10n.notulenSettingsSectionNotulisHint,
+                            border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
@@ -183,7 +189,7 @@ class _NotulenDefaultsSectionState
                     child: FilledButton.icon(
                       onPressed: _save,
                       icon: const Icon(AppIcons.save, size: IconSizes.md),
-                      label: const Text('Simpan'),
+                      label: Text(context.l10n.actionSave),
                     ),
                   ),
                 ],
@@ -192,17 +198,16 @@ class _NotulenDefaultsSectionState
             const SettingsDivider(),
             SettingsTile(
               icon: AppIcons.image,
-              label: 'Kop surat',
+              label: context.l10n.notulenSettingsSectionKop,
               subtitle: notulen.kopSuratPath.isEmpty
-                  ? 'Belum dipilih. Tanpa gambar, kop ditulis sebagai teks '
-                        'dari nama instansi di atas.'
+                  ? context.l10n.notulenSettingsSectionKopEmpty
                   : notulen.kopSuratPath,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (notulen.kopSuratPath.isNotEmpty)
                     IconButton(
-                      tooltip: 'Hapus kop surat',
+                      tooltip: context.l10n.notulenSettingsSectionRemoveKop,
                       constraints: TouchTarget.constraints,
                       icon: const Icon(AppIcons.delete, size: IconSizes.md),
                       onPressed: () => ref
@@ -212,7 +217,7 @@ class _NotulenDefaultsSectionState
                           ),
                     ),
                   IconButton(
-                    tooltip: 'Pilih gambar kop surat',
+                    tooltip: context.l10n.notulenSettingsSectionPickKop,
                     constraints: TouchTarget.constraints,
                     icon: const Icon(AppIcons.folderOpen, size: IconSizes.md),
                     onPressed: _pickKopSurat,

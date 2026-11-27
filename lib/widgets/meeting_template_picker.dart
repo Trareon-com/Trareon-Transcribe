@@ -9,6 +9,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/meeting_templates.dart';
 import '../state/models.dart' show SessionMode;
 import '../theme/app_icons.dart';
@@ -28,17 +29,18 @@ Future<MeetingTemplate?> showMeetingTemplatePicker(BuildContext context) {
   );
 }
 
-String _modeLabel(SessionMode mode) => switch (mode) {
-  SessionMode.webinar => 'Webinar',
-  SessionMode.online => 'Rapat online',
-  SessionMode.offline => 'Rapat tatap muka',
+String _modeLabel(AppLocalizations l10n, SessionMode mode) => switch (mode) {
+  SessionMode.webinar => l10n.meetingTemplatePickerModeWebinar,
+  SessionMode.online => l10n.meetingTemplatePickerModeOnline,
+  SessionMode.offline => l10n.meetingTemplatePickerModeOffline,
 };
 
-String _languageLabel(String? language) => switch (language) {
-  'id' => 'Indonesia',
-  'en' => 'Inggris',
-  _ => 'Otomatis',
-};
+String _languageLabel(AppLocalizations l10n, String? language) =>
+    switch (language) {
+      'id' => l10n.meetingTemplatePickerLanguageIndonesian,
+      'en' => l10n.meetingTemplatePickerLanguageEnglish,
+      _ => l10n.meetingTemplatePickerLanguageAuto,
+    };
 
 class _TemplatePickerDialog extends ConsumerStatefulWidget {
   const _TemplatePickerDialog();
@@ -61,6 +63,7 @@ class _TemplatePickerDialogState
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     final templates = ref.watch(meetingTemplatesProvider);
 
     if (_creating) {
@@ -74,17 +77,14 @@ class _TemplatePickerDialogState
     }
 
     return AppDialog(
-      title: 'Mulai dari template',
+      title: l10n.meetingTemplatePickerTitle,
       icon: AppIcons.event,
       description: templates.isEmpty
-          ? 'Belum ada template tersimpan. Buat satu agar judul, peserta, '
-                'agenda, bahasa, dan mode rapat yang sering dipakai tidak '
-                'perlu diisi ulang setiap kali.'
-          : 'Pilih template untuk mengisi judul, mode, dan bahasa sesi '
-                'secara otomatis.',
+          ? l10n.meetingTemplatePickerEmptyDescription
+          : l10n.meetingTemplatePickerDescription,
       actions: [
         AppButton(
-          label: 'Batal',
+          label: l10n.actionCancel,
           variant: AppButtonVariant.ghost,
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -106,7 +106,7 @@ class _TemplatePickerDialogState
             ),
           Spacing.gapSm,
           AppButton(
-            label: 'Buat template baru',
+            label: l10n.meetingTemplatePickerCreate,
             variant: AppButtonVariant.secondary,
             icon: AppIcons.add,
             onPressed: () => setState(() => _creating = true),
@@ -114,8 +114,7 @@ class _TemplatePickerDialogState
           if (templates.isEmpty) ...[
             Spacing.gapSm,
             Text(
-              'Template tidak wajib. "Rapat baru" tetap memulai sesi '
-              'kosong seperti biasa.',
+              l10n.meetingTemplatePickerOptionalNote,
               style: AppText.caption.c(colors.textTertiary),
             ),
           ],
@@ -139,12 +138,16 @@ class _TemplateRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     final parts = [
-      _modeLabel(template.mode),
-      _languageLabel(template.language),
+      _modeLabel(l10n, template.mode),
+      _languageLabel(l10n, template.language),
       if (template.participants.isNotEmpty)
-        '${template.participants.length} peserta',
-      if (template.agenda.isNotEmpty) '${template.agenda.length} agenda',
+        l10n.meetingTemplatePickerParticipantCount(
+          template.participants.length,
+        ),
+      if (template.agenda.isNotEmpty)
+        l10n.meetingTemplatePickerAgendaCount(template.agenda.length),
     ];
     return Container(
       padding: const EdgeInsets.all(Spacing.sm),
@@ -174,12 +177,12 @@ class _TemplateRow extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Hapus template',
+            tooltip: l10n.meetingTemplatePickerDelete,
             icon: Icon(AppIcons.close, size: IconSizes.sm, color: colors.textTertiary),
             onPressed: onDelete,
           ),
           AppButton(
-            label: 'Pakai',
+            label: l10n.meetingTemplatePickerUse,
             variant: AppButtonVariant.primary,
             onPressed: onUse,
           ),
@@ -229,17 +232,18 @@ class _TemplateEditorDialogState
   @override
   Widget build(BuildContext context) {
     final canSave = _name.text.trim().isNotEmpty;
+    final l10n = context.l10n;
     return AppDialog(
-      title: 'Template baru',
+      title: l10n.meetingTemplatePickerNewTitle,
       icon: AppIcons.add,
       actions: [
         AppButton(
-          label: 'Batal',
+          label: l10n.actionCancel,
           variant: AppButtonVariant.ghost,
           onPressed: widget.onCancel,
         ),
         AppButton(
-          label: 'Simpan',
+          label: l10n.actionSave,
           variant: AppButtonVariant.primary,
           onPressed: canSave
               ? () {
@@ -263,19 +267,19 @@ class _TemplateEditorDialogState
         children: [
           AppTextField(
             controller: _name,
-            placeholder: 'Nama template, mis. "Rapat Mingguan Tim"',
+            placeholder: l10n.meetingTemplatePickerNamePlaceholder,
             onChanged: (_) => setState(() {}),
           ),
           Spacing.gapSm,
           AppTextField(
             controller: _participants,
-            placeholder: 'Peserta default (satu nama per baris)',
+            placeholder: l10n.meetingTemplatePickerParticipantsPlaceholder,
             maxLines: 3,
           ),
           Spacing.gapSm,
           AppTextField(
             controller: _agenda,
-            placeholder: 'Agenda default (satu poin per baris)',
+            placeholder: l10n.meetingTemplatePickerAgendaPlaceholder,
             maxLines: 3,
           ),
           Spacing.gapSm,
@@ -286,17 +290,17 @@ class _TemplateEditorDialogState
                   initialValue: _mode,
                   isDense: true,
                   isExpanded: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    labelText: 'Mode',
-                    border: OutlineInputBorder(),
+                    labelText: l10n.meetingTemplatePickerModeLabel,
+                    border: const OutlineInputBorder(),
                   ),
                   items: [
                     for (final mode in SessionMode.values)
                       DropdownMenuItem(
                         value: mode,
                         child: Text(
-                          _modeLabel(mode),
+                          _modeLabel(l10n, mode),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -311,15 +315,24 @@ class _TemplateEditorDialogState
                   initialValue: _language,
                   isDense: true,
                   isExpanded: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    labelText: 'Bahasa',
-                    border: OutlineInputBorder(),
+                    labelText: l10n.meetingTemplatePickerLanguageLabel,
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Otomatis')),
-                    DropdownMenuItem(value: 'id', child: Text('Indonesia')),
-                    DropdownMenuItem(value: 'en', child: Text('Inggris')),
+                  items: [
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text(l10n.meetingTemplatePickerLanguageAuto),
+                    ),
+                    DropdownMenuItem(
+                      value: 'id',
+                      child: Text(l10n.meetingTemplatePickerLanguageIndonesian),
+                    ),
+                    DropdownMenuItem(
+                      value: 'en',
+                      child: Text(l10n.meetingTemplatePickerLanguageEnglish),
+                    ),
                   ],
                   onChanged: (language) =>
                       setState(() => _language = language),

@@ -8,6 +8,7 @@ library;
 
 import 'dart:async';
 
+import '../l10n/l10n.dart';
 import '../services/dart_prefs.dart';
 
 /// What the user said to the first-run download.
@@ -48,12 +49,18 @@ bool shouldStartDownload({
 class DownloadPlanItem {
   const DownloadPlanItem({
     required this.modelId,
-    required this.label,
+    required this.labelOf,
     required this.megabytes,
   });
 
   final String modelId;
-  final String label;
+
+  /// The name shown for this item, in the given language. A function so the
+  /// plan can stay `const` and still follow the interface language.
+  final String Function(AppLocalizations l10n) labelOf;
+
+  /// [labelOf] in the language the app currently shows.
+  String get label => labelOf(currentL10n);
 
   /// Approximate download size. The Rust catalog only knows the size of a
   /// file already on disk, so the figures for not-yet-downloaded models are
@@ -65,13 +72,18 @@ class DownloadPlanItem {
 /// The two models onboarding downloads, in order. Experimental models never
 /// download on their own.
 const kFirstRunDownloadPlan = [
-  DownloadPlanItem(modelId: 'base', label: 'Model Cepat', megabytes: 142),
+  DownloadPlanItem(modelId: 'base', labelOf: _quickLabel, megabytes: 142),
   DownloadPlanItem(
     modelId: 'large-v3-turbo-q5',
-    label: 'Model Akurat',
+    labelOf: _accurateLabel,
     megabytes: 548,
   ),
 ];
+
+String _quickLabel(AppLocalizations l10n) => l10n.downloadConsentQuickModel;
+
+String _accurateLabel(AppLocalizations l10n) =>
+    l10n.downloadConsentAccurateModel;
 
 int totalMegabytes(Iterable<DownloadPlanItem> plan) =>
     plan.fold(0, (sum, item) => sum + item.megabytes);

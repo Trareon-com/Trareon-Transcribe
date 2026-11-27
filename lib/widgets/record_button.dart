@@ -12,6 +12,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
@@ -26,7 +27,7 @@ class RecordButton extends StatefulWidget {
     required this.isPaused,
     required this.onPressed,
     this.isBusy = false,
-    this.busyLabel = 'Menyimpan…',
+    this.busyLabel,
     this.large = false,
   });
 
@@ -40,7 +41,9 @@ class RecordButton extends StatefulWidget {
   /// which can hang indefinitely.
   final bool isBusy;
 
-  final String busyLabel;
+  /// Shown while [isBusy]; defaults to "Menyimpan…" in the interface
+  /// language.
+  final String? busyLabel;
 
   /// The hero variant on the idle screen: taller, with more presence.
   final bool large;
@@ -92,17 +95,21 @@ class _RecordButtonState extends State<RecordButton>
     final colors = context.colors;
     final motion = context.motion;
     final active = widget.isRecording;
+    final l10n = context.l10n;
+    final busyLabel = widget.busyLabel ?? l10n.recordButtonSaving;
 
     final label = widget.isBusy
-        ? widget.busyLabel
+        ? busyLabel
         : active
-        ? (widget.isPaused ? 'Lanjutkan' : 'Berhenti')
-        : 'Mulai Rekam';
+        ? (widget.isPaused ? l10n.recordButtonResume : l10n.recordButtonStop)
+        : l10n.recordButtonStart;
     final semantics = widget.isBusy
-        ? widget.busyLabel
+        ? busyLabel
         : active
-        ? (widget.isPaused ? 'Lanjutkan rekaman' : 'Berhenti merekam')
-        : 'Mulai merekam';
+        ? (widget.isPaused
+              ? l10n.recordButtonResumeSemantics
+              : l10n.recordButtonStopSemantics)
+        : l10n.recordButtonStartSemantics;
 
     final icon = widget.isBusy
         ? null

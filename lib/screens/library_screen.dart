@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/l10n.dart';
 import '../services/library_index.dart';
 import '../services/session_archive_service.dart';
 import '../services/session_store.dart';
@@ -232,8 +233,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     AppToast.show(
       context,
-      '"${session.title}" dihapus.',
-      actionLabel: 'Urungkan',
+      context.l10n.libraryScreenDeleted(session.title),
+      actionLabel: context.l10n.libraryScreenUndo,
       // Four seconds, inside the five the deletion is deferred by, so the
       // offer never outlives the window in which it can still be taken.
       duration: const Duration(seconds: 4),
@@ -268,24 +269,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final newTitle = await showDialog<String>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Ganti Nama Sesi'),
+        title: Text(dialogCtx.l10n.libraryScreenRenameTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nama sesi',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: dialogCtx.l10n.libraryScreenRenameLabel,
+            border: const OutlineInputBorder(),
           ),
           onSubmitted: (v) => Navigator.of(dialogCtx).pop(v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Batal'),
+            child: Text(dialogCtx.l10n.actionCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogCtx).pop(controller.text),
-            child: const Text('Simpan'),
+            child: Text(dialogCtx.l10n.actionSave),
           ),
         ],
       ),
@@ -310,7 +311,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       _persistIndex();
     } catch (e) {
       if (!mounted) return;
-      AppToast.show(context, 'Gagal mengganti nama: $e', type: ToastType.error);
+      AppToast.show(
+        context,
+        context.l10n.libraryScreenRenameFailed('$e'),
+        type: ToastType.error,
+      );
     }
   }
 
@@ -339,7 +344,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// transcript, sidecar, backup if any — as one portable `.zip`.
   Future<void> _exportSessionArchive(LibraryEntry session) async {
     final destination = await pickSaveLocation(
-      dialogTitle: 'Simpan arsip sesi',
+      dialogTitle: context.l10n.libraryScreenSaveArchiveDialogTitle,
       fileName: archiveFilenameFor(title: session.title, date: session.date),
     );
     if (destination == null || !mounted) return;
@@ -353,7 +358,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       if (!mounted) return;
       AppToast.show(
         context,
-        'Arsip sesi tersimpan: $written',
+        context.l10n.libraryScreenArchiveSaved(written),
         type: ToastType.success,
       );
     } catch (e) {
@@ -361,7 +366,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       if (!mounted) return;
       AppToast.show(
         context,
-        'Gagal mengekspor arsip sesi: $e',
+        context.l10n.libraryScreenArchiveExportFailed('$e'),
         type: ToastType.error,
       );
     }
@@ -375,7 +380,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final libraryPath = widget.libraryPath;
     if (libraryPath == null) return;
     final picked = await FilePicker.pickFile(
-      dialogTitle: 'Pilih arsip sesi (.zip)',
+      dialogTitle: context.l10n.libraryScreenPickArchiveDialogTitle,
       type: FileType.custom,
       allowedExtensions: const ['zip'],
     );
@@ -403,12 +408,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
     if (!mounted) return;
     if (finalPath == null) {
-      AppToast.show(context, 'Impor arsip sesi dilewati.');
+      AppToast.show(context, context.l10n.libraryScreenImportSkipped);
       return;
     }
     AppToast.show(
       context,
-      'Sesi "${validated.suggestedDirName}" diimpor.',
+      context.l10n.libraryScreenImported(validated.suggestedDirName),
       type: ToastType.success,
     );
     await _loadFromDisk();
@@ -422,29 +427,25 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final choice = await showDialog<SessionImportConflictChoice>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Sesi sudah ada'),
-        content: Text(
-          'Sesi dengan nama "$name" sudah ada di perpustakaan ini. '
-          'Apa yang ingin dilakukan?',
-        ),
+        title: Text(dialogCtx.l10n.libraryScreenConflictTitle),
+        content: Text(dialogCtx.l10n.libraryScreenConflictBody(name)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(
-              dialogCtx,
-            ).pop(SessionImportConflictChoice.skip),
-            child: const Text('Lewati'),
+            onPressed: () =>
+                Navigator.of(dialogCtx).pop(SessionImportConflictChoice.skip),
+            child: Text(dialogCtx.l10n.actionSkip),
           ),
           TextButton(
-            onPressed: () => Navigator.of(
-              dialogCtx,
-            ).pop(SessionImportConflictChoice.duplicate),
-            child: const Text('Impor sebagai duplikat'),
+            onPressed: () =>
+                Navigator.of(dialogCtx)
+                    .pop(SessionImportConflictChoice.duplicate),
+            child: Text(dialogCtx.l10n.libraryScreenImportDuplicate),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(
-              dialogCtx,
-            ).pop(SessionImportConflictChoice.overwrite),
-            child: const Text('Timpa'),
+            onPressed: () =>
+                Navigator.of(dialogCtx)
+                    .pop(SessionImportConflictChoice.overwrite),
+            child: Text(dialogCtx.l10n.libraryScreenOverwrite),
           ),
         ],
       ),
@@ -458,7 +459,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (record == null) {
       AppToast.show(
         context,
-        '"${session.title}" tidak bisa dibuka.',
+        context.l10n.libraryScreenOpenFailed(session.title),
         type: ToastType.error,
       );
       return;
@@ -506,23 +507,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         appBar: AppBar(
           backgroundColor: colors.headerBackground,
           foregroundColor: colors.text,
-          title: const Text(
-            'Perpustakaan',
-            style: TextStyle(fontWeight: FontWeight.w600),
+          title: Text(
+            context.l10n.libraryScreenTitle,
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(AppIcons.back, size: IconSizes.lg),
             onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Kembali',
+            tooltip: context.l10n.libraryScreenBack,
           ),
           bottom: TabBar(
             labelColor: colors.primary,
             unselectedLabelColor: colors.textSecondary,
             indicatorColor: colors.primary,
-            tabs: const [
-              Tab(text: 'Sesi'),
-              Tab(text: 'Impor Berkas'),
+            tabs: [
+              Tab(text: context.l10n.libraryScreenTabSessions),
+              Tab(text: context.l10n.libraryScreenTabImport),
             ],
           ),
         ),
@@ -537,7 +538,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     controller: _searchController,
                     onChanged: _onSearchChanged,
                     decoration: InputDecoration(
-                      hintText: 'Cari judul, isi transkrip, atau ringkasan…',
+                      hintText: context.l10n.libraryScreenSearchHint,
                       prefixIcon: Icon(
                         AppIcons.search,
                         color: colors.textTertiary,
@@ -551,7 +552,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                 color: colors.textTertiary,
                               ),
                               onPressed: _clearSearch,
-                              tooltip: 'Bersihkan pencarian',
+                              tooltip: context.l10n.libraryScreenClearSearch,
                             )
                           : null,
                       filled: true,
@@ -572,19 +573,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 ),
                 if (_deepSearching)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                     child: Row(
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 12,
                           height: 12,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                         Spacing.hSm,
                         Text(
-                          'Mencari di dalam transkrip…',
-                          style: TextStyle(fontSize: FontSizes.caption),
+                          context.l10n.libraryScreenDeepSearching,
+                          style: const TextStyle(fontSize: FontSizes.caption),
                         ),
                       ],
                     ),
@@ -604,15 +605,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : _entries.isEmpty
-                      ? const EmptyState(
+                      ? EmptyState(
                           icon: AppIcons.folderOpen,
-                          title: 'Belum ada sesi tersimpan',
-                          subtitle: 'Sesi transkripsi akan muncul di sini',
+                          title: context.l10n.libraryScreenEmptyTitle,
+                          subtitle: context.l10n.libraryScreenEmptySubtitle,
                         )
                       : filtered.isEmpty
-                      ? const EmptyState(
+                      ? EmptyState(
                           icon: AppIcons.searchOff,
-                          title: 'Tidak ada sesi cocok',
+                          title: context.l10n.libraryScreenNoMatch,
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.symmetric(
@@ -655,12 +656,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ? null
                         : _importSessionArchive,
                     icon: const Icon(AppIcons.archiveImport),
-                    label: const Text('Impor arsip sesi (.zip)'),
+                    label: Text(context.l10n.libraryScreenImportArchive),
                   ),
                   Spacing.gapMd,
-                  Expanded(
-                    child: FileUploadZone(onProcessed: _loadFromDisk),
-                  ),
+                  Expanded(child: FileUploadZone(onProcessed: _loadFromDisk)),
                 ],
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_tokens.dart';
@@ -35,6 +36,7 @@ class OnboardingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     final quick = state.quick;
     final accurate = state.accurate;
     final allReady = state.allReady;
@@ -69,7 +71,7 @@ class OnboardingScreen extends StatelessWidget {
                   // A misspelling of it once shipped here, which is why
                   // test/product_name_spelling_test.dart guards this line.
                   Text(
-                    'Selamat datang di Trareon Transcribe',
+                    l10n.onboardingScreenWelcome,
                     textAlign: TextAlign.center,
                     style: AppText.display.c(colors.textStrong),
                   ),
@@ -85,29 +87,29 @@ class OnboardingScreen extends StatelessWidget {
                   Spacing.gapLg,
                   Text(
                     allReady
-                        ? 'Siap merekam'
+                        ? l10n.onboardingScreenReady
                         : postponed
-                        ? 'Unduhan ditunda'
+                        ? l10n.onboardingScreenPostponed
                         : waiting
-                        ? 'Model perlu diunduh'
-                        : 'Mengunduh model',
+                        ? l10n.onboardingScreenNeedsDownload
+                        : l10n.onboardingScreenDownloading,
                     textAlign: TextAlign.center,
                     style: AppText.title.c(colors.text),
                   ),
                   Spacing.gapSm,
                   Text(
                     allReady
-                        ? 'Kedua model sudah ada di perangkat ini. '
-                              'Transkripsi berjalan sepenuhnya offline.'
-                        : 'Trareon bekerja 100% offline, jadi modelnya perlu '
-                              'ada di perangkat Anda. Hanya sekali.',
+                        ? l10n.onboardingScreenReadyBody
+                        : l10n.onboardingScreenOfflineBody,
                     textAlign: TextAlign.center,
                     style: AppText.body.c(colors.textSecondary),
                   ),
                   Spacing.gapXl,
                   ModelDownloadCard(
-                    title: quick.title,
-                    subtitle: quick.subtitle,
+                    // Read here, not from the state: the state is built
+                    // before the saved interface language is loaded.
+                    title: l10n.onboardingScreenQuickModelTitle,
+                    subtitle: l10n.onboardingScreenQuickModelSubtitle,
                     sizeLabel: quick.size,
                     progress: quick.progress,
                     status: quick.status,
@@ -115,8 +117,8 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   Spacing.gapMd,
                   ModelDownloadCard(
-                    title: accurate.title,
-                    subtitle: accurate.subtitle,
+                    title: l10n.onboardingScreenAccurateModelTitle,
+                    subtitle: l10n.onboardingScreenAccurateModelSubtitle,
                     sizeLabel: accurate.size,
                     progress: accurate.progress,
                     status: accurate.status,
@@ -126,7 +128,7 @@ class OnboardingScreen extends StatelessWidget {
                   if (failed) ...[
                     Center(
                       child: AppButton(
-                        label: 'Coba Lagi',
+                        label: l10n.onboardingScreenRetry,
                         icon: AppIcons.refresh,
                         onPressed: () {
                           if (quick.status == DownloadStatus.error) {
@@ -143,7 +145,7 @@ class OnboardingScreen extends StatelessWidget {
                   if (postponed) ...[
                     Center(
                       child: AppButton.primary(
-                        label: 'Unduh sekarang',
+                        label: l10n.onboardingScreenDownloadNow,
                         size: AppButtonSize.lg,
                         icon: AppIcons.download,
                         onPressed: onDownloadNow,
@@ -152,7 +154,7 @@ class OnboardingScreen extends StatelessWidget {
                     Spacing.gapSm,
                     Center(
                       child: AppButton.ghost(
-                        label: 'Masuk tanpa model',
+                        label: l10n.onboardingScreenContinueWithoutModels,
                         onPressed: onContinue,
                       ),
                     ),
@@ -160,10 +162,10 @@ class OnboardingScreen extends StatelessWidget {
                     Center(
                       child: AppButton.primary(
                         label: allReady
-                            ? 'Mulai Merekam'
+                            ? l10n.onboardingScreenStartRecording
                             : waiting
-                            ? 'Menunggu izin unduh'
-                            : 'Mengunduh…',
+                            ? l10n.onboardingScreenAwaitingConsent
+                            : l10n.onboardingScreenDownloadingButton,
                         size: AppButtonSize.lg,
                         loading: !allReady && !failed && !waiting,
                         icon: allReady ? AppIcons.record : null,
@@ -173,15 +175,12 @@ class OnboardingScreen extends StatelessWidget {
                   Spacing.gapSm,
                   Text(
                     allReady
-                        ? 'Model tidak akan pernah dikirim ke mana pun.'
+                        ? l10n.onboardingScreenFooterReady
                         : postponed
-                        ? 'Tidak ada yang diunduh. Tanpa model, rekaman '
-                              'belum bisa ditranskripsi; ajakan mengunduh '
-                              'muncul lagi saat Anda mulai merekam.'
+                        ? l10n.onboardingScreenFooterPostponed
                         : waiting
-                        ? 'Tidak ada yang diunduh sebelum Anda setuju.'
-                        : 'Anda boleh menutup aplikasi, unduhan dilanjutkan '
-                              'di latar belakang.',
+                        ? l10n.onboardingScreenFooterWaiting
+                        : l10n.onboardingScreenFooterDownloading,
                     textAlign: TextAlign.center,
                     style: AppText.caption.c(colors.textTertiary),
                   ),
@@ -205,22 +204,24 @@ class _Steps extends StatelessWidget {
 
   final int current;
 
-  static const _labels = [
-    'Izin mikrofon & audio sistem',
-    'Pilih model',
-    'Siap rekam',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
+    final labels = [
+      l10n.onboardingScreenStepPermissions,
+      l10n.onboardingScreenStepModel,
+      l10n.onboardingScreenStepReady,
+    ];
     return Semantics(
-      label:
-          'Langkah ${current + 1} dari ${_labels.length}: '
-          '${_labels[current]}',
+      label: l10n.onboardingScreenStepSemantics(
+        current + 1,
+        labels.length,
+        labels[current],
+      ),
       child: Row(
         children: [
-          for (var i = 0; i < _labels.length; i++) ...[
+          for (var i = 0; i < labels.length; i++) ...[
             if (i > 0) Spacing.hSm,
             Expanded(
               child: Column(
@@ -239,7 +240,7 @@ class _Steps extends StatelessWidget {
                   Spacing.gapSm,
                   ExcludeSemantics(
                     child: Text(
-                      _labels[i],
+                      labels[i],
                       maxLines: 2,
                       style: AppText.micro.c(
                         i <= current ? colors.text : colors.textTertiary,
@@ -354,20 +355,21 @@ class OnboardingState {
     phase: phase ?? this.phase,
   );
 
-  static const empty = OnboardingState(
+  /// A getter rather than a `const`: the card titles follow the language
+  /// the app is showing when the first-run flow starts.
+  static OnboardingState get empty => OnboardingState(
     quick: DownloadProgress(
       status: DownloadStatus.idle,
       progress: 0.0,
-      title: 'Model Cepat',
-      subtitle: 'Transkripsi cepat, akurasi Bahasa Indonesia maksimal',
+      title: currentL10n.onboardingScreenQuickModelTitle,
+      subtitle: currentL10n.onboardingScreenQuickModelSubtitle,
       size: '142 MB',
     ),
     accurate: DownloadProgress(
       status: DownloadStatus.idle,
       progress: 0.0,
-      title: 'Model Akurat',
-      subtitle:
-          'Menyempurnakan transkrip di latar belakang, akurasi global terbaik',
+      title: currentL10n.onboardingScreenAccurateModelTitle,
+      subtitle: currentL10n.onboardingScreenAccurateModelSubtitle,
       size: '548 MB',
     ),
   );
