@@ -87,9 +87,10 @@ pub fn message_for(level: DiskSpaceLevel, available_bytes: Option<u64>) -> Strin
 #[flutter_rust_bridge::frb(ignore)]
 pub fn available_bytes(path: &Path) -> Option<u64> {
     let target = nearest_existing(path)?;
-    let disks = sysinfo::Disks::new_with_refreshed_list();
+    // sysinfo 0.40 returns `Err` on platforms it does not support; that
+    // is "unknown" here too, not "full".
+    let disks = sysinfo::Disks::new_with_refreshed_list().ok()?;
     disks
-        .list()
         .iter()
         // The longest matching mount point wins: `/home` must beat `/`.
         .filter(|disk| target.starts_with(disk.mount_point()))
