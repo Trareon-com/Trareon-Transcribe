@@ -88,7 +88,7 @@ uuid = { version = "1", features = ["v4"] }
 # Dates and the local time zone (replaced chrono, flagged unmaintained by
 # RUSTSEC-2026-0543).
 jiff = "1.0.1"
-cpal = "0.15"
+cpal = "0.18"
 rubato = "0.15"
 symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "ogg", "flac", "vorbis", "wav", "opt-simd"] }
 webrtc-vad = "0.4"
