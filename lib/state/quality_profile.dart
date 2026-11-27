@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 /// Where the noise-reduction / AGC decision comes from.
 ///
 /// The point of separating these is that a machine decision must never
@@ -92,7 +94,7 @@ QualityProfile resolveQualityProfile({
       agc: userAgc,
       vad: userVad,
       progressive: refineModelInstalled,
-      reason: 'Dipilih manual',
+      reason: currentL10n.qualityProfileReasonManual,
       decidedByMeasurement: false,
     );
   }
@@ -103,7 +105,7 @@ QualityProfile resolveQualityProfile({
       agc: false,
       vad: userVad,
       progressive: refineModelInstalled,
-      reason: 'Belum terukur; pengaturan konservatif dipakai',
+      reason: currentL10n.qualityProfileReasonUnmeasured,
       decidedByMeasurement: false,
     );
   }
@@ -118,7 +120,7 @@ QualityProfile resolveQualityProfile({
         agc: false,
         vad: userVad,
         progressive: refineModelInstalled,
-        reason: 'Ruangan bersih; derau dan AGC dimatikan agar tidak memakan kata',
+        reason: currentL10n.qualityProfileReasonClean,
         decidedByMeasurement: true,
       );
     case AudioRoom.tolerable:
@@ -129,8 +131,8 @@ QualityProfile resolveQualityProfile({
         vad: userVad,
         progressive: refineModelInstalled,
         reason: wantsGain
-            ? 'Derau ringan; hanya level yang dinaikkan'
-            : 'Derau ringan; level sudah cukup, gain tidak dipakai',
+            ? currentL10n.qualityProfileReasonLightNoiseGain
+            : currentL10n.qualityProfileReasonLightNoiseNoGain,
         decidedByMeasurement: true,
       );
     case AudioRoom.noisy:
@@ -139,7 +141,7 @@ QualityProfile resolveQualityProfile({
         agc: wantsGain,
         vad: userVad,
         progressive: refineModelInstalled,
-        reason: 'Derau tinggi; pengurangan derau dinyalakan',
+        reason: currentL10n.qualityProfileReasonNoisy,
         decidedByMeasurement: true,
       );
   }

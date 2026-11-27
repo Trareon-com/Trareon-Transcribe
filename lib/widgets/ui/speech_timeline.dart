@@ -15,6 +15,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_tokens.dart';
 
@@ -106,14 +107,15 @@ class _SpeechTimelineState extends State<SpeechTimeline> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final l10n = context.l10n;
     final shown = _dragSeconds ?? widget.positionSeconds;
     final progress = widget.totalSeconds <= 0
         ? 0.0
         : (shown / widget.totalSeconds).clamp(0.0, 1.0);
 
     return Semantics(
-      label: widget.semanticLabel ?? 'Garis waktu rekaman',
-      value: '${(progress * 100).round()} persen',
+      label: widget.semanticLabel ?? l10n.speechTimelineSemanticLabel,
+      value: l10n.speechTimelinePercent((progress * 100).round()),
       slider: true,
       child: LayoutBuilder(
         builder: (context, constraints) {

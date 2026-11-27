@@ -1420,5 +1420,766 @@
   "@personalNotesPanelSubtitle": {
     "description": "\"Enhance\" is the name of the feature button; keep it"
   },
-  "personalNotesPanelHint": "mis. PENTING: deadline Jumat…"
+  "personalNotesPanelHint": "mis. PENTING: deadline Jumat…",
+  "qualityProfileReasonManual": "Dipilih manual",
+  "@qualityProfileReasonManual": {
+    "description": "Why the audio tuning is what it is: the user set the switches by hand"
+  },
+  "qualityProfileReasonUnmeasured": "Belum terukur; pengaturan konservatif dipakai",
+  "qualityProfileReasonClean": "Ruangan bersih; derau dan AGC dimatikan agar tidak memakan kata",
+  "qualityProfileReasonLightNoiseGain": "Derau ringan; hanya level yang dinaikkan",
+  "qualityProfileReasonLightNoiseNoGain": "Derau ringan; level sudah cukup, gain tidak dipakai",
+  "qualityProfileReasonNoisy": "Derau tinggi; pengurangan derau dinyalakan",
+  "notulenGenerationLengthShort": "Ringkas",
+  "@notulenGenerationLengthShort": {
+    "description": "Minutes length preset, about 250 words"
+  },
+  "notulenGenerationLengthMedium": "Sedang",
+  "@notulenGenerationLengthMedium": {
+    "description": "Minutes length preset, about 1000 words"
+  },
+  "notulenGenerationLengthFull": "Lengkap",
+  "@notulenGenerationLengthFull": {
+    "description": "Minutes length preset, about 3000 words"
+  },
+  "liveQaModelNeedsEndpoint": "Tanya Langsung memerlukan endpoint ringkasan yang sudah diatur di Pengaturan → Ringkasan AI.",
+  "@liveQaModelNeedsEndpoint": {
+    "description": "\"Tanya Langsung\" is the feature that answers questions about the meeting still being recorded"
+  },
+  "privacyReportModelEventModelDownload": "Mengunduh model \"{modelId}\" dari huggingface.co",
+  "@privacyReportModelEventModelDownload": {
+    "description": "Privacy Report event line; a timestamp is appended after a comma",
+    "placeholders": {
+      "modelId": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventSummary": "Ringkasan AI dikirim ke {endpoint}",
+  "@privacyReportModelEventSummary": {
+    "description": "Privacy Report event line",
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventArchiveQuestion": "Pertanyaan arsip dikirim ke {endpoint} ({passageCount, plural, other{{passageCount} kutipan rapat}})",
+  "@privacyReportModelEventArchiveQuestion": {
+    "description": "Privacy Report event line",
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      },
+      "passageCount": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportModelEventLiveQaQuestion": "Pertanyaan Tanya Langsung dikirim ke {endpoint} ({passageCount, plural, other{{passageCount} kutipan transkrip}})",
+  "@privacyReportModelEventLiveQaQuestion": {
+    "description": "Privacy Report event line",
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      },
+      "passageCount": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportModelEventUpdateCheck": "Memeriksa pembaruan ke {endpoint}",
+  "@privacyReportModelEventUpdateCheck": {
+    "description": "Privacy Report event line",
+    "placeholders": {
+      "endpoint": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportModelEventExternalLink": "Membuka {url} di peramban",
+  "@privacyReportModelEventExternalLink": {
+    "description": "Privacy Report event line",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "speechTimelineSemanticLabel": "Garis waktu rekaman",
+  "@speechTimelineSemanticLabel": {
+    "description": "Screen-reader label of the playback scrubber"
+  },
+  "speechTimelinePercent": "{percent} persen",
+  "@speechTimelinePercent": {
+    "description": "Screen-reader value of the playback scrubber",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "audioWatchdogModelMicSilent": "Mikrofon belum diberi izin, atau tidak mengirim suara sama sekali. Periksa izin Mikrofon di Pengaturan Sistem.",
+  "@audioWatchdogModelMicSilent": {
+    "description": "Toast while recording when the mic returns pure digital silence"
+  },
+  "audioWatchdogModelSystemAudioSilent": "Audio sistem tidak terdeteksi sama sekali. Periksa izin \"Rekam Layar & Audio Sistem\" di Pengaturan Sistem.",
+  "@audioWatchdogModelSystemAudioSilent": {
+    "description": "Quoted text is the macOS privacy permission name"
+  },
+  "audioWatchdogModelBothSilent": "Mikrofon maupun audio sistem belum diberi izin. Periksa Pengaturan Sistem untuk Mikrofon dan \"Rekam Layar & Audio Sistem\".",
+  "audioWatchdogModelNoSound": "Belum ada suara terdeteksi. Periksa izin Mikrofon dan \"Rekam Layar & Audio Sistem\" di Pengaturan Sistem, atau pastikan sumber audio yang dipilih sudah benar.",
+  "modelDownloadDialogDownloading": "Mengunduh…",
+  "modelDownloadDialogDownloadingName": "Mengunduh {name}…",
+  "@modelDownloadDialogDownloadingName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogDownloadingProgress": "Mengunduh {name}… {percent}%",
+  "@modelDownloadDialogDownloadingProgress": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "modelDownloadDialogFailed": "Gagal mengunduh: {error}",
+  "@modelDownloadDialogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogTitle": "Unduh {name}",
+  "@modelDownloadDialogTitle": {
+    "description": "Dialog title; name is the model display name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogPrompt": "{name} belum diunduh. Apakah Anda ingin mengunduh sekarang?",
+  "@modelDownloadDialogPrompt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadDialogDownload": "Unduh",
+  "@modelDownloadDialogDownload": {
+    "description": "Button that starts a model download"
+  },
+  "retranscribeDialogEngineFailed": "Gagal transkrip ulang: {error}. Transkrip lama tetap dipertahankan.",
+  "@retranscribeDialogEngineFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "retranscribeDialogNoSpeech": "Tidak ada ucapan terdeteksi. Transkrip lama tetap dipertahankan.",
+  "retranscribeDialogFailed": "Gagal transkrip ulang (transkrip lama tetap aman): {error}",
+  "@retranscribeDialogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "retranscribeDialogTitle": "Transkrip Ulang",
+  "retranscribeDialogDescription": "Audio asli akan ditranskrip ulang. Transkrip lama diganti hanya kalau proses berhasil.",
+  "retranscribeDialogModelLabel": "Kualitas model",
+  "retranscribeDialogLanguageLabel": "Bahasa",
+  "@retranscribeDialogLanguageLabel": {
+    "description": "Transcription language for the re-run"
+  },
+  "retranscribeDialogAutoDetect": "Deteksi otomatis",
+  "@retranscribeDialogAutoDetect": {
+    "description": "Transcription language option"
+  },
+  "retranscribeDialogIndonesian": "Indonesia",
+  "@retranscribeDialogIndonesian": {
+    "description": "Transcription language option"
+  },
+  "retranscribeDialogNoModels": "Tidak ada model terpasang.",
+  "retranscribeDialogProcessing": "Memproses… ini bisa memakan waktu untuk rekaman panjang.",
+  "retranscribeDialogStart": "Mulai",
+  "@retranscribeDialogStart": {
+    "description": "Starts the re-transcription"
+  },
+  "auditLogViewTitle": "Log audit",
+  "auditLogViewClose": "Tutup",
+  "auditLogViewReadError": "Log audit tidak bisa dibaca: {error}",
+  "@auditLogViewReadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "auditLogViewEmpty": "Belum ada catatan. Log terisi saat sesi dibuat, transkrip diekspor, atau data dihapus.",
+  "auditLogViewActionSessionCreated": "Sesi dibuat",
+  "@auditLogViewActionSessionCreated": {
+    "description": "Audit-log action label in the viewer (the log file itself is not translated)"
+  },
+  "auditLogViewActionSessionExported": "Transkrip diekspor",
+  "auditLogViewActionSummarySent": "Ringkasan dikirim ke endpoint",
+  "auditLogViewActionSessionDeleted": "Sesi dihapus",
+  "auditLogViewActionAudioDeleted": "Audio dihapus",
+  "auditLogViewActionTranscriptDeleted": "Transkrip dihapus",
+  "auditLogViewActionConsentAcknowledged": "Pemberitahuan perekaman disampaikan",
+  "auditLogViewActionRedactionApplied": "Penyamaran data pribadi diterapkan",
+  "auditLogViewActionRetentionApplied": "Kebijakan retensi dijalankan",
+  "auditLogViewActionAuditExported": "Log audit diekspor",
+  "auditLogViewActionModelPulled": "Model notulen diunduh",
+  "auditLogViewActionDocumentContextUsed": "Konteks dokumen digunakan",
+  "auditLogViewActionTranscriptEnhanced": "Transkrip diperhalus otomatis",
+  "onboardingScreenWelcome": "Selamat datang di Trareon Transcribe",
+  "@onboardingScreenWelcome": {
+    "description": "First-run greeting. Keep the product name spelled exactly \"Trareon Transcribe\"."
+  },
+  "onboardingScreenReady": "Siap merekam",
+  "onboardingScreenPostponed": "Unduhan ditunda",
+  "onboardingScreenNeedsDownload": "Model perlu diunduh",
+  "onboardingScreenDownloading": "Mengunduh model",
+  "onboardingScreenReadyBody": "Kedua model sudah ada di perangkat ini. Transkripsi berjalan sepenuhnya offline.",
+  "onboardingScreenOfflineBody": "Trareon bekerja 100% offline, jadi modelnya perlu ada di perangkat Anda. Hanya sekali.",
+  "onboardingScreenRetry": "Coba Lagi",
+  "onboardingScreenDownloadNow": "Unduh sekarang",
+  "onboardingScreenContinueWithoutModels": "Masuk tanpa model",
+  "onboardingScreenStartRecording": "Mulai Merekam",
+  "onboardingScreenAwaitingConsent": "Menunggu izin unduh",
+  "@onboardingScreenAwaitingConsent": {
+    "description": "Disabled button while the download consent dialog is open"
+  },
+  "onboardingScreenDownloadingButton": "Mengunduh…",
+  "onboardingScreenFooterReady": "Model tidak akan pernah dikirim ke mana pun.",
+  "onboardingScreenFooterPostponed": "Tidak ada yang diunduh. Tanpa model, rekaman belum bisa ditranskripsi; ajakan mengunduh muncul lagi saat Anda mulai merekam.",
+  "onboardingScreenFooterWaiting": "Tidak ada yang diunduh sebelum Anda setuju.",
+  "onboardingScreenFooterDownloading": "Anda boleh menutup aplikasi, unduhan dilanjutkan di latar belakang.",
+  "onboardingScreenStepPermissions": "Izin mikrofon & audio sistem",
+  "@onboardingScreenStepPermissions": {
+    "description": "First-run progress strip, step 1"
+  },
+  "onboardingScreenStepModel": "Pilih model",
+  "@onboardingScreenStepModel": {
+    "description": "First-run progress strip, step 2"
+  },
+  "onboardingScreenStepReady": "Siap rekam",
+  "@onboardingScreenStepReady": {
+    "description": "First-run progress strip, step 3"
+  },
+  "onboardingScreenStepSemantics": "Langkah {step} dari {total}: {label}",
+  "@onboardingScreenStepSemantics": {
+    "description": "Screen-reader label of the first-run progress strip",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingScreenQuickModelTitle": "Model Cepat",
+  "onboardingScreenQuickModelSubtitle": "Transkripsi cepat, akurasi Bahasa Indonesia maksimal",
+  "onboardingScreenAccurateModelTitle": "Model Akurat",
+  "onboardingScreenAccurateModelSubtitle": "Menyempurnakan transkrip di latar belakang, akurasi global terbaik",
+  "sessionModelSaveFailed": "Sesi berhenti, tapi gagal menyimpan transkrip ke {outputDir}: {error}",
+  "@sessionModelSaveFailed": {
+    "placeholders": {
+      "outputDir": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModelSaveFailed": "Pengaturan \"{label}\" gagal disimpan: {message}. Perubahan dikembalikan.",
+  "@settingsModelSaveFailed": {
+    "description": "Settings banner after a failed write; label is one of the settingsModelLabel* names",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModelLabelTheme": "Tema",
+  "@settingsModelLabelTheme": {
+    "description": "Setting name shown in the save-failure banner"
+  },
+  "settingsModelLabelProgressive": "Cepat dulu, lalu diperhalus",
+  "settingsModelLabelGpu": "Akselerasi GPU",
+  "settingsModelLabelGpuDevice": "Perangkat GPU",
+  "settingsModelLabelBenchmark": "Skor benchmark",
+  "settingsModelLabelHptMode": "Cara transkripsi bertahap",
+  "settingsModelLabelSummary": "Ringkasan AI",
+  "settingsModelLabelGlossary": "Kamus istilah",
+  "settingsModelLabelNeuralDiarization": "Pemisahan pembicara akurat",
+  "settingsModelLabelEngineModels": "Model mesin",
+  "settingsModelLabelPdp": "Mode Kepatuhan PDP",
+  "settingsModelLabelSummaryTemplates": "Template ringkasan",
+  "settingsModelLabelNotulenLetterhead": "Kop surat notulen",
+  "settingsModelLabelAutoRetranscribe": "Perhalus transkrip otomatis",
+  "settingsModelLabelDefaultModel": "Model default",
+  "settingsModelLabelLanguage": "Bahasa",
+  "@settingsModelLabelLanguage": {
+    "description": "Setting name: the transcription language (not the UI language)"
+  },
+  "settingsModelLabelDefaultMode": "Mode default",
+  "settingsModelLabelVad": "Abaikan jeda sunyi",
+  "settingsModelLabelNoiseReduction": "Pengurangan derau",
+  "settingsModelLabelAgc": "Penguatan suara otomatis",
+  "settingsModelLabelAutoAudioTuning": "Penyetelan audio otomatis",
+  "settingsModelLabelSimpleMode": "Mode Sederhana",
+  "settingsModelLabelDeferDownloads": "Tunda unduhan",
+  "settingsModelLabelUpgradeOffer": "Tawaran tingkatkan akurasi",
+  "settingsModelLabelConsentReminder": "Pengingat persetujuan perekaman",
+  "settingsModelLabelAutoStop": "Berhenti sendiri saat sunyi",
+  "settingsModelLabelExportFormat": "Format ekspor default",
+  "settingsModelLabelOutputFolder": "Folder output",
+  "settingsModelLabelMicrophone": "Mikrofon",
+  "settingsModelLabelSpeaker": "Pengeras suara",
+  "sessionControlsSessionGroup": "Sesi",
+  "@sessionControlsSessionGroup": {
+    "description": "Label of the session control group"
+  },
+  "sessionControlsTitlePlaceholder": "Judul sesi…",
+  "sessionControlsModeSemantics": "Mode sesi",
+  "@sessionControlsModeSemantics": {
+    "description": "Screen-reader label of the capture-mode selector"
+  },
+  "sessionControlsAttendees": "Peserta:",
+  "@sessionControlsAttendees": {
+    "description": "Before the attendee chips imported from a calendar invite"
+  },
+  "sessionControlsModeOfflineSemantics": "Mode rapat offline: hanya mikrofon",
+  "@sessionControlsModeOfflineSemantics": {
+    "description": "Screen-reader label for the in-room meeting capture mode"
+  },
+  "sessionControlsModeOnlineSemantics": "Mode rapat online: mikrofon dan suara sistem",
+  "sessionControlsModeWebinarSemantics": "Mode webinar: hanya suara sistem",
+  "sessionControlsModeOfflineExplanation": "Rapat di satu ruangan. Hanya mikrofon yang direkam.",
+  "sessionControlsModeOnlineExplanation": "Zoom, Meet atau Teams. Mikrofon dan suara sistem.",
+  "sessionControlsModeWebinarExplanation": "Anda hanya menyimak. Hanya suara sistem.",
+  "sessionControlsGlossaryTooltip": "Istilah khusus rapat ini, di atas {globalCount} istilah di Pengaturan",
+  "@sessionControlsGlossaryTooltip": {
+    "placeholders": {
+      "globalCount": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossarySemanticsEmpty": "Istilah rapat, belum ada",
+  "sessionControlsGlossarySemanticsCount": "Istilah rapat, {count, plural, other{{count} istilah}}",
+  "@sessionControlsGlossarySemanticsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossaryPill": "Istilah rapat",
+  "@sessionControlsGlossaryPill": {
+    "description": "Button that opens the per-meeting glossary"
+  },
+  "sessionControlsGlossaryPillCount": "Istilah rapat ({count})",
+  "@sessionControlsGlossaryPillCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionControlsGlossaryDialogTitle": "Istilah khusus rapat ini",
+  "sessionControlsGlossaryDialogDescription": "Satu istilah per baris: nama peserta, singkatan, nama program. Diutamakan di atas kamus di Pengaturan.",
+  "sessionControlsOptionsTooltip": "Opsi sesi",
+  "sessionControlsQualityHeader": "Kualitas transkripsi",
+  "sessionControlsSkipSilence": "Lewati jeda sunyi",
+  "sessionControlsLanguageHeader": "Bahasa rapat ini",
+  "sessionControlsLanguageAuto": "Otomatis (deteksi per kalimat)",
+  "sessionControlsLanguageIndonesian": "Indonesia",
+  "@sessionControlsLanguageIndonesian": {
+    "description": "Meeting language option"
+  },
+  "sessionControlsLanguageEnglish": "Inggris",
+  "@sessionControlsLanguageEnglish": {
+    "description": "Meeting language option"
+  },
+  "sessionControlsLanguageMismatch": "Banyak kalimat terakhir terdeteksi bukan bahasa yang dipilih untuk sesi ini.",
+  "sessionControlsSwitchToAuto": "Ganti ke Otomatis",
+  "sessionControlsConsentReminder": "Pastikan semua peserta tahu rapat ini direkam.",
+  "sessionControlsDontShowAgain": "Jangan tampilkan lagi",
+  "sessionControlsMicrophone": "Mikrofon",
+  "sessionControlsSystemAudio": "Suara sistem",
+  "sessionControlsDevicesGroup": "Perangkat",
+  "@sessionControlsDevicesGroup": {
+    "description": "Label of the capture device control group"
+  },
+  "sessionControlsSystemDefault": "Bawaan sistem",
+  "@sessionControlsSystemDefault": {
+    "description": "Shown when no explicit capture device is picked"
+  },
+  "sessionControlsDeviceOn": "{label} aktif",
+  "@sessionControlsDeviceOn": {
+    "description": "Screen-reader label of a capture-source switch; label is Microphone or System audio",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsDeviceOff": "{label} nonaktif",
+  "@sessionControlsDeviceOff": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsChooseDevice": "Pilih perangkat {label}",
+  "@sessionControlsChooseDevice": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsDeviceAuto": "Otomatis (bawaan sistem)",
+  "sessionControlsReloadDevices": "Muat ulang daftar perangkat {label}",
+  "@sessionControlsReloadDevices": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionControlsLevel": "Level {label}",
+  "@sessionControlsLevel": {
+    "description": "Screen-reader label of a live audio level meter",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenQuitReasonRecording": "Rekaman masih berjalan.",
+  "@mainScreenQuitReasonRecording": {
+    "description": "Bullet in the quit confirmation"
+  },
+  "mainScreenQuitReasonOutstanding": "{count, plural, other{{count} rekaman masih diselesaikan transkripnya, pekerjaan ini dilanjutkan otomatis saat aplikasi dibuka lagi.}}",
+  "@mainScreenQuitReasonOutstanding": {
+    "description": "Bullet in the quit confirmation",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenQuitReasonRefining": "Masih ada transkrip yang sedang diperhalus.",
+  "@mainScreenQuitReasonRefining": {
+    "description": "Bullet in the quit confirmation"
+  },
+  "mainScreenQuitTitle": "Keluar sekarang?",
+  "mainScreenQuitStay": "Tetap di aplikasi",
+  "mainScreenQuit": "Keluar",
+  "mainScreenMeetingDetectedTitle": "Rapat terdeteksi",
+  "mainScreenMeetingDetectedBody": "Terdeteksi rapat ({app}). Mulai rekam?",
+  "@mainScreenMeetingDetectedBody": {
+    "description": "app is the meeting app, e.g. Zoom",
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenIgnore": "Abaikan",
+  "mainScreenStartRecording": "Mulai Rekam",
+  "mainScreenSilenceTitle": "Tidak ada suara",
+  "mainScreenSilenceBody": "Tidak ada suara selama {minutes, plural, other{{minutes} menit}}. Rekaman akan berhenti otomatis kecuali dilanjutkan.",
+  "@mainScreenSilenceBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenContinue": "Lanjutkan",
+  "@mainScreenContinue": {
+    "description": "Keeps recording after the silence warning"
+  },
+  "mainScreenDiskFull": "Ruang disk di {path} tidak cukup untuk merekam. {detail} Kosongkan ruang atau ubah lokasi perpustakaan di Pengaturan.",
+  "@mainScreenDiskFull": {
+    "description": "detail is a sentence from the engine about free space",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSaveElsewhereDialogTitle": "Simpan transkrip ke folder lain",
+  "@mainScreenSaveElsewhereDialogTitle": {
+    "description": "Folder picker title"
+  },
+  "mainScreenTranscriptSaved": "Transkrip tersimpan.",
+  "mainScreenSaveFailed": "Gagal menyimpan: {error}",
+  "@mainScreenSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoverFailed": "Gagal memulihkan sesi: {error}",
+  "@mainScreenRecoverFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecovered": "\"{title}\" dipulihkan: {segments, plural, other{{segments} segmen}} dan {duration} audio.",
+  "@mainScreenRecovered": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "segments": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDeleteFailed": "Gagal menghapus: {error}",
+  "@mainScreenDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDeleted": "\"{title}\" dihapus.",
+  "@mainScreenDeleted": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryCount": "{count, plural, =1{1 sesi terhenti} other{{count} sesi terhenti}}",
+  "@mainScreenRecoveryCount": {
+    "description": "Start of the recovery banner line",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenRecoverySegments": "{count, plural, other{{count} segmen transkrip}}",
+  "@mainScreenRecoverySegments": {
+    "description": "Part of the recovery banner line",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenRecoveryAudio": "{duration} audio",
+  "@mainScreenRecoveryAudio": {
+    "description": "Part of the recovery banner line",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryJoiner": " dan ",
+  "@mainScreenRecoveryJoiner": {
+    "description": "Joins the recoverable parts of the recovery banner line, with surrounding spaces"
+  },
+  "mainScreenRecoveryNothingLeft": "{count} tanpa transkrip atau audio yang tersisa.",
+  "@mainScreenRecoveryNothingLeft": {
+    "description": "count is mainScreenRecoveryCount",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenRecoveryContents": "{count}: {contents} bisa dipulihkan.",
+  "@mainScreenRecoveryContents": {
+    "description": "count is mainScreenRecoveryCount; contents lists what can be recovered",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "contents": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenStopTitle": "Berhenti merekam?",
+  "mainScreenStopBody": "Sesi ini punya {count, plural, other{{count} segmen transkrip}}. Sesi akan disimpan otomatis saat berhenti.",
+  "@mainScreenStopBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenStop": "Berhenti",
+  "mainScreenStopFailed": "Gagal menghentikan sesi: {error}",
+  "@mainScreenStopFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSessionSaved": "Sesi tersimpan ({count, plural, other{{count} segmen}}).",
+  "@mainScreenSessionSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenNothingToBookmark": "Belum ada rekaman untuk ditandai.",
+  "mainScreenBookmarked": "Ditandai di {time}.",
+  "@mainScreenBookmarked": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenModelMissingTitle": "Model belum diunduh",
+  "mainScreenModelMissingMessage": "Rekaman perlu {model} di perangkat ini. Unduh sekarang{size}? Unduhan tercatat di Laporan Privasi.",
+  "@mainScreenModelMissingMessage": {
+    "description": "size is empty or \" (±142 MB)\" with a leading space",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenDownloadNow": "Unduh sekarang",
+  "mainScreenLater": "Nanti",
+  "mainScreenNothingToExport": "Tidak ada transkrip untuk diekspor.",
+  "mainScreenChooseExportFolder": "Pilih folder ekspor",
+  "@mainScreenChooseExportFolder": {
+    "description": "Folder picker title"
+  },
+  "mainScreenExportSucceeded": "Ekspor berhasil ke: {dir}",
+  "@mainScreenExportSucceeded": {
+    "placeholders": {
+      "dir": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenExportFailed": "Ekspor gagal: {error}",
+  "@mainScreenExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenCannotOpen": "\"{title}\" tidak bisa dibuka.",
+  "@mainScreenCannotOpen": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenOpenSystemSettings": "Buka Pengaturan Sistem",
+  "@mainScreenOpenSystemSettings": {
+    "description": "Toast action that opens the OS privacy settings"
+  },
+  "mainScreenStarting": "Memulai…",
+  "@mainScreenStarting": {
+    "description": "Record button label while a session starts"
+  },
+  "mainScreenSaving": "Menyimpan…",
+  "mainScreenSwitchPanel": "Ganti panel",
+  "mainScreenPersonalNotes": "Catatan Pribadi",
+  "mainScreenLiveQa": "Tanya Langsung",
+  "@mainScreenLiveQa": {
+    "description": "Panel for asking questions about the meeting still being recorded"
+  },
+  "mainScreenReady": "Siap merekam",
+  "mainScreenLocalOnly": "Semua transkripsi berjalan di komputer ini. Tidak ada audio yang keluar.",
+  "mainScreenTitlePlaceholder": "Judul sesi…",
+  "mainScreenStartFromTemplate": "Mulai dari template",
+  "mainScreenImportInvite": "Impor undangan (.ics)",
+  "mainScreenOrPress": "atau tekan",
+  "@mainScreenOrPress": {
+    "description": "Followed by the keyboard shortcut keycap"
+  },
+  "mainScreenSessionHistory": "Riwayat sesi",
+  "@mainScreenSessionHistory": {
+    "description": "Tooltip of the button that opens the session sidebar"
+  },
+  "mainScreenRecordingDuration": "Durasi rekaman",
+  "mainScreenPaused": "Dijeda",
+  "mainScreenBookmarkTooltip": "Tandai poin penting ({shortcut})",
+  "@mainScreenBookmarkTooltip": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenExport": "Ekspor",
+  "mainScreenSaveFailedBanner": "{message} Transkrip masih ada di memori, jangan tutup aplikasi sebelum tersimpan.",
+  "@mainScreenSaveFailedBanner": {
+    "description": "message is the save error sentence",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "mainScreenSaveElsewhere": "Simpan ke folder lain",
+  "mainScreenRetry": "Coba Lagi",
+  "mainScreenViewAndRecover": "Lihat & Pulihkan",
+  "mainScreenSegmentCount": "{count, plural, other{{count} segmen}}",
+  "@mainScreenSegmentCount": {
+    "description": "Footer transcript segment count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mainScreenShowShortcuts": "Tampilkan pintasan keyboard",
+  "mainScreenShortcuts": "Pintasan",
+  "mainScreenKeyboardShortcuts": "Pintasan keyboard",
+  "mainScreenClose": "Tutup"
 }
