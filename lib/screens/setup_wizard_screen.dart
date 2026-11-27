@@ -9,6 +9,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../src/rust/audio/device.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
@@ -352,7 +353,7 @@ class _WizardProgress extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Langkah ${step + 1} dari $total',
+                context.l10n.setupWizardScreenStepOf(step + 1, total),
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: FontSizes.body,
@@ -410,7 +411,7 @@ class _WizardNavigation extends StatelessWidget {
               TextButton.icon(
                 onPressed: isFirst ? null : onBack,
                 icon: const Icon(AppIcons.back, size: IconSizes.xs),
-                label: const Text('Kembali'),
+                label: Text(context.l10n.setupWizardScreenBack),
                 style: TextButton.styleFrom(
                   foregroundColor: isFirst ? colors.textTertiary : colors.text,
                 ),
@@ -421,7 +422,7 @@ class _WizardNavigation extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: colors.textSecondary,
                   ),
-                  child: const Text('Tutup'),
+                  child: Text(context.l10n.setupWizardScreenClose),
                 ),
             ],
           ),
@@ -438,7 +439,11 @@ class _WizardNavigation extends StatelessWidget {
                 borderRadius: BorderRadius.circular(Radii.md),
               ),
             ),
-            child: Text(isLast ? 'Selesai' : 'Lanjut'),
+            child: Text(
+              isLast
+                  ? context.l10n.setupWizardScreenFinish
+                  : context.l10n.setupWizardScreenNext,
+            ),
           ),
         ],
       ),
@@ -533,10 +538,10 @@ class _SpecDetectStep extends StatelessWidget {
 
     return _StepContent(
       icon: AppIcons.chip,
-      title: '1. Deteksi Spesifikasi',
+      title: context.l10n.setupWizardScreenSpecTitle,
       description: detected
-          ? 'Sistem Anda siap! Model direkomendasikan berdasarkan spesifikasi.'
-          : 'Memeriksa sistem…',
+          ? context.l10n.setupWizardScreenSpecReady
+          : context.l10n.setupWizardScreenSpecChecking,
       child: detected
           ? Container(
               padding: const EdgeInsets.all(Spacing.lg),
@@ -549,21 +554,23 @@ class _SpecDetectStep extends StatelessWidget {
                 children: [
                   _SpecRow(
                     icon: AppIcons.computer,
-                    label: 'Inti Prosesor',
-                    value: '$cpuCores core',
+                    label: context.l10n.setupWizardScreenSpecCpu,
+                    value: context.l10n.setupWizardScreenSpecCores('$cpuCores'),
                   ),
                   Spacing.gapMd,
                   _SpecRow(
                     icon: AppIcons.chip,
-                    label: ramIsEstimate ? 'RAM (perkiraan)' : 'RAM',
+                    label: ramIsEstimate
+                        ? context.l10n.setupWizardScreenSpecRamEstimate
+                        : context.l10n.setupWizardScreenSpecRam,
                     value: ramMb == null
-                        ? 'tidak diketahui'
+                        ? context.l10n.setupWizardScreenSpecUnknown
                         : _ramLabel(ramMb!),
                   ),
                   Spacing.gapMd,
                   _SpecRow(
                     icon: AppIcons.model,
-                    label: 'Model Disarankan',
+                    label: context.l10n.setupWizardScreenSpecSuggestedModel,
                     value: _modelLabel(suggestedModel ?? 'base'),
                     highlighted: true,
                   ),
@@ -638,7 +645,8 @@ class _ModelChoiceStep extends StatelessWidget {
     this.accuracyLabels = const {},
   });
 
-  static List<String> get candidateIds => _models.map((m) => m.$1).toList();
+  static List<String> get candidateIds =>
+      _models(currentL10n).map((m) => m.$1).toList();
 
   // Sprint 14a: a real WER figure (FLEURS-id, see `accuracyLabels`) is
   // appended per card when one exists. Before this sprint nothing in the
@@ -653,36 +661,31 @@ class _ModelChoiceStep extends StatelessWidget {
   // is handled separately below, not as a 6th row here, because unlike
   // these five it has no model file of its own — it resolves to one of
   // them via `recommendDefaultModel` (see [suggestedModel]).
-  static const _models = [
+  static List<(String, String, String)> _models(AppLocalizations l10n) => [
     (
       'base',
-      '⚡ Cepat',
-      '142 MB · termasuk di aplikasi\nTranskrip muncul cepat, cocok untuk '
-          'komputer ringan dan catatan sehari-hari.',
+      l10n.setupWizardScreenModelFastLabel,
+      l10n.setupWizardScreenModelFastDescription,
     ),
     (
       'qwen3-asr-0.6b',
-      '🧪 Cepat-Eksperimental',
-      '631 MB · unduh sekali\nSeakurat model "Akurat" tapi secepat model '
-          '"Cepat" (Qwen3-ASR). Baru, belum teruji selengkap model lain.',
+      l10n.setupWizardScreenModelFastExperimentalLabel,
+      l10n.setupWizardScreenModelFastExperimentalDescription,
     ),
     (
       'small',
-      '⚖️ Seimbang',
-      '488 MB · unduh sekali\nLebih teliti dari model cepat, tanpa seberat '
-          'model akurat. Pilihan tengah untuk komputer dengan RAM sedang.',
+      l10n.setupWizardScreenModelBalancedLabel,
+      l10n.setupWizardScreenModelBalancedDescription,
     ),
     (
       'large-v3-turbo-q5',
-      '🎯 Akurat',
-      '548 MB · unduh sekali\nLebih teliti untuk rapat dan wawancara, tapi '
-          'jauh lebih lambat di komputer tanpa GPU.',
+      l10n.setupWizardScreenModelAccurateLabel,
+      l10n.setupWizardScreenModelAccurateDescription,
     ),
     (
       'qwen3-asr-1.7b',
-      '🧪 Akurat-Eksperimental',
-      '1.5 GB · unduh sekali\nModel paling teliti yang tersedia (Qwen3-ASR). '
-          'Baru, belum teruji selengkap model lain.',
+      l10n.setupWizardScreenModelAccurateExperimentalLabel,
+      l10n.setupWizardScreenModelAccurateExperimentalDescription,
     ),
   ];
 
@@ -692,20 +695,19 @@ class _ModelChoiceStep extends StatelessWidget {
         suggestedModel != null && selected == suggestedModel;
     return _StepContent(
       icon: AppIcons.model,
-      title: '2. Pilih Model',
-      description: 'Pilih model Speech-to-Text yang sesuai.',
+      title: context.l10n.setupWizardScreenModelTitle,
+      description: context.l10n.setupWizardScreenModelDescription,
       child: Column(
         children: [
           if (suggestedModel != null)
             _ModelCard(
-              label: '🤖 Otomatis (disarankan)',
-              description:
-                  'Dipilihkan otomatis sesuai spesifikasi komputer ini.',
+              label: context.l10n.setupWizardScreenModelAutoLabel,
+              description: context.l10n.setupWizardScreenModelAutoDescription,
               isSelected: isAutoSelected,
               onTap: () => onChanged(suggestedModel!),
             ),
           if (suggestedModel != null) const SizedBox(height: Spacing.sm),
-          ..._models.map((m) {
+          ..._models(context.l10n).map((m) {
             final isSelected = selected == m.$1;
             return _ModelCard(
               label: m.$2,
@@ -906,55 +908,35 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
 
   String get _loopbackTitle => _loopbackReady
       ? switch (Platform.operatingSystem) {
-          'macos' => 'Driver audio virtual terdeteksi',
-          'linux' => 'Suara sistem siap direkam',
-          _ => 'Suara sistem siap direkam',
+          'macos' => context.l10n.setupWizardScreenLoopbackVirtualDriverFound,
+          'linux' => context.l10n.setupWizardScreenLoopbackSystemAudioReady,
+          _ => context.l10n.setupWizardScreenLoopbackSystemAudioReady,
         }
       : switch (Platform.operatingSystem) {
-          'macos' => 'Driver audio virtual belum terpasang',
-          'linux' => 'Belum ada perangkat keluaran yang bisa direkam',
-          _ => 'Belum ada perangkat keluaran yang bisa direkam',
+          'macos' => context.l10n.setupWizardScreenLoopbackVirtualDriverMissing,
+          'linux' => context.l10n.setupWizardScreenLoopbackNoOutputDevice,
+          _ => context.l10n.setupWizardScreenLoopbackNoOutputDevice,
         };
 
   String get _loopbackBody {
     if (_loopbackReady) {
       return switch (Platform.operatingSystem) {
-        'macos' =>
-          'Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.',
-        'linux' =>
-          'Trareon merekam suara sistem lewat monitor sink PipeWire/PulseAudio '
-              ', tidak perlu memasang apa pun.',
-        _ =>
-          'Trareon merekam suara sistem lewat WASAPI loopback, tidak '
-              'perlu memasang apa pun.',
+        'macos' => context.l10n.setupWizardScreenLoopbackReadyMacos,
+        'linux' => context.l10n.setupWizardScreenLoopbackReadyLinux,
+        _ => context.l10n.setupWizardScreenLoopbackReadyWindows,
       };
     }
     return switch (Platform.operatingSystem) {
-      'macos' =>
-        'Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.',
-      'linux' =>
-        'Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan '
-            'PipeWire atau PulseAudio berjalan.',
-      _ =>
-        'Pilih perangkat keluaran di atas. Jika daftarnya kosong, '
-            'pastikan perangkat pemutar suara aktif di Windows.',
+      'macos' => context.l10n.setupWizardScreenLoopbackMissingMacos,
+      'linux' => context.l10n.setupWizardScreenLoopbackMissingLinux,
+      _ => context.l10n.setupWizardScreenLoopbackMissingWindows,
     };
   }
 
   String get _loopbackGuide => switch (Platform.operatingSystem) {
-    'macos' =>
-      '1. brew install blackhole-2ch\n'
-          '2. Buka Audio MIDI Setup\n'
-          '3. Buat Multi-Output Device\n'
-          '4. Centang pengeras suara Mac Anda + BlackHole 2ch',
-    'linux' =>
-      '1. Pastikan PipeWire atau PulseAudio berjalan\n'
-          '2. Jalankan: pactl list short sources\n'
-          '3. Pilih sumber yang berakhiran .monitor di daftar di atas',
-    _ =>
-      '1. Buka Pengaturan Suara Windows\n'
-          '2. Pastikan ada perangkat keluaran yang aktif\n'
-          '3. Pilih perangkat itu di daftar di atas',
+    'macos' => context.l10n.setupWizardScreenLoopbackGuideMacos,
+    'linux' => context.l10n.setupWizardScreenLoopbackGuideLinux,
+    _ => context.l10n.setupWizardScreenLoopbackGuideWindows,
   };
 
   @override
@@ -965,14 +947,14 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
     final accent = ready ? colors.success : colors.warning;
     return _StepContent(
       icon: AppIcons.speakers,
-      title: '3. Siapkan Audio',
-      description: 'Pilih perangkat mikrofon dan pengeras suara.',
+      title: context.l10n.setupWizardScreenAudioTitle,
+      description: context.l10n.setupWizardScreenAudioDescription,
       child: _loading
           ? const CircularProgressIndicator()
           : Column(
               children: [
                 _AudioDropdown(
-                  label: 'Mikrofon (Input)',
+                  label: context.l10n.setupWizardScreenMicLabel,
                   value: _selectedMic,
                   devices: _inputDevices,
                   onChanged: (v) {
@@ -982,7 +964,7 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                 ),
                 Spacing.gapMd,
                 _AudioDropdown(
-                  label: 'Pengeras Suara / Suara Sistem (Output)',
+                  label: context.l10n.setupWizardScreenSpeakerLabel,
                   value: _selectedSpeaker,
                   devices: _outputDevices,
                   onChanged: (v) {
@@ -1038,7 +1020,11 @@ class _AudioSetupStepState extends ConsumerState<_AudioSetupStep> {
                             _showGuide ? AppIcons.expandLess : AppIcons.help,
                             size: IconSizes.sm,
                           ),
-                          label: Text(_showGuide ? 'Sembunyikan' : 'Panduan'),
+                          label: Text(
+                            _showGuide
+                                ? context.l10n.actionHide
+                                : context.l10n.setupWizardScreenGuide,
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colors.text,
                           ),
@@ -1128,7 +1114,9 @@ class _AudioDropdown extends StatelessWidget {
                 : [
                     DropdownMenuItem(
                       value: value,
-                      child: Text(value ?? 'Bawaan sistem'),
+                      child: Text(
+                        value ?? context.l10n.setupWizardScreenSystemDefault,
+                      ),
                     ),
                   ],
             onChanged: onChanged,
@@ -1257,15 +1245,9 @@ class _ToneTestStepState extends State<_ToneTestStep> {
   }
 
   String get _remediation => switch (Platform.operatingSystem) {
-    'macos' =>
-      'Buka Pengaturan Sistem → Suara, naikkan volume, dan pastikan '
-          'perangkat keluaran yang benar terpilih.',
-    'linux' =>
-      'Periksa volume di pavucontrol atau pengaturan suara desktop Anda, '
-          'lalu pastikan perangkat keluaran yang benar terpilih.',
-    _ =>
-      'Buka Pengaturan Suara Windows, naikkan volume, dan pastikan '
-          'perangkat keluaran yang benar terpilih.',
+    'macos' => context.l10n.setupWizardScreenRemediationMacos,
+    'linux' => context.l10n.setupWizardScreenRemediationLinux,
+    _ => context.l10n.setupWizardScreenRemediationWindows,
   };
 
   @override
@@ -1274,9 +1256,8 @@ class _ToneTestStepState extends State<_ToneTestStep> {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return _StepContent(
       icon: AppIcons.waveform,
-      title: '4. Uji Suara',
-      description:
-          'Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.',
+      title: context.l10n.setupWizardScreenToneTitle,
+      description: context.l10n.setupWizardScreenToneDescription,
       child: Container(
         padding: const EdgeInsets.all(Spacing.lg),
         decoration: BoxDecoration(
@@ -1290,7 +1271,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
           children: [
             if (_awaitingAnswer) ...[
               Text(
-                'Apakah Anda mendengar nadanya?',
+                context.l10n.setupWizardScreenToneQuestion,
                 style: TextStyle(
                   color: colors.text,
                   fontSize: FontSizes.bodyLarge,
@@ -1306,7 +1287,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                       _awaitingAnswer = false;
                       _outcome = _ToneOutcome.heard;
                     }),
-                    child: const Text('Ya, terdengar'),
+                    child: Text(context.l10n.setupWizardScreenToneHeard),
                   ),
                   Spacing.hSm,
                   OutlinedButton(
@@ -1314,7 +1295,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
                       _awaitingAnswer = false;
                       _outcome = _ToneOutcome.notHeard;
                     }),
-                    child: const Text('Tidak terdengar'),
+                    child: Text(context.l10n.setupWizardScreenToneNotHeard),
                   ),
                 ],
               ),
@@ -1324,8 +1305,8 @@ class _ToneTestStepState extends State<_ToneTestStep> {
               _ToneResultCard(
                 color: colors.success,
                 icon: AppIcons.checkFilled,
-                title: 'Pengeras suara berfungsi',
-                body: 'Tes mikrofon akan aktif saat sesi dimulai.',
+                title: context.l10n.setupWizardScreenToneWorksTitle,
+                body: context.l10n.setupWizardScreenToneWorksBody,
               ),
               Spacing.gapLg,
             ],
@@ -1333,7 +1314,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
               _ToneResultCard(
                 color: colors.warning,
                 icon: AppIcons.volumeOff,
-                title: 'Nada tidak terdengar',
+                title: context.l10n.setupWizardScreenToneNotHeardTitle,
                 body: _remediation,
               ),
               Spacing.gapLg,
@@ -1342,7 +1323,7 @@ class _ToneTestStepState extends State<_ToneTestStep> {
               _ToneResultCard(
                 color: colors.error,
                 icon: AppIcons.error,
-                title: 'Nada gagal diputar',
+                title: context.l10n.setupWizardScreenTonePlaybackFailed,
                 body: '${_playbackError ?? ''}\n$_remediation',
               ),
               Spacing.gapLg,
@@ -1352,10 +1333,10 @@ class _ToneTestStepState extends State<_ToneTestStep> {
               icon: Icon(_isPlaying ? AppIcons.waveform : AppIcons.play),
               label: Text(
                 _isPlaying
-                    ? 'Memutar…'
+                    ? context.l10n.setupWizardScreenTonePlaying
                     : (_outcome == _ToneOutcome.untested && !_awaitingAnswer
-                          ? 'Putar Nada Uji'
-                          : 'Putar Ulang'),
+                          ? context.l10n.setupWizardScreenTonePlay
+                          : context.l10n.setupWizardScreenTonePlayAgain),
               ),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(

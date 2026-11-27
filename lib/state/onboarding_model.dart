@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../screens/onboarding_screen.dart';
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../src/rust/model.dart' as rust_model;
 import '../widgets/model_download_card.dart';
@@ -255,7 +256,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       apply(
         slot().copyWith(
           status: DownloadStatus.error,
-          error: 'Gagal mengunduh: $e',
+          error: currentL10n.onboardingModelDownloadFailed('$e'),
         ),
       );
     } finally {

@@ -2181,5 +2181,649 @@
   "mainScreenShowShortcuts": "Tampilkan pintasan keyboard",
   "mainScreenShortcuts": "Pintasan",
   "mainScreenKeyboardShortcuts": "Pintasan keyboard",
-  "mainScreenClose": "Tutup"
+  "mainScreenClose": "Tutup",
+  "setupWizardScreenStepOf": "Langkah {step} dari {total}",
+  "@setupWizardScreenStepOf": {
+    "description": "Wizard progress",
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "setupWizardScreenBack": "Kembali",
+  "setupWizardScreenClose": "Tutup",
+  "setupWizardScreenFinish": "Selesai",
+  "setupWizardScreenNext": "Lanjut",
+  "setupWizardScreenSpecTitle": "1. Deteksi Spesifikasi",
+  "@setupWizardScreenSpecTitle": {
+    "description": "Step 1 heading"
+  },
+  "setupWizardScreenSpecReady": "Sistem Anda siap! Model direkomendasikan berdasarkan spesifikasi.",
+  "setupWizardScreenSpecChecking": "Memeriksa sistem…",
+  "setupWizardScreenSpecCpu": "Inti Prosesor",
+  "setupWizardScreenSpecCores": "{cores} core",
+  "@setupWizardScreenSpecCores": {
+    "description": "CPU core count; the value is preformatted",
+    "placeholders": {
+      "cores": {
+        "type": "String"
+      }
+    }
+  },
+  "setupWizardScreenSpecRamEstimate": "RAM (perkiraan)",
+  "setupWizardScreenSpecRam": "RAM",
+  "setupWizardScreenSpecUnknown": "tidak diketahui",
+  "@setupWizardScreenSpecUnknown": {
+    "description": "Shown when the RAM size could not be read"
+  },
+  "setupWizardScreenSpecSuggestedModel": "Model Disarankan",
+  "setupWizardScreenModelFastLabel": "⚡ Cepat",
+  "setupWizardScreenModelFastDescription": "142 MB · termasuk di aplikasi\nTranskrip muncul cepat, cocok untuk komputer ringan dan catatan sehari-hari.",
+  "setupWizardScreenModelFastExperimentalLabel": "🧪 Cepat-Eksperimental",
+  "setupWizardScreenModelFastExperimentalDescription": "631 MB · unduh sekali\nSeakurat model \"Akurat\" tapi secepat model \"Cepat\" (Qwen3-ASR). Baru, belum teruji selengkap model lain.",
+  "setupWizardScreenModelBalancedLabel": "⚖️ Seimbang",
+  "setupWizardScreenModelBalancedDescription": "488 MB · unduh sekali\nLebih teliti dari model cepat, tanpa seberat model akurat. Pilihan tengah untuk komputer dengan RAM sedang.",
+  "setupWizardScreenModelAccurateLabel": "🎯 Akurat",
+  "setupWizardScreenModelAccurateDescription": "548 MB · unduh sekali\nLebih teliti untuk rapat dan wawancara, tapi jauh lebih lambat di komputer tanpa GPU.",
+  "setupWizardScreenModelAccurateExperimentalLabel": "🧪 Akurat-Eksperimental",
+  "setupWizardScreenModelAccurateExperimentalDescription": "1.5 GB · unduh sekali\nModel paling teliti yang tersedia (Qwen3-ASR). Baru, belum teruji selengkap model lain.",
+  "setupWizardScreenModelTitle": "2. Pilih Model",
+  "@setupWizardScreenModelTitle": {
+    "description": "Step 2 heading"
+  },
+  "setupWizardScreenModelDescription": "Pilih model Speech-to-Text yang sesuai.",
+  "setupWizardScreenModelAutoLabel": "🤖 Otomatis (disarankan)",
+  "setupWizardScreenModelAutoDescription": "Dipilihkan otomatis sesuai spesifikasi komputer ini.",
+  "setupWizardScreenLoopbackVirtualDriverFound": "Driver audio virtual terdeteksi",
+  "setupWizardScreenLoopbackSystemAudioReady": "Suara sistem siap direkam",
+  "setupWizardScreenLoopbackVirtualDriverMissing": "Driver audio virtual belum terpasang",
+  "setupWizardScreenLoopbackNoOutputDevice": "Belum ada perangkat keluaran yang bisa direkam",
+  "setupWizardScreenLoopbackReadyMacos": "Suara dari Zoom/Meet bisa direkam lewat perangkat virtual di atas.",
+  "setupWizardScreenLoopbackReadyLinux": "Trareon merekam suara sistem lewat monitor sink PipeWire/PulseAudio , tidak perlu memasang apa pun.",
+  "setupWizardScreenLoopbackReadyWindows": "Trareon merekam suara sistem lewat WASAPI loopback, tidak perlu memasang apa pun.",
+  "setupWizardScreenLoopbackMissingMacos": "Untuk merekam suara dari Zoom/Meet di macOS, pasang BlackHole 2ch.",
+  "setupWizardScreenLoopbackMissingLinux": "Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan PipeWire atau PulseAudio berjalan.",
+  "setupWizardScreenLoopbackMissingWindows": "Pilih perangkat keluaran di atas. Jika daftarnya kosong, pastikan perangkat pemutar suara aktif di Windows.",
+  "setupWizardScreenLoopbackGuideMacos": "1. brew install blackhole-2ch\n2. Buka Audio MIDI Setup\n3. Buat Multi-Output Device\n4. Centang pengeras suara Mac Anda + BlackHole 2ch",
+  "@setupWizardScreenLoopbackGuideMacos": {
+    "description": "Setup steps; keep the command and macOS menu names as they are"
+  },
+  "setupWizardScreenLoopbackGuideLinux": "1. Pastikan PipeWire atau PulseAudio berjalan\n2. Jalankan: pactl list short sources\n3. Pilih sumber yang berakhiran .monitor di daftar di atas",
+  "@setupWizardScreenLoopbackGuideLinux": {
+    "description": "Setup steps; keep the command as it is"
+  },
+  "setupWizardScreenLoopbackGuideWindows": "1. Buka Pengaturan Suara Windows\n2. Pastikan ada perangkat keluaran yang aktif\n3. Pilih perangkat itu di daftar di atas",
+  "setupWizardScreenAudioTitle": "3. Siapkan Audio",
+  "@setupWizardScreenAudioTitle": {
+    "description": "Step 3 heading"
+  },
+  "setupWizardScreenAudioDescription": "Pilih perangkat mikrofon dan pengeras suara.",
+  "setupWizardScreenMicLabel": "Mikrofon (Input)",
+  "setupWizardScreenSpeakerLabel": "Pengeras Suara / Suara Sistem (Output)",
+  "setupWizardScreenGuide": "Panduan",
+  "@setupWizardScreenGuide": {
+    "description": "Button that shows setup steps for system audio"
+  },
+  "setupWizardScreenSystemDefault": "Bawaan sistem",
+  "@setupWizardScreenSystemDefault": {
+    "description": "Audio device dropdown when no devices are listed"
+  },
+  "setupWizardScreenRemediationMacos": "Buka Pengaturan Sistem → Suara, naikkan volume, dan pastikan perangkat keluaran yang benar terpilih.",
+  "setupWizardScreenRemediationLinux": "Periksa volume di pavucontrol atau pengaturan suara desktop Anda, lalu pastikan perangkat keluaran yang benar terpilih.",
+  "setupWizardScreenRemediationWindows": "Buka Pengaturan Suara Windows, naikkan volume, dan pastikan perangkat keluaran yang benar terpilih.",
+  "setupWizardScreenToneTitle": "4. Uji Suara",
+  "@setupWizardScreenToneTitle": {
+    "description": "Step 4 heading"
+  },
+  "setupWizardScreenToneDescription": "Putar nada 440 Hz untuk memastikan pengeras suara berfungsi.",
+  "setupWizardScreenToneQuestion": "Apakah Anda mendengar nadanya?",
+  "setupWizardScreenToneHeard": "Ya, terdengar",
+  "setupWizardScreenToneNotHeard": "Tidak terdengar",
+  "setupWizardScreenToneWorksTitle": "Pengeras suara berfungsi",
+  "setupWizardScreenToneWorksBody": "Tes mikrofon akan aktif saat sesi dimulai.",
+  "setupWizardScreenToneNotHeardTitle": "Nada tidak terdengar",
+  "setupWizardScreenTonePlaybackFailed": "Nada gagal diputar",
+  "setupWizardScreenTonePlaying": "Memutar…",
+  "setupWizardScreenTonePlay": "Putar Nada Uji",
+  "setupWizardScreenTonePlayAgain": "Putar Ulang",
+  "srikandiExportDialogSifatSangatSegera": "Sangat Segera (24 jam)",
+  "@srikandiExportDialogSifatSangatSegera": {
+    "description": "SRIKANDI urgency level (sifat naskah)"
+  },
+  "srikandiExportDialogSifatSegera": "Segera (2x24 jam)",
+  "@srikandiExportDialogSifatSegera": {
+    "description": "SRIKANDI urgency level (sifat naskah)"
+  },
+  "srikandiExportDialogSifatBiasa": "Biasa",
+  "@srikandiExportDialogSifatBiasa": {
+    "description": "SRIKANDI urgency level (sifat naskah): not urgent"
+  },
+  "srikandiExportDialogKlasifikasiSangatRahasia": "Sangat Rahasia",
+  "@srikandiExportDialogKlasifikasiSangatRahasia": {
+    "description": "SRIKANDI security classification"
+  },
+  "srikandiExportDialogKlasifikasiRahasia": "Rahasia",
+  "@srikandiExportDialogKlasifikasiRahasia": {
+    "description": "SRIKANDI security classification"
+  },
+  "srikandiExportDialogKlasifikasiTerbatas": "Terbatas",
+  "@srikandiExportDialogKlasifikasiTerbatas": {
+    "description": "SRIKANDI security classification"
+  },
+  "srikandiExportDialogKlasifikasiBiasa": "Biasa",
+  "@srikandiExportDialogKlasifikasiBiasa": {
+    "description": "SRIKANDI security classification: ordinary"
+  },
+  "srikandiExportDialogTingkatAsli": "Asli",
+  "@srikandiExportDialogTingkatAsli": {
+    "description": "SRIKANDI document stage (tingkat perkembangan)"
+  },
+  "srikandiExportDialogTingkatSalinan": "Salinan",
+  "@srikandiExportDialogTingkatSalinan": {
+    "description": "SRIKANDI document stage (tingkat perkembangan)"
+  },
+  "srikandiExportDialogTingkatTembusan": "Tembusan",
+  "@srikandiExportDialogTingkatTembusan": {
+    "description": "SRIKANDI document stage (tingkat perkembangan)"
+  },
+  "srikandiExportDialogTingkatPertinggal": "Pertinggal",
+  "@srikandiExportDialogTingkatPertinggal": {
+    "description": "SRIKANDI document stage: the copy kept by the sender"
+  },
+  "srikandiExportDialogPrefillFailed": "Gagal menyiapkan metadata: {error}",
+  "@srikandiExportDialogPrefillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogMetadataIncomplete": "Metadata belum lengkap. Periksa temuan \"Wajib\" di atas.",
+  "srikandiExportDialogPickFolder": "Pilih folder untuk ekspor SRIKANDI",
+  "@srikandiExportDialogPickFolder": {
+    "description": "Title of the native folder picker"
+  },
+  "srikandiExportDialogExported": "{count} berkas siap-SRIKANDI tersimpan di {folder}",
+  "@srikandiExportDialogExported": {
+    "description": "Toast after export",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "folder": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogExportFailed": "Gagal mengekspor: {error}",
+  "@srikandiExportDialogExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogTitle": "Ekspor siap-SRIKANDI",
+  "srikandiExportDialogExporting": "Mengekspor…",
+  "srikandiExportDialogExportButton": "Ekspor (4 berkas)",
+  "srikandiExportDialogIntro": "Berkas yang dihasilkan hanya disiapkan di perangkat ini. Unggahan ke SRIKANDI tetap dilakukan manual lewat antarmuka instansi (lihat docs/SRIKANDI-EXPORT.md).",
+  "srikandiExportDialogFieldNomor": "Nomor naskah",
+  "@srikandiExportDialogFieldNomor": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldTanggal": "Tanggal",
+  "@srikandiExportDialogFieldTanggal": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldJenisNaskah": "Jenis naskah",
+  "@srikandiExportDialogFieldJenisNaskah": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldPerihal": "Perihal",
+  "@srikandiExportDialogFieldPerihal": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldKodeKlasifikasiArsip": "Kode klasifikasi arsip",
+  "@srikandiExportDialogFieldKodeKlasifikasiArsip": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldUnitPengolah": "Unit pengolah",
+  "@srikandiExportDialogFieldUnitPengolah": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldPenandatanganNama": "Nama penandatangan",
+  "@srikandiExportDialogFieldPenandatanganNama": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldPenandatanganJabatan": "Jabatan penandatangan",
+  "@srikandiExportDialogFieldPenandatanganJabatan": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldJumlahLampiran": "Jumlah lampiran",
+  "@srikandiExportDialogFieldJumlahLampiran": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogFieldCatatan": "Catatan",
+  "@srikandiExportDialogFieldCatatan": {
+    "description": "SRIKANDI metadata field label"
+  },
+  "srikandiExportDialogNomorHint": "Minta ke Tata Usaha unit, mis. B-125/TU.01/KP.03/10/2026",
+  "srikandiExportDialogKodeHint": "Minta ke arsiparis unit, mis. UM.03.01",
+  "srikandiExportDialogGroupSifat": "Sifat",
+  "@srikandiExportDialogGroupSifat": {
+    "description": "SRIKANDI field: sifat naskah"
+  },
+  "srikandiExportDialogGroupKlasifikasi": "Klasifikasi keamanan",
+  "srikandiExportDialogGroupTingkat": "Tingkat perkembangan",
+  "@srikandiExportDialogGroupTingkat": {
+    "description": "SRIKANDI field: tingkat perkembangan"
+  },
+  "srikandiExportDialogGroupChecks": "Pemeriksaan metadata",
+  "srikandiExportDialogWajib": "Wajib",
+  "@srikandiExportDialogWajib": {
+    "description": "Severity of a metadata finding that blocks export"
+  },
+  "srikandiExportDialogSaran": "Saran",
+  "@srikandiExportDialogSaran": {
+    "description": "Severity of an advisory metadata finding"
+  },
+  "sessionSidebarGroupToday": "Hari ini",
+  "@sessionSidebarGroupToday": {
+    "description": "Session list date group"
+  },
+  "sessionSidebarGroupYesterday": "Kemarin",
+  "@sessionSidebarGroupYesterday": {
+    "description": "Session list date group"
+  },
+  "sessionSidebarGroupLast7Days": "7 hari terakhir",
+  "@sessionSidebarGroupLast7Days": {
+    "description": "Session list date group"
+  },
+  "sessionSidebarGroupOlder": "Lebih lama",
+  "@sessionSidebarGroupOlder": {
+    "description": "Session list date group"
+  },
+  "sessionSidebarNewSession": "Sesi Baru",
+  "@sessionSidebarNewSession": {
+    "description": "Primary sidebar button"
+  },
+  "sessionSidebarSearchPlaceholder": "Cari sesi…",
+  "sessionSidebarSearchSemanticLabel": "Cari di riwayat sesi",
+  "sessionSidebarAllTags": "Semua",
+  "@sessionSidebarAllTags": {
+    "description": "Chip that clears the tag filter"
+  },
+  "sessionSidebarImportFile": "Impor berkas",
+  "sessionSidebarAskArchive": "Tanya arsip rapat",
+  "sessionSidebarManageLibrary": "Kelola perpustakaan",
+  "sessionSidebarSettings": "Pengaturan",
+  "sessionSidebarHideSidebar": "Sembunyikan sidebar ({shortcut})",
+  "@sessionSidebarHideSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarShowSidebar": "Tampilkan sidebar ({shortcut})",
+  "@sessionSidebarShowSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarNewSessionTooltip": "Sesi baru",
+  "@sessionSidebarNewSessionTooltip": {
+    "description": "Icon-rail tooltip"
+  },
+  "sessionSidebarHistoryTooltip": "Riwayat sesi",
+  "sessionSidebarRecording": "Sedang merekam",
+  "@sessionSidebarRecording": {
+    "description": "Row pinned above the history while a session records"
+  },
+  "sessionSidebarSegments": "{count} segmen",
+  "@sessionSidebarSegments": {
+    "description": "Transcript segment count on a session row",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSidebarFinishing": "Menyelesaikan {source}",
+  "@sessionSidebarFinishing": {
+    "description": "Stage of a background completion job; source is the audio source label",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribeQueued": "Menunggu antrean untuk ditranskrip ulang.",
+  "sessionSidebarRetranscribingStage": "Ditranskrip ulang: {stage}",
+  "@sessionSidebarRetranscribingStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribing": "Ditranskrip ulang",
+  "@sessionSidebarRetranscribing": {
+    "description": "Badge on a session being re-transcribed in the background"
+  },
+  "sessionSidebarHasSummary": "Ada ringkasan",
+  "sessionSidebarFolderUnreadable": "Folder sesi tidak terbaca",
+  "sessionSidebarNoMatchTitle": "Tidak ada yang cocok",
+  "sessionSidebarNoMatchMessage": "Coba kata kunci lain atau lepaskan filter tag.",
+  "sessionSidebarEmptyTitle": "Belum ada sesi",
+  "sessionSidebarEmptyMessage": "Rapat yang sudah direkam muncul di sini.",
+  "engineAssetsSectionVadTitle": "Gerbang suara neural (Silero)",
+  "engineAssetsSectionVadSubtitle": "Memutuskan bagian mana dari rekaman yang berisi suara manusia. Tanpa ini Trareon memakai detektor energi sederhana, yang kadang meloloskan derau ruangan, dan Whisper menjawab derau dengan kalimat karangan. 0,9 MB.",
+  "engineAssetsSectionSegmentationTitle": "Segmentasi pembicara (pyannote 3.0)",
+  "engineAssetsSectionSegmentationSubtitle": "Menentukan siapa berbicara kapan. 6 MB.",
+  "engineAssetsSectionEmbeddingTitle": "Sidik suara pembicara (CAM++)",
+  "engineAssetsSectionEmbeddingSubtitle": "Mengenali suara yang sama di bagian rekaman yang berbeda. 28 MB.",
+  "engineAssetsSectionInstalledToast": "{name} terpasang.",
+  "@engineAssetsSectionInstalledToast": {
+    "description": "Toast after a model asset downloads",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionTitle": "Mesin pengenal suara",
+  "@engineAssetsSectionTitle": {
+    "description": "Settings section heading"
+  },
+  "engineAssetsSectionDiarizationLabel": "Pemisahan pembicara akurat",
+  "engineAssetsSectionDownloadFailed": "Unduhan gagal: {error}",
+  "@engineAssetsSectionDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDiarizationOff": "Mati. Memakai pengelompokan akustik sederhana, yang cukup untuk rapat dua sumber (mikrofon = Anda, sistem = peserta) tetapi sering memecah satu suara menjadi beberapa pembicara pada berkas impor.",
+  "engineAssetsSectionDiarizationIncomplete": "Aktif, tetapi modelnya belum lengkap diunduh. Sementara ini masih memakai pengelompokan akustik sederhana.",
+  "engineAssetsSectionDiarizationReady": "Segmentasi pyannote + sidik suara CAM++, seluruhnya di komputer ini. Dipakai pada impor berkas, transkrip ulang, dan penyelesaian setelah Stop (bukan pada pratinjau langsung).",
+  "engineAssetsSectionDownloadingPercent": "Mengunduh… {percent}%",
+  "@engineAssetsSectionDownloadingPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionChecking": "Memeriksa…",
+  "engineAssetsSectionInstalled": "Terpasang. {description}",
+  "@engineAssetsSectionInstalled": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionNotDownloaded": "Belum diunduh. {description}",
+  "@engineAssetsSectionNotDownloaded": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDownloading": "Mengunduh…",
+  "engineAssetsSectionDownload": "Unduh",
+  "privacyReportScreenTitle": "Laporan Privasi",
+  "privacyReportScreenNetworkCalls": "{count} panggilan jaringan sejak aplikasi dibuka",
+  "@privacyReportScreenNetworkCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenSessionRunning": "Sesi berjalan selama {duration}",
+  "@privacyReportScreenSessionRunning": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportScreenNoActivity": "Belum ada aktivitas jaringan tercatat.",
+  "privacyReportScreenHistory": "Riwayat aktivitas:",
+  "privacyReportScreenExplanation": "Trareon Transcribe tidak melakukan panggilan jaringan apa pun selama transkripsi berlangsung, baik saat merekam langsung maupun saat mengimpor berkas. Audio tidak pernah keluar dari perangkat ini.\n\nAda empat aktivitas jaringan yang sah, dan semuanya Anda mulai sendiri:\n1. Unduh model whisper: dari huggingface.co, hanya saat Anda memilih model yang belum ada di perangkat.\n2. Ringkasan AI: mengirim teks transkrip (bukan audio) ke endpoint yang Anda atur sendiri. Fitur ini mati secara bawaan dan defaultnya menunjuk ke Ollama di komputer ini (localhost), jadi bawaannya pun tidak keluar dari perangkat.\n3. Cek pembaruan: mengambil satu berkas versi dari raw.githubusercontent.com saat Anda menekan \"Cek Pembaruan\". Tidak ada yang diunduh atau dijalankan secara otomatis.\n4. \"Lihat Rilis\": membuka halaman rilis di peramban Anda.\n\nKeempatnya tercatat di riwayat di atas, lengkap dengan tujuannya. Setiap titik di kode yang bisa memulai salah satunya wajib mencatat dirinya sendiri lebih dulu; hal itu diuji otomatis (test/privacy_proof_test.dart).",
+  "@privacyReportScreenExplanation": {
+    "description": "Explains the only network activity the app performs. The quoted button names refer to buttons elsewhere in the app"
+  },
+  "privacyReportScreenDurationHours": "{hours}j {minutes}m",
+  "@privacyReportScreenDurationHours": {
+    "description": "Compact duration: hours and minutes",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationMinutes": "{minutes}m {seconds}d",
+  "@privacyReportScreenDurationMinutes": {
+    "description": "Compact duration: minutes and seconds",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationSeconds": "{seconds}d",
+  "@privacyReportScreenDurationSeconds": {
+    "description": "Compact duration: seconds",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkBarAddTooltip": "Tandai poin penting di posisi sekarang ({shortcut})",
+  "@bookmarkBarAddTooltip": {
+    "description": "Bookmark button tooltip; shortcut is the platform key combination",
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogTitle": "Pulihkan sesi yang terhenti",
+  "recoveryDialogIntro": "{count, plural, =1{Satu sesi berhenti tanpa disimpan. Berikut isinya:} other{{count} sesi berhenti tanpa disimpan. Berikut isinya:}}",
+  "@recoveryDialogIntro": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogLater": "Nanti saja",
+  "recoveryDialogSegments": "{count} segmen transkrip",
+  "@recoveryDialogSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogEmptyTranscript": "transkrip kosong",
+  "recoveryDialogMic": "mikrofon {duration}",
+  "@recoveryDialogMic": {
+    "description": "Recovered microphone audio length",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogSystemAudio": "audio sistem {duration}",
+  "@recoveryDialogSystemAudio": {
+    "description": "Recovered system audio length",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogNoAudio": "tanpa rekaman audio",
+  "recoveryDialogAudio": "audio: {sources}",
+  "@recoveryDialogAudio": {
+    "description": "Comma-separated list of recovered audio sources",
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogDiscard": "Hapus",
+  "recoveryDialogRecoverTooltip": "Lanjutkan sesi ini dan rekam ke berkas yang sama",
+  "recoveryDialogBusyTooltip": "Hentikan sesi yang sedang berjalan dulu",
+  "recoveryDialogRecover": "Pulihkan",
+  "calendarInviteImportPickTitle": "Impor undangan rapat (.ics)",
+  "@calendarInviteImportPickTitle": {
+    "description": "Title of the native file picker"
+  },
+  "calendarInviteImportReadFailed": "Gagal membaca undangan: {error}",
+  "@calendarInviteImportReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNoEvents": "Tidak ada acara yang terbaca dari berkas itu.",
+  "calendarInviteImportConfirmTitle": "Isi dari undangan ini?",
+  "calendarInviteImportNoTitle": "Undangan ini tidak punya judul.",
+  "calendarInviteImportWillBeTitle": "\"{summary}\" akan menjadi judul sesi.",
+  "@calendarInviteImportWillBeTitle": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNo": "Tidak",
+  "calendarInviteImportFillTitle": "Isi judul",
+  "calendarInviteImportAttendees": "Peserta pada undangan: {attendees}",
+  "@calendarInviteImportAttendees": {
+    "placeholders": {
+      "attendees": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatModelNotFound": "Tidak ditemukan di arsip rapat.",
+  "archiveChatModelNeedsEndpoint": "Jawaban otomatis memerlukan endpoint ringkasan yang sudah diatur di Pengaturan → Ringkasan AI. Pencarian arsip tetap bisa dipakai tanpa itu.",
+  "updateCheckerBadStatus": "Server merespon dengan kode {code}. Coba lagi nanti.",
+  "@updateCheckerBadStatus": {
+    "description": "HTTP status code from the update server",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckerEmptyVersion": "File versi kosong. Coba lagi nanti.",
+  "updateCheckerNoConnection": "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.",
+  "updateCheckerBadResponse": "Server tidak merespons dengan benar. Coba lagi nanti.",
+  "updateCheckerTimeout": "Permintaan timeout. Periksa koneksi internet Anda dan coba lagi.",
+  "updateCheckerInvalidData": "Data yang diterima tidak valid. Coba lagi nanti.",
+  "onboardingModelDownloadFailed": "Gagal mengunduh: {error}",
+  "@onboardingModelDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFileUnsupported": "Berbagi file tidak didukung di platform ini. Path disalin: {name}",
+  "@shareFileUnsupported": {
+    "description": "Toast when the path was copied to the clipboard instead of shared",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "preflightServiceTitleLibraryPath": "Folder penyimpanan",
+  "@preflightServiceTitleLibraryPath": {
+    "description": "Name of the \"library_path\" preflight check"
+  },
+  "preflightServicePurposeLibraryPath": "Tempat rekaman dan transkrip disimpan.",
+  "@preflightServicePurposeLibraryPath": {
+    "description": "Why the \"library_path\" preflight check exists"
+  },
+  "preflightServiceTitleModel": "Model transkripsi",
+  "@preflightServiceTitleModel": {
+    "description": "Name of the \"model\" preflight check"
+  },
+  "preflightServicePurposeModel": "Berkas model yang dipakai untuk mengubah suara jadi teks.",
+  "@preflightServicePurposeModel": {
+    "description": "Why the \"model\" preflight check exists"
+  },
+  "preflightServiceTitleConfigDir": "Folder pengaturan",
+  "@preflightServiceTitleConfigDir": {
+    "description": "Name of the \"config_dir\" preflight check"
+  },
+  "preflightServicePurposeConfigDir": "Tempat pengaturan aplikasi disimpan.",
+  "@preflightServicePurposeConfigDir": {
+    "description": "Why the \"config_dir\" preflight check exists"
+  },
+  "preflightServiceTitleAudioInput": "Perangkat mikrofon",
+  "@preflightServiceTitleAudioInput": {
+    "description": "Name of the \"audio_input\" preflight check"
+  },
+  "preflightServicePurposeAudioInput": "Sumber suara untuk merekam.",
+  "@preflightServicePurposeAudioInput": {
+    "description": "Why the \"audio_input\" preflight check exists"
+  },
+  "preflightServiceTitleDiskSpace": "Ruang disk",
+  "@preflightServiceTitleDiskSpace": {
+    "description": "Name of the \"disk_space\" preflight check"
+  },
+  "preflightServicePurposeDiskSpace": "Rekaman tiga jam butuh sekitar 1,4 GB.",
+  "@preflightServicePurposeDiskSpace": {
+    "description": "Why the \"disk_space\" preflight check exists"
+  },
+  "downloadConsentQuickModel": "Model Cepat",
+  "@downloadConsentQuickModel": {
+    "description": "First-run download item: the fast transcription model"
+  },
+  "downloadConsentAccurateModel": "Model Akurat",
+  "@downloadConsentAccurateModel": {
+    "description": "First-run download item: the accurate transcription model"
+  },
+  "downloadConsentDialogTitle": "Unduh model transkripsi?",
+  "downloadConsentDialogDescription": "Trareon bekerja offline, jadi modelnya perlu ada di perangkat ini. Unduhan hanya sekali dan tercatat di Laporan Privasi.",
+  "downloadConsentDialogLater": "Nanti",
+  "downloadConsentDialogDownloadNow": "Unduh sekarang",
+  "downloadConsentDialogSize": "±{megabytes} MB",
+  "@downloadConsentDialogSize": {
+    "description": "Approximate download size",
+    "placeholders": {
+      "megabytes": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadConsentDialogTotal": "Total",
+  "downloadConsentDialogDeferOnMetered": "Tunda kalau koneksi metered"
 }

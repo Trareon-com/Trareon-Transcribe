@@ -14,6 +14,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../services/bridge_service.dart';
 import '../services/library_index.dart';
 import '../services/session_store.dart';
@@ -175,7 +176,7 @@ class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
       _finishTurn(
         turn.copyWith(
           sources: hits,
-          answer: hits.isEmpty ? 'Tidak ditemukan di arsip rapat.' : '',
+          answer: hits.isEmpty ? currentL10n.archiveChatModelNotFound : '',
         ),
         ArchiveChatStatus.done,
       );
@@ -199,12 +200,7 @@ class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
         status: ArchiveChatStatus.failed,
         turns: [
           ...state.turns,
-          turn.copyWith(
-            error:
-                'Jawaban otomatis memerlukan endpoint ringkasan yang '
-                'sudah diatur di Pengaturan → Ringkasan AI. Pencarian '
-                'arsip tetap bisa dipakai tanpa itu.',
-          ),
+          turn.copyWith(error: currentL10n.archiveChatModelNeedsEndpoint),
         ],
       );
       return;
@@ -221,7 +217,7 @@ class ArchiveChatNotifier extends StateNotifier<ArchiveChatState> {
       );
       if (hits.isEmpty) {
         _finishTurn(
-          turn.copyWith(answer: 'Tidak ditemukan di arsip rapat.'),
+          turn.copyWith(answer: currentL10n.archiveChatModelNotFound),
           ArchiveChatStatus.done,
         );
         return;

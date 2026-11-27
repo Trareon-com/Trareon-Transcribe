@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../app_version.dart';
+import '../l10n/l10n.dart';
 
 /// Information about an update check result.
 class UpdateInfo {
@@ -107,7 +108,7 @@ class UpdateChecker {
 
       if (response.statusCode != 200) {
         throw UpdateCheckException(
-          'Server merespon dengan kode ${response.statusCode}. Coba lagi nanti.',
+          currentL10n.updateCheckerBadStatus(response.statusCode),
         );
       }
 
@@ -115,7 +116,7 @@ class UpdateChecker {
       final latestVersion = body.trim();
 
       if (latestVersion.isEmpty) {
-        throw UpdateCheckException('File versi kosong. Coba lagi nanti.');
+        throw UpdateCheckException(currentL10n.updateCheckerEmptyVersion);
       }
 
       return UpdateInfo(
@@ -124,21 +125,13 @@ class UpdateChecker {
         downloadUrl: kReleasesUrl,
       );
     } on SocketException {
-      throw UpdateCheckException(
-        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
-      );
+      throw UpdateCheckException(currentL10n.updateCheckerNoConnection);
     } on HttpException {
-      throw UpdateCheckException(
-        'Server tidak merespons dengan benar. Coba lagi nanti.',
-      );
+      throw UpdateCheckException(currentL10n.updateCheckerBadResponse);
     } on TimeoutException {
-      throw UpdateCheckException(
-        'Permintaan timeout. Periksa koneksi internet Anda dan coba lagi.',
-      );
+      throw UpdateCheckException(currentL10n.updateCheckerTimeout);
     } on FormatException {
-      throw UpdateCheckException(
-        'Data yang diterima tidak valid. Coba lagi nanti.',
-      );
+      throw UpdateCheckException(currentL10n.updateCheckerInvalidData);
     } finally {
       client.close(force: true);
     }

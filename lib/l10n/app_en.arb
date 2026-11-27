@@ -1754,5 +1754,456 @@
   "mainScreenShowShortcuts": "Show keyboard shortcuts",
   "mainScreenShortcuts": "Shortcuts",
   "mainScreenKeyboardShortcuts": "Keyboard shortcuts",
-  "mainScreenClose": "Close"
+  "mainScreenClose": "Close",
+  "setupWizardScreenStepOf": "Step {step} of {total}",
+  "@setupWizardScreenStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "setupWizardScreenBack": "Back",
+  "setupWizardScreenClose": "Close",
+  "setupWizardScreenFinish": "Finish",
+  "setupWizardScreenNext": "Next",
+  "setupWizardScreenSpecTitle": "1. Detect specs",
+  "setupWizardScreenSpecReady": "Your system is ready! A model is recommended based on its specs.",
+  "setupWizardScreenSpecChecking": "Checking your system…",
+  "setupWizardScreenSpecCpu": "CPU cores",
+  "setupWizardScreenSpecCores": "{cores} cores",
+  "@setupWizardScreenSpecCores": {
+    "placeholders": {
+      "cores": {
+        "type": "String"
+      }
+    }
+  },
+  "setupWizardScreenSpecRamEstimate": "RAM (estimated)",
+  "setupWizardScreenSpecRam": "RAM",
+  "setupWizardScreenSpecUnknown": "unknown",
+  "setupWizardScreenSpecSuggestedModel": "Suggested model",
+  "setupWizardScreenModelFastLabel": "⚡ Fast",
+  "setupWizardScreenModelFastDescription": "142 MB · included with the app\nTranscripts appear quickly. Good for lighter computers and everyday notes.",
+  "setupWizardScreenModelFastExperimentalLabel": "🧪 Fast (experimental)",
+  "setupWizardScreenModelFastExperimentalDescription": "631 MB · one-time download\nAs accurate as the \"Accurate\" model but as quick as \"Fast\" (Qwen3-ASR). New, and not yet tested as thoroughly as the others.",
+  "setupWizardScreenModelBalancedLabel": "⚖️ Balanced",
+  "setupWizardScreenModelBalancedDescription": "488 MB · one-time download\nMore precise than the fast model without the weight of the accurate one. A middle option for computers with moderate RAM.",
+  "setupWizardScreenModelAccurateLabel": "🎯 Accurate",
+  "setupWizardScreenModelAccurateDescription": "548 MB · one-time download\nMore precise for meetings and interviews, but much slower on computers without a GPU.",
+  "setupWizardScreenModelAccurateExperimentalLabel": "🧪 Accurate (experimental)",
+  "setupWizardScreenModelAccurateExperimentalDescription": "1.5 GB · one-time download\nThe most precise model available (Qwen3-ASR). New, and not yet tested as thoroughly as the others.",
+  "setupWizardScreenModelTitle": "2. Choose a model",
+  "setupWizardScreenModelDescription": "Choose the speech-to-text model that suits you.",
+  "setupWizardScreenModelAutoLabel": "🤖 Automatic (recommended)",
+  "setupWizardScreenModelAutoDescription": "Picked automatically to suit this computer's specs.",
+  "setupWizardScreenLoopbackVirtualDriverFound": "Virtual audio driver detected",
+  "setupWizardScreenLoopbackSystemAudioReady": "System audio is ready to record",
+  "setupWizardScreenLoopbackVirtualDriverMissing": "No virtual audio driver installed",
+  "setupWizardScreenLoopbackNoOutputDevice": "No output device available to record",
+  "setupWizardScreenLoopbackReadyMacos": "Audio from Zoom/Meet can be recorded through the virtual device above.",
+  "setupWizardScreenLoopbackReadyLinux": "Trareon records system audio through a PipeWire/PulseAudio monitor sink. Nothing to install.",
+  "setupWizardScreenLoopbackReadyWindows": "Trareon records system audio through WASAPI loopback. Nothing to install.",
+  "setupWizardScreenLoopbackMissingMacos": "To record audio from Zoom/Meet on macOS, install BlackHole 2ch.",
+  "setupWizardScreenLoopbackMissingLinux": "Choose an output device above. If the list is empty, make sure PipeWire or PulseAudio is running.",
+  "setupWizardScreenLoopbackMissingWindows": "Choose an output device above. If the list is empty, make sure a playback device is enabled in Windows.",
+  "setupWizardScreenLoopbackGuideMacos": "1. brew install blackhole-2ch\n2. Open Audio MIDI Setup\n3. Create a Multi-Output Device\n4. Tick your Mac speakers + BlackHole 2ch",
+  "setupWizardScreenLoopbackGuideLinux": "1. Make sure PipeWire or PulseAudio is running\n2. Run: pactl list short sources\n3. Choose the source ending in .monitor in the list above",
+  "setupWizardScreenLoopbackGuideWindows": "1. Open Windows Sound settings\n2. Make sure an output device is enabled\n3. Choose that device in the list above",
+  "setupWizardScreenAudioTitle": "3. Set up audio",
+  "setupWizardScreenAudioDescription": "Choose your microphone and speakers.",
+  "setupWizardScreenMicLabel": "Microphone (input)",
+  "setupWizardScreenSpeakerLabel": "Speakers / system audio (output)",
+  "setupWizardScreenGuide": "Guide",
+  "setupWizardScreenSystemDefault": "System default",
+  "setupWizardScreenRemediationMacos": "Open System Settings → Sound, turn the volume up, and make sure the right output device is selected.",
+  "setupWizardScreenRemediationLinux": "Check the volume in pavucontrol or your desktop's sound settings, then make sure the right output device is selected.",
+  "setupWizardScreenRemediationWindows": "Open Windows Sound settings, turn the volume up, and make sure the right output device is selected.",
+  "setupWizardScreenToneTitle": "4. Test sound",
+  "setupWizardScreenToneDescription": "Play a 440 Hz tone to check that your speakers work.",
+  "setupWizardScreenToneQuestion": "Did you hear the tone?",
+  "setupWizardScreenToneHeard": "Yes, I heard it",
+  "setupWizardScreenToneNotHeard": "No, I didn't",
+  "setupWizardScreenToneWorksTitle": "Speakers are working",
+  "setupWizardScreenToneWorksBody": "The microphone test runs when a session starts.",
+  "setupWizardScreenToneNotHeardTitle": "Tone not heard",
+  "setupWizardScreenTonePlaybackFailed": "The tone couldn't play",
+  "setupWizardScreenTonePlaying": "Playing…",
+  "setupWizardScreenTonePlay": "Play test tone",
+  "setupWizardScreenTonePlayAgain": "Play again",
+  "srikandiExportDialogSifatSangatSegera": "Top urgent (24 hours)",
+  "srikandiExportDialogSifatSegera": "Urgent (2x24 hours)",
+  "srikandiExportDialogSifatBiasa": "Routine",
+  "srikandiExportDialogKlasifikasiSangatRahasia": "Top secret",
+  "srikandiExportDialogKlasifikasiRahasia": "Secret",
+  "srikandiExportDialogKlasifikasiTerbatas": "Restricted",
+  "srikandiExportDialogKlasifikasiBiasa": "Unclassified",
+  "srikandiExportDialogTingkatAsli": "Original",
+  "srikandiExportDialogTingkatSalinan": "Copy",
+  "srikandiExportDialogTingkatTembusan": "Carbon copy",
+  "srikandiExportDialogTingkatPertinggal": "File copy",
+  "srikandiExportDialogPrefillFailed": "Could not prepare the metadata: {error}",
+  "@srikandiExportDialogPrefillFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogMetadataIncomplete": "The metadata is incomplete. Check the \"Required\" findings above.",
+  "srikandiExportDialogPickFolder": "Choose a folder for the SRIKANDI export",
+  "srikandiExportDialogExported": "{count} SRIKANDI-ready files saved to {folder}",
+  "@srikandiExportDialogExported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "folder": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogExportFailed": "Export failed: {error}",
+  "@srikandiExportDialogExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "srikandiExportDialogTitle": "SRIKANDI-ready export",
+  "srikandiExportDialogExporting": "Exporting…",
+  "srikandiExportDialogExportButton": "Export (4 files)",
+  "srikandiExportDialogIntro": "The files are only prepared on this device. Uploading to SRIKANDI is still done by hand through your agency's interface (see docs/SRIKANDI-EXPORT.md).",
+  "srikandiExportDialogFieldNomor": "Document number",
+  "srikandiExportDialogFieldTanggal": "Date",
+  "srikandiExportDialogFieldJenisNaskah": "Document type",
+  "srikandiExportDialogFieldPerihal": "Subject",
+  "srikandiExportDialogFieldKodeKlasifikasiArsip": "Archive classification code",
+  "srikandiExportDialogFieldUnitPengolah": "Processing unit",
+  "srikandiExportDialogFieldPenandatanganNama": "Signatory name",
+  "srikandiExportDialogFieldPenandatanganJabatan": "Signatory position",
+  "srikandiExportDialogFieldJumlahLampiran": "Number of attachments",
+  "srikandiExportDialogFieldCatatan": "Notes",
+  "srikandiExportDialogNomorHint": "Ask your unit's administration office, e.g. B-125/TU.01/KP.03/10/2026",
+  "srikandiExportDialogKodeHint": "Ask your unit's archivist, e.g. UM.03.01",
+  "srikandiExportDialogGroupSifat": "Urgency",
+  "srikandiExportDialogGroupKlasifikasi": "Security classification",
+  "srikandiExportDialogGroupTingkat": "Document stage",
+  "srikandiExportDialogGroupChecks": "Metadata check",
+  "srikandiExportDialogWajib": "Required",
+  "srikandiExportDialogSaran": "Suggestion",
+  "sessionSidebarGroupToday": "Today",
+  "sessionSidebarGroupYesterday": "Yesterday",
+  "sessionSidebarGroupLast7Days": "Last 7 days",
+  "sessionSidebarGroupOlder": "Older",
+  "sessionSidebarNewSession": "New session",
+  "sessionSidebarSearchPlaceholder": "Search sessions…",
+  "sessionSidebarSearchSemanticLabel": "Search session history",
+  "sessionSidebarAllTags": "All",
+  "sessionSidebarImportFile": "Import file",
+  "sessionSidebarAskArchive": "Ask the meeting archive",
+  "sessionSidebarManageLibrary": "Manage library",
+  "sessionSidebarSettings": "Settings",
+  "sessionSidebarHideSidebar": "Hide sidebar ({shortcut})",
+  "@sessionSidebarHideSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarShowSidebar": "Show sidebar ({shortcut})",
+  "@sessionSidebarShowSidebar": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarNewSessionTooltip": "New session",
+  "sessionSidebarHistoryTooltip": "Session history",
+  "sessionSidebarRecording": "Recording",
+  "sessionSidebarSegments": "{count} segments",
+  "@sessionSidebarSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSidebarFinishing": "Finishing {source}",
+  "@sessionSidebarFinishing": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribeQueued": "Waiting in the queue to be re-transcribed.",
+  "sessionSidebarRetranscribingStage": "Re-transcribing: {stage}",
+  "@sessionSidebarRetranscribingStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionSidebarRetranscribing": "Re-transcribing",
+  "sessionSidebarHasSummary": "Has summary",
+  "sessionSidebarFolderUnreadable": "Can't read the sessions folder",
+  "sessionSidebarNoMatchTitle": "No matches",
+  "sessionSidebarNoMatchMessage": "Try another keyword or clear the tag filter.",
+  "sessionSidebarEmptyTitle": "No sessions yet",
+  "sessionSidebarEmptyMessage": "Recorded meetings appear here.",
+  "engineAssetsSectionVadTitle": "Neural voice gate (Silero)",
+  "engineAssetsSectionVadSubtitle": "Decides which parts of a recording contain human speech. Without it Trareon uses a simple energy detector, which sometimes lets room noise through, and Whisper answers noise with made-up sentences. 0.9 MB.",
+  "engineAssetsSectionSegmentationTitle": "Speaker segmentation (pyannote 3.0)",
+  "engineAssetsSectionSegmentationSubtitle": "Works out who spoke when. 6 MB.",
+  "engineAssetsSectionEmbeddingTitle": "Speaker voiceprint (CAM++)",
+  "engineAssetsSectionEmbeddingSubtitle": "Recognises the same voice across different parts of a recording. 28 MB.",
+  "engineAssetsSectionInstalledToast": "{name} installed.",
+  "@engineAssetsSectionInstalledToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionTitle": "Speech engine",
+  "engineAssetsSectionDiarizationLabel": "Accurate speaker separation",
+  "engineAssetsSectionDownloadFailed": "Download failed: {error}",
+  "@engineAssetsSectionDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDiarizationOff": "Off. Uses simple acoustic clustering, which is enough for two-source meetings (microphone = you, system = participants) but often splits one voice into several speakers in imported files.",
+  "engineAssetsSectionDiarizationIncomplete": "On, but its models haven't finished downloading. Simple acoustic clustering is used in the meantime.",
+  "engineAssetsSectionDiarizationReady": "pyannote segmentation + CAM++ voiceprints, entirely on this computer. Used for file imports, re-transcription and the finishing pass after Stop (not the live preview).",
+  "engineAssetsSectionDownloadingPercent": "Downloading… {percent}%",
+  "@engineAssetsSectionDownloadingPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionChecking": "Checking…",
+  "engineAssetsSectionInstalled": "Installed. {description}",
+  "@engineAssetsSectionInstalled": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionNotDownloaded": "Not downloaded. {description}",
+  "@engineAssetsSectionNotDownloaded": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "engineAssetsSectionDownloading": "Downloading…",
+  "engineAssetsSectionDownload": "Download",
+  "privacyReportScreenTitle": "Privacy Report",
+  "privacyReportScreenNetworkCalls": "{count} network calls since the app opened",
+  "@privacyReportScreenNetworkCalls": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenSessionRunning": "Session running for {duration}",
+  "@privacyReportScreenSessionRunning": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyReportScreenNoActivity": "No network activity recorded yet.",
+  "privacyReportScreenHistory": "Activity log:",
+  "privacyReportScreenExplanation": "Trareon Transcribe makes no network calls at all while transcribing, whether recording live or importing a file. Audio never leaves this device.\n\nThere are four legitimate kinds of network activity, and you start all of them yourself:\n1. Whisper model download: from huggingface.co, only when you choose a model that isn't on this device yet.\n2. AI summary: sends the transcript text (not the audio) to an endpoint you set yourself. This feature is off by default and points to Ollama on this computer (localhost) by default, so even the default never leaves the device.\n3. Update check: fetches a single version file from raw.githubusercontent.com when you press \"Check for updates\". Nothing is downloaded or run automatically.\n4. \"View release\": opens the releases page in your browser.\n\nAll four are recorded in the log above, along with where they went. Every place in the code that can start one of them must record itself first, and this is tested automatically (test/privacy_proof_test.dart).",
+  "privacyReportScreenDurationHours": "{hours}h {minutes}m",
+  "@privacyReportScreenDurationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationMinutes": "{minutes}m {seconds}s",
+  "@privacyReportScreenDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "privacyReportScreenDurationSeconds": "{seconds}s",
+  "@privacyReportScreenDurationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkBarAddTooltip": "Mark an important point at the current position ({shortcut})",
+  "@bookmarkBarAddTooltip": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogTitle": "Recover an interrupted session",
+  "recoveryDialogIntro": "{count, plural, =1{One session stopped without being saved. Here is what it contains:} other{{count} sessions stopped without being saved. Here is what they contain:}}",
+  "@recoveryDialogIntro": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogLater": "Not now",
+  "recoveryDialogSegments": "{count} transcript segments",
+  "@recoveryDialogSegments": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recoveryDialogEmptyTranscript": "empty transcript",
+  "recoveryDialogMic": "microphone {duration}",
+  "@recoveryDialogMic": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogSystemAudio": "system audio {duration}",
+  "@recoveryDialogSystemAudio": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogNoAudio": "no audio recorded",
+  "recoveryDialogAudio": "audio: {sources}",
+  "@recoveryDialogAudio": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryDialogDiscard": "Delete",
+  "recoveryDialogRecoverTooltip": "Continue this session and record into the same file",
+  "recoveryDialogBusyTooltip": "Stop the session in progress first",
+  "recoveryDialogRecover": "Recover",
+  "calendarInviteImportPickTitle": "Import meeting invite (.ics)",
+  "calendarInviteImportReadFailed": "Couldn't read the invite: {error}",
+  "@calendarInviteImportReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNoEvents": "No events could be read from that file.",
+  "calendarInviteImportConfirmTitle": "Fill in from this invite?",
+  "calendarInviteImportNoTitle": "This invite has no title.",
+  "calendarInviteImportWillBeTitle": "\"{summary}\" will become the session title.",
+  "@calendarInviteImportWillBeTitle": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarInviteImportNo": "No",
+  "calendarInviteImportFillTitle": "Fill in title",
+  "calendarInviteImportAttendees": "Attendees on the invite: {attendees}",
+  "@calendarInviteImportAttendees": {
+    "placeholders": {
+      "attendees": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveChatModelNotFound": "Not found in the meeting archive.",
+  "archiveChatModelNeedsEndpoint": "Automatic answers need a summary endpoint set up in Settings → AI summary. Archive search still works without it.",
+  "updateCheckerBadStatus": "The server responded with code {code}. Try again later.",
+  "@updateCheckerBadStatus": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateCheckerEmptyVersion": "The version file is empty. Try again later.",
+  "updateCheckerNoConnection": "Can't connect to the server. Check your internet connection.",
+  "updateCheckerBadResponse": "The server didn't respond correctly. Try again later.",
+  "updateCheckerTimeout": "The request timed out. Check your internet connection and try again.",
+  "updateCheckerInvalidData": "The data received was invalid. Try again later.",
+  "onboardingModelDownloadFailed": "Download failed: {error}",
+  "@onboardingModelDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFileUnsupported": "File sharing isn't supported on this platform. Path copied: {name}",
+  "@shareFileUnsupported": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "preflightServiceTitleLibraryPath": "Storage folder",
+  "preflightServicePurposeLibraryPath": "Where recordings and transcripts are saved.",
+  "preflightServiceTitleModel": "Transcription model",
+  "preflightServicePurposeModel": "The model file used to turn speech into text.",
+  "preflightServiceTitleConfigDir": "Settings folder",
+  "preflightServicePurposeConfigDir": "Where the app's settings are saved.",
+  "preflightServiceTitleAudioInput": "Microphone device",
+  "preflightServicePurposeAudioInput": "The sound source for recording.",
+  "preflightServiceTitleDiskSpace": "Disk space",
+  "preflightServicePurposeDiskSpace": "A three-hour recording needs about 1.4 GB.",
+  "downloadConsentQuickModel": "Fast model",
+  "downloadConsentAccurateModel": "Accurate model",
+  "downloadConsentDialogTitle": "Download the transcription models?",
+  "downloadConsentDialogDescription": "Trareon works offline, so the models need to be on this device. You download them once, and the download is recorded in the Privacy Report.",
+  "downloadConsentDialogLater": "Later",
+  "downloadConsentDialogDownloadNow": "Download now",
+  "downloadConsentDialogSize": "±{megabytes} MB",
+  "@downloadConsentDialogSize": {
+    "placeholders": {
+      "megabytes": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadConsentDialogTotal": "Total",
+  "downloadConsentDialogDeferOnMetered": "Wait when on a metered connection"
 }
