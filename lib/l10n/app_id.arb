@@ -4326,5 +4326,16 @@
         "type": "String"
       }
     }
+  },
+  "notulenTemplatesDinasLabel": "Notulen Dinas",
+  "notulenTemplatesDinasDescription": "Notula lengkap sesuai Tata Naskah Dinas: identitas rapat, peserta, acara, jalannya rapat, kesimpulan, tindak lanjut, dan ruang tanda tangan notulis serta pimpinan rapat.",
+  "notulenTemplatesRisalahLabel": "Risalah Rapat (verbatim-ringkas)",
+  "notulenTemplatesRisalahDescription": "Catatan berurutan per pembicara, mendekati verbatim tetapi diringkas. Dipakai untuk sidang dan rapat yang perlu merekam siapa menyampaikan apa.",
+  "notulenTemplatesBeritaAcaraLabel": "Berita Acara",
+  "notulenTemplatesBeritaAcaraDescription": "Naskah pembuktian: menyebut para pihak, apa yang telah dilaksanakan, hasilnya, dan ditutup dengan formula baku \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".",
+  "notulenTemplatesRingkasLabel": "Notulen Ringkas",
+  "notulenTemplatesRingkasDescription": "Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.",
+  "@notulenTemplatesDinasLabel": {
+    "description": "Notulen template picker entry. Indonesian document-type names are kept in parentheses in English because they are the official format names."
   }
 }

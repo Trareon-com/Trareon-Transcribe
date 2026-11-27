@@ -4919,4 +4919,32 @@ class AppLocalizationsId extends AppLocalizations {
   String summaryModelSaveFailed(String error) {
     return 'Gagal menyimpan ringkasan: $error';
   }
+
+  @override
+  String get notulenTemplatesDinasLabel => 'Notulen Dinas';
+
+  @override
+  String get notulenTemplatesDinasDescription =>
+      'Notula lengkap sesuai Tata Naskah Dinas: identitas rapat, peserta, acara, jalannya rapat, kesimpulan, tindak lanjut, dan ruang tanda tangan notulis serta pimpinan rapat.';
+
+  @override
+  String get notulenTemplatesRisalahLabel => 'Risalah Rapat (verbatim-ringkas)';
+
+  @override
+  String get notulenTemplatesRisalahDescription =>
+      'Catatan berurutan per pembicara, mendekati verbatim tetapi diringkas. Dipakai untuk sidang dan rapat yang perlu merekam siapa menyampaikan apa.';
+
+  @override
+  String get notulenTemplatesBeritaAcaraLabel => 'Berita Acara';
+
+  @override
+  String get notulenTemplatesBeritaAcaraDescription =>
+      'Naskah pembuktian: menyebut para pihak, apa yang telah dilaksanakan, hasilnya, dan ditutup dengan formula baku \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".';
+
+  @override
+  String get notulenTemplatesRingkasLabel => 'Notulen Ringkas';
+
+  @override
+  String get notulenTemplatesRingkasDescription =>
+      'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.';
 }

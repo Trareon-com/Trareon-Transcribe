@@ -8033,6 +8033,54 @@ abstract class AppLocalizations {
   /// In id, this message translates to:
   /// **'Gagal menyimpan ringkasan: {error}'**
   String summaryModelSaveFailed(String error);
+
+  /// Notulen template picker entry. Indonesian document-type names are kept in parentheses in English because they are the official format names.
+  ///
+  /// In id, this message translates to:
+  /// **'Notulen Dinas'**
+  String get notulenTemplatesDinasLabel;
+
+  /// No description provided for @notulenTemplatesDinasDescription.
+  ///
+  /// In id, this message translates to:
+  /// **'Notula lengkap sesuai Tata Naskah Dinas: identitas rapat, peserta, acara, jalannya rapat, kesimpulan, tindak lanjut, dan ruang tanda tangan notulis serta pimpinan rapat.'**
+  String get notulenTemplatesDinasDescription;
+
+  /// No description provided for @notulenTemplatesRisalahLabel.
+  ///
+  /// In id, this message translates to:
+  /// **'Risalah Rapat (verbatim-ringkas)'**
+  String get notulenTemplatesRisalahLabel;
+
+  /// No description provided for @notulenTemplatesRisalahDescription.
+  ///
+  /// In id, this message translates to:
+  /// **'Catatan berurutan per pembicara, mendekati verbatim tetapi diringkas. Dipakai untuk sidang dan rapat yang perlu merekam siapa menyampaikan apa.'**
+  String get notulenTemplatesRisalahDescription;
+
+  /// No description provided for @notulenTemplatesBeritaAcaraLabel.
+  ///
+  /// In id, this message translates to:
+  /// **'Berita Acara'**
+  String get notulenTemplatesBeritaAcaraLabel;
+
+  /// No description provided for @notulenTemplatesBeritaAcaraDescription.
+  ///
+  /// In id, this message translates to:
+  /// **'Naskah pembuktian: menyebut para pihak, apa yang telah dilaksanakan, hasilnya, dan ditutup dengan formula baku \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".'**
+  String get notulenTemplatesBeritaAcaraDescription;
+
+  /// No description provided for @notulenTemplatesRingkasLabel.
+  ///
+  /// In id, this message translates to:
+  /// **'Notulen Ringkas'**
+  String get notulenTemplatesRingkasLabel;
+
+  /// No description provided for @notulenTemplatesRingkasDescription.
+  ///
+  /// In id, this message translates to:
+  /// **'Satu halaman tanpa kop surat dan tanpa tanda tangan, untuk diedarkan cepat setelah rapat.'**
+  String get notulenTemplatesRingkasDescription;
 }
 
 class _AppLocalizationsDelegate

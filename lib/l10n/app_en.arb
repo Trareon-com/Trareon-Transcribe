@@ -2973,5 +2973,13 @@
   "summaryModelGenerateFailed": "Couldn't create the summary (your transcript is safe): {error}",
   "summaryModelEmptyTranscriptMerge": "The transcript is empty, so there is nothing to merge.",
   "summaryModelEnhanceFailed": "Couldn't merge your notes with the transcript: {error}",
-  "summaryModelSaveFailed": "Couldn't save the summary: {error}"
+  "summaryModelSaveFailed": "Couldn't save the summary: {error}",
+  "notulenTemplatesDinasLabel": "Official minutes (Notulen Dinas)",
+  "notulenTemplatesDinasDescription": "Full minutes following the official correspondence rules (Tata Naskah Dinas): meeting details, attendees, agenda, proceedings, conclusions, action items, and signature space for the minute-taker and the chair.",
+  "notulenTemplatesRisalahLabel": "Proceedings record (verbatim-summary)",
+  "notulenTemplatesRisalahDescription": "A speaker-by-speaker record, close to verbatim but condensed. Used for hearings and meetings that need to record who said what.",
+  "notulenTemplatesBeritaAcaraLabel": "Official report (Berita Acara)",
+  "notulenTemplatesBeritaAcaraDescription": "An evidentiary document: names the parties, what was carried out and its outcome, and closes with the standard formula \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".",
+  "notulenTemplatesRingkasLabel": "Short minutes",
+  "notulenTemplatesRingkasDescription": "One page without letterhead or signatures, to circulate quickly after the meeting."
 }

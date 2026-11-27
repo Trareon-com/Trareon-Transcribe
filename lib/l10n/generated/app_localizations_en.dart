@@ -5129,4 +5129,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String summaryModelSaveFailed(String error) {
     return 'Couldn\'t save the summary: $error';
   }
+
+  @override
+  String get notulenTemplatesDinasLabel => 'Official minutes (Notulen Dinas)';
+
+  @override
+  String get notulenTemplatesDinasDescription =>
+      'Full minutes following the official correspondence rules (Tata Naskah Dinas): meeting details, attendees, agenda, proceedings, conclusions, action items, and signature space for the minute-taker and the chair.';
+
+  @override
+  String get notulenTemplatesRisalahLabel =>
+      'Proceedings record (verbatim-summary)';
+
+  @override
+  String get notulenTemplatesRisalahDescription =>
+      'A speaker-by-speaker record, close to verbatim but condensed. Used for hearings and meetings that need to record who said what.';
+
+  @override
+  String get notulenTemplatesBeritaAcaraLabel =>
+      'Official report (Berita Acara)';
+
+  @override
+  String get notulenTemplatesBeritaAcaraDescription =>
+      'An evidentiary document: names the parties, what was carried out and its outcome, and closes with the standard formula \"Demikian Berita Acara ini dibuat dengan sesungguhnya\".';
+
+  @override
+  String get notulenTemplatesRingkasLabel => 'Short minutes';
+
+  @override
+  String get notulenTemplatesRingkasDescription =>
+      'One page without letterhead or signatures, to circulate quickly after the meeting.';
 }
