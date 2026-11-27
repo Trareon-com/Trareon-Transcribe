@@ -18,7 +18,6 @@
 /// solves.
 library;
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +32,7 @@ import 'app_toast.dart';
 import 'audit_log_view.dart';
 import 'settings_controls.dart';
 import '../theme/app_icons.dart';
+import '../utils/file_dialogs.dart';
 
 /// Retention periods offered, in days. `0` is "simpan selamanya" and must
 /// stay the default — the switch that deletes a user's recordings is not
@@ -639,7 +639,7 @@ class _PdpSettingsSectionState extends ConsumerState<PdpSettingsSection> {
   }
 
   Future<void> _exportAuditLog() async {
-    final directory = await FilePicker.getDirectoryPath(
+    final directory = await pickDirectoryPath(
       dialogTitle: context.l10n.pdpSettingsSectionSaveAuditDialogTitle,
     );
     if (directory == null || !mounted) return;

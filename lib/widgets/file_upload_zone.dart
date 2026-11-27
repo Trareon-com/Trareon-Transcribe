@@ -208,13 +208,14 @@ class _FileUploadZoneState extends ConsumerState<FileUploadZone> {
   }
 
   Future<void> _pickFiles() async {
+    // pickFiles() allows several files by default since file_picker 12 and
+    // returns an empty list on cancel.
     final result = await FilePicker.pickFiles(
-      allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: kImportExtensions,
     );
-    if (result == null) return;
-    final paths = result.files.map((f) => f.path).whereType<String>().toList();
+    if (result.isEmpty) return;
+    final paths = result.map((f) => f.path).whereType<String>().toList();
     _addFiles(paths);
   }
 

@@ -24,6 +24,7 @@ import '../widgets/export_dialog.dart';
 import '../theme/app_icons.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_toast.dart';
+import '../utils/file_dialogs.dart';
 
 /// How long the library search box waits after the last keystroke.
 /// Matching the whole corpus per keystroke was the second half of the
@@ -342,11 +343,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// "Ekspor sebagai arsip (.zip)" (F26): the whole session folder — audio,
   /// transcript, sidecar, backup if any — as one portable `.zip`.
   Future<void> _exportSessionArchive(LibraryEntry session) async {
-    final destination = await FilePicker.saveFile(
+    final destination = await pickSaveLocation(
       dialogTitle: context.l10n.libraryScreenSaveArchiveDialogTitle,
       fileName: archiveFilenameFor(title: session.title, date: session.date),
-      type: FileType.custom,
-      allowedExtensions: const ['zip'],
     );
     if (destination == null || !mounted) return;
     try {
@@ -363,6 +362,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         type: ToastType.success,
       );
     } catch (e) {
+      await discardEmptyPlaceholder(destination);
       if (!mounted) return;
       AppToast.show(
         context,
@@ -379,12 +379,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Future<void> _importSessionArchive() async {
     final libraryPath = widget.libraryPath;
     if (libraryPath == null) return;
-    final picked = await FilePicker.pickFiles(
+    final picked = await FilePicker.pickFile(
       dialogTitle: context.l10n.libraryScreenPickArchiveDialogTitle,
       type: FileType.custom,
       allowedExtensions: const ['zip'],
     );
-    final archivePath = picked?.files.single.path;
+    final archivePath = picked?.path;
     if (archivePath == null || !mounted) return;
 
     final bridge = ref.read(rustBridgeProvider);
