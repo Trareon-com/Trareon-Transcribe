@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../theme/app_typography.dart';
@@ -17,18 +18,21 @@ enum StreamSource {
   /// System audio, i.e. what the speakers are playing.
   speaker;
 
-  /// The visible chip label, in Indonesian.
+  /// The visible chip label, in the app's current language.
   String get label => switch (this) {
-    StreamSource.mic => 'Mikrofon',
-    StreamSource.speaker => 'Suara sistem',
+    StreamSource.mic => currentL10n.streamToggleMic,
+    StreamSource.speaker => currentL10n.streamToggleSpeaker,
   };
 
   /// What a screen reader announces, including the on/off state.
   String announcement({required bool enabled}) {
-    final state = enabled ? 'aktif' : 'nonaktif';
+    final l10n = currentL10n;
+    final state = enabled
+        ? l10n.streamToggleStateOn
+        : l10n.streamToggleStateOff;
     return switch (this) {
-      StreamSource.mic => 'Mikrofon $state',
-      StreamSource.speaker => 'Pengeras suara $state',
+      StreamSource.mic => l10n.streamToggleMicAnnouncement(state),
+      StreamSource.speaker => l10n.streamToggleSpeakerAnnouncement(state),
     };
   }
 }
@@ -111,7 +115,9 @@ class StreamToggle extends StatelessWidget {
                 ),
                 Spacing.hSm,
                 Text(
-                  enabled ? 'HIDUP' : 'MATI',
+                  enabled
+                      ? context.l10n.streamToggleOn
+                      : context.l10n.streamToggleOff,
                   style: TextStyle(
                     color: enabled ? accent : colors.textTertiary,
                     fontSize: FontSizes.overline,

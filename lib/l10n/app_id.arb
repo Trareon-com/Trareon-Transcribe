@@ -173,5 +173,653 @@
         "type": "String"
       }
     }
-  }
+  },
+
+  "settingsScreenTitle": "Pengaturan",
+  "@settingsScreenTitle": {
+    "description": "Settings screen app-bar title"
+  },
+  "settingsScreenCategoryAppearance": "Tampilan",
+  "@settingsScreenCategoryAppearance": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenCategoryModelMode": "Model & Mode",
+  "@settingsScreenCategoryModelMode": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenCategoryAudio": "Audio & Suara",
+  "@settingsScreenCategoryAudio": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenCategoryGlossary": "Kamus Istilah",
+  "@settingsScreenCategoryGlossary": {
+    "description": "Settings category"
+  },
+  "settingsScreenCategoryStorage": "Penyimpanan",
+  "@settingsScreenCategoryStorage": {
+    "description": "Settings category"
+  },
+  "settingsScreenCategorySummary": "Ringkasan AI",
+  "@settingsScreenCategorySummary": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenCategoryMinutes": "Notulen Resmi",
+  "@settingsScreenCategoryMinutes": {
+    "description": "Settings category for the official meeting-minutes defaults"
+  },
+  "settingsScreenCategoryCompliance": "Kepatuhan PDP",
+  "@settingsScreenCategoryCompliance": {
+    "description": "Settings category for Indonesian personal-data-protection (PDP) law compliance"
+  },
+  "settingsScreenCategorySetup": "Penyiapan & Diagnostik",
+  "@settingsScreenCategorySetup": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenCategoryAbout": "Tentang",
+  "@settingsScreenCategoryAbout": {
+    "description": "Settings category and section title"
+  },
+  "settingsScreenDismiss": "Abaikan",
+  "@settingsScreenDismiss": {
+    "description": "Dismisses the settings save-failure banner"
+  },
+  "settingsScreenRetry": "Coba lagi",
+  "@settingsScreenRetry": {
+    "description": "Retries the failed settings save"
+  },
+  "settingsScreenTheme": "Tema",
+  "settingsScreenThemeSystemSubtitle": "Mengikuti tema sistem operasi Anda saat ini.",
+  "settingsScreenThemeLightSubtitle": "Selalu terang, apa pun tema sistem.",
+  "settingsScreenThemeDarkSubtitle": "Selalu gelap, apa pun tema sistem.",
+  "settingsScreenThemeLight": "Terang",
+  "@settingsScreenThemeLight": {
+    "description": "Light theme option"
+  },
+  "settingsScreenThemeDark": "Gelap",
+  "@settingsScreenThemeDark": {
+    "description": "Dark theme option"
+  },
+  "settingsScreenThemeSystem": "Sistem",
+  "@settingsScreenThemeSystem": {
+    "description": "Follow-system theme option"
+  },
+  "settingsScreenSimpleMode": "Mode Sederhana",
+  "settingsScreenSimpleModeOnSubtitle": "Hanya kontrol yang mengubah hasil transkrip yang tampil. Sisanya ada di balik \"Pengaturan lanjutan\".",
+  "settingsScreenSimpleModeOffSubtitle": "Semua kontrol ditampilkan.",
+  "settingsScreenAutoAudioTuning": "Penyetelan audio otomatis",
+  "settingsScreenAutoAudioTuningOffSubtitle": "Dimatikan karena Anda pernah mengubah derau/AGC sendiri. Nilai Anda yang dipakai.",
+  "settingsScreenChangeManually": "Ubah manual",
+  "settingsScreenUseAutomatic": "Pakai otomatis",
+  "settingsScreenDefaultModel": "Model default",
+  "settingsScreenModelAvailable": "Tersedia di komputer ini.",
+  "settingsScreenModelNotDownloaded": "Belum diunduh. Pilih untuk mengunduhnya.",
+  "settingsScreenProgressive": "Cepat dulu, lalu diperhalus",
+  "@settingsScreenProgressive": {
+    "description": "Progressive transcription: fast model first, accurate model refines"
+  },
+  "settingsScreenProgressiveOnSubtitle": "Teks muncul cepat, lalu diperbaiki sendiri dengan model yang lebih teliti.",
+  "settingsScreenProgressiveOffSubtitle": "Pakai satu model saja. Teks muncul sekali, sudah final.",
+  "settingsScreenAutoRetranscribe": "Perhalus otomatis dengan model lebih akurat di latar belakang",
+  "settingsScreenAutoRetranscribeMissingSubtitle": "Model akurat belum terpasang di komputer ini. Unduh dulu lewat \"Model default\" di atas sebelum menyalakan ini.",
+  "settingsScreenAutoRetranscribeOnSubtitle": "Setelah rekam/unggah selesai, transkrip diperhalus di latar belakang tanpa menghentikan pekerjaan Anda. Transkrip lama diganti hanya kalau prosesnya berhasil.",
+  "settingsScreenAutoRetranscribeOffSubtitle": "Mati. Transkrip tidak diperhalus otomatis setelah rekaman selesai.",
+  "settingsScreenGpu": "Akselerasi GPU",
+  "settingsScreenDefaultMode": "Mode default",
+  "@settingsScreenDefaultMode": {
+    "description": "Default recording mode (webinar / online / offline)"
+  },
+  "settingsScreenModeWebinarSubtitle": "Mikrofon mati, suara sistem direkam.",
+  "settingsScreenModeOnlineSubtitle": "Mikrofon dan suara sistem direkam.",
+  "settingsScreenModeOfflineSubtitle": "Hanya mikrofon yang direkam.",
+  "settingsScreenTranscriptionLanguage": "Bahasa",
+  "@settingsScreenTranscriptionLanguage": {
+    "description": "Language the speech is transcribed in, not the UI language"
+  },
+  "settingsScreenLanguageAutoSubtitle": "Bahasa dideteksi otomatis per segmen.",
+  "settingsScreenLanguageForcedSubtitle": "Dipaksa ke satu bahasa, lebih akurat kalau rapatnya memang satu bahasa.",
+  "settingsScreenLanguageAuto": "Deteksi otomatis",
+  "settingsScreenLanguageIndonesian": "Indonesia",
+  "@settingsScreenLanguageIndonesian": {
+    "description": "Transcription language option"
+  },
+  "settingsScreenHideAdvanced": "Sembunyikan pengaturan lanjutan",
+  "settingsScreenShowAdvanced": "Pengaturan lanjutan",
+  "settingsScreenAdvancedSubtitle": "Akselerasi GPU · cepat-lalu-diperhalus · perbaikan di latar belakang · mode rekaman.",
+  "@settingsScreenAdvancedSubtitle": {
+    "description": "Lists what the folded advanced settings contain"
+  },
+  "settingsScreenTranscription": "Transkripsi",
+  "settingsScreenSpeedComparison": "Perbandingan Kecepatan",
+  "settingsScreenSpeedComparisonSubtitle": "Bahasa Indonesia: ringan 3 detik · cepat 10 detik · akurat 56 detik untuk tiap 1 menit audio.\nModel akurat disarankan untuk rapat dan wawancara.",
+  "settingsScreenAudioDecision": "{reason}. Derau {noise}, AGC {agc}.",
+  "@settingsScreenAudioDecision": {
+    "description": "Automatic audio-tuning summary. reason comes from the quality-profile resolver; noise and agc are settingsScreenStateOn/Off",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "noise": {
+        "type": "String"
+      },
+      "agc": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenStateOn": "nyala",
+  "@settingsScreenStateOn": {
+    "description": "Lower-case on state inside settingsScreenAudioDecision"
+  },
+  "settingsScreenStateOff": "mati",
+  "@settingsScreenStateOff": {
+    "description": "Lower-case off state inside settingsScreenAudioDecision"
+  },
+  "settingsScreenGpuUnknownOnSubtitle": "Akan memakai GPU bila build ini mendukungnya.",
+  "settingsScreenGpuCpuSubtitle": "Transkripsi memakai CPU.",
+  "settingsScreenGpuNotCompiledSubtitle": "Build ini dikompilasi tanpa dukungan GPU, jadi transkripsi tetap memakai CPU meski sakelar ini aktif.",
+  "settingsScreenGpuOnSubtitle": "Transkripsi memakai GPU ({backend}).",
+  "@settingsScreenGpuOnSubtitle": {
+    "description": "backend is a GPU API name such as Metal or Vulkan",
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenGpuAvailableOffSubtitle": "GPU ({backend}) tersedia, tapi transkripsi memakai CPU.",
+  "@settingsScreenGpuAvailableOffSubtitle": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenDecidedAutomatically": "Diputuskan otomatis",
+  "settingsScreenVad": "Abaikan jeda sunyi",
+  "@settingsScreenVad": {
+    "description": "Voice activity detection switch"
+  },
+  "settingsScreenVadOnSubtitle": "Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. Berlaku mulai sesi berikutnya.",
+  "settingsScreenVadOffSubtitle": "Semua audio ditranskrip, termasuk bagian yang sunyi.",
+  "settingsScreenNoiseReduction": "Pengurangan derau (RNNoise)",
+  "settingsScreenNoiseReductionOnSubtitle": "Derau ruangan (kipas, AC, lalu lintas) ditekan sebelum transkripsi. Berlaku mulai potongan audio berikutnya.",
+  "settingsScreenNoiseReductionOffSubtitle": "Mati. Nyalakan bila ruangan Anda berisik; pada rekaman yang sudah bersih ini bisa menghilangkan satu-dua konsonan.",
+  "settingsScreenAgc": "Penguatan suara otomatis (AGC)",
+  "settingsScreenAgcOnSubtitle": "Suara pelan tapi nyata dikuatkan sebelum transkripsi, agar tidak terbaca sebagai sunyi.",
+  "settingsScreenAgcOffSubtitle": "Mati. Audio ditranskrip pada volume aslinya.",
+  "settingsScreenDedup": "Hapus suara ganda",
+  "@settingsScreenDedup": {
+    "description": "Removes speech captured by both mic and speaker"
+  },
+  "settingsScreenDedupOnlineSubtitle": "Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.",
+  "settingsScreenDedupOtherSubtitle": "Hanya berlaku di mode Rapat Online.",
+  "settingsScreenDedupInfo": "Membandingkan kemiripan audio dari mikrofon dan pengeras suara, lalu menghapus yang terdengar dua kali.",
+  "settingsScreenAutoStop": "Berhenti sendiri saat sunyi",
+  "settingsScreenAutoStopOnSubtitle": "Berhenti setelah {minutes} menit tanpa suara.",
+  "@settingsScreenAutoStopOnSubtitle": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenAutoStopOffSubtitle": "Rekaman berjalan sampai Anda menghentikannya sendiri.",
+  "settingsScreenAutoStopDelay": "Lama sunyi sebelum berhenti",
+  "settingsScreenMinutes": "{minutes} menit",
+  "@settingsScreenMinutes": {
+    "description": "Auto-stop delay option",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenOutputStorage": "Output & Penyimpanan",
+  "settingsScreenOutputFolder": "Folder output",
+  "settingsScreenPickOutputFolder": "Pilih folder output",
+  "@settingsScreenPickOutputFolder": {
+    "description": "Folder picker dialog title"
+  },
+  "settingsScreenDefaultExportFormat": "Format ekspor default",
+  "settingsScreenDefaultExportFormatSubtitle": "Format yang sudah tercentang saat dialog Ekspor dibuka.",
+  "settingsScreenDiagnostics": "Diagnostik",
+  "settingsScreenDiagnosticsSubtitle": "Periksa folder, model, mikrofon dan ruang disk. Semuanya lokal.",
+  "settingsScreenRerunSetup": "Jalankan Ulang Penyiapan",
+  "settingsScreenRerunSetupSubtitle": "Pilih ulang mikrofon, pengeras suara dan model, lalu uji suara.",
+  "settingsScreenPrivacyReport": "Laporan Privasi",
+  "settingsScreenPrivacyReportSubtitle": "Apa yang pernah keluar dari komputer ini.",
+  "settingsScreenCapabilities": "Apa Jalan di Mana",
+  "@settingsScreenCapabilities": {
+    "description": "Opens the capabilities screen: what runs locally and what over the network"
+  },
+  "settingsScreenCapabilitiesSubtitle": "Setiap kemampuan, tempatnya berjalan, dan statusnya sekarang.",
+  "settingsScreenUsageDashboard": "Dasbor Penggunaan",
+  "settingsScreenUsageDashboardSubtitle": "Berapa lama Anda merekam, per minggu.",
+  "settingsScreenCheckUpdate": "Cek Pembaruan",
+  "settingsScreenCheckUpdateSubtitle": "Versi saat ini {version}. Memeriksa pembaruan menghubungi GitHub dan dicatat di Laporan Privasi.",
+  "@settingsScreenCheckUpdateSubtitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenAboutTrareon": "Tentang Trareon",
+  "settingsScreenTagline": "Transkripsi offline, privasi terjamin.",
+  "@settingsScreenTagline": {
+    "description": "Product tagline in Settings and the About dialog"
+  },
+  "settingsScreenUpdateAvailableTitle": "Pembaruan Tersedia",
+  "settingsScreenUpdateAvailableBody": "Versi {latest} tersedia (saat ini {current}).",
+  "@settingsScreenUpdateAvailableBody": {
+    "placeholders": {
+      "latest": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenLater": "Nanti",
+  "settingsScreenViewRelease": "Lihat Rilis",
+  "settingsScreenUpToDate": "Sudah versi terbaru.",
+  "settingsScreenUpdateCheckFailed": "Gagal memeriksa pembaruan: {error}",
+  "@settingsScreenUpdateCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBrowserFailed": "Tidak bisa membuka peramban. Buka {url} secara manual.",
+  "@settingsScreenBrowserFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBuiltWith": "Dibangun dengan Flutter + Rust",
+  "settingsScreenUpgradeOffer": "Komputer ini sanggup menjalankan {model} untuk akurasi lebih baik.",
+  "@settingsScreenUpgradeOffer": {
+    "description": "model is a modelLabels* display label",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenUpgradeAccuracy": "Tingkatkan akurasi",
+  "settingsScreenNotNow": "Nanti saja",
+  "summaryPanelSaved": "Ringkasan tersimpan.",
+  "summaryPanelShareFailed": "Gagal menyiapkan ringkasan untuk dibagikan: {error}",
+  "@summaryPanelShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryPanelTitle": "Ringkasan AI",
+  "@summaryPanelTitle": {
+    "description": "Header and semantic label of the collapsible AI summary panel"
+  },
+  "summaryPanelUnsaved": "belum disimpan",
+  "@summaryPanelUnsaved": {
+    "description": "Marker next to the panel title when the summary has unsaved edits"
+  },
+  "summaryPanelDisabledNotice": "Ringkasan AI mati. Fitur ini satu-satunya yang memakai jaringan, nyalakan di Pengaturan, Ringkasan AI, bila ingin memakainya.",
+  "summaryPanelTemplateLabel": "Template",
+  "summaryPanelCustomTemplateHelper": "Template buatan sendiri",
+  "summaryPanelManageTemplates": "Kelola template ringkasan",
+  "summaryPanelRegenerate": "Buat Ulang",
+  "summaryPanelGenerate": "Buat Ringkasan",
+  "summaryPanelPlaceholder": "Ringkasan akan muncul di sini. Anda bisa menyuntingnya sebelum menyimpan.",
+  "summaryPanelDroppedCitations": "{count} rujukan dibuang karena tidak cocok dengan transkrip. Periksa ringkasan ini lebih teliti.",
+  "@summaryPanelDroppedCitations": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryPanelViewCitations": "Lihat rujukan",
+  "summaryPanelEdit": "Sunting",
+  "summaryPanelCopied": "Ringkasan disalin.",
+  "summaryPanelCopy": "Salin",
+  "summaryPanelShare": "Bagikan",
+  "summaryPanelPersonalNotes": "Catatan Pribadi",
+  "summaryPanelEnhance": "Enhance",
+  "@summaryPanelEnhance": {
+    "description": "Feature name (F11) kept in English in both locales: merges personal notes with the transcript"
+  },
+  "summaryPanelNoNotes": "Tidak ada catatan yang ditulis selama rapat. Enhance tetap bisa dipakai, hasilnya akan berupa ringkasan dari transkrip saja.",
+  "summaryPanelMergedResult": "Hasil Gabungan (AI)",
+  "summaryPanelPlayCitation": "Putar segmen {segment} pada {time}",
+  "@summaryPanelPlayCitation": {
+    "description": "Semantic label of a citation chip",
+    "placeholders": {
+      "segment": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorManagerTitle": "Template Ringkasan",
+  "summaryTemplateEditorManagerIntro": "Buat template sendiri dengan judul bagian dan instruksi Anda. Disimpan di komputer ini.",
+  "summaryTemplateEditorEmpty": "Belum ada template buatan sendiri.",
+  "summaryTemplateEditorNoHeadings": "Tanpa judul bagian",
+  "summaryTemplateEditorEditTooltip": "Ubah {name}",
+  "@summaryTemplateEditorEditTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDuplicateTooltip": "Duplikat {name}",
+  "@summaryTemplateEditorDuplicateTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDeleteTooltip": "Hapus {name}",
+  "@summaryTemplateEditorDeleteTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorCopyName": "{name} (salinan)",
+  "@summaryTemplateEditorCopyName": {
+    "description": "Default name of a duplicated template (the user can rename it)",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorStartFromBuiltin": "Mulai dari template bawaan",
+  "summaryTemplateEditorDuplicateBuiltinTooltip": "Duplikat \"{name}\" jadi template sendiri",
+  "@summaryTemplateEditorDuplicateBuiltinTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorMineName": "{name} (saya)",
+  "@summaryTemplateEditorMineName": {
+    "description": "Default name of a template started from a built-in one",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorBlank": "Kosong",
+  "@summaryTemplateEditorBlank": {
+    "description": "Chip that starts a template from scratch"
+  },
+  "summaryTemplateEditorBlankTooltip": "Buat template dari nol",
+  "summaryTemplateEditorDefaultName": "Template saya",
+  "@summaryTemplateEditorDefaultName": {
+    "description": "Default name of a template started from scratch"
+  },
+  "summaryTemplateEditorClose": "Tutup",
+  "summaryTemplateEditorEditTitle": "Ubah template",
+  "summaryTemplateEditorNameLabel": "Nama template",
+  "summaryTemplateEditorHeadingsLabel": "Judul bagian (satu per baris)",
+  "summaryTemplateEditorHeadingsHint": "Ringkasan\nKeputusan\nRisiko",
+  "@summaryTemplateEditorHeadingsHint": {
+    "description": "Example headings, one per line"
+  },
+  "summaryTemplateEditorInstructionsLabel": "Instruksi tambahan",
+  "summaryTemplateEditorInstructionsHint": "mis. Fokus pada risiko anggaran dan sebutkan angka persis seperti di transkrip.",
+  "summaryTemplateEditorHeadingsNote": "Judul bagian dikirim sebagai daftar berurutan, jadi hasilnya konsisten dan bisa dipakai untuk mengisi form notulen.",
+  "captureHealthViewSourceSystem": "Audio sistem",
+  "captureHealthViewSourceMic": "Mikrofon",
+  "captureHealthViewWentSilent": "{sources} senyap",
+  "@captureHealthViewWentSilent": {
+    "description": "sources is one or more source names joined with \" & \"",
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmed": "Rekaman terkonfirmasi",
+  "captureHealthViewWaiting": "Menunggu suara dari {sources}",
+  "@captureHealthViewWaiting": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmedTooltip": "Setiap sumber yang diminta sudah menghasilkan suara di atas ambang derau.",
+  "captureHealthViewUnconfirmedTooltip": "Belum ada suara nyata dari semua sumber yang diminta.",
+  "captureHealthViewAudioIssue": "Masalah audio belum teratasi",
+  "captureHealthViewAudioIssueTooltip": "{label}. Mikrofon atau audio sistem belum mengirim suara; lihat pemberitahuan terakhir atau periksa Pengaturan Sistem.",
+  "@captureHealthViewAudioIssueTooltip": {
+    "description": "label is captureHealthViewAudioIssue",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSummary": "Durasi {duration} · {segments} segmen transkrip",
+  "@captureHealthViewSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "segments": {
+        "type": "int"
+      }
+    }
+  },
+  "captureHealthViewNoSources": "Tidak ada sumber audio yang diminta untuk sesi ini.",
+  "captureHealthViewChannelOk": "{source}: {duration} terekam, {percent}% senyap",
+  "@captureHealthViewChannelOk": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewChannelSilent": "{source}: tidak ada suara sama sekali ({duration} terekam)",
+  "@captureHealthViewChannelSilent": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSessionDone": "Sesi selesai",
+  "captureHealthViewSessionDoneIssues": "Sesi selesai, ada masalah",
+  "captureHealthViewNotSaved": "Transkrip belum tersimpan.",
+  "captureHealthViewClose": "Tutup",
+  "notulenSettingsSectionPickKopTitle": "Pilih gambar kop surat (PNG)",
+  "@notulenSettingsSectionPickKopTitle": {
+    "description": "File picker dialog title"
+  },
+  "notulenSettingsSectionKopMustBePng": "Kop surat harus berupa berkas PNG.",
+  "notulenSettingsSectionReadFailed": "Tidak bisa membaca berkas: {error}",
+  "@notulenSettingsSectionReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenSettingsSectionTitle": "Notulen Resmi",
+  "notulenSettingsSectionIntro": "Isian yang sama di setiap rapat. Dipakai otomatis saat Anda membuat Notulen Rapat.",
+  "notulenSettingsSectionUnitLabel": "Instansi / Unit Kerja",
+  "notulenSettingsSectionUnitHint": "mis. Direktorat Jenderal Anggaran",
+  "notulenSettingsSectionPlaceLabel": "Tempat/Media yang biasa dipakai",
+  "notulenSettingsSectionPlaceHint": "mis. Ruang Rapat Lt. 5 / Zoom",
+  "notulenSettingsSectionNotulisLabel": "Nama notulis",
+  "notulenSettingsSectionNotulisHint": "Nama Anda, untuk blok tanda tangan",
+  "notulenSettingsSectionKop": "Kop surat",
+  "notulenSettingsSectionKopEmpty": "Belum dipilih. Tanpa gambar, kop ditulis sebagai teks dari nama instansi di atas.",
+  "notulenSettingsSectionRemoveKop": "Hapus kop surat",
+  "notulenSettingsSectionPickKop": "Pilih gambar kop surat",
+  "platformChromeMinimize": "Perkecil",
+  "@platformChromeMinimize": {
+    "description": "Windows caption button"
+  },
+  "platformChromeMaximize": "Perbesar",
+  "@platformChromeMaximize": {
+    "description": "Windows caption button"
+  },
+  "platformChromeClose": "Tutup",
+  "@platformChromeClose": {
+    "description": "Windows caption button"
+  },
+  "platformChromeMenuSettings": "Pengaturan…",
+  "@platformChromeMenuSettings": {
+    "description": "macOS application menu item"
+  },
+  "platformChromeMenuFile": "Berkas",
+  "@platformChromeMenuFile": {
+    "description": "macOS menu bar menu"
+  },
+  "platformChromeMenuNewSession": "Sesi Baru",
+  "platformChromeMenuToggleRecording": "Mulai atau Berhenti Merekam",
+  "platformChromeMenuView": "Tampilan",
+  "@platformChromeMenuView": {
+    "description": "macOS menu bar menu"
+  },
+  "platformChromeMenuSearch": "Cari di Riwayat Sesi",
+  "platformChromeMenuHideSidebar": "Sembunyikan Sidebar",
+  "platformChromeMenuWindow": "Jendela",
+  "@platformChromeMenuWindow": {
+    "description": "macOS menu bar menu"
+  },
+  "platformChromeMenuHelp": "Bantuan",
+  "@platformChromeMenuHelp": {
+    "description": "macOS menu bar menu"
+  },
+  "platformChromeMenuShortcuts": "Pintasan Keyboard",
+  "modelLabelsLight": "Ringan",
+  "@modelLabelsLight": {
+    "description": "Generic display name of the tiny transcription model"
+  },
+  "modelLabelsFast": "Cepat",
+  "@modelLabelsFast": {
+    "description": "Generic display name of the fast transcription model"
+  },
+  "modelLabelsFastExperimental": "Cepat-Eksperimental",
+  "modelLabelsMedium": "Sedang",
+  "modelLabelsHigh": "Tinggi",
+  "modelLabelsAccurate": "Akurat",
+  "modelLabelsAccurateRecommended": "Akurat (disarankan)",
+  "modelLabelsAccurateExperimental": "Akurat-Eksperimental",
+  "modelLabelsInstalled": "Model terpasang",
+  "@modelLabelsInstalled": {
+    "description": "Fallback display name for a model id without its own label"
+  },
+  "setupOverlayNeedsAttention": "Perlu diperiksa: {names}.",
+  "@setupOverlayNeedsAttention": {
+    "description": "Preflight warning banner; names is a list of check names",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "setupOverlayViewDiagnostics": "Lihat diagnostik",
+  "setupOverlayClose": "Tutup",
+  "setupOverlayNotReady": "Trareon belum siap merekam",
+  "setupOverlayChecking": "Memeriksa…",
+  "setupOverlayCheckAgain": "Periksa Ulang",
+  "setupOverlayContinueAnyway": "Lanjutkan saja",
+  "sessionArchiveServiceOpenFailed": "Gagal membuka arsip: tidak terbaca atau rusak ({error}).",
+  "@sessionArchiveServiceOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionArchiveServiceEmpty": "Arsip ini kosong atau bukan arsip sesi Trareon.",
+  "sessionArchiveServiceNoTranscript": "File ini bukan arsip sesi Trareon yang valid: tidak ada transkrip di dalamnya.",
+  "completionBannerExportIncomplete": "Transkrip terisi sendiri; ekspor sekarang akan belum lengkap.",
+  "completionBannerIncomplete": "Belum selesai",
+  "@completionBannerIncomplete": {
+    "description": "Library badge for a session still being transcribed"
+  },
+  "completionBannerIncompletePercent": "Belum selesai · {percent}%",
+  "@completionBannerIncompletePercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "completionBannerIncompleteTooltip": "Masih ada audio yang belum ditranskripsi. Transkrip akan dilengkapi otomatis di latar belakang.",
+  "streamToggleMic": "Mikrofon",
+  "@streamToggleMic": {
+    "description": "Capture-source chip label"
+  },
+  "streamToggleSpeaker": "Suara sistem",
+  "@streamToggleSpeaker": {
+    "description": "Capture-source chip label"
+  },
+  "streamToggleStateOn": "aktif",
+  "@streamToggleStateOn": {
+    "description": "Lower-case state inside the screen-reader announcement"
+  },
+  "streamToggleStateOff": "nonaktif",
+  "@streamToggleStateOff": {
+    "description": "Lower-case state inside the screen-reader announcement"
+  },
+  "streamToggleMicAnnouncement": "Mikrofon {state}",
+  "@streamToggleMicAnnouncement": {
+    "description": "Screen-reader announcement; state is streamToggleStateOn/Off",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleSpeakerAnnouncement": "Pengeras suara {state}",
+  "@streamToggleSpeakerAnnouncement": {
+    "description": "Screen-reader announcement; state is streamToggleStateOn/Off",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleOn": "HIDUP",
+  "@streamToggleOn": {
+    "description": "Upper-case chip badge"
+  },
+  "streamToggleOff": "MATI",
+  "@streamToggleOff": {
+    "description": "Upper-case chip badge"
+  },
+  "appFieldSearchPlaceholder": "Cari…",
+  "@appFieldSearchPlaceholder": {
+    "description": "Default search-field placeholder"
+  },
+  "appFieldClearSearch": "Bersihkan pencarian"
 }

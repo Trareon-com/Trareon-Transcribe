@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../l10n/l10n.dart';
 import '../screens/llm_setup_wizard_screen.dart';
 import '../services/session_store.dart';
 import '../state/models.dart';
@@ -177,7 +178,11 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     await ref.read(_provider.notifier).save();
     if (!mounted) return;
     widget.onSummaryChanged?.call(ref.read(_provider).text);
-    AppToast.show(context, 'Ringkasan tersimpan.', type: ToastType.success);
+    AppToast.show(
+      context,
+      context.l10n.summaryPanelSaved,
+      type: ToastType.success,
+    );
   }
 
   /// Writes the current summary text to a one-off file next to the session's
@@ -195,7 +200,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
       if (!mounted) return;
       AppToast.show(
         context,
-        'Gagal menyiapkan ringkasan untuk dibagikan: $e',
+        context.l10n.summaryPanelShareFailed('$e'),
         type: ToastType.error,
       );
     }
@@ -217,6 +222,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
     final state = ref.watch(_provider);
     final settings = ref.watch(settingsProvider);
     final busy = state.status == SummaryStatus.generating;
+    final l10n = context.l10n;
 
     return Container(
       decoration: BoxDecoration(
@@ -229,7 +235,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
           Interactive(
             onPressed: () => setState(() => _expanded = !_expanded),
             borderRadius: BorderRadius.zero,
-            semanticLabel: 'Ringkasan AI',
+            semanticLabel: context.l10n.summaryPanelTitle,
             toggled: _expanded,
             builder: (context, interaction) => Container(
               color: interactionTint(context, interaction),
@@ -246,7 +252,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                   ),
                   Spacing.hSm,
                   Text(
-                    'Ringkasan AI',
+                    context.l10n.summaryPanelTitle,
                     style: AppText.subheading.c(colors.text),
                   ),
                   if (state.status == SummaryStatus.ready) ...[
@@ -260,7 +266,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                   if (state.dirty) ...[
                     Spacing.hSm,
                     Text(
-                      'belum disimpan',
+                      context.l10n.summaryPanelUnsaved,
                       style: AppText.micro.c(colors.textTertiary),
                     ),
                   ],
@@ -291,10 +297,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                   if (!settings.summary.enabled)
                     _Notice(
                       icon: AppIcons.info,
-                      message:
-                          'Ringkasan AI mati. Fitur ini satu-satunya yang memakai '
-                          'jaringan, nyalakan di Pengaturan, Ringkasan AI, bila '
-                          'ingin memakainya.',
+                      message: context.l10n.summaryPanelDisabledNotice,
                       color: colors.textSecondary,
                     )
                   else ...[
@@ -311,9 +314,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                             isDense: true,
                             style: AppText.body.c(colors.text),
                             decoration: InputDecoration(
-                              labelText: 'Template',
+                              labelText: context.l10n.summaryPanelTemplateLabel,
                               helperText: state.customTemplateId != null
-                                  ? 'Template buatan sendiri'
+                                  ? l10n.summaryPanelCustomTemplateHelper
                                   : summaryTemplateHint(state.template),
                               helperMaxLines: 2,
                               border: const OutlineInputBorder(),
@@ -354,7 +357,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         ),
                         Spacing.hSm,
                         AppIconButton(
-                          tooltip: 'Kelola template ringkasan',
+                          tooltip: context.l10n.summaryPanelManageTemplates,
                           icon: AppIcons.tune,
                           onPressed: busy
                               ? null
@@ -368,8 +371,8 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                               ? AppIcons.refresh
                               : AppIcons.enhance,
                           label: state.status == SummaryStatus.ready
-                              ? 'Buat Ulang'
-                              : 'Buat Ringkasan',
+                              ? context.l10n.summaryPanelRegenerate
+                              : context.l10n.summaryPanelGenerate,
                         ),
                       ],
                     ),
@@ -398,9 +401,7 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                         enabled: !busy,
                         reserveHelperSpace: false,
                         onChanged: ref.read(_provider.notifier).edit,
-                        placeholder:
-                            'Ringkasan akan muncul di sini. Anda bisa '
-                            'menyuntingnya sebelum menyimpan.',
+                        placeholder: context.l10n.summaryPanelPlaceholder,
                       ),
                     if (state.droppedCitations > 0) ...[
                       Spacing.gapSm,
@@ -410,10 +411,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                       // notulen is signed.
                       _Notice(
                         icon: AppIcons.report,
-                        message:
-                            '${state.droppedCitations} rujukan dibuang karena '
-                            'tidak cocok dengan transkrip. Periksa ringkasan '
-                            'ini lebih teliti.',
+                        message: context.l10n.summaryPanelDroppedCitations(
+                          state.droppedCitations,
+                        ),
                         color: colors.textSecondary,
                       ),
                     ],
@@ -426,7 +426,9 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                             onPressed: () =>
                                 setState(() => _editing = !_editing),
                             icon: _editing ? AppIcons.show : AppIcons.edit,
-                            label: _editing ? 'Lihat rujukan' : 'Sunting',
+                            label: _editing
+                                ? context.l10n.summaryPanelViewCitations
+                                : context.l10n.summaryPanelEdit,
                           ),
                         AppButton.ghost(
                           onPressed: state.text.trim().isEmpty
@@ -438,12 +440,12 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                                   if (!context.mounted) return;
                                   AppToast.show(
                                     context,
-                                    'Ringkasan disalin.',
+                                    context.l10n.summaryPanelCopied,
                                     type: ToastType.success,
                                   );
                                 },
                           icon: AppIcons.copy,
-                          label: 'Salin',
+                          label: context.l10n.summaryPanelCopy,
                         ),
                         Spacing.hSm,
                         AppButton.ghost(
@@ -451,13 +453,13 @@ class _SummaryPanelState extends ConsumerState<SummaryPanel> {
                               ? null
                               : () => _share(state.text),
                           icon: AppIcons.share,
-                          label: 'Bagikan',
+                          label: context.l10n.summaryPanelShare,
                         ),
                         Spacing.hSm,
                         AppButton(
                           onPressed: state.dirty && !busy ? _save : null,
                           icon: AppIcons.save,
-                          label: 'Simpan',
+                          label: context.l10n.actionSave,
                         ),
                       ],
                     ),
@@ -540,13 +542,16 @@ class _PersonalNotesSection extends StatelessWidget {
           children: [
             Icon(AppIcons.edit, size: IconSizes.sm, color: colors.primary),
             Spacing.hSm,
-            Text('Catatan Pribadi', style: AppText.bodyStrong.c(colors.text)),
+            Text(
+              context.l10n.summaryPanelPersonalNotes,
+              style: AppText.bodyStrong.c(colors.text),
+            ),
             const Spacer(),
             AppButton.ghost(
               onPressed: enhancing ? null : onEnhance,
               loading: enhancing,
               icon: AppIcons.enhance,
-              label: 'Enhance',
+              label: context.l10n.summaryPanelEnhance,
             ),
           ],
         ),
@@ -561,15 +566,14 @@ class _PersonalNotesSection extends StatelessWidget {
         ] else ...[
           Spacing.gapXs,
           Text(
-            'Tidak ada catatan yang ditulis selama rapat. Enhance tetap '
-            'bisa dipakai, hasilnya akan berupa ringkasan dari transkrip saja.',
+            context.l10n.summaryPanelNoNotes,
             style: AppText.caption.c(colors.textTertiary),
           ),
         ],
         if (enhancedNotes.trim().isNotEmpty) ...[
           Spacing.gapMd,
           Text(
-            'Hasil Gabungan (AI)',
+            context.l10n.summaryPanelMergedResult,
             style: AppText.bodyStrong.c(colors.text),
           ),
           Spacing.gapXs,
@@ -666,7 +670,10 @@ class _CitationChip extends StatelessWidget {
     return Interactive(
       onPressed: onTap,
       borderRadius: Radii.smAll,
-      semanticLabel: 'Putar segmen ${citation.segmentId} pada $label',
+      semanticLabel: context.l10n.summaryPanelPlayCitation(
+        citation.segmentId,
+        label,
+      ),
       builder: (context, interaction) => Container(
         decoration: BoxDecoration(
           color: interaction.active ? colors.primarySubtle : Colors.transparent,

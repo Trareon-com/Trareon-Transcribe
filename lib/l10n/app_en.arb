@@ -144,5 +144,479 @@
         "type": "String"
       }
     }
-  }
+  },
+
+  "settingsScreenTitle": "Settings",
+  "settingsScreenCategoryAppearance": "Appearance",
+  "settingsScreenCategoryModelMode": "Model & mode",
+  "settingsScreenCategoryAudio": "Audio & sound",
+  "settingsScreenCategoryGlossary": "Glossary",
+  "settingsScreenCategoryStorage": "Storage",
+  "settingsScreenCategorySummary": "AI summary",
+  "settingsScreenCategoryMinutes": "Official minutes",
+  "settingsScreenCategoryCompliance": "PDP compliance",
+  "settingsScreenCategorySetup": "Setup & diagnostics",
+  "settingsScreenCategoryAbout": "About",
+  "settingsScreenDismiss": "Dismiss",
+  "settingsScreenRetry": "Try again",
+  "settingsScreenTheme": "Theme",
+  "settingsScreenThemeSystemSubtitle": "Follows your operating system's current theme.",
+  "settingsScreenThemeLightSubtitle": "Always light, whatever the system theme.",
+  "settingsScreenThemeDarkSubtitle": "Always dark, whatever the system theme.",
+  "settingsScreenThemeLight": "Light",
+  "settingsScreenThemeDark": "Dark",
+  "settingsScreenThemeSystem": "System",
+  "settingsScreenSimpleMode": "Simple mode",
+  "settingsScreenSimpleModeOnSubtitle": "Only controls that change the transcript are shown. The rest are under \"Advanced settings\".",
+  "settingsScreenSimpleModeOffSubtitle": "All controls are shown.",
+  "settingsScreenAutoAudioTuning": "Automatic audio tuning",
+  "settingsScreenAutoAudioTuningOffSubtitle": "Turned off because you changed noise reduction/AGC yourself. Your values are used.",
+  "settingsScreenChangeManually": "Adjust manually",
+  "settingsScreenUseAutomatic": "Use automatic",
+  "settingsScreenDefaultModel": "Default model",
+  "settingsScreenModelAvailable": "Available on this computer.",
+  "settingsScreenModelNotDownloaded": "Not downloaded yet. Select it to download.",
+  "settingsScreenProgressive": "Fast first, then refined",
+  "settingsScreenProgressiveOnSubtitle": "Text appears quickly, then is corrected automatically by a more careful model.",
+  "settingsScreenProgressiveOffSubtitle": "Uses a single model. Text appears once, already final.",
+  "settingsScreenAutoRetranscribe": "Automatically refine with a more accurate model in the background",
+  "settingsScreenAutoRetranscribeMissingSubtitle": "The accurate model is not installed on this computer. Download it from \"Default model\" above before turning this on.",
+  "settingsScreenAutoRetranscribeOnSubtitle": "After a recording or upload finishes, the transcript is refined in the background without interrupting your work. The old transcript is replaced only if this succeeds.",
+  "settingsScreenAutoRetranscribeOffSubtitle": "Off. Transcripts are not refined automatically after recording.",
+  "settingsScreenGpu": "GPU acceleration",
+  "settingsScreenDefaultMode": "Default mode",
+  "settingsScreenModeWebinarSubtitle": "Microphone off, system audio recorded.",
+  "settingsScreenModeOnlineSubtitle": "Microphone and system audio recorded.",
+  "settingsScreenModeOfflineSubtitle": "Only the microphone is recorded.",
+  "settingsScreenTranscriptionLanguage": "Transcription language",
+  "settingsScreenLanguageAutoSubtitle": "Language is detected automatically for each segment.",
+  "settingsScreenLanguageForcedSubtitle": "Locked to one language. More accurate when the meeting is in a single language.",
+  "settingsScreenLanguageAuto": "Detect automatically",
+  "settingsScreenLanguageIndonesian": "Indonesian",
+  "settingsScreenHideAdvanced": "Hide advanced settings",
+  "settingsScreenShowAdvanced": "Advanced settings",
+  "settingsScreenAdvancedSubtitle": "GPU acceleration · fast-then-refined · background refinement · recording mode.",
+  "settingsScreenTranscription": "Transcription",
+  "settingsScreenSpeedComparison": "Speed comparison",
+  "settingsScreenSpeedComparisonSubtitle": "Indonesian: light 3 s · fast 10 s · accurate 56 s per minute of audio.\nThe accurate model is recommended for meetings and interviews.",
+  "settingsScreenAudioDecision": "{reason}. Noise reduction {noise}, AGC {agc}.",
+  "@settingsScreenAudioDecision": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      },
+      "noise": {
+        "type": "String"
+      },
+      "agc": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenStateOn": "on",
+  "settingsScreenStateOff": "off",
+  "settingsScreenGpuUnknownOnSubtitle": "Will use the GPU if this build supports it.",
+  "settingsScreenGpuCpuSubtitle": "Transcription uses the CPU.",
+  "settingsScreenGpuNotCompiledSubtitle": "This build was compiled without GPU support, so transcription uses the CPU even with this switch on.",
+  "settingsScreenGpuOnSubtitle": "Transcription uses the GPU ({backend}).",
+  "@settingsScreenGpuOnSubtitle": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenGpuAvailableOffSubtitle": "GPU ({backend}) is available, but transcription uses the CPU.",
+  "@settingsScreenGpuAvailableOffSubtitle": {
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenDecidedAutomatically": "Decided automatically",
+  "settingsScreenVad": "Skip silent pauses",
+  "settingsScreenVadOnSubtitle": "Silent parts are skipped, so transcription is faster. Takes effect from the next session.",
+  "settingsScreenVadOffSubtitle": "All audio is transcribed, including silent parts.",
+  "settingsScreenNoiseReduction": "Noise reduction (RNNoise)",
+  "settingsScreenNoiseReductionOnSubtitle": "Room noise (fans, air conditioning, traffic) is suppressed before transcription. Takes effect from the next audio chunk.",
+  "settingsScreenNoiseReductionOffSubtitle": "Off. Turn it on if your room is noisy. On recordings that are already clean it can drop a consonant or two.",
+  "settingsScreenAgc": "Automatic gain control (AGC)",
+  "settingsScreenAgcOnSubtitle": "Quiet but real speech is boosted before transcription so it is not read as silence.",
+  "settingsScreenAgcOffSubtitle": "Off. Audio is transcribed at its original volume.",
+  "settingsScreenDedup": "Remove duplicate audio",
+  "settingsScreenDedupOnlineSubtitle": "Active in Online meeting mode: MIC/SPK duplicates are removed.",
+  "settingsScreenDedupOtherSubtitle": "Only applies in Online meeting mode.",
+  "settingsScreenDedupInfo": "Compares microphone and speaker audio, then removes anything heard twice.",
+  "settingsScreenAutoStop": "Stop automatically when silent",
+  "settingsScreenAutoStopOnSubtitle": "Stops after {minutes} min without sound.",
+  "@settingsScreenAutoStopOnSubtitle": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenAutoStopOffSubtitle": "Recording continues until you stop it.",
+  "settingsScreenAutoStopDelay": "Silence before stopping",
+  "settingsScreenMinutes": "{minutes} min",
+  "@settingsScreenMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsScreenOutputStorage": "Output & storage",
+  "settingsScreenOutputFolder": "Output folder",
+  "settingsScreenPickOutputFolder": "Choose output folder",
+  "settingsScreenDefaultExportFormat": "Default export format",
+  "settingsScreenDefaultExportFormatSubtitle": "The format already selected when the Export dialog opens.",
+  "settingsScreenDiagnostics": "Diagnostics",
+  "settingsScreenDiagnosticsSubtitle": "Check folders, models, microphone and disk space. Everything stays local.",
+  "settingsScreenRerunSetup": "Run setup again",
+  "settingsScreenRerunSetupSubtitle": "Choose the microphone, speakers and model again, then test the sound.",
+  "settingsScreenPrivacyReport": "Privacy Report",
+  "settingsScreenPrivacyReportSubtitle": "Everything that has ever left this computer.",
+  "settingsScreenCapabilities": "What runs where",
+  "settingsScreenCapabilitiesSubtitle": "Every capability, where it runs, and its current status.",
+  "settingsScreenUsageDashboard": "Usage dashboard",
+  "settingsScreenUsageDashboardSubtitle": "How long you record, per week.",
+  "settingsScreenCheckUpdate": "Check for updates",
+  "settingsScreenCheckUpdateSubtitle": "Current version {version}. Checking for updates contacts GitHub and is logged in the Privacy Report.",
+  "@settingsScreenCheckUpdateSubtitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenAboutTrareon": "About Trareon",
+  "settingsScreenTagline": "Offline transcription, guaranteed privacy.",
+  "settingsScreenUpdateAvailableTitle": "Update available",
+  "settingsScreenUpdateAvailableBody": "Version {latest} is available (current: {current}).",
+  "@settingsScreenUpdateAvailableBody": {
+    "placeholders": {
+      "latest": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenLater": "Later",
+  "settingsScreenViewRelease": "View release",
+  "settingsScreenUpToDate": "You're on the latest version.",
+  "settingsScreenUpdateCheckFailed": "Couldn't check for updates: {error}",
+  "@settingsScreenUpdateCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBrowserFailed": "Couldn't open the browser. Open {url} manually.",
+  "@settingsScreenBrowserFailed": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenBuiltWith": "Built with Flutter + Rust",
+  "settingsScreenUpgradeOffer": "This computer can run {model} for better accuracy.",
+  "@settingsScreenUpgradeOffer": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsScreenUpgradeAccuracy": "Improve accuracy",
+  "settingsScreenNotNow": "Not now",
+  "summaryPanelSaved": "Summary saved.",
+  "summaryPanelShareFailed": "Couldn't prepare the summary for sharing: {error}",
+  "@summaryPanelShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryPanelTitle": "AI summary",
+  "summaryPanelUnsaved": "unsaved",
+  "summaryPanelDisabledNotice": "AI summary is off. It is the only feature that uses the network. Turn it on in Settings, AI summary, if you want to use it.",
+  "summaryPanelTemplateLabel": "Template",
+  "summaryPanelCustomTemplateHelper": "Your own template",
+  "summaryPanelManageTemplates": "Manage summary templates",
+  "summaryPanelRegenerate": "Regenerate",
+  "summaryPanelGenerate": "Generate summary",
+  "summaryPanelPlaceholder": "The summary will appear here. You can edit it before saving.",
+  "summaryPanelDroppedCitations": "Citations discarded for not matching the transcript: {count}. Review this summary more carefully.",
+  "@summaryPanelDroppedCitations": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryPanelViewCitations": "View citations",
+  "summaryPanelEdit": "Edit",
+  "summaryPanelCopied": "Summary copied.",
+  "summaryPanelCopy": "Copy",
+  "summaryPanelShare": "Share",
+  "summaryPanelPersonalNotes": "Personal notes",
+  "summaryPanelEnhance": "Enhance",
+  "summaryPanelNoNotes": "No notes were written during the meeting. Enhance still works, but the result will be a summary of the transcript only.",
+  "summaryPanelMergedResult": "Combined result (AI)",
+  "summaryPanelPlayCitation": "Play segment {segment} at {time}",
+  "@summaryPanelPlayCitation": {
+    "placeholders": {
+      "segment": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorManagerTitle": "Summary templates",
+  "summaryTemplateEditorManagerIntro": "Create your own templates with your own section headings and instructions. Stored on this computer.",
+  "summaryTemplateEditorEmpty": "No templates of your own yet.",
+  "summaryTemplateEditorNoHeadings": "No section headings",
+  "summaryTemplateEditorEditTooltip": "Edit {name}",
+  "@summaryTemplateEditorEditTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDuplicateTooltip": "Duplicate {name}",
+  "@summaryTemplateEditorDuplicateTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorDeleteTooltip": "Delete {name}",
+  "@summaryTemplateEditorDeleteTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorCopyName": "{name} (copy)",
+  "@summaryTemplateEditorCopyName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorStartFromBuiltin": "Start from a built-in template",
+  "summaryTemplateEditorDuplicateBuiltinTooltip": "Duplicate \"{name}\" as your own template",
+  "@summaryTemplateEditorDuplicateBuiltinTooltip": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorMineName": "{name} (mine)",
+  "@summaryTemplateEditorMineName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTemplateEditorBlank": "Blank",
+  "summaryTemplateEditorBlankTooltip": "Create a template from scratch",
+  "summaryTemplateEditorDefaultName": "My template",
+  "summaryTemplateEditorClose": "Close",
+  "summaryTemplateEditorEditTitle": "Edit template",
+  "summaryTemplateEditorNameLabel": "Template name",
+  "summaryTemplateEditorHeadingsLabel": "Section headings (one per line)",
+  "summaryTemplateEditorHeadingsHint": "Summary\nDecisions\nRisks",
+  "summaryTemplateEditorInstructionsLabel": "Additional instructions",
+  "summaryTemplateEditorInstructionsHint": "e.g. Focus on budget risks and quote figures exactly as they appear in the transcript.",
+  "summaryTemplateEditorHeadingsNote": "Section headings are sent as an ordered list, so the output stays consistent and can fill in the minutes form.",
+  "captureHealthViewSourceSystem": "System audio",
+  "captureHealthViewSourceMic": "Microphone",
+  "captureHealthViewWentSilent": "{sources} went silent",
+  "@captureHealthViewWentSilent": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmed": "Recording confirmed",
+  "captureHealthViewWaiting": "Waiting for sound from {sources}",
+  "@captureHealthViewWaiting": {
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewConfirmedTooltip": "Every requested source has produced sound above the noise floor.",
+  "captureHealthViewUnconfirmedTooltip": "Not every requested source has produced real sound yet.",
+  "captureHealthViewAudioIssue": "Unresolved audio problem",
+  "captureHealthViewAudioIssueTooltip": "{label}. The microphone or system audio is not sending sound. See the latest notification or check System Settings.",
+  "@captureHealthViewAudioIssueTooltip": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSummary": "Duration {duration} · {segments} transcript segments",
+  "@captureHealthViewSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "segments": {
+        "type": "int"
+      }
+    }
+  },
+  "captureHealthViewNoSources": "No audio sources were requested for this session.",
+  "captureHealthViewChannelOk": "{source}: {duration} recorded, {percent}% silent",
+  "@captureHealthViewChannelOk": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewChannelSilent": "{source}: no sound at all ({duration} recorded)",
+  "@captureHealthViewChannelSilent": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "captureHealthViewSessionDone": "Session finished",
+  "captureHealthViewSessionDoneIssues": "Session finished with problems",
+  "captureHealthViewNotSaved": "The transcript has not been saved.",
+  "captureHealthViewClose": "Close",
+  "notulenSettingsSectionPickKopTitle": "Choose a letterhead image (PNG)",
+  "notulenSettingsSectionKopMustBePng": "The letterhead must be a PNG file.",
+  "notulenSettingsSectionReadFailed": "Couldn't read the file: {error}",
+  "@notulenSettingsSectionReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notulenSettingsSectionTitle": "Official minutes",
+  "notulenSettingsSectionIntro": "Details that stay the same for every meeting. Filled in automatically when you create meeting minutes.",
+  "notulenSettingsSectionUnitLabel": "Agency / work unit",
+  "notulenSettingsSectionUnitHint": "e.g. Directorate General of Budget",
+  "notulenSettingsSectionPlaceLabel": "Usual venue/medium",
+  "notulenSettingsSectionPlaceHint": "e.g. 5th-floor meeting room / Zoom",
+  "notulenSettingsSectionNotulisLabel": "Minute-taker name",
+  "notulenSettingsSectionNotulisHint": "Your name, for the signature block",
+  "notulenSettingsSectionKop": "Letterhead",
+  "notulenSettingsSectionKopEmpty": "None chosen. Without an image, the letterhead is written as text from the agency name above.",
+  "notulenSettingsSectionRemoveKop": "Remove letterhead",
+  "notulenSettingsSectionPickKop": "Choose letterhead image",
+  "platformChromeMinimize": "Minimize",
+  "platformChromeMaximize": "Maximize",
+  "platformChromeClose": "Close",
+  "platformChromeMenuSettings": "Settings…",
+  "platformChromeMenuFile": "File",
+  "platformChromeMenuNewSession": "New Session",
+  "platformChromeMenuToggleRecording": "Start or Stop Recording",
+  "platformChromeMenuView": "View",
+  "platformChromeMenuSearch": "Search Session History",
+  "platformChromeMenuHideSidebar": "Hide Sidebar",
+  "platformChromeMenuWindow": "Window",
+  "platformChromeMenuHelp": "Help",
+  "platformChromeMenuShortcuts": "Keyboard Shortcuts",
+  "modelLabelsLight": "Light",
+  "modelLabelsFast": "Fast",
+  "modelLabelsFastExperimental": "Fast-Experimental",
+  "modelLabelsMedium": "Medium",
+  "modelLabelsHigh": "High",
+  "modelLabelsAccurate": "Accurate",
+  "modelLabelsAccurateRecommended": "Accurate (recommended)",
+  "modelLabelsAccurateExperimental": "Accurate-Experimental",
+  "modelLabelsInstalled": "Installed model",
+  "setupOverlayNeedsAttention": "Needs attention: {names}.",
+  "@setupOverlayNeedsAttention": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "setupOverlayViewDiagnostics": "View diagnostics",
+  "setupOverlayClose": "Close",
+  "setupOverlayNotReady": "Trareon isn't ready to record",
+  "setupOverlayChecking": "Checking…",
+  "setupOverlayCheckAgain": "Check again",
+  "setupOverlayContinueAnyway": "Continue anyway",
+  "sessionArchiveServiceOpenFailed": "Couldn't open the archive: it is unreadable or damaged ({error}).",
+  "@sessionArchiveServiceOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionArchiveServiceEmpty": "This archive is empty or is not a Trareon session archive.",
+  "sessionArchiveServiceNoTranscript": "This file is not a valid Trareon session archive: it contains no transcript.",
+  "completionBannerExportIncomplete": "The transcript is still filling in. An export now will be incomplete.",
+  "completionBannerIncomplete": "Incomplete",
+  "completionBannerIncompletePercent": "Incomplete · {percent}%",
+  "@completionBannerIncompletePercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "completionBannerIncompleteTooltip": "Some audio has not been transcribed yet. The transcript will be completed automatically in the background.",
+  "streamToggleMic": "Microphone",
+  "streamToggleSpeaker": "System audio",
+  "streamToggleStateOn": "on",
+  "streamToggleStateOff": "off",
+  "streamToggleMicAnnouncement": "Microphone {state}",
+  "@streamToggleMicAnnouncement": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleSpeakerAnnouncement": "Speaker {state}",
+  "@streamToggleSpeakerAnnouncement": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "streamToggleOn": "ON",
+  "streamToggleOff": "OFF",
+  "appFieldSearchPlaceholder": "Search…",
+  "appFieldClearSearch": "Clear search"
 }

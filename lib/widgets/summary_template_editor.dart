@@ -10,6 +10,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/models.dart';
 import '../state/settings_model.dart';
 import '../theme/app_colors.dart';
@@ -37,7 +38,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
 
     return AlertDialog(
       backgroundColor: colors.surface,
-      title: const Text('Template Ringkasan'),
+      title: Text(context.l10n.summaryTemplateEditorManagerTitle),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -45,8 +46,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Buat template sendiri dengan judul bagian dan instruksi Anda. '
-                'Disimpan di komputer ini.',
+                context.l10n.summaryTemplateEditorManagerIntro,
                 style: TextStyle(
                   fontSize: FontSizes.caption,
                   color: colors.textTertiary,
@@ -56,7 +56,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
               Spacing.gapLg,
               if (templates.isEmpty)
                 Text(
-                  'Belum ada template buatan sendiri.',
+                  context.l10n.summaryTemplateEditorEmpty,
                   style: TextStyle(
                     fontSize: FontSizes.body,
                     color: colors.textSecondary,
@@ -69,7 +69,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                     title: Text(template.name),
                     subtitle: Text(
                       template.headings.isEmpty
-                          ? 'Tanpa judul bagian'
+                          ? context.l10n.summaryTemplateEditorNoHeadings
                           : template.headings.join(' · '),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -82,7 +82,8 @@ class _TemplateManagerDialog extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          tooltip: 'Ubah ${template.name}',
+                          tooltip: context.l10n
+                              .summaryTemplateEditorEditTooltip(template.name),
                           constraints: TouchTarget.constraints,
                           icon: const Icon(AppIcons.edit, size: IconSizes.md),
                           onPressed: () async {
@@ -96,20 +97,28 @@ class _TemplateManagerDialog extends ConsumerWidget {
                           },
                         ),
                         IconButton(
-                          tooltip: 'Duplikat ${template.name}',
+                          tooltip: context.l10n
+                              .summaryTemplateEditorDuplicateTooltip(
+                                template.name,
+                              ),
                           constraints: TouchTarget.constraints,
                           icon: const Icon(AppIcons.copy, size: IconSizes.md),
                           onPressed: () => notifier.saveSummaryTemplate(
                             CustomSummaryTemplate(
                               id: newTemplateId(),
-                              name: '${template.name} (salinan)',
+                              name: context.l10n.summaryTemplateEditorCopyName(
+                                template.name,
+                              ),
                               instructions: template.instructions,
                               headings: template.headings,
                             ),
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Hapus ${template.name}',
+                          tooltip: context.l10n
+                              .summaryTemplateEditorDeleteTooltip(
+                                template.name,
+                              ),
                           constraints: TouchTarget.constraints,
                           icon: Icon(
                             AppIcons.delete,
@@ -124,7 +133,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
                   ),
               Spacing.gapLg,
               Text(
-                'Mulai dari template bawaan',
+                context.l10n.summaryTemplateEditorStartFromBuiltin,
                 style: TextStyle(
                   fontSize: FontSizes.caption,
                   fontWeight: FontWeight.w600,
@@ -141,9 +150,10 @@ class _TemplateManagerDialog extends ConsumerWidget {
                       ActionChip(
                         avatar: const Icon(AppIcons.add, size: IconSizes.sm),
                         label: Text(summaryTemplateLabel(builtin)),
-                        tooltip:
-                            'Duplikat "${summaryTemplateLabel(builtin)}" jadi '
-                            'template sendiri',
+                        tooltip: context.l10n
+                            .summaryTemplateEditorDuplicateBuiltinTooltip(
+                              summaryTemplateLabel(builtin),
+                            ),
                         onPressed: () async {
                           final headings = await ref
                               .read(rustBridgeProvider)
@@ -153,7 +163,9 @@ class _TemplateManagerDialog extends ConsumerWidget {
                             context,
                             initial: CustomSummaryTemplate(
                               id: newTemplateId(),
-                              name: '${summaryTemplateLabel(builtin)} (saya)',
+                              name: context.l10n.summaryTemplateEditorMineName(
+                                summaryTemplateLabel(builtin),
+                              ),
                               instructions: '',
                               headings: headings,
                             ),
@@ -165,14 +177,14 @@ class _TemplateManagerDialog extends ConsumerWidget {
                       ),
                   ActionChip(
                     avatar: const Icon(AppIcons.noteAdd, size: IconSizes.sm),
-                    label: const Text('Kosong'),
-                    tooltip: 'Buat template dari nol',
+                    label: Text(context.l10n.summaryTemplateEditorBlank),
+                    tooltip: context.l10n.summaryTemplateEditorBlankTooltip,
                     onPressed: () async {
                       final created = await showSummaryTemplateEditor(
                         context,
                         initial: CustomSummaryTemplate(
                           id: newTemplateId(),
-                          name: 'Template saya',
+                          name: context.l10n.summaryTemplateEditorDefaultName,
                           instructions: '',
                           headings: const [],
                         ),
@@ -191,7 +203,7 @@ class _TemplateManagerDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Tutup'),
+          child: Text(context.l10n.summaryTemplateEditorClose),
         ),
       ],
     );
@@ -250,7 +262,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
     return AlertDialog(
       backgroundColor: colors.surface,
-      title: const Text('Ubah template'),
+      title: Text(context.l10n.summaryTemplateEditorEditTitle),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -260,9 +272,9 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
               TextField(
                 controller: _name,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Nama template',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.summaryTemplateEditorNameLabel,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
@@ -271,10 +283,10 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                 controller: _headings,
                 minLines: 3,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Judul bagian (satu per baris)',
-                  hintText: 'Ringkasan\nKeputusan\nRisiko',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.summaryTemplateEditorHeadingsLabel,
+                  hintText: context.l10n.summaryTemplateEditorHeadingsHint,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
@@ -283,19 +295,17 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
                 controller: _instructions,
                 minLines: 4,
                 maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: 'Instruksi tambahan',
-                  hintText:
-                      'mis. Fokus pada risiko anggaran dan sebutkan '
-                      'angka persis seperti di transkrip.',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText:
+                      context.l10n.summaryTemplateEditorInstructionsLabel,
+                  hintText: context.l10n.summaryTemplateEditorInstructionsHint,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
               Spacing.gapSm,
               Text(
-                'Judul bagian dikirim sebagai daftar berurutan, jadi hasilnya '
-                'konsisten dan bisa dipakai untuk mengisi form notulen.',
+                context.l10n.summaryTemplateEditorHeadingsNote,
                 style: TextStyle(
                   fontSize: FontSizes.caption,
                   color: colors.textTertiary,
@@ -309,7 +319,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
+          child: Text(context.l10n.actionCancel),
         ),
         FilledButton(
           onPressed: () {
@@ -327,7 +337,7 @@ class _TemplateEditorDialogState extends State<_TemplateEditorDialog> {
               ),
             );
           },
-          child: const Text('Simpan'),
+          child: Text(context.l10n.actionSave),
         ),
       ],
     );

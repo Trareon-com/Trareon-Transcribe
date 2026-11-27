@@ -56,17 +56,18 @@ enum SettingsCategory {
 /// gate walks every category, and a pane nobody opens is a pane nobody
 /// notices is broken.
 extension SettingsCategoryLabel on SettingsCategory {
+  /// Context-free so tests can enumerate it; follows [currentL10n].
   String get label => switch (this) {
-    SettingsCategory.tampilan => 'Tampilan',
-    SettingsCategory.modelMode => 'Model & Mode',
-    SettingsCategory.audio => 'Audio & Suara',
-    SettingsCategory.kamus => 'Kamus Istilah',
-    SettingsCategory.penyimpanan => 'Penyimpanan',
-    SettingsCategory.ringkasan => 'Ringkasan AI',
-    SettingsCategory.notulen => 'Notulen Resmi',
-    SettingsCategory.kepatuhan => 'Kepatuhan PDP',
-    SettingsCategory.penyiapan => 'Penyiapan & Diagnostik',
-    SettingsCategory.tentang => 'Tentang',
+    SettingsCategory.tampilan => currentL10n.settingsScreenCategoryAppearance,
+    SettingsCategory.modelMode => currentL10n.settingsScreenCategoryModelMode,
+    SettingsCategory.audio => currentL10n.settingsScreenCategoryAudio,
+    SettingsCategory.kamus => currentL10n.settingsScreenCategoryGlossary,
+    SettingsCategory.penyimpanan => currentL10n.settingsScreenCategoryStorage,
+    SettingsCategory.ringkasan => currentL10n.settingsScreenCategorySummary,
+    SettingsCategory.notulen => currentL10n.settingsScreenCategoryMinutes,
+    SettingsCategory.kepatuhan => currentL10n.settingsScreenCategoryCompliance,
+    SettingsCategory.penyiapan => currentL10n.settingsScreenCategorySetup,
+    SettingsCategory.tentang => currentL10n.settingsScreenCategoryAbout,
   };
 
   IconData get icon => switch (this) {
@@ -129,7 +130,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        title: const Text('Pengaturan'),
+        title: Text(context.l10n.settingsScreenTitle),
         backgroundColor: colors.headerBackground,
         foregroundColor: colors.text,
         elevation: 0,
@@ -217,11 +218,11 @@ class _SaveFailureBanner extends ConsumerWidget {
                 notifier.dismissSaveFailure();
                 ref.read(settingsSaveFailureProvider.notifier).state = null;
               },
-              child: const Text('Abaikan'),
+              child: Text(context.l10n.settingsScreenDismiss),
             ),
             FilledButton(
               onPressed: () => notifier.retryLastSave(),
-              child: const Text('Coba lagi'),
+              child: Text(context.l10n.settingsScreenRetry),
             ),
           ],
         ),
@@ -393,13 +394,18 @@ class _CategoryContent extends ConsumerWidget {
         notifier,
         colors,
       ),
-      SettingsCategory.audio => _audio(settings, notifier, ref),
+      SettingsCategory.audio => _audio(context, settings, notifier, ref),
       SettingsCategory.kamus => const [GlossarySettingsSection()],
-      SettingsCategory.penyimpanan => _penyimpanan(settings, notifier, colors),
-      SettingsCategory.ringkasan => const [
+      SettingsCategory.penyimpanan => _penyimpanan(
+        context,
+        settings,
+        notifier,
+        colors,
+      ),
+      SettingsCategory.ringkasan => [
         SettingsSection(
-          title: 'Ringkasan AI',
-          children: [SummarySettingsSection()],
+          title: context.l10n.settingsScreenCategorySummary,
+          children: const [SummarySettingsSection()],
         ),
       ],
       SettingsCategory.notulen => const [NotulenDefaultsSection()],
@@ -415,21 +421,21 @@ class _CategoryContent extends ConsumerWidget {
     SettingsNotifier notifier,
   ) => [
     SettingsSection(
-      title: 'Tampilan',
+      title: context.l10n.settingsScreenCategoryAppearance,
       children: [
         SettingsTile(
           icon: AppIcons.appearance,
-          label: 'Tema',
+          label: context.l10n.settingsScreenTheme,
           subtitle: switch (settings.theme) {
             AppThemeMode.system =>
-              'Mengikuti tema sistem operasi Anda saat ini.',
-            AppThemeMode.light => 'Selalu terang, apa pun tema sistem.',
-            AppThemeMode.dark => 'Selalu gelap, apa pun tema sistem.',
+              context.l10n.settingsScreenThemeSystemSubtitle,
+            AppThemeMode.light => context.l10n.settingsScreenThemeLightSubtitle,
+            AppThemeMode.dark => context.l10n.settingsScreenThemeDarkSubtitle,
           },
           trailing: CompactDropdown<AppThemeMode>(
             value: settings.theme,
             items: AppThemeMode.values,
-            labelBuilder: _themeLabel,
+            labelBuilder: (mode) => _themeLabel(context, mode),
             onChanged: notifier.setTheme,
           ),
         ),
@@ -462,15 +468,14 @@ class _CategoryContent extends ConsumerWidget {
     final advancedOpen = ref.watch(settingsAdvancedOpenProvider);
     return [
     SettingsSection(
-      title: 'Model & Mode',
+      title: context.l10n.settingsScreenCategoryModelMode,
       children: [
         SettingsSwitch(
           icon: AppIcons.tune,
-          label: 'Mode Sederhana',
+          label: context.l10n.settingsScreenSimpleMode,
           subtitle: settings.simpleMode
-              ? 'Hanya kontrol yang mengubah hasil transkrip yang tampil. '
-                    'Sisanya ada di balik "Pengaturan lanjutan".'
-              : 'Semua kontrol ditampilkan.',
+              ? context.l10n.settingsScreenSimpleModeOnSubtitle
+              : context.l10n.settingsScreenSimpleModeOffSubtitle,
           value: settings.simpleMode,
           onChanged: notifier.setSimpleMode,
         ),
@@ -479,11 +484,10 @@ class _CategoryContent extends ConsumerWidget {
         // resolver's own words for the current session's audio tuning.
         SettingsTile(
           icon: AppIcons.autoFix,
-          label: 'Penyetelan audio otomatis',
+          label: context.l10n.settingsScreenAutoAudioTuning,
           subtitle: settings.autoAudioTuning
-              ? _audioDecisionSubtitle(settings)
-              : 'Dimatikan karena Anda pernah mengubah derau/AGC sendiri. '
-                    'Nilai Anda yang dipakai.',
+              ? _audioDecisionSubtitle(context, settings)
+              : context.l10n.settingsScreenAutoAudioTuningOffSubtitle,
           trailing: TextButton(
             onPressed: settings.autoAudioTuning
                 ? () {
@@ -493,21 +497,23 @@ class _CategoryContent extends ConsumerWidget {
                   }
                 : () => notifier.setAutoAudioTuning(true),
             child: Text(
-              settings.autoAudioTuning ? 'Ubah manual' : 'Pakai otomatis',
+              settings.autoAudioTuning
+                  ? context.l10n.settingsScreenChangeManually
+                  : context.l10n.settingsScreenUseAutomatic,
             ),
           ),
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.model,
-          label: 'Model default',
+          label: context.l10n.settingsScreenDefaultModel,
           subtitle:
               isModelAvailable(
                 settings.defaultModel,
                 libraryPath: settings.libraryPath,
               )
-              ? 'Tersedia di komputer ini.'
-              : 'Belum diunduh. Pilih untuk mengunduhnya.',
+              ? context.l10n.settingsScreenModelAvailable
+              : context.l10n.settingsScreenModelNotDownloaded,
           // settings.defaultModel can be an older/power-user model
           // (e.g. 'tiny') that's still available on disk but outside
           // the kKnownModelIds catalog this dropdown offers (currently
@@ -548,11 +554,10 @@ class _CategoryContent extends ConsumerWidget {
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.speed,
-          label: 'Cepat dulu, lalu diperhalus',
+          label: context.l10n.settingsScreenProgressive,
           subtitle: settings.progressiveEnabled
-              ? 'Teks muncul cepat, lalu diperbaiki sendiri dengan model '
-                    'yang lebih teliti.'
-              : 'Pakai satu model saja. Teks muncul sekali, sudah final.',
+              ? context.l10n.settingsScreenProgressiveOnSubtitle
+              : context.l10n.settingsScreenProgressiveOffSubtitle,
           value: settings.progressiveEnabled,
           onChanged: notifier.setProgressiveEnabled,
         ),
@@ -561,19 +566,15 @@ class _CategoryContent extends ConsumerWidget {
         // finished transcript is a surprise the user did not ask for.
         SettingsSwitch(
           icon: AppIcons.autoFix,
-          label: 'Perhalus otomatis dengan model lebih akurat di latar belakang',
+          label: context.l10n.settingsScreenAutoRetranscribe,
           subtitle: !isModelAvailable(
             kAccurateModelId,
             libraryPath: settings.libraryPath,
           )
-              ? 'Model akurat belum terpasang di komputer ini. Unduh dulu '
-                    'lewat "Model default" di atas sebelum menyalakan ini.'
+              ? context.l10n.settingsScreenAutoRetranscribeMissingSubtitle
               : (settings.autoRetranscribe ?? false)
-              ? 'Setelah rekam/unggah selesai, transkrip diperhalus di '
-                    'latar belakang tanpa menghentikan pekerjaan Anda. '
-                    'Transkrip lama diganti hanya kalau prosesnya berhasil.'
-              : 'Mati. Transkrip tidak diperhalus otomatis setelah rekaman '
-                    'selesai.',
+              ? context.l10n.settingsScreenAutoRetranscribeOnSubtitle
+              : context.l10n.settingsScreenAutoRetranscribeOffSubtitle,
           value: settings.autoRetranscribe ?? false,
           onChanged: notifier.setAutoRetranscribe,
         ),
@@ -582,19 +583,21 @@ class _CategoryContent extends ConsumerWidget {
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.chip,
-          label: 'Akselerasi GPU',
-          subtitle: _gpuSubtitle(settings.gpuEnabled),
+          label: context.l10n.settingsScreenGpu,
+          subtitle: _gpuSubtitle(context, settings.gpuEnabled),
           value: settings.gpuEnabled,
           onChanged: notifier.setGpuEnabled,
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.meetingRoom,
-          label: 'Mode default',
+          label: context.l10n.settingsScreenDefaultMode,
           subtitle: switch (settings.defaultMode) {
-            SessionMode.webinar => 'Mikrofon mati, suara sistem direkam.',
-            SessionMode.online => 'Mikrofon dan suara sistem direkam.',
-            SessionMode.offline => 'Hanya mikrofon yang direkam.',
+            SessionMode.webinar =>
+              context.l10n.settingsScreenModeWebinarSubtitle,
+            SessionMode.online => context.l10n.settingsScreenModeOnlineSubtitle,
+            SessionMode.offline =>
+              context.l10n.settingsScreenModeOfflineSubtitle,
           },
           trailing: CompactDropdown<SessionMode>(
             value: settings.defaultMode,
@@ -607,17 +610,18 @@ class _CategoryContent extends ConsumerWidget {
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.translate,
-          label: 'Bahasa',
+          label: context.l10n.settingsScreenTranscriptionLanguage,
           subtitle: settings.language == null
-              ? 'Bahasa dideteksi otomatis per segmen.'
-              : 'Dipaksa ke satu bahasa, lebih akurat kalau rapatnya '
-                    'memang satu bahasa.',
+              ? context.l10n.settingsScreenLanguageAutoSubtitle
+              : context.l10n.settingsScreenLanguageForcedSubtitle,
           trailing: CompactDropdown<String?>(
             value: settings.language,
             items: const [null, 'id', 'en'],
             labelBuilder: (s) => s == null
-                ? 'Deteksi otomatis'
-                : (s == 'id' ? 'Indonesia' : 'English'),
+                ? context.l10n.settingsScreenLanguageAuto
+                : (s == 'id'
+                      ? context.l10n.settingsScreenLanguageIndonesian
+                      : context.l10n.languageEnglish),
             onChanged: notifier.setLanguage,
           ),
         ),
@@ -626,10 +630,9 @@ class _CategoryContent extends ConsumerWidget {
           SettingsTile(
             icon: advancedOpen ? AppIcons.expandLess : AppIcons.expandMore,
             label: advancedOpen
-                ? 'Sembunyikan pengaturan lanjutan'
-                : 'Pengaturan lanjutan',
-            subtitle: 'Akselerasi GPU · cepat-lalu-diperhalus · perbaikan di '
-                'latar belakang · mode rekaman.',
+                ? context.l10n.settingsScreenHideAdvanced
+                : context.l10n.settingsScreenShowAdvanced,
+            subtitle: context.l10n.settingsScreenAdvancedSubtitle,
             trailing: const SizedBox.shrink(),
             onTap: () => ref.read(settingsAdvancedOpenProvider.notifier).state =
                 !advancedOpen,
@@ -639,15 +642,12 @@ class _CategoryContent extends ConsumerWidget {
     ),
     Spacing.gapMd,
     SettingsSection(
-      title: 'Transkripsi',
+      title: context.l10n.settingsScreenTranscription,
       children: [
         SettingsTile(
           icon: AppIcons.speed,
-          label: 'Perbandingan Kecepatan',
-          subtitle:
-              'Bahasa Indonesia: ringan 3 detik · cepat 10 detik · '
-              'akurat 56 detik untuk tiap 1 menit audio.\n'
-              'Model akurat disarankan untuk rapat dan wawancara.',
+          label: context.l10n.settingsScreenSpeedComparison,
+          subtitle: context.l10n.settingsScreenSpeedComparisonSubtitle,
           trailing: const SizedBox.shrink(),
         ),
       ],
@@ -660,7 +660,7 @@ class _CategoryContent extends ConsumerWidget {
   /// No measurement is wired yet (blueprint §5, fase 2), so the honest answer
   /// is the conservative branch. Saying that out loud is better than implying
   /// the app already listened to the room.
-  String _audioDecisionSubtitle(AppSettings settings) {
+  String _audioDecisionSubtitle(BuildContext context, AppSettings settings) {
     final profile = resolveQualityProfile(
       measurement: null,
       gpuAvailable: gpu?.available ?? false,
@@ -670,29 +670,33 @@ class _CategoryContent extends ConsumerWidget {
       userAgc: settings.agcEnabled,
       userVad: settings.vadEnabled,
     );
-    final nr = settings.noiseReduction ? 'nyala' : 'mati';
-    final agc = settings.agcEnabled ? 'nyala' : 'mati';
-    return '${profile.reason}. Derau $nr, AGC $agc.';
+    final l10n = context.l10n;
+    final on = l10n.settingsScreenStateOn;
+    final off = l10n.settingsScreenStateOff;
+    final nr = settings.noiseReduction ? on : off;
+    final agc = settings.agcEnabled ? on : off;
+    return l10n.settingsScreenAudioDecision(profile.reason, nr, agc);
   }
 
   /// Says what the machine will actually do, not what the switch is set to.
-  String _gpuSubtitle(bool enabled) {
+  String _gpuSubtitle(BuildContext context, bool enabled) {
+    final l10n = context.l10n;
     final capability = gpu;
     if (capability == null) {
       return enabled
-          ? 'Akan memakai GPU bila build ini mendukungnya.'
-          : 'Transkripsi memakai CPU.';
+          ? l10n.settingsScreenGpuUnknownOnSubtitle
+          : l10n.settingsScreenGpuCpuSubtitle;
     }
     if (!capability.available) {
-      return 'Build ini dikompilasi tanpa dukungan GPU, jadi transkripsi '
-          'tetap memakai CPU meski sakelar ini aktif.';
+      return l10n.settingsScreenGpuNotCompiledSubtitle;
     }
     return enabled
-        ? 'Transkripsi memakai GPU (${capability.backend}).'
-        : 'GPU (${capability.backend}) tersedia, tapi transkripsi memakai CPU.';
+        ? l10n.settingsScreenGpuOnSubtitle(capability.backend)
+        : l10n.settingsScreenGpuAvailableOffSubtitle(capability.backend);
   }
 
   List<Widget> _audio(
+    BuildContext context,
     AppSettings settings,
     SettingsNotifier notifier,
     WidgetRef ref,
@@ -705,31 +709,30 @@ class _CategoryContent extends ConsumerWidget {
     const EngineAssetsSection(),
     if (folded)
       SettingsSection(
-        title: 'Audio & Suara',
+        title: context.l10n.settingsScreenCategoryAudio,
         children: [
           SettingsTile(
             icon: AppIcons.autoFix,
-            label: 'Diputuskan otomatis',
-            subtitle: _audioDecisionSubtitle(settings),
+            label: context.l10n.settingsScreenDecidedAutomatically,
+            subtitle: _audioDecisionSubtitle(context, settings),
             trailing: TextButton(
               onPressed: () =>
                   ref.read(settingsAdvancedOpenProvider.notifier).state = true,
-              child: const Text('Ubah manual'),
+              child: Text(context.l10n.settingsScreenChangeManually),
             ),
           ),
         ],
       )
     else
     SettingsSection(
-      title: 'Audio & Suara',
+      title: context.l10n.settingsScreenCategoryAudio,
       children: [
         SettingsSwitch(
           icon: AppIcons.waveform,
-          label: 'Abaikan jeda sunyi',
+          label: context.l10n.settingsScreenVad,
           subtitle: settings.vadEnabled
-              ? 'Bagian yang sunyi dilewati, jadi transkripsi lebih cepat. '
-                    'Berlaku mulai sesi berikutnya.'
-              : 'Semua audio ditranskrip, termasuk bagian yang sunyi.',
+              ? context.l10n.settingsScreenVadOnSubtitle
+              : context.l10n.settingsScreenVadOffSubtitle,
           value: settings.vadEnabled,
           onChanged: notifier.setVadEnabled,
         ),
@@ -739,14 +742,10 @@ class _CategoryContent extends ConsumerWidget {
         // and whether it helps is a property of the room.
         SettingsSwitch(
           icon: AppIcons.noise,
-          label: 'Pengurangan derau (RNNoise)',
+          label: context.l10n.settingsScreenNoiseReduction,
           subtitle: settings.noiseReduction
-              ? 'Derau ruangan (kipas, AC, lalu lintas) ditekan '
-                    'sebelum transkripsi. Berlaku mulai potongan audio '
-                    'berikutnya.'
-              : 'Mati. Nyalakan bila ruangan Anda berisik; pada '
-                    'rekaman yang sudah bersih ini bisa menghilangkan '
-                    'satu-dua konsonan.',
+              ? context.l10n.settingsScreenNoiseReductionOnSubtitle
+              : context.l10n.settingsScreenNoiseReductionOffSubtitle,
           value: settings.noiseReduction,
           onChanged: notifier.setNoiseReduction,
         ),
@@ -755,34 +754,31 @@ class _CategoryContent extends ConsumerWidget {
         // 14a, tapi tak ada kontrolnya di UI sampai sekarang.
         SettingsSwitch(
           icon: AppIcons.gainControl,
-          label: 'Penguatan suara otomatis (AGC)',
+          label: context.l10n.settingsScreenAgc,
           subtitle: settings.agcEnabled
-              ? 'Suara pelan tapi nyata dikuatkan sebelum transkripsi, '
-                    'agar tidak terbaca sebagai sunyi.'
-              : 'Mati. Audio ditranskrip pada volume aslinya.',
+              ? context.l10n.settingsScreenAgcOnSubtitle
+              : context.l10n.settingsScreenAgcOffSubtitle,
           value: settings.agcEnabled,
           onChanged: notifier.setAgcEnabled,
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.spatialAudio,
-          label: 'Hapus suara ganda',
+          label: context.l10n.settingsScreenDedup,
           subtitle: settings.defaultMode == SessionMode.online
-              ? 'Aktif di mode Rapat Online: duplikasi MIC/SPK dibuang.'
-              : 'Hanya berlaku di mode Rapat Online.',
-          trailing: const InfoBadge(
-            message:
-                'Membandingkan kemiripan audio dari mikrofon dan '
-                'pengeras suara, lalu menghapus yang terdengar dua kali.',
-          ),
+              ? context.l10n.settingsScreenDedupOnlineSubtitle
+              : context.l10n.settingsScreenDedupOtherSubtitle,
+          trailing: InfoBadge(message: context.l10n.settingsScreenDedupInfo),
         ),
         const SettingsDivider(),
         SettingsSwitch(
           icon: AppIcons.timer,
-          label: 'Berhenti sendiri saat sunyi',
+          label: context.l10n.settingsScreenAutoStop,
           subtitle: settings.autoStopMinutes != null
-              ? 'Berhenti setelah ${settings.autoStopMinutes} menit tanpa suara.'
-              : 'Rekaman berjalan sampai Anda menghentikannya sendiri.',
+              ? context.l10n.settingsScreenAutoStopOnSubtitle(
+                  settings.autoStopMinutes!,
+                )
+              : context.l10n.settingsScreenAutoStopOffSubtitle,
           value: settings.autoStopMinutes != null,
           onChanged: (v) => notifier.setAutoStopMinutes(v ? 5 : null),
         ),
@@ -790,11 +786,11 @@ class _CategoryContent extends ConsumerWidget {
           const SettingsDivider(),
           SettingsTile(
             icon: AppIcons.timer10,
-            label: 'Lama sunyi sebelum berhenti',
+            label: context.l10n.settingsScreenAutoStopDelay,
             trailing: CompactDropdown<int>(
               value: settings.autoStopMinutes!,
               items: const [1, 2, 3, 5, 10, 15],
-              labelBuilder: (m) => '$m menit',
+              labelBuilder: (m) => context.l10n.settingsScreenMinutes(m),
               onChanged: notifier.setAutoStopMinutes,
             ),
           ),
@@ -805,17 +801,18 @@ class _CategoryContent extends ConsumerWidget {
   }
 
   List<Widget> _penyimpanan(
+    BuildContext context,
     AppSettings settings,
     SettingsNotifier notifier,
     AppColorSet colors,
   ) => [
     SettingsSection(
-      title: 'Output & Penyimpanan',
+      title: context.l10n.settingsScreenOutputStorage,
       children: [
         Builder(
           builder: (context) => SettingsTile(
             icon: AppIcons.folder,
-            label: 'Folder output',
+            label: context.l10n.settingsScreenOutputFolder,
             subtitle: settings.libraryPath,
             trailing: Icon(
               AppIcons.chevronRight,
@@ -824,7 +821,7 @@ class _CategoryContent extends ConsumerWidget {
             ),
             onTap: () async {
               final dir = await FilePicker.getDirectoryPath(
-                dialogTitle: 'Pilih folder output',
+                dialogTitle: context.l10n.settingsScreenPickOutputFolder,
                 initialDirectory: settings.libraryPath,
               );
               if (dir != null && dir != settings.libraryPath) {
@@ -836,8 +833,8 @@ class _CategoryContent extends ConsumerWidget {
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.saveAs,
-          label: 'Format ekspor default',
-          subtitle: 'Format yang sudah tercentang saat dialog Ekspor dibuka.',
+          label: context.l10n.settingsScreenDefaultExportFormat,
+          subtitle: context.l10n.settingsScreenDefaultExportFormatSubtitle,
           trailing: CompactDropdown<String>(
             value: settings.defaultExportFormat,
             items: const [
@@ -859,32 +856,28 @@ class _CategoryContent extends ConsumerWidget {
 
   List<Widget> _penyiapan(BuildContext context, WidgetRef ref) => [
     SettingsSection(
-      title: 'Penyiapan & Diagnostik',
+      title: context.l10n.settingsScreenCategorySetup,
       children: [
         SettingsTile(
           icon: AppIcons.health,
-          label: 'Diagnostik',
-          subtitle:
-              'Periksa folder, model, mikrofon dan ruang disk. '
-              'Semuanya lokal.',
+          label: context.l10n.settingsScreenDiagnostics,
+          subtitle: context.l10n.settingsScreenDiagnosticsSubtitle,
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => openDiagnostics(context),
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.guide,
-          label: 'Jalankan Ulang Penyiapan',
-          subtitle:
-              'Pilih ulang mikrofon, pengeras suara dan model, '
-              'lalu uji suara.',
+          label: context.l10n.settingsScreenRerunSetup,
+          subtitle: context.l10n.settingsScreenRerunSetupSubtitle,
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => openSetupWizard(context),
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.privacy,
-          label: 'Laporan Privasi',
-          subtitle: 'Apa yang pernah keluar dari komputer ini.',
+          label: context.l10n.settingsScreenPrivacyReport,
+          subtitle: context.l10n.settingsScreenPrivacyReportSubtitle,
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => PrivacyReportScreen()),
@@ -896,10 +889,8 @@ class _CategoryContent extends ConsumerWidget {
         // is "what could it send, and what is on?".
         SettingsTile(
           icon: AppIcons.hierarchy,
-          label: 'Apa Jalan di Mana',
-          subtitle:
-              'Setiap kemampuan, tempatnya berjalan, dan '
-              'statusnya sekarang.',
+          label: context.l10n.settingsScreenCapabilities,
+          subtitle: context.l10n.settingsScreenCapabilitiesSubtitle,
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const CapabilitiesScreen()),
@@ -911,8 +902,8 @@ class _CategoryContent extends ConsumerWidget {
             final settings = ref.watch(settingsProvider);
             return SettingsTile(
               icon: AppIcons.analytics,
-              label: 'Dasbor Penggunaan',
-              subtitle: 'Berapa lama Anda merekam, per minggu.',
+              label: context.l10n.settingsScreenUsageDashboard,
+              subtitle: context.l10n.settingsScreenUsageDashboardSubtitle,
               trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -937,22 +928,20 @@ class _CategoryContent extends ConsumerWidget {
     AppColorSet colors,
   ) => [
     SettingsSection(
-      title: 'Tentang',
+      title: context.l10n.settingsScreenCategoryAbout,
       children: [
         SettingsTile(
           icon: AppIcons.update,
-          label: 'Cek Pembaruan',
-          subtitle:
-              'Versi saat ini $kAppVersion. Memeriksa pembaruan '
-              'menghubungi GitHub dan dicatat di Laporan Privasi.',
+          label: context.l10n.settingsScreenCheckUpdate,
+          subtitle: context.l10n.settingsScreenCheckUpdateSubtitle(kAppVersion),
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => _checkForUpdate(context, ref),
         ),
         const SettingsDivider(),
         SettingsTile(
           icon: AppIcons.info,
-          label: 'Tentang Trareon',
-          subtitle: 'Transkripsi offline, privasi terjamin.',
+          label: context.l10n.settingsScreenAboutTrareon,
+          subtitle: context.l10n.settingsScreenTagline,
           trailing: const Icon(AppIcons.chevronRight, size: IconSizes.md),
           onTap: () => _showAboutDialog(context),
         ),
@@ -973,14 +962,17 @@ class _CategoryContent extends ConsumerWidget {
         showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Pembaruan Tersedia'),
+            title: Text(context.l10n.settingsScreenUpdateAvailableTitle),
             content: Text(
-              'Versi ${info.latestVersion} tersedia (saat ini ${info.currentVersion}).',
+              context.l10n.settingsScreenUpdateAvailableBody(
+                info.latestVersion,
+                info.currentVersion,
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Nanti'),
+                child: Text(context.l10n.settingsScreenLater),
               ),
               TextButton(
                 onPressed: () {
@@ -991,13 +983,17 @@ class _CategoryContent extends ConsumerWidget {
                     privacy,
                   );
                 },
-                child: const Text('Lihat Rilis'),
+                child: Text(context.l10n.settingsScreenViewRelease),
               ),
             ],
           ),
         );
       } else {
-        AppToast.show(context, 'Sudah versi terbaru.', type: ToastType.success);
+        AppToast.show(
+          context,
+          context.l10n.settingsScreenUpToDate,
+          type: ToastType.success,
+        );
       }
     } on UpdateCheckException catch (e) {
       if (context.mounted) {
@@ -1007,7 +1003,7 @@ class _CategoryContent extends ConsumerWidget {
       if (context.mounted) {
         AppToast.show(
           context,
-          'Gagal memeriksa pembaruan: $e',
+          context.l10n.settingsScreenUpdateCheckFailed('$e'),
           type: ToastType.error,
         );
       }
@@ -1030,7 +1026,7 @@ class _CategoryContent extends ConsumerWidget {
     if (!opened && context.mounted) {
       AppToast.show(
         context,
-        'Tidak bisa membuka peramban. Buka $url secara manual.',
+        context.l10n.settingsScreenBrowserFailed(url),
         type: ToastType.error,
       );
     }
@@ -1049,9 +1045,9 @@ class _CategoryContent extends ConsumerWidget {
             AppColors.light.primary,
       ),
       children: [
-        const Text('Transkripsi offline, privasi terjamin.'),
+        Text(context.l10n.settingsScreenTagline),
         Spacing.gapLg,
-        const Text('Dibangun dengan Flutter + Rust'),
+        Text(context.l10n.settingsScreenBuiltWith),
       ],
     );
   }
@@ -1134,9 +1130,9 @@ class _ModelAccuracyAndUpgradeRow extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Komputer ini sanggup menjalankan '
-                        '${modelDisplayLabel(advice.recommended)} untuk '
-                        'akurasi lebih baik.',
+                        context.l10n.settingsScreenUpgradeOffer(
+                          modelDisplayLabel(advice.recommended),
+                        ),
                         style: TextStyle(
                           color: colors.text,
                           fontSize: FontSizes.caption,
@@ -1146,11 +1142,11 @@ class _ModelAccuracyAndUpgradeRow extends ConsumerWidget {
                     TextButton(
                       onPressed: () =>
                           notifier.setDefaultModel(advice.recommended),
-                      child: const Text('Tingkatkan akurasi'),
+                      child: Text(context.l10n.settingsScreenUpgradeAccuracy),
                     ),
                     TextButton(
                       onPressed: notifier.dismissDefaultModelUpgradeOffer,
-                      child: const Text('Nanti saja'),
+                      child: Text(context.l10n.settingsScreenNotNow),
                     ),
                   ],
                 ),
@@ -1177,10 +1173,10 @@ class _ModelAdvice {
   const _ModelAdvice({required this.recommended, this.currentLabel});
 }
 
-String _themeLabel(AppThemeMode mode) => switch (mode) {
-  AppThemeMode.light => 'Terang',
-  AppThemeMode.dark => 'Gelap',
-  AppThemeMode.system => 'Sistem',
+String _themeLabel(BuildContext context, AppThemeMode mode) => switch (mode) {
+  AppThemeMode.light => context.l10n.settingsScreenThemeLight,
+  AppThemeMode.dark => context.l10n.settingsScreenThemeDark,
+  AppThemeMode.system => context.l10n.settingsScreenThemeSystem,
 };
 
 /// Opens the setup wizard as a full page. It has 935 lines of tested UI and
