@@ -694,7 +694,7 @@ class _CategoryContent extends ConsumerWidget {
               size: IconSizes.md,
             ),
             onTap: () async {
-              final dir = await FilePicker.platform.getDirectoryPath(
+              final dir = await FilePicker.getDirectoryPath(
                 dialogTitle: 'Pilih folder output',
                 initialDirectory: settings.libraryPath,
               );

@@ -343,7 +343,7 @@ Future<bool> showEksporDialog(
 
   if (confirmed != true || !context.mounted) return false;
 
-  final outputDir = await FilePicker.platform.getDirectoryPath(
+  final outputDir = await FilePicker.getDirectoryPath(
     dialogTitle: 'Pilih folder ekspor untuk "${session.title}"',
     initialDirectory: defaultOutputDir.isNotEmpty ? defaultOutputDir : null,
   );

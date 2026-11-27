@@ -486,7 +486,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _retrySave({bool elsewhere = false}) async {
     String? outputDir;
     if (elsewhere) {
-      outputDir = await FilePicker.platform.getDirectoryPath(
+      outputDir = await FilePicker.getDirectoryPath(
         dialogTitle: 'Simpan transkrip ke folder lain',
         initialDirectory: _libraryPath,
       );
@@ -856,7 +856,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     final settings = ref.read(settingsProvider);
     final defaultDir = resolveTilde(settings.libraryPath);
-    final selectedDir = await FilePicker.platform.getDirectoryPath(
+    final selectedDir = await FilePicker.getDirectoryPath(
       dialogTitle: 'Pilih folder ekspor',
       initialDirectory: defaultDir,
     );

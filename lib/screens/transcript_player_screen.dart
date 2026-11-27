@@ -580,7 +580,7 @@ class _TranscriptPlayerScreenState
   Future<void> _retrySave({bool elsewhere = false}) async {
     String? directory;
     if (elsewhere) {
-      directory = await FilePicker.platform.getDirectoryPath(
+      directory = await FilePicker.getDirectoryPath(
         dialogTitle: 'Simpan transkrip ke folder lain',
         initialDirectory: _sessionDirPath,
       );

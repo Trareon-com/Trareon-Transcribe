@@ -4,7 +4,6 @@
 // its success toast, from a real widget tree, not just write files to disk
 // and leave the user to go find them.
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,20 +14,18 @@ import 'package:transcribe/widgets/ui/app_button.dart';
 
 import 'test_helpers.dart';
 
-/// `FilePicker.platform.getDirectoryPath` has no native dialog in a widget
-/// test sandbox; this stands in for the user picking a real folder.
-class _FakeFilePicker extends FilePicker {
-  _FakeFilePicker(this.directoryPath);
+/// file_picker's native folder dialog has no counterpart in a widget test
+/// sandbox. Since 11.0.0 the plugin's API is static (`FilePicker.getDirectoryPath`)
+/// with no injectable instance, so the fake sits at the plugin boundary: the
+/// default platform implementation is the method-channel one, and this channel
+/// is what it asks for a directory. The reply stands in for the user picking a
+/// real folder.
+const _filePickerChannel = MethodChannel(
+  'miguelruivo.flutter.plugins.filepicker',
+  StandardMethodCodec(),
+);
 
-  final String directoryPath;
-
-  @override
-  Future<String?> getDirectoryPath({
-    String? dialogTitle,
-    bool lockParentWindow = false,
-    String? initialDirectory,
-  }) async => directoryPath;
-}
+const _pickedDirectory = '/tmp/sesi-ekspor';
 
 class _ExportBridge extends NoopBridge {
   @override
@@ -62,12 +59,22 @@ const _segment = TranscriptSegment(
 );
 
 void main() {
-  // `FilePicker.platform` is `late` with no default — reading it before
-  // anything has assigned it (which nothing does under `flutter test`,
-  // unlike a real app's plugin registrant) throws. Only ever assign it
-  // here; there is no real platform to restore it to afterwards.
+  // Reading `FilePicker`'s static API never needs an instance any more, but
+  // with no plugin registrant under `flutter test` the call still reaches the
+  // method channel with nothing on the other end, so answer it here. Only ever
+  // mock it; there is no real dialog to restore afterwards.
   setUp(() {
-    FilePicker.platform = _FakeFilePicker('/tmp/sesi-ekspor');
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          _filePickerChannel,
+          (call) async => call.method == 'dir' ? _pickedDirectory : null,
+        );
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_filePickerChannel, null);
   });
 
   testWidgets(

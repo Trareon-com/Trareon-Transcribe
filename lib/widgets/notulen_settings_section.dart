@@ -68,7 +68,7 @@ class _NotulenDefaultsSectionState
   }
 
   Future<void> _pickKopSurat() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       dialogTitle: 'Pilih gambar kop surat (PNG)',
       type: FileType.custom,
       allowedExtensions: const ['png'],

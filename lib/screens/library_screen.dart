@@ -337,7 +337,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// "Ekspor sebagai arsip (.zip)" (F26): the whole session folder — audio,
   /// transcript, sidecar, backup if any — as one portable `.zip`.
   Future<void> _exportSessionArchive(LibraryEntry session) async {
-    final destination = await FilePicker.platform.saveFile(
+    final destination = await FilePicker.saveFile(
       dialogTitle: 'Simpan arsip sesi',
       fileName: archiveFilenameFor(title: session.title, date: session.date),
       type: FileType.custom,
@@ -374,7 +374,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Future<void> _importSessionArchive() async {
     final libraryPath = widget.libraryPath;
     if (libraryPath == null) return;
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       dialogTitle: 'Pilih arsip sesi (.zip)',
       type: FileType.custom,
       allowedExtensions: const ['zip'],

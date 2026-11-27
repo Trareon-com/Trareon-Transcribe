@@ -204,7 +204,7 @@ class _SrikandiExportDialogState
         });
         return;
       }
-      final outputDir = await FilePicker.platform.getDirectoryPath(
+      final outputDir = await FilePicker.getDirectoryPath(
         dialogTitle: 'Pilih folder untuk ekspor SRIKANDI',
       );
       if (outputDir == null) {

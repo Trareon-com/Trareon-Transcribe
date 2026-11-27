@@ -109,7 +109,7 @@ class _GlossarySettingsSectionState
   }
 
   Future<void> _import() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       dialogTitle: 'Impor kamus istilah',
       type: FileType.custom,
       allowedExtensions: const ['txt', 'csv', 'tsv'],
@@ -157,7 +157,7 @@ class _GlossarySettingsSectionState
     final terms = ref.read(settingsProvider).glossary.terms;
     if (terms.isEmpty) return;
     final extension = csv ? 'csv' : 'txt';
-    final path = await FilePicker.platform.saveFile(
+    final path = await FilePicker.saveFile(
       dialogTitle: 'Simpan kamus istilah',
       fileName: 'kamus-istilah.$extension',
       type: FileType.custom,
