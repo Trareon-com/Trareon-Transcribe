@@ -1,6 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/bridge_service.dart';
 import '../services/dart_prefs.dart';

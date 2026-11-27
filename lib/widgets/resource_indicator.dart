@@ -64,7 +64,7 @@ class ResourceIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final high = ref.watch(resourceMemoryHighProvider).valueOrNull ?? false;
+    final high = ref.watch(resourceMemoryHighProvider).value ?? false;
     if (!high) return const SizedBox.shrink();
 
     final colors = context.colors;

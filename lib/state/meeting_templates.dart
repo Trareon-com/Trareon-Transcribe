@@ -10,7 +10,7 @@ library;
 
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/dart_prefs.dart';
 import 'models.dart' show SessionMode;

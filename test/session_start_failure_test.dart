@@ -224,7 +224,7 @@ void main() {
 
     // No session id yet: subscribing must not reach the bridge at all, or
     // every app launch would open a stream for a session that doesn't exist.
-    expect(container.read(sessionNoticeProvider).valueOrNull, isNull);
+    expect(container.read(sessionNoticeProvider).value, isNull);
     await settingsToSettle();
   });
 }

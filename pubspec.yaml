@@ -43,7 +43,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^2.0.0
 
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.5.0
   window_manager: ^0.4.3
   screen_retriever: ^0.2.0
   tray_manager: ^0.3.2

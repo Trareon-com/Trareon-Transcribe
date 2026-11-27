@@ -5,7 +5,7 @@
 // uses for the citation rendering.
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:transcribe/services/bridge_service.dart';
 import 'package:transcribe/services/session_store.dart';

@@ -6,7 +6,7 @@
 /// refreshable from either.
 library;
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/library_index.dart';
 import 'models.dart';

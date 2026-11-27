@@ -978,7 +978,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final isPaused = lifecycle == SessionLifecycle.paused;
     final colors =
         Theme.of(context).extension<AppColorSet>() ?? AppColors.light;
-    final vuLevel = ref.watch(vuLevelProvider).valueOrNull;
+    final vuLevel = ref.watch(vuLevelProvider).value;
 
     // The first completed library load is the earliest moment the sidecars
     // are known, and the latest one at which an unfinished transcript
@@ -1036,7 +1036,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // specific than the silence watchdog above, which can only infer trouble
     // after twelve seconds of nothing.
     ref.listen(sessionNoticeProvider, (_, next) {
-      final notice = next.valueOrNull;
+      final notice = next.value;
       if (notice == null) return;
       final type = switch (notice.level) {
         SessionNoticeLevel.info => ToastType.info,
