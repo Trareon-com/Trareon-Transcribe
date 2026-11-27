@@ -7,7 +7,25 @@ class AppDelegate: FlutterAppDelegate {
   private var eventMonitor: Any?
   private var hotkeyChannel: FlutterMethodChannel?
 
+  // Closing the window hides the app to the tray (minimize-to-tray keeps a
+  // recording running); only the tray's "Keluar" quits. TrayService asks
+  // nativeapi to cancel the close, but on macOS 27 the title-bar close button
+  // still closes the window after the cancel, and returning true here then
+  // terminated the app mid-recording. The window is not released on close
+  // (MainFlutterWindow), so it can be shown again.
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    return false
+  }
+
+  // Clicking the Dock icon brings the hidden or closed window back.
+  override func applicationShouldHandleReopen(
+    _ sender: NSApplication, hasVisibleWindows flag: Bool
+  ) -> Bool {
+    if !flag {
+      for window in sender.windows where window is MainFlutterWindow {
+        window.makeKeyAndOrderFront(nil)
+      }
+    }
     return true
   }
 

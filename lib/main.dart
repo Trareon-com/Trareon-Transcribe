@@ -173,6 +173,7 @@ class TranscribeApp extends ConsumerWidget {
         // Lets state notifiers and services, which have no context, speak
         // the same language as the screen.
         updateCurrentL10n(context.l10n);
+        TrayService.instance.updateLabels(context.l10n);
         return wrapForDebugScreenshot(
           WindowChromeScaffold(child: child ?? const SizedBox.shrink()),
         );

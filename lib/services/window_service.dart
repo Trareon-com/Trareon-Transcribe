@@ -1,11 +1,3 @@
-// ignore_for_file: deprecated_member_use
-//
-// tray_manager 0.9 / window_manager 0.7 moved their old API to
-// `legacy.dart` and marked it deprecated; the package authors ship that
-// bridge so a dependency bump does not have to become a rewrite of the
-// tray menu and the window lifecycle. Migrating to the nativeapi surface
-// is tracked in its own issue — deleting these ignores is the last step
-// of that migration, not this one.
 /// Window geometry and platform chrome. `docs/DESIGN-SYSTEM.md` §4.5 and §9.
 ///
 /// Three jobs, all of which used to be missing or wrong:
@@ -21,13 +13,15 @@
 ///    draws, so both look like the platform rather than like Flutter.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:window_manager/legacy.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../theme/app_tokens.dart';
+import 'app_window.dart';
 import 'dart_prefs.dart';
 
 /// Keys in `dart_prefs.json`.
@@ -58,51 +52,63 @@ abstract final class WindowChrome {
   static const double captionBarHeight = ControlSizes.md;
 }
 
-/// Applies the window's geometry and chrome before the first frame.
+/// Applies the window's geometry and chrome, before the first frame where
+/// the platform already reports the window.
 ///
-/// Every call is individually guarded: a window manager that refuses a hint
+/// On Windows the runner keeps the window hidden until Flutter's first
+/// frame, and nativeapi may not report it until then; waiting for it here,
+/// before `runApp`, would wait for a frame that cannot come. So when there
+/// is no window yet, the same setup runs as soon as one appears.
+///
+/// Every step is individually guarded: a window manager that refuses a hint
 /// (a tiling WM on Linux, a remote session on Windows) must not stop the app
 /// from launching. The layout is merely croppable then, not broken.
 Future<void> configureWindow() async {
   if (!isDesktop) return;
-  try {
-    await WindowManager.instance.ensureInitialized();
-  } catch (_) {
+  final window = appWindow();
+  if (window != null) {
+    await _configure(window);
     return;
   }
+  unawaited(
+    waitForAppWindow(timeout: const Duration(seconds: 10)).then((found) async {
+      if (found != null) await _configure(found);
+    }),
+  );
+}
 
-  await _guard(() => WindowManager.instance.setMinimumSize(WindowSizes.minimum));
+Future<void> _configure(Window window) async {
+  _guard(() => window.minimumSize = WindowSizes.minimum.toNative());
 
   // macOS: hide the title bar so the sidebar runs to the top edge under the
   // traffic lights, the way every native-feeling Mac app does. Windows: hide
   // the whole caption bar; WindowsTitleBar draws its own.
   if (Platform.isMacOS) {
-    await _guard(
-      () => WindowManager.instance.setTitleBarStyle(
-        TitleBarStyle.hidden,
-        windowButtonVisibility: true,
-      ),
-    );
+    _guard(() {
+      window.titleBarStyle = TitleBarStyle.hidden;
+      window.isWindowControlButtonsVisible = true;
+    });
   } else if (Platform.isWindows) {
-    await _guard(
-      () => WindowManager.instance.setTitleBarStyle(
-        TitleBarStyle.hidden,
-        windowButtonVisibility: false,
-      ),
-    );
+    _guard(() {
+      window.titleBarStyle = TitleBarStyle.hidden;
+      window.isWindowControlButtonsVisible = false;
+    });
   }
 
-  final restored = await _restoreGeometry();
+  final restored = await _restoreGeometry(window);
   if (!restored) {
-    await _guard(() => WindowManager.instance.setSize(WindowSizes.defaultSize));
-    await _guard(() => WindowManager.instance.center());
+    _guard(() => window.setSize(WindowSizes.defaultSize.toNative(), false));
+    _guard(window.center);
   }
-  await _guard(() => WindowManager.instance.show());
+  _guard(() {
+    if (window.isMinimized) window.restore();
+    window.show();
+  });
 }
 
 /// Reads the saved geometry and applies it. Returns false when there is
 /// nothing saved, or when what was saved is no longer usable.
-Future<bool> _restoreGeometry() async {
+Future<bool> _restoreGeometry(Window window) async {
   try {
     await DartPrefs.instance.load();
   } catch (_) {
@@ -117,7 +123,7 @@ Future<bool> _restoreGeometry() async {
     width.clamp(WindowSizes.minimum.width, 10000),
     height.clamp(WindowSizes.minimum.height, 10000),
   );
-  await _guard(() => WindowManager.instance.setSize(size));
+  _guard(() => window.setSize(size.toNative(), false));
 
   final x = prefs.getDouble(_kWindowX);
   final y = prefs.getDouble(_kWindowY);
@@ -125,20 +131,20 @@ Future<bool> _restoreGeometry() async {
   // window off screen with no way to reach it, so anything negative past a
   // small tolerance falls back to centring.
   if (x != null && y != null && x > -64 && y > -64) {
-    await _guard(() => WindowManager.instance.setPosition(Offset(x, y)));
+    _guard(() => window.position = Offset(x, y).toNative());
   } else {
-    await _guard(() => WindowManager.instance.center());
+    _guard(window.center);
   }
 
   if (prefs.getBool(_kWindowMaximized) ?? false) {
-    await _guard(() => WindowManager.instance.maximize());
+    _guard(window.maximize);
   }
   return true;
 }
 
-Future<void> _guard(Future<void> Function() action) async {
+void _guard(void Function() action) {
   try {
-    await action();
+    action();
   } catch (_) {
     // See the note on configureWindow.
   }
@@ -146,36 +152,51 @@ Future<void> _guard(Future<void> Function() action) async {
 
 /// Saves the window's geometry whenever the user finishes moving or resizing
 /// it. Install once, at the root of the app.
-class WindowGeometryRecorder with WindowListener {
+class WindowGeometryRecorder {
   WindowGeometryRecorder._();
 
   static final WindowGeometryRecorder instance = WindowGeometryRecorder._();
 
-  bool _installed = false;
+  Window? _window;
+  ListenerId? _listener;
+  bool _installing = false;
 
+  /// Starts listening once the window exists (see [configureWindow] for why
+  /// it may not yet).
   void install() {
-    if (_installed || !isDesktop) return;
-    _installed = true;
-    WindowManager.instance.addListener(this);
+    if (_listener != null || _installing || !isDesktop) return;
+    _installing = true;
+    unawaited(
+      waitForAppWindow(timeout: const Duration(seconds: 10)).then((window) {
+        _installing = false;
+        if (window == null || _listener != null) return;
+        _window = window;
+        _listener = window.addListener(_onEvent);
+      }),
+    );
   }
 
   void dispose() {
-    if (!_installed) return;
-    _installed = false;
-    WindowManager.instance.removeListener(this);
+    final listener = _listener;
+    if (listener == null) return;
+    _window?.removeListener(listener);
+    _listener = null;
   }
 
-  @override
-  void onWindowResized() => _save();
-
-  @override
-  void onWindowMoved() => _save();
-
-  @override
-  void onWindowMaximize() => _saveMaximized(true);
-
-  @override
-  void onWindowUnmaximize() => _saveMaximized(false);
+  void _onEvent(WindowEvent event) {
+    switch (event) {
+      case WindowResizedEvent() || WindowMovedEvent():
+        _save();
+      case WindowMaximizedEvent():
+        _saveMaximized(true);
+      // Restoring may mean leaving maximized or leaving minimized back into
+      // maximized; the window knows which.
+      case WindowRestoredEvent():
+        _saveMaximized(_window?.isMaximized ?? false);
+      default:
+        break;
+    }
+  }
 
   Future<void> _saveMaximized(bool value) async {
     DartPrefs.instance.setBool(_kWindowMaximized, value);
@@ -186,9 +207,11 @@ class WindowGeometryRecorder with WindowListener {
   /// so they are deliberately not recorded: restoring them would make
   /// un-maximizing a no-op.
   Future<void> _save() async {
+    final window = _window;
+    if (window == null) return;
     try {
-      if (await WindowManager.instance.isMaximized()) return;
-      final bounds = await WindowManager.instance.getBounds();
+      if (window.isMaximized) return;
+      final bounds = window.bounds.toRect();
       final prefs = DartPrefs.instance;
       prefs.setDouble(_kWindowWidth, bounds.width);
       prefs.setDouble(_kWindowHeight, bounds.height);

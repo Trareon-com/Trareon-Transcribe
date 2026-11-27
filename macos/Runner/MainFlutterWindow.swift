@@ -17,6 +17,10 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    // Closing hides rather than ends the app (AppDelegate), so the window
+    // must survive being closed to be shown again from the tray or Dock.
+    self.isReleasedWhenClosed = false
+
     super.awakeFromNib()
   }
 }
