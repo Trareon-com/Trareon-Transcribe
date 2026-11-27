@@ -1,3 +1,11 @@
+// ignore_for_file: deprecated_member_use
+//
+// tray_manager 0.9 / window_manager 0.7 moved their old API to
+// `legacy.dart` and marked it deprecated; the package authors ship that
+// bridge so a dependency bump does not have to become a rewrite of the
+// tray menu and the window lifecycle. Migrating to the nativeapi surface
+// is tracked in its own issue — deleting these ignores is the last step
+// of that migration, not this one.
 /// Window geometry and platform chrome. `docs/DESIGN-SYSTEM.md` §4.5 and §9.
 ///
 /// Three jobs, all of which used to be missing or wrong:
@@ -17,7 +25,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager/legacy.dart';
 
 import '../theme/app_tokens.dart';
 import 'dart_prefs.dart';
@@ -58,26 +66,26 @@ abstract final class WindowChrome {
 Future<void> configureWindow() async {
   if (!isDesktop) return;
   try {
-    await windowManager.ensureInitialized();
+    await WindowManager.instance.ensureInitialized();
   } catch (_) {
     return;
   }
 
-  await _guard(() => windowManager.setMinimumSize(WindowSizes.minimum));
+  await _guard(() => WindowManager.instance.setMinimumSize(WindowSizes.minimum));
 
   // macOS: hide the title bar so the sidebar runs to the top edge under the
   // traffic lights, the way every native-feeling Mac app does. Windows: hide
   // the whole caption bar; WindowsTitleBar draws its own.
   if (Platform.isMacOS) {
     await _guard(
-      () => windowManager.setTitleBarStyle(
+      () => WindowManager.instance.setTitleBarStyle(
         TitleBarStyle.hidden,
         windowButtonVisibility: true,
       ),
     );
   } else if (Platform.isWindows) {
     await _guard(
-      () => windowManager.setTitleBarStyle(
+      () => WindowManager.instance.setTitleBarStyle(
         TitleBarStyle.hidden,
         windowButtonVisibility: false,
       ),
@@ -86,10 +94,10 @@ Future<void> configureWindow() async {
 
   final restored = await _restoreGeometry();
   if (!restored) {
-    await _guard(() => windowManager.setSize(WindowSizes.defaultSize));
-    await _guard(() => windowManager.center());
+    await _guard(() => WindowManager.instance.setSize(WindowSizes.defaultSize));
+    await _guard(() => WindowManager.instance.center());
   }
-  await _guard(() => windowManager.show());
+  await _guard(() => WindowManager.instance.show());
 }
 
 /// Reads the saved geometry and applies it. Returns false when there is
@@ -109,7 +117,7 @@ Future<bool> _restoreGeometry() async {
     width.clamp(WindowSizes.minimum.width, 10000),
     height.clamp(WindowSizes.minimum.height, 10000),
   );
-  await _guard(() => windowManager.setSize(size));
+  await _guard(() => WindowManager.instance.setSize(size));
 
   final x = prefs.getDouble(_kWindowX);
   final y = prefs.getDouble(_kWindowY);
@@ -117,13 +125,13 @@ Future<bool> _restoreGeometry() async {
   // window off screen with no way to reach it, so anything negative past a
   // small tolerance falls back to centring.
   if (x != null && y != null && x > -64 && y > -64) {
-    await _guard(() => windowManager.setPosition(Offset(x, y)));
+    await _guard(() => WindowManager.instance.setPosition(Offset(x, y)));
   } else {
-    await _guard(() => windowManager.center());
+    await _guard(() => WindowManager.instance.center());
   }
 
   if (prefs.getBool(_kWindowMaximized) ?? false) {
-    await _guard(() => windowManager.maximize());
+    await _guard(() => WindowManager.instance.maximize());
   }
   return true;
 }
@@ -148,13 +156,13 @@ class WindowGeometryRecorder with WindowListener {
   void install() {
     if (_installed || !isDesktop) return;
     _installed = true;
-    windowManager.addListener(this);
+    WindowManager.instance.addListener(this);
   }
 
   void dispose() {
     if (!_installed) return;
     _installed = false;
-    windowManager.removeListener(this);
+    WindowManager.instance.removeListener(this);
   }
 
   @override
@@ -179,8 +187,8 @@ class WindowGeometryRecorder with WindowListener {
   /// un-maximizing a no-op.
   Future<void> _save() async {
     try {
-      if (await windowManager.isMaximized()) return;
-      final bounds = await windowManager.getBounds();
+      if (await WindowManager.instance.isMaximized()) return;
+      final bounds = await WindowManager.instance.getBounds();
       final prefs = DartPrefs.instance;
       prefs.setDouble(_kWindowWidth, bounds.width);
       prefs.setDouble(_kWindowHeight, bounds.height);

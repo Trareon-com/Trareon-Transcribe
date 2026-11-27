@@ -1,3 +1,11 @@
+// ignore_for_file: deprecated_member_use
+//
+// tray_manager 0.9 / window_manager 0.7 moved their old API to
+// `legacy.dart` and marked it deprecated; the package authors ship that
+// bridge so a dependency bump does not have to become a rewrite of the
+// tray menu and the window lifecycle. Migrating to the nativeapi surface
+// is tracked in its own issue — deleting these ignores is the last step
+// of that migration, not this one.
 /// Platform window chrome. `docs/DESIGN-SYSTEM.md` §9.
 ///
 /// macOS hides its title bar and lets the sidebar run under the traffic
@@ -13,7 +21,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager/legacy.dart';
 
 import '../services/window_service.dart';
 import '../theme/app_icons.dart';
@@ -65,12 +73,12 @@ class WindowDragArea extends StatelessWidget {
     }
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPanStart: (_) => windowManager.startDragging(),
+      onPanStart: (_) => WindowManager.instance.startDragging(),
       onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
+        if (await WindowManager.instance.isMaximized()) {
+          await WindowManager.instance.unmaximize();
         } else {
-          await windowManager.maximize();
+          await WindowManager.instance.maximize();
         }
       },
       child: child,
@@ -207,15 +215,15 @@ class _CaptionButtonState extends State<_CaptionButton> {
   Future<void> _run() async {
     switch (widget.action) {
       case _CaptionAction.minimize:
-        await windowManager.minimize();
+        await WindowManager.instance.minimize();
       case _CaptionAction.maximize:
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
+        if (await WindowManager.instance.isMaximized()) {
+          await WindowManager.instance.unmaximize();
         } else {
-          await windowManager.maximize();
+          await WindowManager.instance.maximize();
         }
       case _CaptionAction.close:
-        await windowManager.close();
+        await WindowManager.instance.close();
     }
   }
 
