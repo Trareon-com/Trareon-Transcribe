@@ -69,27 +69,50 @@ pub(crate) fn sck_handler_registration<E: std::fmt::Display>(
     })
 }
 
-/// Downmixes one buffer of interleaved stereo f32 PCM to mono.
+/// Downmixes one ScreenCaptureKit audio sample (an `AudioBufferList`) to
+/// mono, whatever its layout.
 ///
-/// apple-cf 0.12 exposes `AudioBuffer::data()` as `&[u8]` — the crate used to
-/// hand out a raw pointer plus a byte count, which the call site dereferenced
-/// as `*const f32`. Decoding through `from_le_bytes` instead of casting keeps
-/// this free of alignment UB (nothing in the API promises the buffer is
-/// 4-byte aligned) and needs no `unsafe` at all. Every Mac is little-endian,
-/// so this reads the bytes ScreenCaptureKit actually wrote.
+/// `buffers` holds each buffer's `number_channels` and bytes. ScreenCaptureKit
+/// delivers its standard format, *non-interleaved* (planar) f32: one buffer
+/// per channel, each with `number_channels == 1`. The old handler fed every
+/// buffer through a stereo-interleaved downmix on its own, so it averaged
+/// neighbouring samples of the *same* channel and then appended the right
+/// channel after the left: every 10 ms of audio came out as two half-length,
+/// double-speed copies. The duration stayed right, which is why it looked
+/// like capture worked, but Whisper heard noise ("KUBU ADARAH HONDI…" for
+/// "Ini adalah uji…").
 ///
-/// A trailing partial sample (fewer than 4 bytes) and an odd trailing channel
-/// (a stereo pair is the smallest downmixable unit) are dropped. Pure, so it
-/// is tested on Linux CI rather than only on a Mac.
+/// - Several buffers: planar. Average them sample by sample over the length
+///   of the shortest.
+/// - One buffer with `n` channels: interleaved. Average each `n`-sample
+///   frame; a partial trailing frame is dropped.
+///
+/// Pure, so it is tested off a Mac too.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(crate) fn downmix_stereo_f32(pcm: &[u8]) -> Vec<f32> {
-    let (samples, _tail) = pcm.as_chunks::<4>();
-    let interleaved: Vec<f32> = samples
-        .iter()
-        .map(|sample| f32::from_le_bytes(*sample))
-        .collect();
-    let (pairs, _odd_channel) = interleaved.as_chunks::<2>();
-    pairs.iter().map(|pair| (pair[0] + pair[1]) * 0.5).collect()
+pub(crate) fn downmix_sck_buffers(buffers: &[(u32, &[u8])]) -> Vec<f32> {
+    fn decode(pcm: &[u8]) -> Vec<f32> {
+        let (samples, _tail) = pcm.as_chunks::<4>();
+        samples.iter().map(|s| f32::from_le_bytes(*s)).collect()
+    }
+    match buffers {
+        [] => Vec::new(),
+        [(channels, pcm)] => {
+            let samples = decode(pcm);
+            let n = (*channels).max(1) as usize;
+            samples
+                .chunks_exact(n)
+                .map(|frame| frame.iter().sum::<f32>() / n as f32)
+                .collect()
+        }
+        planes => {
+            let planes: Vec<Vec<f32>> = planes.iter().map(|(_, pcm)| decode(pcm)).collect();
+            let len = planes.iter().map(Vec::len).min().unwrap_or(0);
+            let count = planes.len() as f32;
+            (0..len)
+                .map(|i| planes.iter().map(|plane| plane[i]).sum::<f32>() / count)
+                .collect()
+        }
+    }
 }
 
 /// Whether macOS should try ScreenCaptureKit's zero-setup system-audio
@@ -110,7 +133,7 @@ pub(crate) fn wants_zero_setup_capture(device_hint: Option<&str>) -> bool {
 // ---------------------------------------------------------------------------
 #[cfg(target_os = "macos")]
 pub(crate) mod macos {
-    use super::{downmix_stereo_f32, sck_handler_registration, wants_zero_setup_capture};
+    use super::{downmix_sck_buffers, sck_handler_registration, wants_zero_setup_capture};
     use crate::audio::capture::AudioCapture;
     use crate::error::TranscribeError;
     use std::sync::mpsc;
@@ -342,11 +365,14 @@ pub(crate) mod macos {
                 // Interleaved stereo f32 at SCK_SAMPLE_RATE (see the config
                 // comment above). Downmix to mono, then resample to the
                 // pipeline's 16 kHz target.
-                for buf in list.iter() {
-                    let mono = downmix_stereo_f32(buf.data());
-                    if mono.is_empty() {
-                        continue;
-                    }
+                // One buffer per channel (planar) in ScreenCaptureKit's
+                // standard format; see `downmix_sck_buffers`.
+                let buffers: Vec<(u32, &[u8])> = list
+                    .iter()
+                    .map(|buf| (buf.number_channels, buf.data()))
+                    .collect();
+                let mono = downmix_sck_buffers(&buffers);
+                if !mono.is_empty() {
                     let resampled = resampler
                         .lock()
                         .map_err(|_| "resampler poisoned".to_string())
@@ -686,7 +712,7 @@ pub(crate) mod linux {
 /// that CI (Linux) does exercise.
 #[cfg(test)]
 mod macos_policy_tests {
-    use super::{downmix_stereo_f32, sck_handler_registration, wants_zero_setup_capture};
+    use super::{downmix_sck_buffers, sck_handler_registration, wants_zero_setup_capture};
 
     /// The regression that made ScreenCaptureKit unusable: a registered
     /// handler is success. Before this, a healthy registration was reported as
@@ -711,37 +737,53 @@ mod macos_policy_tests {
         );
     }
 
-    /// Stereo f32 → mono. This is the byte-level half of the loopback path:
-    /// `AudioBuffer::data()` is a byte slice in apple-cf 0.12, so the decode
-    /// is now ours to get right — and it is testable without a Mac.
-    #[test]
-    fn downmix_averages_stereo_pairs() {
-        let mut pcm = Vec::new();
-        pcm.extend_from_slice(&1.0f32.to_le_bytes());
-        pcm.extend_from_slice(&(-1.0f32).to_le_bytes());
-        pcm.extend_from_slice(&0.5f32.to_le_bytes());
-        pcm.extend_from_slice(&0.25f32.to_le_bytes());
+    fn pcm(samples: &[f32]) -> Vec<u8> {
+        samples.iter().flat_map(|s| s.to_le_bytes()).collect()
+    }
 
-        assert_eq!(downmix_stereo_f32(&pcm), vec![0.0, 0.375]);
+    /// ScreenCaptureKit's standard layout: one mono buffer per channel.
+    /// Treating each plane as interleaved stereo was the bug that turned
+    /// system audio into double-speed noise.
+    #[test]
+    fn planar_buffers_are_averaged_sample_by_sample() {
+        let left = pcm(&[1.0, 0.5, -1.0, 0.0]);
+        let right = pcm(&[0.0, 0.5, 1.0, 1.0]);
+        assert_eq!(
+            downmix_sck_buffers(&[(1, &left), (1, &right)]),
+            vec![0.5, 0.5, 0.0, 0.5],
+            "one output sample per input frame, in order"
+        );
     }
 
     #[test]
-    fn downmix_drops_partial_samples_and_dangling_channels() {
-        let mut pcm = Vec::new();
-        pcm.extend_from_slice(&0.5f32.to_le_bytes());
-        pcm.extend_from_slice(&0.5f32.to_le_bytes());
-        // A single stray channel: not a stereo frame, so it cannot be mixed.
-        pcm.extend_from_slice(&1.0f32.to_le_bytes());
-        // A partial sample (3 of 4 bytes).
-        pcm.extend_from_slice(&[0xAA, 0xBB, 0xCC]);
-
+    fn planar_buffers_of_unequal_length_stop_at_the_shortest() {
+        let left = pcm(&[1.0, 1.0, 1.0]);
+        let right = pcm(&[0.0, 0.0]);
         assert_eq!(
-            downmix_stereo_f32(&pcm),
+            downmix_sck_buffers(&[(1, &left), (1, &right)]),
+            vec![0.5, 0.5]
+        );
+    }
+
+    #[test]
+    fn an_interleaved_buffer_is_averaged_per_frame() {
+        let stereo = pcm(&[1.0, -1.0, 0.5, 0.25]);
+        assert_eq!(downmix_sck_buffers(&[(2, &stereo)]), vec![0.0, 0.375]);
+        let mono = pcm(&[0.25, 0.5]);
+        assert_eq!(downmix_sck_buffers(&[(1, &mono)]), vec![0.25, 0.5]);
+    }
+
+    #[test]
+    fn partial_samples_and_frames_are_dropped() {
+        let mut stereo = pcm(&[0.5, 0.5, 1.0]);
+        stereo.extend_from_slice(&[0xAA, 0xBB, 0xCC]);
+        assert_eq!(
+            downmix_sck_buffers(&[(2, &stereo)]),
             vec![0.5],
             "an odd trailing channel must not shift or corrupt the output"
         );
-        assert!(downmix_stereo_f32(&[]).is_empty());
-        assert!(downmix_stereo_f32(&[0x00, 0x01, 0x02]).is_empty());
+        assert!(downmix_sck_buffers(&[]).is_empty());
+        assert!(downmix_sck_buffers(&[(2, &[0x00, 0x01, 0x02])]).is_empty());
     }
 
     #[test]
