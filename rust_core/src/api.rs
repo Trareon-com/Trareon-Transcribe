@@ -78,6 +78,9 @@ pub fn gpu_capability() -> GpuCapability {
 /// harmless no-op via `try_init`).
 pub fn init_logging() {
     let _ = tracing_subscriber::fmt::try_init();
+    // The earliest call Dart makes into the engine, before any whisper
+    // context exists: see `prepare_metal_backend` for why.
+    crate::stt::prepare_metal_backend();
 }
 
 pub fn engine_version() -> String {
