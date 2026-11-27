@@ -21,12 +21,16 @@ class OnboardingScreen extends StatelessWidget {
     required this.onContinue,
     required this.onRetryQuick,
     required this.onRetryAccurate,
+    this.onDownloadNow,
   });
 
   final OnboardingState state;
   final VoidCallback onContinue;
   final VoidCallback onRetryQuick;
   final VoidCallback onRetryAccurate;
+
+  /// "Unduh sekarang" while the download is postponed (issue #70).
+  final VoidCallback? onDownloadNow;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +41,14 @@ class OnboardingScreen extends StatelessWidget {
     final failed =
         quick.status == DownloadStatus.error ||
         accurate.status == DownloadStatus.error;
+    // Nothing is downloading until the user agrees, so neither "Mengunduh"
+    // nor a spinner may suggest otherwise.
+    final waiting =
+        !allReady &&
+        (state.phase == OnboardingPhase.awaitingConsent ||
+            state.phase == OnboardingPhase.postponed ||
+            state.phase == OnboardingPhase.checking);
+    final postponed = !allReady && state.phase == OnboardingPhase.postponed;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -72,7 +84,13 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   Spacing.gapLg,
                   Text(
-                    allReady ? 'Siap merekam' : 'Mengunduh model',
+                    allReady
+                        ? 'Siap merekam'
+                        : postponed
+                        ? 'Unduhan ditunda'
+                        : waiting
+                        ? 'Model perlu diunduh'
+                        : 'Mengunduh model',
                     textAlign: TextAlign.center,
                     style: AppText.title.c(colors.text),
                   ),
@@ -122,19 +140,46 @@ class OnboardingScreen extends StatelessWidget {
                     ),
                     Spacing.gapMd,
                   ],
-                  Center(
-                    child: AppButton.primary(
-                      label: allReady ? 'Mulai Merekam' : 'Mengunduh…',
-                      size: AppButtonSize.lg,
-                      loading: !allReady && !failed,
-                      icon: allReady ? AppIcons.record : null,
-                      onPressed: allReady ? onContinue : null,
+                  if (postponed) ...[
+                    Center(
+                      child: AppButton.primary(
+                        label: 'Unduh sekarang',
+                        size: AppButtonSize.lg,
+                        icon: AppIcons.download,
+                        onPressed: onDownloadNow,
+                      ),
                     ),
-                  ),
+                    Spacing.gapSm,
+                    Center(
+                      child: AppButton.ghost(
+                        label: 'Masuk tanpa model',
+                        onPressed: onContinue,
+                      ),
+                    ),
+                  ] else
+                    Center(
+                      child: AppButton.primary(
+                        label: allReady
+                            ? 'Mulai Merekam'
+                            : waiting
+                            ? 'Menunggu izin unduh'
+                            : 'Mengunduh…',
+                        size: AppButtonSize.lg,
+                        loading: !allReady && !failed && !waiting,
+                        icon: allReady ? AppIcons.record : null,
+                        onPressed: allReady ? onContinue : null,
+                      ),
+                    ),
                   Spacing.gapSm,
                   Text(
                     allReady
                         ? 'Model tidak akan pernah dikirim ke mana pun.'
+                        : postponed
+                        ? 'Tidak ada yang diunduh. Tanpa model, rekaman '
+                              'belum bisa ditranskripsi; ajakan mengunduh '
+                              'muncul lagi saat Anda mulai merekam.'
+                        : waiting
+                        ? 'Tidak ada yang diunduh sebelum Anda setuju.'
                         : 'Anda boleh menutup aplikasi, unduhan dilanjutkan '
                               'di latar belakang.',
                     textAlign: TextAlign.center,
@@ -270,10 +315,23 @@ class _Plate extends StatelessWidget {
   }
 }
 
+/// The first-run flow's steps (issue #70). Downloads only start in
+/// [downloading], which is reached through the user's "Unduh sekarang" or a
+/// consent they gave on an earlier run.
+enum OnboardingPhase { checking, awaitingConsent, postponed, downloading }
+
 /// Pure-data state object for the screen above; lets the state holder be a
 /// Riverpod `Notifier` without leaking UI imports.
 class OnboardingState {
-  const OnboardingState({required this.quick, required this.accurate});
+  const OnboardingState({
+    required this.quick,
+    required this.accurate,
+    this.phase = OnboardingPhase.checking,
+  });
+
+  /// Where the first-run flow is: still looking at the disk, waiting for the
+  /// user's answer to the download dialog, postponed, or downloading.
+  final OnboardingPhase phase;
 
   /// Progress for the `base` model — used for the fast/progressive pass.
   final DownloadProgress quick;
@@ -285,6 +343,16 @@ class OnboardingState {
   bool get allReady =>
       quick.status == DownloadStatus.ready &&
       accurate.status == DownloadStatus.ready;
+
+  OnboardingState copyWith({
+    DownloadProgress? quick,
+    DownloadProgress? accurate,
+    OnboardingPhase? phase,
+  }) => OnboardingState(
+    quick: quick ?? this.quick,
+    accurate: accurate ?? this.accurate,
+    phase: phase ?? this.phase,
+  );
 
   static const empty = OnboardingState(
     quick: DownloadProgress(
