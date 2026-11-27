@@ -126,7 +126,7 @@ class SessionControlGroup extends ConsumerWidget {
                     for (final m in kModeOrder)
                       AppSegment(
                         value: m,
-                        label: m.label,
+                        label: m.localizedLabel(context.l10n),
                         icon: modeIcon(m),
                         semanticLabel: modeSemantics(context, m),
                       ),

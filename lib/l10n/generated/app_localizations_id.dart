@@ -4950,4 +4950,13 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get mainScreenMeasuringRoom => 'Mengukur suara ruangan…';
+
+  @override
+  String get sessionModeWebinar => 'Webinar';
+
+  @override
+  String get sessionModeOnline => 'Rapat Online';
+
+  @override
+  String get sessionModeOffline => 'Rapat Offline';
 }

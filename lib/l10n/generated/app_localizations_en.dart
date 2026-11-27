@@ -5162,4 +5162,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mainScreenMeasuringRoom => 'Measuring the room…';
+
+  @override
+  String get sessionModeWebinar => 'Webinar';
+
+  @override
+  String get sessionModeOnline => 'Online meeting';
+
+  @override
+  String get sessionModeOffline => 'In-person meeting';
 }

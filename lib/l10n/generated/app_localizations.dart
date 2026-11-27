@@ -8087,6 +8087,24 @@ abstract class AppLocalizations {
   /// In id, this message translates to:
   /// **'Mengukur suara ruangan…'**
   String get mainScreenMeasuringRoom;
+
+  /// No description provided for @sessionModeWebinar.
+  ///
+  /// In id, this message translates to:
+  /// **'Webinar'**
+  String get sessionModeWebinar;
+
+  /// Session mode card title (SessionMode.online)
+  ///
+  /// In id, this message translates to:
+  /// **'Rapat Online'**
+  String get sessionModeOnline;
+
+  /// No description provided for @sessionModeOffline.
+  ///
+  /// In id, this message translates to:
+  /// **'Rapat Offline'**
+  String get sessionModeOffline;
 }
 
 class _AppLocalizationsDelegate

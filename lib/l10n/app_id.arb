@@ -4341,5 +4341,11 @@
   "mainScreenMeasuringRoom": "Mengukur suara ruangan…",
   "@mainScreenMeasuringRoom": {
     "description": "Record button label during the 3-second pre-session microphone probe (issue #69)"
+  },
+  "sessionModeWebinar": "Webinar",
+  "sessionModeOnline": "Rapat Online",
+  "sessionModeOffline": "Rapat Offline",
+  "@sessionModeOnline": {
+    "description": "Session mode card title (SessionMode.online)"
   }
 }
