@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppExitType;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart' hide ListenerId;
@@ -138,7 +139,9 @@ class TrayService {
         case WindowCloseRequestedEvent(:final request):
           if (_quitting) return;
           request.cancel();
-          window.hide();
+          // Hide after the request has been answered, as the legacy bridge
+          // did, rather than inside its dispatch.
+          Future<void>(window.hide);
         case WindowMovedEvent():
           _recenterIfOffScreen();
         default:
@@ -175,14 +178,13 @@ class TrayService {
       await _showWindow();
       if (!await confirm()) return;
     }
-    final window = _window ?? appWindow();
-    if (window == null) {
-      exit(0);
-    }
     _quitting = true;
-    // Closing the last window ends the app on every platform here
-    // (macOS: applicationShouldTerminateAfterLastWindowClosed).
-    if (!Window.isCloseSupported() || !window.close()) {
+    // Ask the embedder to end the app properly rather than closing the
+    // window: on macOS closing the last window no longer quits (AppDelegate),
+    // and exit() would skip the engine's shutdown.
+    try {
+      await ServicesBinding.instance.exitApplication(AppExitType.required);
+    } catch (_) {
       exit(0);
     }
   }
