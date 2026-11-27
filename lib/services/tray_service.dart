@@ -1,10 +1,18 @@
+// ignore_for_file: deprecated_member_use
+//
+// tray_manager 0.9 / window_manager 0.7 moved their old API to
+// `legacy.dart` and marked it deprecated; the package authors ship that
+// bridge so a dependency bump does not have to become a rewrite of the
+// tray menu and the window lifecycle. Migrating to the nativeapi surface
+// is tracked in its own issue — deleting these ignores is the last step
+// of that migration, not this one.
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:screen_retriever/screen_retriever.dart';
-import 'package:tray_manager/tray_manager.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:screen_retriever/legacy.dart';
+import 'package:tray_manager/legacy.dart';
+import 'package:window_manager/legacy.dart';
 
 /// Minimize-to-tray (PRD: "Minimize-to-tray menjaga transkrip berjalan
 /// background"). Closing the window hides it instead of quitting the
@@ -31,21 +39,21 @@ class TrayService with TrayListener, WindowListener {
     _initialized = true;
 
     try {
-      await windowManager.ensureInitialized();
+      await WindowManager.instance.ensureInitialized();
       // macOS secure state restoration restores the saved (possibly
       // off-screen) window frame after launch. Poll for the first
       // seconds of runtime and recenter whenever the frame lands
       // outside the visible area (restoration can settle late).
       _watchWindowFrame();
-      await windowManager.setPreventClose(true);
-      windowManager.addListener(this);
+      await WindowManager.instance.setPreventClose(true);
+      WindowManager.instance.addListener(this);
 
       final iconPath = Platform.isWindows
           ? 'assets/tray_icon.ico'
           : 'assets/tray_icon.png';
-      await trayManager.setIcon(iconPath);
-      await trayManager.setToolTip('Trareon Transcribe');
-      await trayManager.setContextMenu(
+      await TrayManager.instance.setIcon(iconPath);
+      await TrayManager.instance.setToolTip('Trareon Transcribe');
+      await TrayManager.instance.setContextMenu(
         Menu(
           items: [
             MenuItem(key: 'show', label: 'Buka Trareon Transcribe'),
@@ -54,7 +62,7 @@ class TrayService with TrayListener, WindowListener {
           ],
         ),
       );
-      trayManager.addListener(this);
+      TrayManager.instance.addListener(this);
     } catch (e) {
       // Tray not available in headless/Xvfb environments — skip silently.
     }
@@ -62,8 +70,8 @@ class TrayService with TrayListener, WindowListener {
 
   Future<void> dispose() async {
     if (!_initialized) return;
-    trayManager.removeListener(this);
-    windowManager.removeListener(this);
+    TrayManager.instance.removeListener(this);
+    WindowManager.instance.removeListener(this);
   }
 
   @override
@@ -84,22 +92,22 @@ class TrayService with TrayListener, WindowListener {
           await _showWindow();
           if (!await confirm()) return;
         }
-        await windowManager.setPreventClose(false);
-        await windowManager.close();
+        await WindowManager.instance.setPreventClose(false);
+        await WindowManager.instance.close();
     }
   }
 
   @override
   void onWindowClose() async {
-    final preventClose = await windowManager.isPreventClose();
+    final preventClose = await WindowManager.instance.isPreventClose();
     if (preventClose) {
-      await windowManager.hide();
+      await WindowManager.instance.hide();
     }
   }
 
   Future<void> _showWindow() async {
-    await windowManager.show();
-    await windowManager.focus();
+    await WindowManager.instance.show();
+    await WindowManager.instance.focus();
   }
 
   /// Keeps the window on a visible display.
@@ -128,20 +136,20 @@ class TrayService with TrayListener, WindowListener {
 
   Future<void> _recenterIfOffScreen() async {
     try {
-      final primary = await screenRetriever.getPrimaryDisplay();
+      final primary = await ScreenRetriever.instance.getPrimaryDisplay();
       final vp = primary.visiblePosition ?? const Offset(0, 0);
       final vs = primary.visibleSize ?? primary.size;
-      final bounds = await windowManager.getBounds();
+      final bounds = await WindowManager.instance.getBounds();
       final intersects =
           bounds.left < vp.dx + vs.width &&
           bounds.top < vp.dy + vs.height &&
           bounds.left + bounds.width > vp.dx &&
           bounds.top + bounds.height > vp.dy;
       if (!intersects) {
-        final size = await windowManager.getSize();
+        final size = await WindowManager.instance.getSize();
         final dx = vp.dx + ((vs.width - size.width) / 2);
         final dy = vp.dy + ((vs.height - size.height) / 2);
-        await windowManager.setPosition(Offset(dx, dy));
+        await WindowManager.instance.setPosition(Offset(dx, dy));
       }
     } catch (_) {
       // Window not ready yet — keep polling.

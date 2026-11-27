@@ -19,7 +19,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.14.0
+  flutter: ">=3.50.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -44,17 +45,17 @@ dependencies:
   cupertino_icons: ^2.0.0
 
   flutter_riverpod: ^3.5.0
-  window_manager: ^0.4.3
-  screen_retriever: ^0.2.0
-  tray_manager: ^0.3.2
+  window_manager: ^0.7.1
+  screen_retriever: ^0.4.1
+  tray_manager: ^0.9.1
   path_provider: ^2.1.5
-  desktop_drop: ^0.6.1
+  desktop_drop: ^0.8.4
   file_picker: ^11.0.3
   share_plus: ^12.0.2
   audioplayers: ^6.8.1
   flutter_rust_bridge: 2.13.0
-  freezed_annotation: ^2.4.4
-  url_launcher: ^6.3.2
+  freezed_annotation: ^3.1.0
+  url_launcher: ^6.3.3
   # Direct dependency (already transitive): path.basename/extension, because
   # split('/') mis-parses Windows paths in the import queue.
   path: ^1.9.0
@@ -66,8 +67,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
-  freezed: ^2.5.7
-  build_runner: ^2.4.13
+  freezed: ^4.0.3
+  build_runner: ^2.17.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
