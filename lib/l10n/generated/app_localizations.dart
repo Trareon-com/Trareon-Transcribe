@@ -2969,7 +2969,7 @@ abstract class AppLocalizations {
   /// No description provided for @qualityProfileReasonNoisy.
   ///
   /// In id, this message translates to:
-  /// **'Derau tinggi; pengurangan derau dinyalakan'**
+  /// **'Derau tinggi; pengurangan derau tetap mati karena terukur justru menambah salah kata'**
   String get qualityProfileReasonNoisy;
 
   /// Minutes length preset, about 250 words

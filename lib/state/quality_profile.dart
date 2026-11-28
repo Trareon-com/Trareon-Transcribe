@@ -137,7 +137,13 @@ QualityProfile resolveQualityProfile({
       );
     case AudioRoom.noisy:
       return QualityProfile(
-        noiseReduction: true,
+        // Off even here, by measurement rather than caution (#69): on FLEURS-id
+        // with fan, pink and babble noise at 5 dB SNR, RNNoise raised Whisper's
+        // WER in every condition (babble 33.2% → 45.2%, 36 more dropped words).
+        // Whisper is more robust to the noise than to the suppressor's
+        // artefacts. A user can still turn it on by hand, which locks the
+        // resolver out.
+        noiseReduction: false,
         agc: wantsGain,
         vad: userVad,
         progressive: refineModelInstalled,
@@ -149,4 +155,5 @@ QualityProfile resolveQualityProfile({
 
 /// CrispASR (Qwen3-ASR) tiers have no second pass: one model, one pass, so the
 /// progressive flag is meaningless for them and is forced off.
-bool progressiveApplies({required bool experimentalModel}) => !experimentalModel;
+bool progressiveApplies({required bool experimentalModel}) =>
+    !experimentalModel;

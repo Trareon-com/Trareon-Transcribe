@@ -24,6 +24,10 @@ Pemeliharaan repo (26 Nov 2026).
 
 ### Berubah
 
+- **Pengurangan derau (RNNoise) tidak lagi dinyalakan otomatis**, juga di
+  ruangan berisik. Diukur pada FLEURS-id + derau kipas/pink/obrolan 5 dB, NR
+  menaikkan WER di semua kondisi (obrolan 33,2% → 45,2%, 36 kata hilang).
+  NR tetap bisa dinyalakan manual; probe tetap memutuskan AGC (#69).
 - Flutter di CI dipin ke 3.50.1 (#44); `flutter analyze --no-fatal-infos`
   sementara (lihat issue #48).
 - Branch `main` diproteksi: PR + cek CI wajib.

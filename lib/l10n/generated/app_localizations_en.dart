@@ -1759,7 +1759,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get qualityProfileReasonNoisy =>
-      'Heavy noise, so noise reduction is on';
+      'Heavy noise; noise reduction stays off because it measurably adds word errors';
 
   @override
   String get notulenGenerationLengthShort => 'Brief';

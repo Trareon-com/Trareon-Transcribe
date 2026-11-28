@@ -1749,7 +1749,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get qualityProfileReasonNoisy =>
-      'Derau tinggi; pengurangan derau dinyalakan';
+      'Derau tinggi; pengurangan derau tetap mati karena terukur justru menambah salah kata';
 
   @override
   String get notulenGenerationLengthShort => 'Ringkas';
