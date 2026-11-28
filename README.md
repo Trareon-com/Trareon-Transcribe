@@ -44,17 +44,17 @@
 
 | Layar utama (terang) | Layar utama (gelap) |
 |:---:|:---:|
-| <img src="docs/screenshots/sprint5/main-idle-1280x800-light.png" width="420" alt="Layar utama, tema terang"/> | <img src="docs/screenshots/sprint5/main-idle-1280x800-dark.png" width="420" alt="Layar utama, tema gelap"/> |
+| <img src="docs/screenshots/readme/main-light.png" width="420" alt="Layar utama dengan pilihan mode Rapat Offline, Rapat Online, dan Webinar, tema terang"/> | <img src="docs/screenshots/readme/main-dark.png" width="420" alt="Layar utama, tema gelap"/> |
 
-| Pemutar transkrip | Pengaturan |
+| Pemutar transkrip | Pengaturan Model & Mode |
 |:---:|:---:|
-| <img src="docs/screenshots/sprint5/player-1280x800-light.png" width="420" alt="Pemutar transkrip"/> | <img src="docs/screenshots/sprint5/settings-1280x800-light.png" width="420" alt="Pengaturan"/> |
+| <img src="docs/screenshots/readme/player-light.png" width="420" alt="Pemutar transkrip dengan segmen bertimestamp dan gelombang audio"/> | <img src="docs/screenshots/readme/settings-light.png" width="420" alt="Pengaturan Model & Mode dengan Mode Sederhana dan WER FLEURS-id"/> |
 
-| Pembuat notulen | Panel pintasan |
+| Pembuat notulen | Mode Kepatuhan UU PDP |
 |:---:|:---:|
-| <img src="docs/screenshots/sprint5/notulen-dialog-1280x660-dark.png" width="420" alt="Dialog notulen"/> | <img src="docs/screenshots/sprint5/shortcuts-1280x800-dark.png" width="420" alt="Panel pintasan keyboard"/> |
+| <img src="docs/screenshots/readme/notulen-light.png" width="420" alt="Dialog Notulen Rapat dengan pilihan bentuk naskah"/> | <img src="docs/screenshots/readme/pdp-dark.png" width="420" alt="Pengaturan Kepatuhan PDP dengan opsi penyamaran data pribadi"/> |
 
-> Tangkapan layar diambil dari build Linux. Di macOS, pintasan memakai `⌘`, bukan `Ctrl`.
+> Diambil dari build macOS terbaru (`main`, 28 Nov 2026) dengan rekaman demo fiktif.
 
 ---
 
@@ -82,7 +82,7 @@
 ### Transkripsi
 
 - **Whisper lokal** via `whisper-rs` (whisper.cpp), dengan akselerasi Metal/Core ML di macOS dan Vulkan opsional di Windows/Linux. Wizard penyiapan mengukur GPU vs CPU di perangkat Anda lalu memilih yang lebih cepat.
-- **Enam pilihan kualitas.** Otomatis, Cepat, Moderat, Akurat, plus dua tingkat *Eksperimental* berbasis CrispASR/Qwen3-ASR. Lihat [Model & kualitas transkripsi](#model--kualitas-transkripsi).
+- **Enam pilihan kualitas.** Otomatis, Cepat, Sedang, Akurat, plus dua tingkat *Eksperimental* berbasis CrispASR/Qwen3-ASR. Lihat [Model & kualitas transkripsi](#model--kualitas-transkripsi).
 - **Cepat dulu, lalu diperhalus.** Hasil awal dari model ringan langsung tampil, lalu diperbaiki di latar belakang oleh model yang lebih akurat.
 - **Kamus istilah (glosarium).** Istilah, nama, dan singkatan instansi dipakai untuk memandu Whisper dan mengoreksi ejaan setelah inferensi. Aplikasi juga bisa mengusulkan istilah baru dari koreksi Anda.
 - **Penangkal halusinasi.** Kata dengan keyakinan rendah digarisbawahi, dan keluaran berulang khas Whisper pada bagian hening disaring.
@@ -93,7 +93,7 @@
 
 - **Pemutar transkrip.** Klik kata untuk lompat ke audio, sorotan ala karaoke, ubah kecepatan, sunting teks langsung, penanda (bookmark), dan tag sesi.
 - **Ringkasan AI dan "Enhance".** Ringkasan memakai LLM yang Anda jalankan sendiri, yaitu [Ollama](https://ollama.com/download) di `localhost` atau endpoint kompatibel OpenAI pilihan Anda. Enhance menggabungkan catatan pribadi dengan transkrip. Wizard penyiapan model AI memandu instalasi Ollama dan memilih model sesuai perangkat keras.
-- **Notulen rapat.** Templat Notula Rapat, Risalah Rapat, Berita Acara, dan Notulen Ringkas. Pratinjau menampilkan hasil *Periksa Fakta* per butir, dan *Rapikan Ragam* (EYD V dan istilah kedinasan) yang perubahannya harus Anda terima satu per satu.
+- **Notulen rapat.** Bentuk naskah Notulen Dinas (sesuai Tata Naskah Dinas), Risalah Rapat, Berita Acara, dan Notulen Ringkas, diisi otomatis dari transkrip atau poin catatan. Pratinjau menampilkan hasil *Periksa Fakta* per butir, dan *Rapikan Ragam* (EYD V dan istilah kedinasan) yang perubahannya harus Anda terima satu per satu.
 - **Ekspor ke SRIKANDI.** Formulir metadata naskah dinas lengkap dengan validasi Wajib/Saran, menghasilkan DOCX, PDF, metadata JSON, dan CSV siap unggah.
 - **Tindak lanjut.** Daftar butir tindakan terstruktur, bisa diekspor sebagai acara kalender `.ics`. Undangan rapat `.ics` juga bisa diimpor untuk mengisi judul dan peserta.
 - **Tanya Arsip Rapat.** Cari dan tanyakan isi semua rapat lama lewat indeks teks penuh SQLite FTS5 lokal, dengan pencarian semantik opsional.
@@ -114,18 +114,18 @@
 
 Pilihan kualitas ada di wizard penyiapan, Pengaturan, dan chip di dekat tombol **Mulai Rekam**. Tingkat dipilih sekali di awal sesi.
 
-| Pilihan | Mesin | Model | Ukuran | Catatan |
-|:--|:--|:--|--:|:--|
-| **Otomatis** | Whisper | dipilih dari RAM perangkat | — | Default. Selalu jatuh ke salah satu tingkat non-eksperimental di bawah |
-| **Cepat** | Whisper | `base` | 142 MB | Ringan, jalan di hampir semua perangkat |
-| **Moderat** | Whisper | `small` | 466 MB | Diunduh saat dipilih |
-| **Akurat** | Whisper | `large-v3-turbo-q5` | 548 MB | Batas atas non-eksperimental |
-| **Cepat (Eksperimental)** | CrispASR | Qwen3-ASR 0.6B | — | Tetap real-time di CPU |
-| **Akurat (Eksperimental)** | CrispASR | Qwen3-ASR 1.7B | — | Akurasi terbaik, butuh GPU agar nyaman |
+| Pilihan | Mesin | Model | Ukuran | WER FLEURS-id | Catatan |
+|:--|:--|:--|--:|--:|:--|
+| **Otomatis** | Whisper | dipilih dari RAM perangkat | — | — | Ditawarkan di wizard penyiapan. Selalu jatuh ke tingkat non-eksperimental |
+| **Cepat** | Whisper | `base` | 142 MB | 36,7% | Ringan, jalan di hampir semua perangkat |
+| **Sedang** | Whisper | `small` | 466 MB | 17,6% | Diunduh saat dipilih |
+| **Akurat** | Whisper | `large-v3-turbo-q5` | 548 MB | 8,1% | Disarankan untuk rapat dan wawancara |
+| **Cepat-Eksperimental** | CrispASR | Qwen3-ASR 0.6B | 631 MB | 8,6% | Tetap real-time di CPU |
+| **Akurat-Eksperimental** | CrispASR | Qwen3-ASR 1.7B | 1,5 GB | 5,3% | Akurasi terbaik, butuh GPU agar nyaman |
+
+WER (word error rate) diukur pada 687 ujaran FLEURS bahasa Indonesia; makin kecil makin baik. Angka yang sama tampil di Pengaturan saat memilih model. Metode dan cara mengulang pengukuran ada di [`docs/WER-BENCH.md`](docs/WER-BENCH.md), dan riset model khusus bahasa Indonesia ada di [`docs/INDONESIAN-MODEL.md`](docs/INDONESIAN-MODEL.md).
 
 Tingkat eksperimental tidak pernah dipilih otomatis. Bila mesinnya gagal dimuat, sesi kembali ke **Cepat** (Whisper `base`) tanpa crash.
-
-**Akurasi bahasa Indonesia (WER pada FLEURS `id_id`, makin kecil makin baik):** Whisper `base` 36,68%, Qwen3-ASR 0.6B 8,61%, Qwen3-ASR 1.7B 5,35%. Metode dan cara mengulang pengukuran ada di [`docs/WER-BENCH.md`](docs/WER-BENCH.md); riset model khusus bahasa Indonesia ada di [`docs/INDONESIAN-MODEL.md`](docs/INDONESIAN-MODEL.md).
 
 **Lokasi model.** Paket rilis membawa `base` dan `large-v3-turbo-q5`. Model lain (`tiny`, `small`, `medium`, `large-v3-turbo`, Qwen3-ASR, Silero VAD, dan model diarization neural) diunduh sekali dari Pengaturan, diverifikasi SHA-256, lalu dipakai offline selamanya. Aplikasi mencari model di:
 
