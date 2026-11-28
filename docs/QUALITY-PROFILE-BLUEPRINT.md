@@ -112,7 +112,7 @@ QualityProfile resolveQualityProfile({
 |---|---|---|---|
 | `snrDb >= 25` — bersih | mati | mati | "Ruangan bersih; derau dan AGC dimatikan agar tidak memakan kata" |
 | `15 <= snrDb < 25` — sedang | mati | **nyala** kalau `peakDbfs < -24`, selain itu mati | "Derau ringan; hanya level yang dinaikkan" |
-| `snrDb < 15` — berisik | **nyala** | nyala kalau `peakDbfs < -24` | "Derau tinggi; pengurangan derau dinyalakan" |
+| `snrDb < 15` — berisik | mati (terukur, lihat §5.1) | nyala kalau `peakDbfs < -24` | "Derau tinggi; pengurangan derau tetap mati karena terukur justru menambah salah kata" |
 | `measurement == null` | mati | mati | "Belum terukur; pengaturan konservatif dipakai" |
 | `tuningSource == user` | nilai pengguna | nilai pengguna | "Dipilih manual" |
 
@@ -165,6 +165,26 @@ dipasang saat capture dibuka (`bridge_service.dart` meneruskan keduanya ke `star
 - Kriteria selesai fase 2: pada Kali (RMS/peak terukur nyata) dan Windows, hasil probe masuk akal
   (senyap ≈ −60 dBFS, bicara ≈ −20 dBFS), dan sesi dengan NR nyala pada rekaman berisik tidak
   kehilangan kata dibanding NR mati (dibandingkan pada berkas uji yang sama).
+
+### 5.1 Hasil uji NR (#69): NR tidak pernah dinyalakan otomatis
+
+Kriteria "NR nyala tidak kehilangan kata" **gagal** saat diukur, jadi resolver diubah: NR **mati di
+semua kelas ruangan**. NR tetap bisa dinyalakan manual (dan pilihan manual mengunci resolver).
+
+20 ucapan FLEURS-id dev, `ggml-small`, CPU, `transcribe_cli --denoise` vs tanpa, derau dicampur pada
+SNR 5 dB. Skrip dan cara mengulang: `bench/nr_noise/`.
+
+| Kondisi | WER NR mati | WER NR nyala | kata keluar (mati → nyala) | deletion (mati → nyala) |
+|---|---|---|---|---|
+| bersih | 13,9% | 15,0% | 362 → 359 | 5 → 6 |
+| kipas/AC 5 dB | 14,4% | 16,1% | 363 → 361 | 4 → 5 |
+| pink noise 5 dB | 21,3% | 29,4% | 360 → 359 | 8 → 9 |
+| obrolan (babble) 5 dB | 33,2% | **45,2%** | 359 → **313** | 20 → **56** |
+
+RNNoise memperburuk WER di **setiap** kondisi; pada babble — derau khas rapat — ia memakan 36 kata
+tambahan. Whisper lebih tahan terhadap derau itu sendiri daripada terhadap artefak peredamnya.
+Batasan: derau sintetis dan satu model; kalau nanti ada rekaman rapat nyata yang menunjukkan
+sebaliknya, ulangi uji yang sama sebelum menyalakan NR lagi.
 
 ---
 

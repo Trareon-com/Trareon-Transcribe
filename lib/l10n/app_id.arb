@@ -1429,7 +1429,7 @@
   "qualityProfileReasonClean": "Ruangan bersih; derau dan AGC dimatikan agar tidak memakan kata",
   "qualityProfileReasonLightNoiseGain": "Derau ringan; hanya level yang dinaikkan",
   "qualityProfileReasonLightNoiseNoGain": "Derau ringan; level sudah cukup, gain tidak dipakai",
-  "qualityProfileReasonNoisy": "Derau tinggi; pengurangan derau dinyalakan",
+  "qualityProfileReasonNoisy": "Derau tinggi; pengurangan derau tetap mati karena terukur justru menambah salah kata",
   "notulenGenerationLengthShort": "Ringkas",
   "@notulenGenerationLengthShort": {
     "description": "Minutes length preset, about 250 words"

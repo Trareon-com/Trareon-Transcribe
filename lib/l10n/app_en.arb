@@ -1145,7 +1145,7 @@
   "qualityProfileReasonClean": "Quiet room, so noise reduction and AGC are off to avoid losing words",
   "qualityProfileReasonLightNoiseGain": "Light noise, so only the level is raised",
   "qualityProfileReasonLightNoiseNoGain": "Light noise and the level is fine, so no gain is applied",
-  "qualityProfileReasonNoisy": "Heavy noise, so noise reduction is on",
+  "qualityProfileReasonNoisy": "Heavy noise; noise reduction stays off because it measurably adds word errors",
   "notulenGenerationLengthShort": "Brief",
   "notulenGenerationLengthMedium": "Standard",
   "notulenGenerationLengthFull": "Detailed",

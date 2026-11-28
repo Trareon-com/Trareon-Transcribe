@@ -26,17 +26,25 @@ void main() {
 
   group('room classification', () {
     test('14.9 dB is noisy, 15.0 is tolerable', () {
-      expect(const AudioMeasurement(snrDb: 14.9, peakDbfs: -12).room(),
-          AudioRoom.noisy);
-      expect(const AudioMeasurement(snrDb: 15.0, peakDbfs: -12).room(),
-          AudioRoom.tolerable);
+      expect(
+        const AudioMeasurement(snrDb: 14.9, peakDbfs: -12).room(),
+        AudioRoom.noisy,
+      );
+      expect(
+        const AudioMeasurement(snrDb: 15.0, peakDbfs: -12).room(),
+        AudioRoom.tolerable,
+      );
     });
 
     test('24.9 dB is tolerable, 25.0 is clean', () {
-      expect(const AudioMeasurement(snrDb: 24.9, peakDbfs: -12).room(),
-          AudioRoom.tolerable);
-      expect(const AudioMeasurement(snrDb: 25.0, peakDbfs: -12).room(),
-          AudioRoom.clean);
+      expect(
+        const AudioMeasurement(snrDb: 24.9, peakDbfs: -12).room(),
+        AudioRoom.tolerable,
+      );
+      expect(
+        const AudioMeasurement(snrDb: 25.0, peakDbfs: -12).room(),
+        AudioRoom.clean,
+      );
     });
   });
 
@@ -97,13 +105,36 @@ void main() {
   });
 
   group('noisy room', () {
-    test('denoising turns on, gain follows the level', () {
+    test(
+      'denoising stays off (measured to cost words), gain follows the level',
+      () {
+        final p = resolve(
+          measurement: const AudioMeasurement(snrDb: 8, peakDbfs: -12),
+        );
+        expect(p.noiseReduction, isFalse);
+        expect(p.agc, isFalse);
+        expect(p.reason, contains('Derau tinggi'));
+        expect(p.decidedByMeasurement, isTrue);
+      },
+    );
+
+    test('no measured room ever turns denoising on by itself', () {
+      for (final snr in [-5.0, 0.0, 5.0, 14.9, 15.0, 24.9, 25.0, 60.0]) {
+        for (final peak in [-60.0, -30.0, -12.0]) {
+          final p = resolve(
+            measurement: AudioMeasurement(snrDb: snr, peakDbfs: peak),
+          );
+          expect(p.noiseReduction, isFalse, reason: 'snr=$snr peak=$peak');
+        }
+      }
+    });
+
+    test('a quiet noisy room still gets gain', () {
       final p = resolve(
-        measurement: const AudioMeasurement(snrDb: 8, peakDbfs: -12),
+        measurement: const AudioMeasurement(snrDb: 8, peakDbfs: -40),
       );
-      expect(p.noiseReduction, isTrue);
-      expect(p.agc, isFalse);
-      expect(p.reason, contains('Derau tinggi'));
+      expect(p.noiseReduction, isFalse);
+      expect(p.agc, isTrue);
     });
   });
 
@@ -124,7 +155,11 @@ void main() {
     });
 
     test('a manual choice survives a missing measurement too', () {
-      final p = resolve(source: TuningSource.user, userNr: false, userAgc: true);
+      final p = resolve(
+        source: TuningSource.user,
+        userNr: false,
+        userAgc: true,
+      );
       expect(p.agc, isTrue);
       expect(p.noiseReduction, isFalse);
     });
@@ -146,8 +181,10 @@ void main() {
     });
 
     test('nothing installed means nothing to refine with', () {
-      expect(resolve(refineInstalled: false, gpuAvailable: false).progressive,
-          isFalse);
+      expect(
+        resolve(refineInstalled: false, gpuAvailable: false).progressive,
+        isFalse,
+      );
     });
   });
 }

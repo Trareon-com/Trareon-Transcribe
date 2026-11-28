@@ -83,23 +83,22 @@ SessionNotifier _notifier(_ProbeBridge bridge, {bool auto = true}) {
 }
 
 void main() {
-  test(
-    'a noisy room turns noise reduction on before the session starts',
-    () async {
-      final bridge = _ProbeBridge(
-        const AudioMeasurement(snrDb: 8, peakDbfs: -12),
-      );
-      final notifier = _notifier(bridge);
+  test('a noisy, quiet room gets gain but no noise reduction before the session starts', () async {
+    final bridge = _ProbeBridge(
+      const AudioMeasurement(snrDb: 8, peakDbfs: -40),
+    );
+    final notifier = _notifier(bridge);
 
-      await notifier.start();
+    await notifier.start();
 
-      expect(bridge.probes, [SessionNotifier.probeMillis]);
-      expect(bridge.startedAfterProbe, isTrue);
-      expect(bridge.tunings.single.nr, isTrue);
-      expect(notifier.state.probingAudio, isFalse);
-      expect(notifier.state.lifecycle, SessionLifecycle.recording);
-    },
-  );
+    expect(bridge.probes, [SessionNotifier.probeMillis]);
+    expect(bridge.startedAfterProbe, isTrue);
+    // NR stays off even in a noisy room: measured to cost words (#69,
+    // QUALITY-PROFILE-BLUEPRINT §5.1). The probe still decides the gain.
+    expect(bridge.tunings.single, (nr: false, agc: true));
+    expect(notifier.state.probingAudio, isFalse);
+    expect(notifier.state.lifecycle, SessionLifecycle.recording);
+  });
 
   test('a clean room leaves noise reduction and AGC off', () async {
     final bridge = _ProbeBridge(
