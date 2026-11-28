@@ -1,449 +1,338 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/Trareon_Transcribe-100%25_Offline-00796B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMWEzIDMgMCAwIDAtMyAzdjhhMyAzIDAgMCAwIDYgMFY0YTMgMyAwIDAgMC0zLTN6Ii8+PHBhdGggZD0iTTE5IDEwdjJhNyA3IDAgMCAxLTE0IDB2LTIiLz48bGluZSB4MT0iMTIiIHkxPSIxOSIgeDI9IjEyIiB5Mj0iMjMiLz48bGluZSB4MT0iOCIgeTE9IjIzIiB4Mj0iMTYiIHkyPSIyMyIvPjwvc3ZnPg=="/>
-  <img alt="Trareon Transcribe" src="https://img.shields.io/badge/Trareon_Transcribe-100%25_Offline-00796B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMWEzIDMgMCAwIDAtMyAzdjhhMyAzIDAgMCAwIDYgMFY0YTMgMyAwIDAgMC0zLTN6Ii8+PHBhdGggZD0iTTE5IDEwdjJhNyA3IDAgMCAxLTE0IDB2LTIiLz48bGluZSB4MT0iMTIiIHkxPSIxOSIgeDI9IjEyIiB5Mj0iMjMiLz48bGluZSB4MT0iOCIgeTE9IjIzIiB4Mj0iMTYiIHkyPSIyMyIvPjwvc3ZnPg=="/>
-</picture>
+<p align="center">
+  <img src="assets/logo.png" width="96" alt="Logo Trareon Transcribe"/>
+</p>
 
 <h1 align="center">Trareon Transcribe</h1>
 
 <p align="center">
-  <strong>Desktop transcription app — 100% offline. Mic + speaker capture, local Whisper STT, multi-format export.</strong><br/>
-  Zero network calls during transcription. Your audio never leaves your machine.
+  <strong>Aplikasi transkripsi rapat untuk desktop yang berjalan 100% offline.</strong><br/>
+  Rekam mikrofon dan suara sistem, transkripsi lokal dengan Whisper, lalu susun notulen, ringkasan, dan ekspor tanpa audio keluar dari komputer Anda.
 </p>
 
 <p align="center">
   <a href="https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml">
     <img src="https://github.com/Trareon-com/Trareon-Transcribe/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"/>
+  <a href="https://github.com/Trareon-com/Trareon-Transcribe/releases">
+    <img src="https://img.shields.io/github/v/release/Trareon-com/Trareon-Transcribe?include_prereleases&label=rilis" alt="Rilis terbaru"/>
   </a>
-  <a href="https://www.rust-lang.org/">
-    <img src="https://img.shields.io/badge/Rust-1.80+-orange" alt="Rust 1.80+"/>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="Lisensi MIT"/>
   </a>
   <a href="https://flutter.dev/">
-    <img src="https://img.shields.io/badge/Flutter-3.32+-blue" alt="Flutter 3.32+"/>
+    <img src="https://img.shields.io/badge/Flutter-3.50+-blue" alt="Flutter 3.50+"/>
+  </a>
+  <a href="https://www.rust-lang.org/">
+    <img src="https://img.shields.io/badge/Rust-stable-orange" alt="Rust stable"/>
   </a>
   <a href="https://github.com/ggerganov/whisper.cpp">
     <img src="https://img.shields.io/badge/Engine-whisper.cpp-FF6F00" alt="whisper.cpp"/>
   </a>
   <br/>
-  <a href="#screenshots">Screenshots</a> •
-  <a href="#features">Features</a> •
-  <a href="#model-performance">Model Performance</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="ARCHITECTURE.md">Architecture (detail)</a> •
+  <a href="#tangkapan-layar">Tangkapan layar</a> •
+  <a href="#fitur">Fitur</a> •
+  <a href="#model--kualitas-transkripsi">Model</a> •
+  <a href="#instalasi">Instalasi</a> •
+  <a href="#build-dari-sumber">Build</a> •
+  <a href="#arsitektur">Arsitektur</a> •
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 ---
 
-## Screenshots
+## Tangkapan layar
 
-| 🏠 Utama (light) | 🏠 Utama (dark) | ⚙️ Pengaturan (light) |
-|:---:|:---:|:---:|
-| <img src="assets/screenshots/01_main_light.png" width="300" alt="Main light"/> | <img src="assets/screenshots/02_main_dark.png" width="300" alt="Main dark"/> | <img src="assets/screenshots/03_settings_light.png" width="220" alt="Settings light"/> |
-
-| 📚 Perpustakaan | ⚙️ Pengaturan (dark) |
+| Layar utama (terang) | Layar utama (gelap) |
 |:---:|:---:|
-| <img src="assets/screenshots/04_library_light.png" width="300" alt="Library"/> | <img src="assets/screenshots/05_settings_dark.png" width="220" alt="Settings dark"/> |
+| <img src="docs/screenshots/readme/main-light.png" width="420" alt="Layar utama dengan pilihan mode Rapat Offline, Rapat Online, dan Webinar, tema terang"/> | <img src="docs/screenshots/readme/main-dark.png" width="420" alt="Layar utama, tema gelap"/> |
+
+| Pemutar transkrip | Pengaturan Model & Mode |
+|:---:|:---:|
+| <img src="docs/screenshots/readme/player-light.png" width="420" alt="Pemutar transkrip dengan segmen bertimestamp dan gelombang audio"/> | <img src="docs/screenshots/readme/settings-light.png" width="420" alt="Pengaturan Model & Mode dengan Mode Sederhana dan WER FLEURS-id"/> |
+
+| Pembuat notulen | Mode Kepatuhan UU PDP |
+|:---:|:---:|
+| <img src="docs/screenshots/readme/notulen-light.png" width="420" alt="Dialog Notulen Rapat dengan pilihan bentuk naskah"/> | <img src="docs/screenshots/readme/pdp-dark.png" width="420" alt="Pengaturan Kepatuhan PDP dengan opsi penyamaran data pribadi"/> |
+
+> Diambil dari build macOS terbaru (`main`, 28 Nov 2026) dengan rekaman demo fiktif.
 
 ---
 
-## Features
+## Fitur
 
-### Privacy & Offline
+### Privasi lebih dulu
 
-- **100% offline transcription** — No audio data ever leaves your machine. Zero network calls during active transcription.
-- **No telemetry** — No analytics, no crash reporting, no background network activity.
-- **Privacy Report** — Built-in screen showing all network activity (privacy-first, zero network calls during transcription).
-- **No account required** — No sign-up, no login, no cloud dependency.
+- **Transkripsi 100% lokal.** Rekaman, deteksi suara, diarization, dan ekspor tidak pernah menyentuh jaringan. Uji otomatis (`rust_core/src/privacy.rs`, `test/privacy_proof_test.dart`) menggagalkan build bila ada jalur transkripsi yang memanggil jaringan.
+- **Tanpa akun, tanpa telemetri.** Tidak ada analitik, pelaporan crash, atau aktivitas jaringan di latar belakang.
+- **Laporan Privasi.** Layar khusus yang mencatat setiap koneksi keluar yang pernah dibuat aplikasi (unduhan model, cek pembaruan manual).
+- **Unduhan selalu ditanya dulu.** Saat pertama dibuka, aplikasi menampilkan model yang dibutuhkan beserta ukurannya (±690 MB) dan menunggu persetujuan. Ada pilihan "Nanti" dan "Tunda kalau koneksi metered".
+- **Mode Kepatuhan UU PDP (opsional, mati secara default).** Redaksi NIK, NPWP, nomor telepon, email, nomor rekening, dan nama orang pada salinan ekspor (transkrip asli tidak diubah), rencana retensi audio dan transkrip yang selalu dipratinjau sebelum menghapus, log audit lokal append-only, serta teks pemberitahuan rekaman untuk ditempel ke chat rapat.
 
-### Audio Capture
+### Merekam rapat
 
-- **Dual capture** — Simultaneously records microphone and system speaker audio for complete meeting coverage.
-- **Dual-stage VAD** — WebRTC VAD gate + confirmation detector for accurate speech boundaries.
-- **VU meter** — Real-time audio level indicators for both MIC and SPK channels.
-- **Platform-native loopback** — WASAPI loopback (Windows), CoreAudio Process Taps (macOS 14.4+), PipeWire (Linux).
-- **3 session modes** — Webinar (speaker only), Rapat Online (mic + speaker), Offline (mic only).
+- **Tiga mode sesi.** *Rapat Offline* (hanya mikrofon), *Rapat Online* (mikrofon + suara sistem untuk Zoom/Meet/Teams), dan *Webinar* (hanya suara sistem).
+- **Tangkap suara sistem secara native.** ScreenCaptureKit di macOS 13+ tanpa driver tambahan, WASAPI loopback di Windows, monitor PulseAudio/PipeWire di Linux.
+- **Ukur ruangan sebelum merekam.** Dengan "Penyetelan audio otomatis" aktif, aplikasi mendengarkan 3 detik lalu memilih setelan peredam derau (RNNoise) dan penguatan otomatis (AGC). Nilai yang Anda atur sendiri tidak pernah ditimpa.
+- **Pembersihan audio.** Peredam derau, AGC, VAD dua tahap, dan penghapus duplikat lintas sumber agar suara speaker yang tertangkap mikrofon tidak tertulis dua kali.
+- **Deteksi rapat otomatis.** Saat jendela Zoom, Google Meet, atau Microsoft Teams terdeteksi, aplikasi menawarkan untuk mulai merekam. Rekaman bisa berhenti otomatis setelah sunyi panjang.
+- **Tahan gangguan.** Jeda/lanjutkan, rekaman tetap jalan saat jendela diminimalkan ke tray, sesi otomatis dipecah per jam atau saat memori menipis, perangkat audio yang tersambung ulang dilanjutkan, dan sesi yang terputus bisa dipulihkan saat aplikasi dibuka lagi.
+- **Catatan pribadi saat rapat.** Panel catatan di samping transkrip langsung, tersimpan otomatis.
+- **Tanya Langsung.** Ajukan pertanyaan tentang rapat yang sedang berjalan, dijawab dari transkrip yang sedang tumbuh lengkap dengan kutipan dan timestamp.
 
-### Speech-to-Text
+### Transkripsi
 
-- **Whisper STT engine** — Local speech-to-text via `whisper-rs`, supporting GGUF models from `tiny` (74 MB) to `large-v3-turbo-q5` (548 MB).
-- **Progressive transcription** — Hasil cepat dengan model tiny/base → refine otomatis dengan large-turbo di background.
-- **Multi-speaker diarization** — Acoustic feature clustering separates speakers in transcripts with 8 distinct colors.
-- **Echo deduplication** — Cross-source dedupe (MIC vs SPK similarity) prevents duplicate transcription.
-- **Priority queue** — Mic segments processed before speaker segments for responsive live transcription.
-- **Auto-split sessions** — Sessions split automatically by time (hourly) and memory pressure thresholds.
-- **Session recovery** — Detects and offers to recover interrupted sessions on restart.
+- **Whisper lokal** via `whisper-rs` (whisper.cpp), dengan akselerasi Metal/Core ML di macOS dan Vulkan opsional di Windows/Linux. Wizard penyiapan mengukur GPU vs CPU di perangkat Anda lalu memilih yang lebih cepat.
+- **Enam pilihan kualitas.** Otomatis, Cepat, Sedang, Akurat, plus dua tingkat *Eksperimental* berbasis CrispASR/Qwen3-ASR. Lihat [Model & kualitas transkripsi](#model--kualitas-transkripsi).
+- **Cepat dulu, lalu diperhalus.** Hasil awal dari model ringan langsung tampil, lalu diperbaiki di latar belakang oleh model yang lebih akurat.
+- **Kamus istilah (glosarium).** Istilah, nama, dan singkatan instansi dipakai untuk memandu Whisper dan mengoreksi ejaan setelah inferensi. Aplikasi juga bisa mengusulkan istilah baru dari koreksi Anda.
+- **Penangkal halusinasi.** Kata dengan keyakinan rendah digarisbawahi, dan keluaran berulang khas Whisper pada bagian hening disaring.
+- **Diarization.** Pemisahan pembicara berbasis klaster fitur akustik, dengan opsi model neural (sherpa-onnx). Pembicara bisa diberi nama dan digabung lewat Kelola Pembicara.
+- **Impor berkas.** Seret-lepas MP3, AAC, MP4/M4A, OGG, FLAC, WAV, dan format lain yang didukung Symphonia untuk transkripsi batch. Sesi lama bisa ditranskripsi ulang dengan model lain.
 
-### Export
+### Setelah rapat
 
-| Format | Description |
-|--------|-------------|
-| **Markdown** | Timestamped transcript with speaker labels |
-| **TXT** | Plain text, speaker-concatenated |
-| **JSON** | Structured segment data for programmatic use |
-| **SRT** | Subtitle format with sequence numbering |
-| **VTT** | WebVTT subtitle format |
-| **HTML** | Self-contained styled transcript page |
-| **DOCX** | Microsoft Word document |
-| **WAV** | Recorded audio alongside transcript |
+- **Pemutar transkrip.** Klik kata untuk lompat ke audio, sorotan ala karaoke, ubah kecepatan, sunting teks langsung, penanda (bookmark), dan tag sesi.
+- **Ringkasan AI dan "Enhance".** Ringkasan memakai LLM yang Anda jalankan sendiri, yaitu [Ollama](https://ollama.com/download) di `localhost` atau endpoint kompatibel OpenAI pilihan Anda. Enhance menggabungkan catatan pribadi dengan transkrip. Wizard penyiapan model AI memandu instalasi Ollama dan memilih model sesuai perangkat keras.
+- **Notulen rapat.** Bentuk naskah Notulen Dinas (sesuai Tata Naskah Dinas), Risalah Rapat, Berita Acara, dan Notulen Ringkas, diisi otomatis dari transkrip atau poin catatan. Pratinjau menampilkan hasil *Periksa Fakta* per butir, dan *Rapikan Ragam* (EYD V dan istilah kedinasan) yang perubahannya harus Anda terima satu per satu.
+- **Ekspor ke SRIKANDI.** Formulir metadata naskah dinas lengkap dengan validasi Wajib/Saran, menghasilkan DOCX, PDF, metadata JSON, dan CSV siap unggah.
+- **Tindak lanjut.** Daftar butir tindakan terstruktur, bisa diekspor sebagai acara kalender `.ics`. Undangan rapat `.ics` juga bisa diimpor untuk mengisi judul dan peserta.
+- **Tanya Arsip Rapat.** Cari dan tanyakan isi semua rapat lama lewat indeks teks penuh SQLite FTS5 lokal, dengan pencarian semantik opsional.
+- **Ekspor dan berbagi.** Markdown, TXT, JSON, SRT, VTT, HTML, DOCX, CSV, dan PDF, plus audio rekaman (WAV). Tombol Bagikan memakai menu berbagi bawaan sistem.
+- **Arsip lintas perangkat.** Ekspor sesi lengkap ke `.zip` dan impor di komputer lain.
 
-Each export format runs in its own thread for parallel processing.
+### Tampilan dan kenyamanan
 
-### User Interface
-
-- **Live transcript view** — Real-time text display with auto-scroll, search (with highlight), copy per segment or all.
-- **Speaker color coding** — 8 unique colors, easy to distinguish speakers at a glance.
-- **Pause/resume** — Toggle recording without ending the session.
-- **Session library** — Browse, search, delete (with undo), and re-export past sessions.
-- **Transcript player** — Seek, speed control, inline editing of transcript text. Skip 10s buttons.
-- **Mode selector** — Webinar (speaker only), Rapat Online (mic + speaker), Offline (mic only).
-- **First-run setup wizard** — 4-step guided configuration: spec detection, model selection, audio setup, tone test.
-- **Light / dark / system theme** — Full theme switching managed via Riverpod.
-- **Keyboard shortcuts** — Cmd/Ctrl+R (start/stop), Cmd/Ctrl+P (pause/resume), Cmd/Ctrl+L (library), Cmd/Ctrl+, (settings), Cmd/Ctrl+/ (shortcuts panel).
-- **Minimize to tray** — Recording continues when window is hidden.
-- **Recovery banner** — Automatically detects and offers to restore interrupted sessions.
-- **WCAG 2.2 AA accessibility** — Semantics labels, keyboard focus traversal, minimum 24×24pt tap targets.
-
-### CLI & Batch Processing
-
-- **`transcribe` CLI** — Batch-transcribe audio files without the UI.
-- **`gen_fixtures`** — Generate synthetic WAV fixtures for hardware-free testing.
-- **`device_probe`** — List available audio input/output devices.
-- **`dual_capture_probe`** — Test dual-capture setup per platform.
-- **Batch file upload** — Drag-and-drop audio files for multi-file transcription on Library screen.
+- **Bahasa Indonesia dan Inggris.** Seluruh antarmuka bisa diganti di Pengaturan → Tampilan (Sistem, Indonesia, atau English).
+- **Mode Sederhana.** Hanya kontrol yang memengaruhi hasil transkrip yang tampil, sisanya ada di balik "Pengaturan lanjutan".
+- **Tema terang, gelap, atau ikut sistem**, sidebar sesi yang bisa diciutkan, dan pintasan keyboard. Di macOS, `Ctrl + Shift + R` dan `Ctrl + Shift + P` tetap bekerja saat aplikasi di latar belakang.
+- **Aksesibilitas.** Label semantik untuk pembaca layar, navigasi fokus dengan keyboard, dan target sentuh minimal 24×24 pt (WCAG 2.2 AA).
+- **Diagnostik.** Pemeriksaan kesehatan rekaman, flight recorder lokal, dan "Simpan log diagnostik" untuk melaporkan masalah tanpa mengirim apa pun secara otomatis.
 
 ---
 
-## Model Performance
+## Model & kualitas transkripsi
 
-Trareon Transcribe menyertakan **2 model bawaan** — tidak perlu unduh:
+Pilihan kualitas ada di wizard penyiapan, Pengaturan, dan chip di dekat tombol **Mulai Rekam**. Tingkat dipilih sekali di awal sesi.
 
-| Model | Ukuran | Kecepatan | Akurasi ID | Akurasi EN | Cocok Untuk |
-|:------|:------:|:---------:|:----------:|:----------:|:------------|
-| **base** ⚡ Cepat | **142 MB** | ⚡ 3-10s | **WER 0%** 🏆 | 90% | Transkrip cepat, akurasi ID maksimal |
-| **large-v3-turbo-q5** 🎯 Akurat | **548 MB** | 🟡 5-15s | WER 4% | **WER 3%** 🏆 | Akurasi global terbaik |
+| Pilihan | Mesin | Model | Ukuran | WER FLEURS-id | Catatan |
+|:--|:--|:--|--:|--:|:--|
+| **Otomatis** | Whisper | dipilih dari RAM perangkat | — | — | Ditawarkan di wizard penyiapan. Selalu jatuh ke tingkat non-eksperimental |
+| **Cepat** | Whisper | `base` | 142 MB | 36,7% | Ringan, jalan di hampir semua perangkat |
+| **Sedang** | Whisper | `small` | 466 MB | 17,6% | Diunduh saat dipilih |
+| **Akurat** | Whisper | `large-v3-turbo-q5` | 548 MB | 8,1% | Disarankan untuk rapat dan wawancara |
+| **Cepat-Eksperimental** | CrispASR | Qwen3-ASR 0.6B | 631 MB | 8,6% | Tetap real-time di CPU |
+| **Akurat-Eksperimental** | CrispASR | Qwen3-ASR 1.7B | 1,5 GB | 5,3% | Akurasi terbaik, butuh GPU agar nyaman |
 
-### 🧪 Word Error Rate (WER)
+WER (word error rate) diukur pada 687 ujaran FLEURS bahasa Indonesia; makin kecil makin baik. Angka yang sama tampil di Pengaturan saat memilih model. Metode dan cara mengulang pengukuran ada di [`docs/WER-BENCH.md`](docs/WER-BENCH.md), dan riset model khusus bahasa Indonesia ada di [`docs/INDONESIAN-MODEL.md`](docs/INDONESIAN-MODEL.md).
 
-| Model | 🇮🇩 ID | 🇬🇧 EN |
-|:------|:-----:|:-----:|
-| **base** | **0.00%** 🔥 | 10.34% |
-| **large-v3-turbo-q5** | 4.17% | **3.45%** 🔥 |
+Tingkat eksperimental tidak pernah dipilih otomatis. Bila mesinnya gagal dimuat, sesi kembali ke **Cepat** (Whisper `base`) tanpa crash.
 
-> **Catatan:** WER diuji dengan Python/transformers (float32). Di Rust/GGUF (Q5_0 quantized), akurasi bisa turun ~1-2% tetapi kecepatan hingga **30× lebih cepat**.
+**Lokasi model.** Paket rilis membawa `base` dan `large-v3-turbo-q5`. Model lain (`tiny`, `small`, `medium`, `large-v3-turbo`, Qwen3-ASR, Silero VAD, dan model diarization neural) diunduh sekali dari Pengaturan, diverifikasi SHA-256, lalu dipakai offline selamanya. Aplikasi mencari model di:
 
-### Fine-tune Model (HuggingFace)
-
-Untuk pengguna yang ingin akurasi ID lebih tinggi, model fine-tune seperti `cahya/whisper-small-id` tersedia di HuggingFace. Saat ini model tersebut belum di-convert ke format GGUF — kontribusi dari komunitas sangat diterima! 🙌
-
-Model bawaan (base / large-v3-turbo-q5) sudah cukup akurat untuk ID dengan WER 0-4%.
-
-### Progressive Transcription
-
-Untuk transkripsi real-time + akurat:
-```
-🎯 3-5 detik → base → Tampilkan hasil cepat
-   ↓
-🔧 Background → large-v3-turbo-q5 → Refine otomatis
-   ↓
-🔄 UI terupdate dengan hasil lebih akurat
-```
+- macOS: `~/Library/Caches/TrareonTranscribe/models` dan `Contents/Resources/models` di dalam bundle aplikasi
+- Linux: `~/.cache/TrareonTranscribe/models`
+- Windows: `%LOCALAPPDATA%\TrareonTranscribe\models`
+- folder `models/` di sebelah berkas biner
 
 ---
 
-## Architecture
+## Instalasi
 
-```
-lib/                      Flutter UI (Dart)
-├── screens/              Full-page screens
-│   ├── main_screen.dart           Main recording + transcript view
-│   ├── library_screen.dart        Session library browser
-│   ├── settings_screen.dart       Settings with theme, model, audio config
-│   ├── setup_wizard_screen.dart   4-step first-run wizard
-│   ├── transcript_player_screen.dart  Playback + inline edit
-│   ├── privacy_report_screen.dart Network activity monitor
-│   └── usage_dashboard_screen.dart  Usage statistics
-├── widgets/              Reusable UI components
-│   ├── transcript_view.dart       Live transcript with search + highlight
-│   ├── vu_meter.dart              Audio level indicators
-│   ├── mode_selector.dart         Session mode tabs
-│   ├── stream_toggle.dart         Pause/resume control
-│   ├── export_dialog.dart         Export format picker
-│   ├── session_card.dart          Library session card
-│   ├── file_upload_zone.dart      Drag-and-drop upload
-│   ├── shortcuts_panel.dart       Keyboard shortcuts overlay
-│   ├── resource_hud.dart          System resource display
-│   └── storage_bar.dart           Storage usage bar
-├── state/                Riverpod notifiers + data models
-├── services/             Bridge interface + implementations
-├── src/rust/             FRB-generated Dart bindings
-└── theme/                Color tokens + ThemeData
+Unduh paket dari [halaman Releases](https://github.com/Trareon-com/Trareon-Transcribe/releases). Rilis terbaru saat ini adalah seri **v1.1.0-beta**.
 
-rust_core/                Rust engine
-├── src/
-│   ├── api.rs            Public FFI surface (FRB entry point)
-│   ├── audio/            Device enumeration, ring buffer, capture
-│   ├── vad/              Dual-stage VAD
-│   ├── stt/              whisper-rs wrapper + batch transcription
-│   ├── dedupe/           Echo deduplication
-│   ├── diarization.rs    Speaker separation
-│   ├── pipeline.rs       Progressive transcription pipeline
-│   ├── export/           Multi-format export writers
-│   ├── decode/           Audio decode + resample (Symphonia + rubato)
-│   ├── model.rs          Catalog, SHA256 verification, download
-│   ├── session.rs        Session registry, auto-split, recovery
-│   ├── settings.rs       Persistence layer
-│   ├── memory.rs         Memory pressure monitoring
-│   ├── watchdog.rs       Crash recovery watchdog
-│   └── singleton.rs      Single-instance PID lock
-└── bin/                  CLI tools
-    ├── transcribe.rs     Batch CLI transcriber
-    ├── gen_fixtures.rs   Synthetic WAV generator
-    ├── device_probe.rs   Audio device lister
-    └── dual_capture_probe.rs  Dual-capture test tool
-```
+| Platform | Paket | Catatan |
+|:--|:--|:--|
+| macOS 12+ (Apple Silicon & Intel) | `.dmg` | Tanpa sertifikat Developer ID, klik kanan → **Open** saat pertama kali dibuka. Izinkan *Microphone* dan *Screen & System Audio Recording* saat diminta |
+| Windows (x64) | `.zip` dan installer `.exe` | SmartScreen bisa muncul karena sertifikat self-signed |
+| Linux (x86_64) | `.tar.gz`, `.AppImage`, `.deb` | `.deb` tidak membawa model, model diunduh saat pertama dibuka |
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the complete layout, data flow diagrams, and bridge implementation details.
+Setiap rilis menyertakan `SHA256SUMS` untuk memeriksa keaslian berkas. Fitur ringkasan dan notulen AI butuh [Ollama](https://ollama.com/download) (opsional). Tanpa Ollama, seluruh fitur rekam, transkripsi, dan ekspor tetap berfungsi penuh.
 
 ---
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **UI** | Flutter 3.32+ (Dart), Riverpod, flutter_rust_bridge 2.x |
-| **Engine** | Rust 1.80+, edition 2021 |
-| **STT** | whisper.cpp via `whisper-rs` |
-| **Audio capture** | `cpal` |
-| **Audio decode** | Symphonia + rubato (pure Rust, no ffmpeg) |
-| **VAD** | WebRTC VAD (`webrtc-vad`) + confirmation stage |
-| **Diarization** | Acoustic feature clustering (local) |
-| **Export** | Markdown, TXT, JSON, SRT, VTT, HTML, DOCX (`docx-rs`), WAV (`hound`) |
-| **Model download** | `reqwest` with SHA256 verification + resume support |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- [Flutter](https://flutter.dev/) 3.32+ (stable channel)
-- [Rust](https://www.rust-lang.org/) 1.80+ with `cmake` on PATH
-- **macOS**: Xcode 15+ with Command Line Tools
-- **Windows**: Visual Studio 2022 Build Tools (Desktop development with C++ workload)
-- **Linux**: `pkg-config`, `libasound2-dev`, `libgtk-3-dev`, `liblzma-dev`, `ninja-build`, `clang`
-
-### Build & Run (Development)
-
-```bash
-# Clone
-git clone https://github.com/Trareon-com/Trareon-Transcribe.git
-cd Transcribe
-
-# Flutter dependencies
-flutter pub get
-
-# Build Rust engine
-cd rust_core
-cargo build --release --lib
-cd ..
-
-# Run
-flutter run -d macos     # macOS
-flutter run -d windows   # Windows
-flutter run -d linux     # Linux
-```
-
-### Build Distributable Package
-
-```bash
-# macOS
-bash scripts/package_macos.sh "1.0.0"
-
-# Windows (PowerShell)
-.\scripts\package_windows.ps1 -Version "1.0.0"
-```
-
-Both scripts: build Rust release → build Flutter release → sign → package → generate SHA256 checksum → output to `dist/`.
-
----
-
-## Jalur Instalasi Beta (`v1.1.0-beta.1`)
-
-Panduan ini untuk siapa pun yang membangun dan menjalankan rilis beta dari
-sumber — bukan dari paket terdistribusi. Setiap perintah di bawah sudah
-dicoba langsung di mesin Linux pengembangan (lihat `docs/RELEASE-BETA.md`
-untuk checklist QA lengkap per platform).
+## Build dari sumber
 
 ### Prasyarat
 
 | Kebutuhan | Versi | Catatan |
-|-----------|-------|---------|
-| [Flutter](https://flutter.dev/) | 3.32+ (stable) | `flutter --version` untuk cek |
-| [Rust](https://www.rust-lang.org/) | 1.80+ (edisi 2021) | `rustup show`; CI memakai toolchain 1.98, jadi `cargo clippy` bisa lebih longgar secara lokal pada 1.96 |
-| `cmake` | — | dibutuhkan `whisper-rs` untuk mengompilasi `whisper.cpp` |
-| **Linux** | — | `pkg-config`, `libasound2-dev`, `libgtk-3-dev`, `liblzma-dev`, `ninja-build`, `clang` |
-| **Windows** | — | Visual Studio 2022 Build Tools (workload Desktop development with C++) |
-| **macOS** | — | Xcode 15+ dengan Command Line Tools |
-| [Ollama](https://ollama.com/download) *(opsional)* | terbaru | hanya untuk fitur **Notulen Rapat (AI)**; transkripsi sendiri tidak memerlukannya |
+|:--|:--|:--|
+| [Flutter](https://flutter.dev/) | 3.50+ (stable) | CI memakai 3.50.1 |
+| [Rust](https://www.rust-lang.org/) | stable terbaru | `cmake` harus ada di PATH untuk mengompilasi whisper.cpp |
+| macOS | Xcode dengan Command Line Tools | target minimum macOS 12.0 |
+| Windows | Visual Studio 2022 Build Tools | workload *Desktop development with C++* |
+| Linux | — | `pkg-config`, `libasound2-dev`, `libgtk-3-dev`, `liblzma-dev`, `ninja-build`, `clang`, serta `ffmpeg` atau `parec` untuk suara sistem |
 
-Semua prasyarat di atas diinstal **sekali, lokal**; tidak ada langkah yang
-memerlukan akun atau koneksi internet yang menetap setelah instalasi awal.
-
-### Build dari sumber
+### Jalankan untuk pengembangan
 
 ```bash
-# 1. Klon & dependensi Flutter
 git clone https://github.com/Trareon-com/Trareon-Transcribe.git
-cd Transcribe
+cd Trareon-Transcribe
 flutter pub get
 
-# 2. Build mesin Rust (sekali, atau ulang tiap kali rust_core berubah)
-cd rust_core && cargo build --release --lib && cd ..
+# Mesin Rust (ulangi setiap kali rust_core berubah)
+(cd rust_core && cargo build --release --lib)
 
-# 3a. Linux — rilis
-flutter build linux --release
-# Biner: build/linux/x64/release/bundle/transcribe
-
-# 3b. Windows — rilis (PowerShell)
-flutter build windows --release
-# Biner: build\windows\x64\runner\Release\transcribe.exe
-
-# 3c. macOS — rilis
-flutter build macos --release
-# Aplikasi: "build/macos/Build/Products/Release/Trareon Transcribe.app"
+flutter run -d macos     # atau: -d windows, -d linux
 ```
 
-Untuk paket siap-distribusi (DMG/ZIP bertanda tangan + checksum), pakai
-`scripts/package_macos.sh` / `scripts/package_windows.ps1` di atas —
-keduanya menjalankan langkah build di atas lalu mengemasnya ke `dist/`.
+Di macOS, build Xcode sudah menjalankan `cargo build` sendiri (dengan fitur `crispasr-experimental`) dan menyalin `librust_core.dylib` ke bundle.
 
-### Siapkan model lokal (tanpa internet, setelah unduhan awal)
+### Paket distribusi
 
-Transkripsi memakai model Whisper format GGUF. Dua model sudah **dibawa di
-dalam repo/paket** — tidak perlu diunduh untuk mulai memakai aplikasi:
+```bash
+bash scripts/package_macos.sh "1.1.0"         # DMG universal; Developer ID + notarisasi bila MACOS_SIGN_IDENTITY diset
+bash scripts/package_linux.sh "1.1.0"         # tar.gz + AppImage
+bash scripts/package_deb.sh "1.1.0"           # .deb (tambahkan --with-models untuk lingkungan air-gapped)
+.\scripts\package_windows.ps1 -Version "1.1.0"  # ZIP (PowerShell)
+```
 
-| Model | Ukuran | Dipakai untuk |
-|-------|--------|----------------|
-| `base` | 142 MB | Transkrip cepat, akurasi ID terbaik (WER 0%) |
-| `large-v3-turbo-q5` | 548 MB | Akurasi global terbaik, lebih lambat |
+Semua hasil masuk ke `dist/` beserta checksum SHA-256. Rilis resmi dibuat oleh workflow `release.yml` saat tag `v*` didorong. Detail tiap paket ada di [`DISTRIBUTION.md`](DISTRIBUTION.md).
 
-Aplikasi mencari model di beberapa lokasi berurutan (lihat
-`rust_core/src/model.rs::model_search_dirs`): folder pustaka aplikasi,
-`~/Library/Caches/TrareonTranscribe/models` (macOS/Linux),
-`%LOCALAPPDATA%\TrareonTranscribe\models` (Windows), atau folder `models/`
-di sebelah biner hasil build. Model tambahan (`tiny`, `small`, `medium`,
-`large-v3-turbo`) bisa diunduh sekali lewat menu Pengaturan di aplikasi —
-setelah terunduh, semuanya berjalan offline permanen; tidak ada panggilan
-jaringan susulan ke mana pun.
+### Fitur Cargo opsional
 
-Fitur **Notulen Rapat (AI)** opsional memakai LLM lokal via
-[Ollama](https://ollama.com/download) (endpoint default
-`http://localhost:11434`, loopback, tidak aktif tanpa konfigurasi) atau
-endpoint kompatibel-OpenAI mana pun yang Anda jalankan sendiri. Tanpa
-Ollama terpasang, seluruh fitur transkripsi dan ekspor tetap berfungsi
-penuh — hanya pembuatan notulen otomatis yang memerlukannya.
+| Fitur | Isi |
+|:--|:--|
+| `crispasr-experimental` | Tingkat Eksperimental Qwen3-ASR via CrispASR (aktif di build macOS) |
+| `gpu-vulkan` | Akselerasi GPU lintas vendor via Vulkan |
+| `neural-diarization` | Diarization neural dengan sherpa-onnx |
+| `semantic-embedding` | Pencarian semantik di Tanya Arsip Rapat |
+| `silero-onnx` | VAD Silero via ONNX Runtime |
 
-### Janji privasi
-
-> **Audio & notulen tidak pernah keluar dari mesin Anda.**
-
-Transkripsi, deteksi suara (VAD), diarization, dan ekspor berjalan 100%
-lokal dan dijaga oleh uji otomatis yang menggagalkan build jika ada jalur
-yang menyentuh jaringan (`rust_core/src/privacy.rs`,
-`test/privacy_proof_test.dart`). Fitur notulen AI tetap lokal secara
-default (Ollama loopback) dan tidak pernah mengirim audio — hanya naskah
-transkrip yang sudah ada di layar yang menjadi masukan LLM yang Anda
-jalankan sendiri.
-
-Untuk instansi yang memerlukan dasar kepatuhan (UU PDP 27/2022, pemetaan
-ISO/IEC 27001/27701, templat DPIA, prosedur retensi), lihat paket di
-[`docs/compliance/`](docs/compliance/). Paket ini adalah **bahan kerja
-audit internal, bukan sertifikasi** — Trareon Transcribe belum
-disertifikasi ISO/IEC 27001, ISO/IEC 27701, maupun terdaftar PSE; lihat
-[`docs/compliance/README.md`](docs/compliance/README.md) untuk rincian.
-
-### CLI Batch Transcription
+### CLI transkripsi batch
 
 ```bash
 cd rust_core
-cargo run --bin transcribe -- \
-  --batch "*.mp3" --output ./transcripts/ --model models/ggml-base.bin
+cargo run --release --bin trareon-transcribe -- \
+  --batch "rekaman/*.mp3" \
+  --output ./transkrip \
+  --model ../models/ggml-base.bin \
+  --format md,txt,srt,docx \
+  --glossary istilah.txt
+```
+
+Opsi lain: `--language id`, `--gpu`, `--denoise`, `--no-vad`. Format yang didukung: `md,txt,json,srt,vtt,html,docx,csv,pdf`. Biner pembantu lain ada di `rust_core/src/bin/` (`device_probe`, `input_probe`, `dual_capture_probe`, `wer_bench`, `live_bench`, `gen_fixtures`).
+
+### Tes
+
+```bash
+(cd rust_core && cargo fmt --check && cargo clippy && cargo test --lib)
+flutter analyze && flutter test
 ```
 
 ---
 
-## Platform Support
+## Arsitektur
 
-| Feature | macOS | Windows | Linux |
-|---------|-------|---------|-------|
-| Live capture (mic + speaker) | ✅ | ✅ | ✅ |
-| STT (Whisper) | ✅ | ✅ | ✅ |
-| File transcription | ✅ | ✅ | ✅ |
-| All export formats | ✅ | ✅ | ✅ |
-| CLI mode | ✅ | ✅ | ✅ |
-| CI build | ✅ | ✅ | ✅ |
-| Package script | ✅ (DMG) | ✅ (ZIP) | — |
-| Distribution | Lynk.ID ($5) | Lynk.ID ($5) | — |
-| Signing | Ad-hoc | Self-signed | — |
+Antarmuka Flutter berbicara dengan mesin Rust lewat `flutter_rust_bridge`. Seluruh pemrosesan audio dan teks terjadi di Rust.
+
+```
+lib/                     Antarmuka Flutter (Dart, Riverpod)
+├── screens/             Layar utama, pustaka, pemutar, pengaturan, wizard,
+│                        Tanya Arsip, Laporan Privasi, diagnostik
+├── widgets/             Panel transkrip, notulen, ringkasan, SRIKANDI, dsb.
+├── state/               Notifier Riverpod dan model data
+├── services/            Bridge, tray, jendela, hotkey, arsip sesi, update
+├── l10n/                String UI Indonesia (templat) dan Inggris
+└── theme/               Token warna, tipografi, gerak, pintasan
+
+rust_core/src/           Mesin Rust
+├── api.rs               Permukaan FFI (titik masuk flutter_rust_bridge)
+├── audio/               Perangkat, tangkap mic + loopback, probe level
+├── decode/              Dekode berkas (Symphonia) + resample (rubato)
+├── pipeline.rs          Pipeline transkripsi live dan progresif
+├── model.rs             Katalog model, unduhan, verifikasi SHA-256
+├── model_select.rs      Enam tingkat kualitas dan resolusi "Otomatis"
+├── diarization/         Klaster akustik + sherpa-onnx opsional
+├── denoise.rs, agc.rs,  Pembersihan audio
+│   silence_gate.rs
+├── summary.rs, live_qa.rs, semantic_search.rs   Fitur LLM lokal
+├── notulen/             Skema, prompt, periksa fakta, ragam bahasa
+├── srikandi.rs          Metadata dan paket ekspor SRIKANDI
+├── pdp/                 Redaksi, retensi, log audit (UU PDP)
+├── export/              Writer semua format ekspor
+├── session.rs           Registri sesi, pemecahan otomatis, pemulihan
+├── privacy.rs           Uji "tanpa jaringan" yang menjaga janji privasi
+└── bin/                 CLI dan alat ukur
+```
+
+Penjelasan lengkap, diagram alur data, dan detail bridge ada di [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+### Tech stack
+
+| Lapisan | Teknologi |
+|:--|:--|
+| UI | Flutter 3.50+, Riverpod 3, `material_ui`/`cupertino_ui`, flutter_rust_bridge 2.13 |
+| Mesin | Rust edisi 2021 |
+| STT | whisper.cpp via `whisper-rs` 0.16, CrispASR/Qwen3-ASR (eksperimental) |
+| Audio | `cpal`, ScreenCaptureKit (macOS), WASAPI (Windows), PulseAudio/PipeWire (Linux) |
+| Dekode | Symphonia + rubato, Rust murni tanpa ffmpeg |
+| Pembersihan | RNNoise (`nnnoiseless`), WebRTC VAD, Silero VAD |
+| Penyimpanan | SQLite (FTS5) + `sqlite-vec` untuk arsip rapat |
+| Ekspor | DOCX dan arsip (`zip`), PDF (`printpdf`), WAV (`hound`) |
 
 ---
 
-## Keyboard Shortcuts
+## Dukungan platform
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + R` | Start / Stop recording |
-| `Cmd/Ctrl + P` | Pause / Resume |
-| `Cmd/Ctrl + L` | Open Library |
-| `Cmd/Ctrl + ,` | Open Settings |
-| `Cmd/Ctrl + /` | Toggle shortcuts panel |
+| Fitur | macOS | Windows | Linux |
+|:--|:--:|:--:|:--:|
+| Rekam mikrofon + suara sistem | ✅ | ✅ | ✅ |
+| Transkripsi Whisper | ✅ (Metal) | ✅ | ✅ |
+| Tingkat Eksperimental (CrispASR) | ✅ | — | — |
+| Impor berkas dan CLI | ✅ | ✅ | ✅ |
+| Semua format ekspor | ✅ | ✅ | ✅ |
+| Paket rilis | DMG | ZIP + installer | tar.gz, AppImage, .deb |
+| Build di CI | ✅ | ✅ | ✅ |
 
 ---
 
-## Known Limitations
+## Pintasan keyboard
 
-- **macOS Gatekeeper** — Ad-hoc signing shows "Apple cannot verify this app" on first launch. Right-click → Open to bypass once.
-- **Windows SmartScreen** — Self-signed certificate triggers "Windows protected your PC" on first run.
-- **No auto-update (v1)** — Users check manually via Help → Check for Updates. Ed25519-signed auto-update planned for v2.
-- **Both models bundled** — `base` (142 MB) and `large-v3-turbo-q5` (548 MB) included in app.
+Di macOS pakai `⌘`, di Windows dan Linux pakai `Ctrl`. Daftar lengkap bisa dibuka dengan `⌘/Ctrl + /`.
+
+| Pintasan | Aksi |
+|:--|:--|
+| `⌘/Ctrl + R` | Mulai / hentikan rekaman |
+| `⌘/Ctrl + P` | Jeda / lanjutkan |
+| `⌘/Ctrl + L` | Cari sesi |
+| `⌘/Ctrl + B` | Tambah penanda (bookmark) |
+| `⌘/Ctrl + ,` | Buka Pengaturan |
+| `⌘/Ctrl + /` | Tampilkan panel pintasan |
+| `⌘/Ctrl + Shift + S` | Ciutkan / tampilkan sidebar |
+
+---
+
+## Batasan yang diketahui
+
+- **Peringatan Gatekeeper dan SmartScreen.** Build tanpa sertifikat Developer ID (macOS) atau dengan sertifikat self-signed (Windows) memunculkan peringatan saat pertama dibuka.
+- **Belum ada pembaruan otomatis.** Cek versi baru secara manual lewat Pengaturan. Pengecekan ini satu-satunya koneksi selain unduhan model, dan tercatat di Laporan Privasi.
+- **Tingkat Eksperimental** masih dalam pengujian dan saat ini hanya tersedia di build macOS.
+- **Fitur AI** (ringkasan, notulen, Tanya Langsung, Tanya Arsip) bergantung pada LLM lokal yang Anda pasang sendiri, sehingga kualitas dan kecepatannya mengikuti model dan perangkat Anda.
 
 ---
 
 ## FAQ
 
-### Does Trareon Transcribe send my audio to the cloud?
+**Apakah audio saya dikirim ke cloud?**
+Tidak. Rekaman dan transkripsi, baik live maupun dari berkas, berjalan sepenuhnya di komputer Anda. Fitur AI hanya mengirim teks transkrip ke LLM yang Anda jalankan sendiri (default Ollama di `localhost`), tidak pernah audio.
 
-**No.** Trareon Transcribe is 100% offline. During transcription — both live capture and file transcription — the application makes zero network calls.
+**Apakah ada telemetri?**
+Tidak ada telemetri, analitik, atau pelaporan crash. Log diagnostik hanya dibuat saat Anda menekan "Simpan log diagnostik", dan tidak dikirim ke mana pun.
 
-### What models are supported?
+**Apakah aplikasi ini sudah tersertifikasi ISO/IEC 27001 atau terdaftar PSE?**
+Belum. [`docs/compliance/`](docs/compliance/) berisi bahan kerja untuk audit internal instansi (pemetaan UU PDP, ISO/IEC 27001/27701, templat DPIA, prosedur retensi), bukan sertifikasi.
 
-Any GGUF-format Whisper model. `base` (142 MB) and `large-v3-turbo-q5` (548 MB) are bundled in the app. Also supports `tiny`, `small`, `medium`, `large-v3-turbo` via download.
-
-### Can I transcribe pre-recorded files?
-
-Yes. Drag-and-drop audio/video files onto the Library screen, or use the `transcribe` CLI for batch processing. Supported: MP3, AAC, MP4, OGG, FLAC, WAV, MOV, MKV (via Symphonia).
-
-### How does speaker diarization work?
-
-Acoustic feature clustering separates speakers based on voice characteristics — entirely local, no cloud services required.
-
-### Is telemetry collected?
-
-**No.** There is no telemetry, analytics, or crash reporting. Any future opt-in diagnostics will be documented in [SECURITY.md](SECURITY.md) and will never transmit audio or transcript content.
+**Bagaimana cara mendapatkan binari siap pakai?**
+Kode sumber berlisensi MIT dan rilis tersedia di GitHub. Informasi saluran distribusi berbayar ada di [`DISTRIBUTION.md`](DISTRIBUTION.md).
 
 ---
 
-## Security
+## Kontribusi dan keamanan
 
-See [`SECURITY.md`](SECURITY.md) for:
-- Core privacy guarantee (zero network calls during transcription)
-- Vulnerability reporting process (GitHub Security Advisory or email)
-- Development security practices (`cargo audit`, `cargo deny`, clippy gates)
+- Panduan kontribusi, konvensi commit, dan alur PR ada di [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Laporkan kerentanan lewat GitHub Security Advisory sesuai [`SECURITY.md`](SECURITY.md). CI menjalankan `cargo audit`, `cargo deny`, clippy, dan audit dependensi mingguan.
+- Lisensi pihak ketiga tercantum di [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
-## License
+## Lisensi
 
-MIT — see [`LICENSE`](LICENSE) for the full text. Copyright © 2026 [Trareon.com](https://trareon.com).
+MIT, lihat [`LICENSE`](LICENSE). Hak cipta © 2026 [Trareon.com](https://trareon.com).
